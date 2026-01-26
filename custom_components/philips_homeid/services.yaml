@@ -1,0 +1,70 @@
+# Services for Philips HomeID integration
+
+set_mode:
+  name: Set Mode
+  description: Set the operating mode of an air purifier
+  target:
+    entity:
+      integration: philips_homeid
+      domain: fan
+  fields:
+    mode:
+      name: Mode
+      description: The mode to set
+      required: true
+      example: "auto"
+      selector:
+        select:
+          options:
+            - "auto"
+            - "sleep"
+            - "turbo"
+            - "allergen"
+            - "bacteria"
+            - "night"
+
+set_fan_speed:
+  name: Set Fan Speed
+  description: Set the fan speed level
+  target:
+    entity:
+      integration: philips_homeid
+      domain: fan
+  fields:
+    speed:
+      name: Speed
+      description: Speed level (1-4)
+      required: true
+      example: 2
+      selector:
+        number:
+          min: 1
+          max: 4
+          mode: slider
+
+set_light:
+  name: Set Light
+  description: Set the display/LED light brightness
+  target:
+    entity:
+      integration: philips_homeid
+      domain: fan
+  fields:
+    brightness:
+      name: Brightness
+      description: Light brightness (0-100)
+      required: true
+      example: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+update_firmware:
+  name: Update Firmware
+  description: Start firmware update for a device
+  target:
+    entity:
+      integration: philips_homeid
+      domain: update

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# APK analysis (decompiled app files)
+*.xapk
+*.apk
+decompiled/
+extracted/
+jadx_output/
+
+# OS
+.DS_Store
+Thumbs.db

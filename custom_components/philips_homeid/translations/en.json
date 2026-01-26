@@ -1,0 +1,228 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enter Device IP",
+        "description": "Enter the IP address of your Philips device that is already connected to your network.",
+        "data": {
+          "host": "IP Address"
+        }
+      },
+      "manual_host": {
+        "title": "Enter Device IP",
+        "description": "Enter the IP address of your Philips device that is already connected to your network.",
+        "data": {
+          "host": "IP Address"
+        }
+      },
+      "confirm": {
+        "title": "Confirm Device",
+        "description": "Do you want to add {name} at {host}?\n\nModel: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "Discovered Philips Device",
+        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?"
+      },
+      "ssdp_confirm": {
+        "title": "Discovered Philips Device",
+        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?"
+      },
+      "pair": {
+        "title": "Pair with {name}",
+        "description": "Attempting to pair with the device.\n\n{instructions}",
+        "data": {
+          "manual_entry": "Enter credentials manually"
+        }
+      },
+      "manual_credentials": {
+        "title": "Enter Credentials for {name}",
+        "description": "Enter the client credentials extracted from the HomeID app.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to device",
+      "pairing_failed": "Pairing failed. Make sure the device is in pairing mode and try again.",
+      "missing_credentials": "Both Client ID and Client Secret are required",
+      "invalid_credentials": "The credentials are invalid or the device rejected them",
+      "unknown": "An unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device already configured",
+      "cannot_connect": "Cannot connect to device"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Air Quality Index"
+      },
+      "tvoc": {
+        "name": "Total VOC"
+      },
+      "gas": {
+        "name": "Gas Level"
+      },
+      "allergen_index": {
+        "name": "Allergen Index"
+      },
+      "humidity": {
+        "name": "Humidity"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "filter_pre": {
+        "name": "Pre-filter"
+      },
+      "filter_hepa": {
+        "name": "HEPA Filter"
+      },
+      "filter_carbon": {
+        "name": "Carbon Filter"
+      },
+      "filter_wick": {
+        "name": "Humidifier Wick"
+      },
+      "water_level": {
+        "name": "Water Level"
+      },
+      "display_brightness": {
+        "name": "Display Brightness"
+      },
+      "runtime": {
+        "name": "Total Runtime"
+      },
+      "mode": {
+        "name": "Mode"
+      },
+      "fan_speed": {
+        "name": "Fan Speed"
+      },
+      "error_code": {
+        "name": "Error Code"
+      },
+      "connection_state": {
+        "name": "Connection"
+      },
+      "airfryer_status": {
+        "name": "Cooking Status"
+      },
+      "airfryer_temperature": {
+        "name": "Target Temperature"
+      },
+      "airfryer_current_temperature": {
+        "name": "Current Temperature"
+      },
+      "airfryer_time_total": {
+        "name": "Total Cook Time"
+      },
+      "airfryer_time_remaining": {
+        "name": "Time Remaining"
+      },
+      "airfryer_preset": {
+        "name": "Preset"
+      },
+      "airfryer_recipe_name": {
+        "name": "Recipe"
+      },
+      "airfryer_error": {
+        "name": "Error Code"
+      },
+      "airfryer_preheat_status": {
+        "name": "Preheat Status"
+      },
+      "airfryer_keep_warm": {
+        "name": "Keep Warm"
+      },
+      "airfryer_left_status": {
+        "name": "Left Basket Status"
+      },
+      "airfryer_left_temperature": {
+        "name": "Left Basket Temperature"
+      },
+      "airfryer_left_time": {
+        "name": "Left Basket Time"
+      },
+      "airfryer_right_status": {
+        "name": "Right Basket Status"
+      },
+      "airfryer_right_temperature": {
+        "name": "Right Basket Temperature"
+      },
+      "airfryer_right_time": {
+        "name": "Right Basket Time"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Filter Replace Required"
+      },
+      "water_tank_empty": {
+        "name": "Water Tank Empty"
+      },
+      "airfryer_drawer_open": {
+        "name": "Drawer"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Shake Reminder"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Flip Reminder"
+      },
+      "airfryer_preheat_active": {
+        "name": "Preheat Active"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Left Basket Drawer"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Right Basket Drawer"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "Start Cooking"
+      },
+      "airfryer_pause": {
+        "name": "Pause"
+      },
+      "airfryer_stop": {
+        "name": "Stop"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "Set Temperature"
+      },
+      "airfryer_set_time": {
+        "name": "Set Cook Time"
+      }
+    },
+    "switch": {
+      "power": {
+        "name": "Power"
+      },
+      "child_lock": {
+        "name": "Child Lock"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "Air Purifier"
+      }
+    }
+  }
+}

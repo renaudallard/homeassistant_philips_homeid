@@ -1,0 +1,24 @@
+{
+  "domain": "philips_homeid",
+  "name": "Philips HomeID",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/your-repo/philips-homeid",
+  "iot_class": "local_polling",
+  "requirements": [
+    "aiohttp>=3.8.0",
+    "qrcode>=7.0"
+  ],
+  "version": "1.0.0",
+  "zeroconf": [
+    {
+      "type": "_philipscondor._tcp.local."
+    }
+  ],
+  "ssdp": [
+    {
+      "st": "urn:philips-com:device:DiProduct:1"
+    }
+  ]
+}

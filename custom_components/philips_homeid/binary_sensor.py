@@ -149,6 +149,16 @@ async def async_setup_entry(
 
     _LOGGER.debug("Setting up binary sensors for device type: %s (model: %s)", device_type, model_name)
 
+    # Build a mapping of property keys to sensor descriptions for this device type
+    property_to_description: dict[str, PhilipsHomeIDBinarySensorEntityDescription] = {}
+    for description in BINARY_SENSORS:
+        if description.device_types is not None:
+            if device_type not in description.device_types:
+                continue
+        if description.property_key:
+            key = coordinator._get_property_key(description.property_key, description.nested_key)
+            property_to_description[key] = description
+
     entities: list[PhilipsHomeIDBinarySensor] = []
 
     # Only add binary sensors that match the device type AND have data
@@ -167,10 +177,43 @@ async def async_setup_entry(
             )
             continue
 
+        # Mark property as seen
+        if description.property_key:
+            coordinator.mark_property_seen(description.property_key, description.nested_key)
+
         entities.append(PhilipsHomeIDBinarySensor(coordinator, description, coordinator.device_id))
 
     _LOGGER.info("Created %d binary sensors for %s", len(entities), model_name)
     async_add_entities(entities)
+
+    # Register callback for dynamic entity creation when new properties appear
+    def handle_new_properties(new_properties: list[tuple[str, str | None]]) -> None:
+        """Handle newly discovered properties by creating binary sensors."""
+        new_entities: list[PhilipsHomeIDBinarySensor] = []
+
+        for property_key, nested_key in new_properties:
+            key = coordinator._get_property_key(property_key, nested_key)
+            description = property_to_description.get(key)
+
+            if description and not coordinator.is_property_seen(property_key, nested_key):
+                _LOGGER.info(
+                    "Creating binary sensor %s for newly discovered property %s",
+                    description.key,
+                    property_key,
+                )
+                coordinator.mark_property_seen(property_key, nested_key)
+                new_entities.append(
+                    PhilipsHomeIDBinarySensor(coordinator, description, coordinator.device_id)
+                )
+
+        if new_entities:
+            async_add_entities(new_entities)
+
+    # Register the callback
+    unregister = coordinator.register_new_property_callback(handle_new_properties)
+
+    # Store unregister function for cleanup
+    entry.async_on_unload(unregister)
 
 
 class PhilipsHomeIDBinarySensor(PhilipsHomeIDEntity, BinarySensorEntity):

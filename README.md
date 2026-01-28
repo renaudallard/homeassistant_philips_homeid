@@ -26,6 +26,7 @@ Note: Espresso machines (EP series) use cloud-based communication and are not su
 - Automatic device discovery via Zeroconf/SSDP
 - **Smart Polling** - Polls every 60 seconds when idle, increases to every 10 seconds while airfryer is cooking for responsive status updates
 - **Extrapolated Timers** - Time remaining countdown is extrapolated between polls for smooth real-time updates (in seconds)
+- **Dynamic Entity Discovery** - Sensors are only created when the device actually reports data for them, avoiding "unavailable" entities. New sensors are automatically created if the device starts reporting additional properties
 - **Air Purifiers**: Fan speed, preset modes, comprehensive air quality sensors (PM1, PM2.5, PM10, TVOC, gas), humidity, temperature, multiple filter status sensors, child lock, runtime tracking
 - **Air Fryers**: Cooking status, target/current temperature, time control, start/pause/stop buttons, drawer sensor, preheat status, shake/flip reminders, keep warm
 - **Dual Basket Air Fryers**: Independent control and monitoring of left and right baskets

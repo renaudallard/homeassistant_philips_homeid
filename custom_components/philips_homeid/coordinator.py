@@ -70,6 +70,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self.config_entry = entry
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
+        self._seen_properties: set[str] = set()  # Track all properties ever seen
+        self._new_properties_callbacks: list[callable] = []  # Callbacks for new properties
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -103,6 +105,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             state = await self.api.get_full_state(self.device_info)
 
             if state:
+                # Check for new properties before updating state
+                new_properties = self._check_for_new_properties(state)
+
                 self._state = state
                 self._last_update_time = time.monotonic()
                 _LOGGER.debug(
@@ -113,6 +118,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 )
                 # Adjust polling interval based on cooking state
                 self._update_polling_interval(state)
+
+                # Notify about new properties (after state is updated)
+                if new_properties:
+                    self._notify_new_properties(new_properties)
+
                 return state
             else:
                 _LOGGER.warning("No response from device at %s", self.device_info.ip_address)
@@ -245,3 +255,67 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return property_key in nested
             return False
         return property_key in self._state.properties
+
+    def _get_property_key(self, property_key: str, nested_key: str | None) -> str:
+        """Generate a unique key for tracking properties."""
+        if nested_key:
+            return f"{nested_key}.{property_key}"
+        return property_key
+
+    def is_property_seen(self, property_key: str, nested_key: str | None = None) -> bool:
+        """Check if a property has ever been seen."""
+        key = self._get_property_key(property_key, nested_key)
+        return key in self._seen_properties
+
+    def mark_property_seen(self, property_key: str, nested_key: str | None = None) -> None:
+        """Mark a property as seen (entity created for it)."""
+        key = self._get_property_key(property_key, nested_key)
+        self._seen_properties.add(key)
+
+    def register_new_property_callback(self, callback: callable) -> callable:
+        """Register a callback to be called when new properties are discovered.
+
+        Returns a function to unregister the callback.
+        """
+        self._new_properties_callbacks.append(callback)
+
+        def unregister() -> None:
+            if callback in self._new_properties_callbacks:
+                self._new_properties_callbacks.remove(callback)
+
+        return unregister
+
+    def _check_for_new_properties(self, state: LocalDeviceState) -> list[tuple[str, str | None]]:
+        """Check for new properties that haven't been seen before.
+
+        Returns list of (property_key, nested_key) tuples for new properties.
+        """
+        new_properties: list[tuple[str, str | None]] = []
+
+        # Check top-level properties
+        for key in state.properties:
+            if key not in self._seen_properties:
+                # Check if it's a nested dict (like airfryer)
+                value = state.properties[key]
+                if isinstance(value, dict):
+                    # Check nested properties
+                    for nested_prop in value:
+                        full_key = f"{key}.{nested_prop}"
+                        if full_key not in self._seen_properties:
+                            new_properties.append((nested_prop, key))
+                else:
+                    new_properties.append((key, None))
+
+        return new_properties
+
+    def _notify_new_properties(self, new_properties: list[tuple[str, str | None]]) -> None:
+        """Notify callbacks about new properties."""
+        if not new_properties or not self._new_properties_callbacks:
+            return
+
+        _LOGGER.debug("New properties discovered: %s", new_properties)
+        for callback in self._new_properties_callbacks:
+            try:
+                callback(new_properties)
+            except Exception:
+                _LOGGER.exception("Error in new property callback")

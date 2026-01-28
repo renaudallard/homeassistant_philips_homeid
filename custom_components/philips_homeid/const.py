@@ -75,4 +75,5 @@ ZEROCONF_TYPE = "_philipscondor._tcp.local."
 SSDP_ST = "urn:philips-com:device:DiProduct:1"
 
 # Default values
-DEFAULT_SCAN_INTERVAL = 30
+DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
+ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking

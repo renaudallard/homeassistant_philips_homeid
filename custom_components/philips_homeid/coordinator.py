@@ -32,8 +32,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .local_api import LocalDeviceInfo, LocalDeviceState, PhilipsLocalAPI
+from .const import ACTIVE_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .local_api import (
+    AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_PAUSED,
+    AIRFRYER_STATUS_SETTING,
+    LocalDeviceInfo,
+    LocalDeviceState,
+    PhilipsLocalAPI,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,6 +69,29 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self.config_entry = entry
         self._state: LocalDeviceState | None = None
 
+    def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
+        """Check if airfryer is actively cooking."""
+        airfryer = state.properties.get("airfryer")
+        if not airfryer or not isinstance(airfryer, dict):
+            return False
+        status = airfryer.get("status", "")
+        return status in (AIRFRYER_STATUS_COOKING, AIRFRYER_STATUS_PAUSED, AIRFRYER_STATUS_SETTING)
+
+    def _update_polling_interval(self, state: LocalDeviceState | None) -> None:
+        """Adjust polling interval based on device state."""
+        if state and self._is_airfryer_active(state):
+            new_interval = timedelta(seconds=ACTIVE_SCAN_INTERVAL)
+        else:
+            new_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+
+        if self.update_interval != new_interval:
+            _LOGGER.debug(
+                "Changing polling interval from %s to %s",
+                self.update_interval,
+                new_interval,
+            )
+            self.update_interval = new_interval
+
     async def _async_update_data(self) -> LocalDeviceState | None:
         """Fetch data from device via local API."""
         try:
@@ -78,6 +108,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     state.power_on,
                     list(state.properties.keys()),
                 )
+                # Adjust polling interval based on cooking state
+                self._update_polling_interval(state)
                 return state
             else:
                 _LOGGER.warning("No response from device at %s", self.device_info.ip_address)

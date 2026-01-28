@@ -347,8 +347,8 @@ class PhilipsLocalAPI:
         return result is not None
 
     async def airfryer_stop(self, device: LocalDeviceInfo) -> bool:
-        """Stop/idle the airfryer."""
-        data = {"status": AIRFRYER_STATUS_IDLE}
+        """Stop the airfryer and return to standby."""
+        data = {"status": AIRFRYER_STATUS_STANDBY}
         result = await self._request(device, PORT_AIRFRYER, method="PUT", data=data)
         return result is not None
 

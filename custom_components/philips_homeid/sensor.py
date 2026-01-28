@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -83,6 +84,8 @@ class PhilipsHomeIDSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[Any], Any] | None = None
     # Device types this sensor applies to: air_purifier, airfryer, airfryer_dual
     device_types: tuple[str, ...] | None = None
+    # If True, extrapolate value based on time elapsed since last poll (for countdown timers)
+    extrapolate_countdown: bool = False
 
 
 def _seconds_to_minutes(value: Any) -> int | None:
@@ -310,12 +313,12 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         translation_key="airfryer_time_remaining",
         property_key="cur_time",
         nested_key="airfryer",
-        native_unit_of_measurement=UnitOfTime.MINUTES,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer-outline",
-        value_fn=_seconds_to_minutes,
         device_types=("airfryer", "airfryer_dual"),
+        extrapolate_countdown=True,  # Extrapolate between polls when cooking
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_preset",
@@ -472,11 +475,37 @@ class PhilipsHomeIDSensor(PhilipsHomeIDEntity, SensorEntity):
         self.entity_description = description
         self._attr_unique_id = f"{device_id}_{description.key}"
 
+    def _get_extrapolated_value(self, value: int) -> int:
+        """Calculate extrapolated countdown value based on time since last poll.
+
+        Only extrapolates when airfryer is actively cooking (not paused).
+        Returns the value capped at 0 (won't go negative).
+        """
+        if not self.coordinator.is_airfryer_cooking():
+            # Not actively cooking, return raw value
+            return value
+
+        last_update = self.coordinator.last_update_time
+        if last_update == 0:
+            return value
+
+        elapsed = time.monotonic() - last_update
+        extrapolated = value - int(elapsed)
+        return max(0, extrapolated)
+
     @property
     def native_value(self) -> Any:
         """Return the sensor value."""
         desc = self.entity_description
         value = self._get_property_value(desc.property_key, desc.nested_key)
+
+        # Apply extrapolation for countdown timers
+        if value is not None and desc.extrapolate_countdown:
+            try:
+                value = self._get_extrapolated_value(int(value))
+            except (ValueError, TypeError):
+                pass
+
         if value is not None and desc.value_fn:
             return desc.value_fn(value)
         return value

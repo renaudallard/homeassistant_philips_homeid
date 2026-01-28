@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -68,6 +69,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self.device_info = device_info
         self.config_entry = entry
         self._state: LocalDeviceState | None = None
+        self._last_update_time: float = 0.0  # Timestamp of last successful poll
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -102,6 +104,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
             if state:
                 self._state = state
+                self._last_update_time = time.monotonic()
                 _LOGGER.debug(
                     "Device %s: power=%s, properties=%s",
                     self.device_info.ip_address,
@@ -209,3 +212,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def available(self) -> bool:
         """Return True if device is available."""
         return self._state is not None
+
+    @property
+    def last_update_time(self) -> float:
+        """Return timestamp of last successful poll."""
+        return self._last_update_time
+
+    def is_airfryer_cooking(self) -> bool:
+        """Check if airfryer is actively cooking (not paused)."""
+        if not self._state:
+            return False
+        airfryer = self._state.properties.get("airfryer")
+        if not airfryer or not isinstance(airfryer, dict):
+            return False
+        return airfryer.get("status") == AIRFRYER_STATUS_COOKING

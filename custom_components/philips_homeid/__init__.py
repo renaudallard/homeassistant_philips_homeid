@@ -36,7 +36,6 @@ from .const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_CPP_ID,
-    CONF_DEVICE_ID,
     CONF_MODEL,
     DOMAIN,
 )
@@ -57,20 +56,6 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Philips HomeID component."""
-    from .config_flow import (
-        PhilipsQRCodeView,
-        PhilipsAuthPageView,
-        PhilipsResolveUrlView,
-        VIEWS_REGISTERED_KEY,
-    )
-
-    # Register views for config flow (if not already registered)
-    if not hass.data.get(VIEWS_REGISTERED_KEY):
-        hass.http.register_view(PhilipsQRCodeView())
-        hass.http.register_view(PhilipsAuthPageView())
-        hass.http.register_view(PhilipsResolveUrlView())
-        hass.data[VIEWS_REGISTERED_KEY] = True
-
     return True
 
 

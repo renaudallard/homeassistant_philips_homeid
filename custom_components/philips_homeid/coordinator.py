@@ -226,3 +226,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if not airfryer or not isinstance(airfryer, dict):
             return False
         return airfryer.get("status") == AIRFRYER_STATUS_COOKING
+
+    def has_property(
+        self,
+        property_key: str | None,
+        nested_key: str | None = None,
+    ) -> bool:
+        """Check if a property exists in current device state.
+
+        Used during entity setup to filter which entities to create.
+        """
+        if not self._state or not property_key:
+            return False
+
+        if nested_key:
+            nested = self._state.properties.get(nested_key)
+            if nested and isinstance(nested, dict):
+                return property_key in nested
+            return False
+        return property_key in self._state.properties

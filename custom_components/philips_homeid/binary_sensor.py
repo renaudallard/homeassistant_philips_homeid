@@ -151,12 +151,21 @@ async def async_setup_entry(
 
     entities: list[PhilipsHomeIDBinarySensor] = []
 
-    # Only add binary sensors that match the device type
+    # Only add binary sensors that match the device type AND have data
     for description in BINARY_SENSORS:
         # If sensor has device_types defined, check if current device matches
         if description.device_types is not None:
             if device_type not in description.device_types:
                 continue
+
+        # Only create sensor if the property exists in device state
+        if not coordinator.has_property(description.property_key, description.nested_key):
+            _LOGGER.debug(
+                "Skipping binary sensor %s - property %s not found in device state",
+                description.key,
+                description.property_key,
+            )
+            continue
 
         entities.append(PhilipsHomeIDBinarySensor(coordinator, description, coordinator.device_id))
 

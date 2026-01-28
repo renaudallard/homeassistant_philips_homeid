@@ -446,12 +446,21 @@ async def async_setup_entry(
 
     entities: list[PhilipsHomeIDSensor] = []
 
-    # Only add sensors that match the device type
+    # Only add sensors that match the device type AND have data
     for description in SENSORS:
         # If sensor has device_types defined, check if current device matches
         if description.device_types is not None:
             if device_type not in description.device_types:
                 continue
+
+        # Only create sensor if the property exists in device state
+        if not coordinator.has_property(description.property_key, description.nested_key):
+            _LOGGER.debug(
+                "Skipping sensor %s - property %s not found in device state",
+                description.key,
+                description.property_key,
+            )
+            continue
 
         entities.append(PhilipsHomeIDSensor(coordinator, description, coordinator.device_id))
 

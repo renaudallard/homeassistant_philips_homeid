@@ -45,6 +45,7 @@ from homeassistant.util.percentage import (
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,6 +74,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up fans from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    # Only create fan entity for air purifiers
+    model_name = coordinator.device_info.model_name or ""
+    device_type = get_device_type(model_name)
+
+    if device_type != "air_purifier":
+        _LOGGER.debug("Skipping fan entity for non-air-purifier device: %s", model_name)
+        return
 
     entities = [PhilipsAirPurifierFan(coordinator, coordinator.device_id)]
     async_add_entities(entities)

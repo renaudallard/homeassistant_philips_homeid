@@ -40,6 +40,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +51,8 @@ class PhilipsHomeIDBinarySensorEntityDescription(BinarySensorEntityDescription):
 
     property_key: str | None = None
     nested_key: str | None = None  # For nested properties like airfryer.drawer_open
+    # Device types this sensor applies to: air_purifier, airfryer, airfryer_dual
+    device_types: tuple[str, ...] | None = None
 
 
 # Air purifier binary sensors
@@ -60,6 +63,7 @@ AIR_PURIFIER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, .
         property_key="fltt1",
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:air-filter",
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="water_tank_empty",
@@ -67,6 +71,7 @@ AIR_PURIFIER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, .
         property_key="wl",
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:water-off",
+        device_types=("air_purifier",),
     ),
 )
 
@@ -79,6 +84,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray",
+        device_types=("airfryer",),  # Single basket only
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_shake_reminder",
@@ -86,6 +92,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="shake",
         nested_key="airfryer",
         icon="mdi:hand-wave",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_flip_reminder",
@@ -93,6 +100,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="flip",
         nested_key="airfryer",
         icon="mdi:rotate-3d-variant",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_preheat_active",
@@ -100,6 +108,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="preheat_active",
         nested_key="airfryer",
         icon="mdi:fire",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     # Dual basket sensors
     PhilipsHomeIDBinarySensorEntityDescription(
@@ -109,6 +118,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-up",
+        device_types=("airfryer_dual",),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_right_drawer_open",
@@ -117,6 +127,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-down",
+        device_types=("airfryer_dual",),
     ),
 )
 
@@ -132,12 +143,24 @@ async def async_setup_entry(
     """Set up binary sensors from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
+    # Determine device type from model name
+    model_name = coordinator.device_info.model_name or ""
+    device_type = get_device_type(model_name)
+
+    _LOGGER.debug("Setting up binary sensors for device type: %s (model: %s)", device_type, model_name)
+
     entities: list[PhilipsHomeIDBinarySensor] = []
 
-    # Add all binary sensors - they will show unavailable if property doesn't exist
+    # Only add binary sensors that match the device type
     for description in BINARY_SENSORS:
+        # If sensor has device_types defined, check if current device matches
+        if description.device_types is not None:
+            if device_type not in description.device_types:
+                continue
+
         entities.append(PhilipsHomeIDBinarySensor(coordinator, description, coordinator.device_id))
 
+    _LOGGER.info("Created %d binary sensors for %s", len(entities), model_name)
     async_add_entities(entities)
 
 

@@ -42,6 +42,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,6 +97,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up number entities from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    # Only create number entities for airfryers
+    model_name = coordinator.device_info.model_name or ""
+    device_type = get_device_type(model_name)
+
+    if device_type not in ("airfryer", "airfryer_dual"):
+        _LOGGER.debug("Skipping number entities for non-airfryer device: %s", model_name)
+        return
 
     entities: list[PhilipsHomeIDNumber] = []
 

@@ -36,6 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,12 +49,21 @@ async def async_setup_entry(
     """Set up switches from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    entities = [
-        PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id),
-        PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id),
-    ]
+    model_name = coordinator.device_info.model_name or ""
+    device_type = get_device_type(model_name)
 
-    async_add_entities(entities)
+    entities: list[SwitchEntity] = []
+
+    # Power switch only for airfryers (air purifiers use fan entity for on/off)
+    if device_type in ("airfryer", "airfryer_dual"):
+        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
+
+    # Child lock only for air purifiers
+    if device_type == "air_purifier":
+        entities.append(PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id))
+
+    if entities:
+        async_add_entities(entities)
 
 
 class PhilipsHomeIDPowerSwitch(PhilipsHomeIDEntity, SwitchEntity):

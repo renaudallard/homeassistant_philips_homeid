@@ -39,7 +39,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     CONCENTRATION_PARTS_PER_BILLION,
-    CONCENTRATION_PARTS_PER_MILLION,
     PERCENTAGE,
     UnitOfTemperature,
     UnitOfTime,
@@ -54,6 +53,27 @@ from .entity import PhilipsHomeIDEntity
 _LOGGER = logging.getLogger(__name__)
 
 
+# Device type detection based on model name patterns
+def get_device_type(model_name: str) -> str:
+    """Determine device type from model name."""
+    model_lower = (model_name or "").lower()
+
+    # Air purifiers - AC series
+    if model_lower.startswith("ac"):
+        return "air_purifier"
+
+    # Dual basket air fryers - HD9880 series
+    if "hd988" in model_lower or "dual" in model_lower:
+        return "airfryer_dual"
+
+    # Air fryers - HD series (single basket)
+    if model_lower.startswith("hd9") or "airfryer" in model_lower:
+        return "airfryer"
+
+    # Default: try to detect from data
+    return "unknown"
+
+
 @dataclass(frozen=True)
 class PhilipsHomeIDSensorEntityDescription(SensorEntityDescription):
     """Describes Philips HomeID sensor entity."""
@@ -61,6 +81,8 @@ class PhilipsHomeIDSensorEntityDescription(SensorEntityDescription):
     property_key: str | None = None
     nested_key: str | None = None  # For nested properties like airfryer.status
     value_fn: Callable[[Any], Any] | None = None
+    # Device types this sensor applies to: air_purifier, airfryer, airfryer_dual
+    device_types: tuple[str, ...] | None = None
 
 
 def _seconds_to_minutes(value: Any) -> int | None:
@@ -82,6 +104,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM25,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="pm1",
@@ -90,6 +113,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM1,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="pm10",
@@ -98,6 +122,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM10,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="air_quality_index",
@@ -105,6 +130,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="iaql",
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="tvoc",
@@ -113,6 +139,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
         device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="gas",
@@ -120,6 +147,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="gas",
         icon="mdi:gas-cylinder",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="allergen_index",
@@ -127,6 +155,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="aqit",
         icon="mdi:flower-pollen",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="humidity",
@@ -135,6 +164,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="temperature",
@@ -143,6 +173,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="filter_pre",
@@ -151,6 +182,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="filter_hepa",
@@ -159,6 +191,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="filter_carbon",
@@ -167,6 +200,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="filter_wick",
@@ -175,6 +209,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:water",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="water_level",
@@ -183,6 +218,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:water-percent",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="display_brightness",
@@ -190,6 +226,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="uil",
         icon="mdi:brightness-6",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="runtime",
@@ -199,28 +236,32 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         icon="mdi:clock-outline",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda x: x // 3600 if x else None,  # Convert seconds to hours
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="mode",
         translation_key="mode",
         property_key="mode",
         icon="mdi:cog",
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="fan_speed",
         translation_key="fan_speed",
         property_key="om",
         icon="mdi:fan",
+        device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="error_code",
         translation_key="error_code",
         property_key="err",
         icon="mdi:alert-circle",
+        device_types=("air_purifier",),
     ),
 )
 
-# Airfryer sensors
+# Airfryer sensors - common to single and dual basket
 AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_status",
@@ -228,6 +269,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status",
         nested_key="airfryer",
         icon="mdi:stove",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_temperature",
@@ -238,6 +280,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
+        device_types=("airfryer",),  # Single basket only - dual uses temp_l/temp_r
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_current_temperature",
@@ -248,6 +291,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-check",
+        device_types=("airfryer",),  # Only some models have current temp sensor
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_time_total",
@@ -259,6 +303,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
+        device_types=("airfryer",),  # Single basket only - dual uses time_l/time_r
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_time_remaining",
@@ -270,6 +315,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer-outline",
         value_fn=_seconds_to_minutes,
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_preset",
@@ -277,6 +323,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="preset",
         nested_key="airfryer",
         icon="mdi:format-list-numbered",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_recipe_name",
@@ -284,6 +331,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="recipeName",
         nested_key="airfryer",
         icon="mdi:food",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_error",
@@ -291,6 +339,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="error",
         nested_key="airfryer",
         icon="mdi:alert-circle",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_preheat_status",
@@ -298,6 +347,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="preheat",
         nested_key="airfryer",
         icon="mdi:fire",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_keep_warm",
@@ -305,6 +355,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="keep_warm",
         nested_key="airfryer",
         icon="mdi:pot-steam",
+        device_types=("airfryer", "airfryer_dual"),
     ),
     # Dual basket airfryer sensors (left basket)
     PhilipsHomeIDSensorEntityDescription(
@@ -313,6 +364,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status_l",
         nested_key="airfryer",
         icon="mdi:tray-arrow-up",
+        device_types=("airfryer_dual",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_left_temperature",
@@ -323,6 +375,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
+        device_types=("airfryer_dual",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_left_time",
@@ -334,6 +387,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
+        device_types=("airfryer_dual",),
     ),
     # Dual basket airfryer sensors (right basket)
     PhilipsHomeIDSensorEntityDescription(
@@ -342,6 +396,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status_r",
         nested_key="airfryer",
         icon="mdi:tray-arrow-down",
+        device_types=("airfryer_dual",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_right_temperature",
@@ -352,6 +407,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
+        device_types=("airfryer_dual",),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_right_time",
@@ -363,6 +419,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
+        device_types=("airfryer_dual",),
     ),
 )
 
@@ -378,12 +435,24 @@ async def async_setup_entry(
     """Set up sensors from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
+    # Determine device type from model name
+    model_name = coordinator.device_info.model_name or ""
+    device_type = get_device_type(model_name)
+
+    _LOGGER.debug("Setting up sensors for device type: %s (model: %s)", device_type, model_name)
+
     entities: list[PhilipsHomeIDSensor] = []
 
-    # Add all sensors - they will show unavailable if property doesn't exist
+    # Only add sensors that match the device type
     for description in SENSORS:
+        # If sensor has device_types defined, check if current device matches
+        if description.device_types is not None:
+            if device_type not in description.device_types:
+                continue
+
         entities.append(PhilipsHomeIDSensor(coordinator, description, coordinator.device_id))
 
+    _LOGGER.info("Created %d sensors for %s", len(entities), model_name)
     async_add_entities(entities)
 
 

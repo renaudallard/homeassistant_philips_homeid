@@ -125,7 +125,7 @@ In addition to the standard airfryer entities, dual basket models include:
 | Binary Sensor | Left Basket Drawer | Left drawer open/closed |
 | Binary Sensor | Right Basket Drawer | Right drawer open/closed |
 
-Note: Entities marked "(if supported)" will only appear if your specific device model provides that data.
+Note: Entities are automatically filtered based on your device type. Air purifier sensors will not appear for air fryers and vice versa. Dual basket sensors only appear for dual basket models (HD9880). Entities marked "(if supported)" will only appear if your specific device model provides that data.
 
 ### Preset Modes for Air Purifiers
 

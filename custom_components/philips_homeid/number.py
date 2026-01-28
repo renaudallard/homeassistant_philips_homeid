@@ -83,7 +83,7 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:timer",
-        mode=NumberMode.SLIDER,
+        mode=NumberMode.BOX,
         set_fn=lambda c, v: c.async_airfryer_set_settings(time_seconds=int(v * 60)),
         available_key="airfryer",
     ),

@@ -54,11 +54,9 @@ async def async_setup_entry(
 
     entities: list[SwitchEntity] = []
 
-    # Power switch only for airfryers (air purifiers use fan entity for on/off)
-    if device_type in ("airfryer", "airfryer_dual"):
-        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
-
     # Child lock only for air purifiers
+    # Note: Airfryers don't have a power switch - they use start/stop buttons
+    # Air purifiers use the fan entity for on/off control
     if device_type == "air_purifier":
         entities.append(PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id))
 

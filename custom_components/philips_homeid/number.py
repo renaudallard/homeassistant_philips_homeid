@@ -132,15 +132,15 @@ class PhilipsHomeIDNumber(PhilipsHomeIDEntity, NumberEntity):
         self._attr_unique_id = f"{device_id}_{description.key}"
 
     @property
-    def native_value(self) -> float | None:
+    def native_value(self) -> int | float | None:
         """Return the current value."""
         desc = self.entity_description
         value = self._get_property_value(desc.property_key, desc.nested_key)
         if value is None:
             return None
-        # Convert time from seconds to minutes for display
+        # Convert time from seconds to minutes for display (int since min is 1 minute)
         if desc.key == "airfryer_set_time":
-            return float(value) / 60
+            return int(value) // 60
         return float(value)
 
     async def async_set_native_value(self, value: float) -> None:

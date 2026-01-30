@@ -63,8 +63,8 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 
 ### Manual Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
-2. Extract and copy `custom_components/philips_homeid` to your Home Assistant's `custom_components` directory
+1. Download `philips_homeid.zip` from the latest [GitHub Release](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+2. Extract and copy the `philips_homeid` folder to your Home Assistant's `custom_components` directory
 3. Restart Home Assistant
 
 ---

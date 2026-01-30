@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Callable
 
 from homeassistant.components.sensor import (
@@ -44,8 +45,9 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
@@ -526,6 +528,53 @@ class PhilipsHomeIDSensor(PhilipsHomeIDEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{device_id}_{description.key}"
+        self._countdown_unsub: CALLBACK_TYPE | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity is added to hass."""
+        await super().async_added_to_hass()
+        # Start countdown timer if this is a countdown sensor and cooking is active
+        if self.entity_description.extrapolate_countdown:
+            self._update_countdown_timer()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity is being removed from hass."""
+        self._stop_countdown_timer()
+        await super().async_will_remove_from_hass()
+
+    def _start_countdown_timer(self) -> None:
+        """Start the countdown timer to update every second."""
+        if self._countdown_unsub is not None:
+            return  # Already running
+
+        @callback
+        def _update_countdown(_: Any) -> None:
+            """Update the countdown value."""
+            self.async_write_ha_state()
+
+        self._countdown_unsub = async_track_time_interval(
+            self.hass, _update_countdown, timedelta(seconds=1)
+        )
+
+    def _stop_countdown_timer(self) -> None:
+        """Stop the countdown timer."""
+        if self._countdown_unsub is not None:
+            self._countdown_unsub()
+            self._countdown_unsub = None
+
+    def _update_countdown_timer(self) -> None:
+        """Start or stop countdown timer based on cooking state."""
+        if self.coordinator.is_airfryer_cooking():
+            self._start_countdown_timer()
+        else:
+            self._stop_countdown_timer()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        if self.entity_description.extrapolate_countdown:
+            self._update_countdown_timer()
+        super()._handle_coordinator_update()
 
     def _get_extrapolated_value(self, value: int) -> int:
         """Calculate extrapolated countdown value based on time since last poll.

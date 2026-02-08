@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Local API client for Philips HomeID devices."""
+
 from __future__ import annotations
 
 import base64
@@ -102,7 +103,9 @@ class PhilipsCondorAuth:
     MAX_CHALLENGE_SIZE = 64
 
     @staticmethod
-    def create_credentials(challenge_b64: str, client_id: str, client_secret: str) -> str | None:
+    def create_credentials(
+        challenge_b64: str, client_id: str, client_secret: str
+    ) -> str | None:
         """Create authentication credentials from challenge.
 
         The PhilipsCondor scheme works as follows:
@@ -120,20 +123,30 @@ class PhilipsCondorAuth:
             for variant in PhilipsCondorAuth.SCHEME_VARIANTS:
                 if challenge_clean.lower().startswith(variant.lower()):
                     # Use the exact scheme the device sent (preserve case and format)
-                    response_scheme = challenge_clean[:len(variant)]
-                    challenge_clean = challenge_clean[len(variant):].strip()
+                    response_scheme = challenge_clean[: len(variant)]
+                    challenge_clean = challenge_clean[len(variant) :].strip()
                     break
 
             _LOGGER.debug("Using scheme: %s", response_scheme)
             _LOGGER.debug("Challenge (cleaned): %s", challenge_clean)
 
             challenge = base64.b64decode(challenge_clean)
-            if not (PhilipsCondorAuth.MIN_CHALLENGE_SIZE <= len(challenge) <= PhilipsCondorAuth.MAX_CHALLENGE_SIZE):
-                _LOGGER.warning("Invalid challenge size: %d (expected %d-%d)",
-                    len(challenge), PhilipsCondorAuth.MIN_CHALLENGE_SIZE, PhilipsCondorAuth.MAX_CHALLENGE_SIZE)
+            if not (
+                PhilipsCondorAuth.MIN_CHALLENGE_SIZE
+                <= len(challenge)
+                <= PhilipsCondorAuth.MAX_CHALLENGE_SIZE
+            ):
+                _LOGGER.warning(
+                    "Invalid challenge size: %d (expected %d-%d)",
+                    len(challenge),
+                    PhilipsCondorAuth.MIN_CHALLENGE_SIZE,
+                    PhilipsCondorAuth.MAX_CHALLENGE_SIZE,
+                )
                 return None
 
-            _LOGGER.debug("Challenge size: %d bytes, hex: %s", len(challenge), challenge.hex())
+            _LOGGER.debug(
+                "Challenge size: %d bytes, hex: %s", len(challenge), challenge.hex()
+            )
 
             client_id_bytes = base64.b64decode(client_id)
             client_secret_bytes = base64.b64decode(client_secret)
@@ -224,19 +237,29 @@ class PhilipsLocalAPI:
                 async with session.get(url, headers=headers, timeout=10) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
-                        return await self._request(device, port_name, method, data, _retry=False)
+                        return await self._request(
+                            device, port_name, method, data, _retry=False
+                        )
                     return result
             elif method == "PUT":
-                async with session.put(url, headers=headers, json=data or {}, timeout=10) as resp:
+                async with session.put(
+                    url, headers=headers, json=data or {}, timeout=10
+                ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
-                        return await self._request(device, port_name, method, data, _retry=False)
+                        return await self._request(
+                            device, port_name, method, data, _retry=False
+                        )
                     return result
             elif method == "POST":
-                async with session.post(url, headers=headers, json=data or {}, timeout=10) as resp:
+                async with session.post(
+                    url, headers=headers, json=data or {}, timeout=10
+                ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
-                        return await self._request(device, port_name, method, data, _retry=False)
+                        return await self._request(
+                            device, port_name, method, data, _retry=False
+                        )
                     return result
 
         except aiohttp.ClientError as err:
@@ -266,7 +289,9 @@ class PhilipsLocalAPI:
         elif resp.status == 401:
             # Handle authentication challenge
             challenge = resp.headers.get("WWW-Authenticate")
-            _LOGGER.debug("Got 401 challenge: %s", challenge[:100] if challenge else "None")
+            _LOGGER.debug(
+                "Got 401 challenge: %s", challenge[:100] if challenge else "None"
+            )
             if challenge and device.client_id and device.client_secret:
                 credentials = PhilipsCondorAuth.create_credentials(
                     challenge, device.client_id, device.client_secret
@@ -276,8 +301,11 @@ class PhilipsLocalAPI:
                     _LOGGER.info("Created new credentials from challenge, will retry")
                     return None, True  # Retry with new credentials
             else:
-                _LOGGER.warning("Unauthorized - no credentials available (client_id=%s, client_secret=%s)",
-                    bool(device.client_id), bool(device.client_secret))
+                _LOGGER.warning(
+                    "Unauthorized - no credentials available (client_id=%s, client_secret=%s)",
+                    bool(device.client_id),
+                    bool(device.client_secret),
+                )
             return None, False
 
         elif resp.status == 429:
@@ -330,7 +358,9 @@ class PhilipsLocalAPI:
         return result is not None
 
     # Airfryer-specific methods
-    async def get_airfryer_status(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
+    async def get_airfryer_status(
+        self, device: LocalDeviceInfo
+    ) -> dict[str, Any] | None:
         """Get airfryer status."""
         return await self._request(device, PORT_AIRFRYER)
 
@@ -393,7 +423,9 @@ class PhilipsLocalAPI:
         session = await self._get_session()
 
         # Wi-Fi port is on product 0
-        url = f"https://{device.ip_address}/di/v{device.protocol_version}/products/0/wifi"
+        url = (
+            f"https://{device.ip_address}/di/v{device.protocol_version}/products/0/wifi"
+        )
 
         headers = {"Content-Type": "application/json"}
         data = {"ssid": ssid, "password": password}
@@ -402,7 +434,9 @@ class PhilipsLocalAPI:
             _LOGGER.info("Sending Wi-Fi credentials to %s", url)
             async with session.put(url, headers=headers, json=data, timeout=10) as resp:
                 text = await resp.text()
-                _LOGGER.info("Wi-Fi credentials response (%s): %s", resp.status, text[:200])
+                _LOGGER.info(
+                    "Wi-Fi credentials response (%s): %s", resp.status, text[:200]
+                )
 
                 if resp.status == 200:
                     _LOGGER.info("Wi-Fi credentials sent successfully")
@@ -475,7 +509,10 @@ class PhilipsLocalAPI:
                 _LOGGER.info("Step 1 response (%s): %s", resp.status, text[:500])
 
                 if resp.status != 200:
-                    return False, f"Step 1 failed with status {resp.status}: {text[:200]}"
+                    return (
+                        False,
+                        f"Step 1 failed with status {resp.status}: {text[:200]}",
+                    )
 
                 try:
                     result = json.loads(text) if text else {}
@@ -572,7 +609,9 @@ class PhilipsLocalAPI:
                     # This shouldn't normally happen but handle it anyway
                     device.client_secret = computed_evidence
                     device.credentials = None
-                    _LOGGER.info("Pairing successful (using computed evidence as secret)")
+                    _LOGGER.info(
+                        "Pairing successful (using computed evidence as secret)"
+                    )
                     return True, "Pairing successful"
                 elif new_seed:
                     # Device returned another seed - our evidence was wrong
@@ -591,27 +630,80 @@ class PhilipsLocalAPI:
             _LOGGER.exception("Unexpected error during pairing")
             return False, f"Unexpected error: {err}"
 
+    async def _probe_request(
+        self, device: LocalDeviceInfo, port_name: str
+    ) -> tuple[dict[str, Any] | None, int | None]:
+        """Make a probe request, returning (data, status_code).
+
+        Unlike _request, this returns the HTTP status code so the caller
+        can distinguish 401 (device exists, needs auth) from connection errors.
+        """
+        session = await self._get_session()
+        url = self._build_url(device, port_name)
+        headers = {"Content-Type": "application/json"}
+
+        try:
+            async with session.get(url, headers=headers, timeout=10) as resp:
+                if resp.status == 200:
+                    try:
+                        return await resp.json(), resp.status
+                    except Exception:
+                        return None, resp.status
+                return None, resp.status
+        except aiohttp.ClientError as err:
+            _LOGGER.debug("Probe connection failed for %s: %s", url, err)
+            return None, None
+        except Exception as err:
+            _LOGGER.debug("Probe unexpected error for %s: %s", url, err)
+            return None, None
+
     async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
-        """Probe a device at the given IP to get its information."""
+        """Probe a device at the given IP to get its information.
+
+        Tries multiple product IDs and endpoints. A 401 response is treated
+        as "device found but needs authentication" rather than a failure.
+        """
         device = LocalDeviceInfo(
             ip_address=ip_address,
             cpp_id="",
         )
 
-        # Try to get device info without authentication
-        info = await self.get_device_info(device)
-        if info:
-            _LOGGER.info("Probed device at %s: %s", ip_address, info)
-            device.cpp_id = info.get("DeviceId", info.get("cppId", ""))
-            device.model_name = info.get("modelid", info.get("ModelName", ""))
-            device.model_number = info.get("type", info.get("ModelNumber", ""))
-            device.friendly_name = info.get("name", info.get("FriendlyName", ""))
-            return device
+        # Try device info endpoint with product_id 1 and 0
+        for product_id in (1, 0):
+            device.product_id = product_id
+            info, status = await self._probe_request(device, PORT_DEVICE)
+            if info:
+                _LOGGER.info(
+                    "Probed device at %s (product %d): %s", ip_address, product_id, info
+                )
+                device.cpp_id = info.get("DeviceId", info.get("cppId", ""))
+                device.model_name = info.get("modelid", info.get("ModelName", ""))
+                device.model_number = info.get("type", info.get("ModelNumber", ""))
+                device.friendly_name = info.get("name", info.get("FriendlyName", ""))
+                device.product_id = DEFAULT_PRODUCT_ID
+                return device
+            if status == 401:
+                _LOGGER.info(
+                    "Device at %s responded with 401 on product %d - "
+                    "device found but requires authentication",
+                    ip_address,
+                    product_id,
+                )
+                device.product_id = DEFAULT_PRODUCT_ID
+                return device
 
         # Try status endpoint as fallback
-        status = await self.get_status(device)
-        if status:
-            _LOGGER.info("Got status from %s: %s", ip_address, status)
+        device.product_id = DEFAULT_PRODUCT_ID
+        status_data, status = await self._probe_request(device, PORT_STATUS)
+        if status_data:
+            _LOGGER.info("Got status from %s: %s", ip_address, status_data)
+            return device
+        if status == 401:
+            _LOGGER.info(
+                "Device at %s responded with 401 on status - "
+                "device found but requires authentication",
+                ip_address,
+            )
             return device
 
         return None
@@ -677,7 +769,10 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         friendly_name = discovery_info.get("friendlyName", "")
 
         # Use "modelName modelNumber" as name if friendlyName is generic placeholder
-        if not friendly_name or friendly_name in ("Reference Product", "Philips Device"):
+        if not friendly_name or friendly_name in (
+            "Reference Product",
+            "Philips Device",
+        ):
             friendly_name = f"{model_name} {model_number}".strip() if model_name else ""
 
         device = LocalDeviceInfo(
@@ -720,12 +815,17 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
         boot_id = properties.get("bi", "")
 
         # Use "modelName modelNumber" as name if friendlyName is generic placeholder
-        if not friendly_name or friendly_name in ("Reference Product", "Philips Device"):
+        if not friendly_name or friendly_name in (
+            "Reference Product",
+            "Philips Device",
+        ):
             friendly_name = f"{model_name} {model_number}".strip() if model_name else ""
 
         # Fallback: extract from mDNS name if still no friendly name
         if not friendly_name:
-            friendly_name = name.split("._philipscondor")[0] if "._philipscondor" in name else name
+            friendly_name = (
+                name.split("._philipscondor")[0] if "._philipscondor" in name else name
+            )
 
         device = LocalDeviceInfo(
             ip_address=host,
@@ -736,7 +836,12 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
             boot_id=boot_id,
         )
 
-        _LOGGER.info("Parsed Zeroconf device: %s at %s (model: %s)", friendly_name, host, model_name)
+        _LOGGER.info(
+            "Parsed Zeroconf device: %s at %s (model: %s)",
+            friendly_name,
+            host,
+            model_name,
+        )
         return device
 
     except Exception as err:

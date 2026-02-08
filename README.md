@@ -1,7 +1,7 @@
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
-[![Release](https://img.shields.io/badge/release-v1.0.1-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.2-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
@@ -151,6 +151,7 @@ Devices discovered via Zeroconf or SSDP will appear automatically. If the device
 - Ensure the device is on the same network as Home Assistant
 - Verify the IP address is correct
 - Check that the device is powered on and connected
+- If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
 
 ### Pairing Fails
 If the device is already paired with the Philips HomeID app, you need to extract credentials manually:

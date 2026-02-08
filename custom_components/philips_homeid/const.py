@@ -65,6 +65,7 @@ CONF_MODEL = "model"
 CONF_CLIENT_ID = "client_id"
 CONF_CLIENT_SECRET = "client_secret"
 CONF_USE_HTTPS = "use_https"
+CONF_ENCRYPTION_KEY = "encryption_key"
 
 # Cloud authentication configuration keys
 CONF_UID = "uid"

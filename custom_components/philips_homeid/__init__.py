@@ -37,6 +37,7 @@ from .const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_CPP_ID,
+    CONF_ENCRYPTION_KEY,
     CONF_MODEL,
     CONF_USE_HTTPS,
     DOMAIN,
@@ -72,6 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     client_id = entry.data.get(CONF_CLIENT_ID)
     client_secret = entry.data.get(CONF_CLIENT_SECRET)
     use_https = entry.data.get(CONF_USE_HTTPS, True)
+    encryption_key = entry.data.get(CONF_ENCRYPTION_KEY)
 
     if not host:
         _LOGGER.error("No host configured for device")
@@ -85,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         use_https=use_https,
         client_id=client_id,
         client_secret=client_secret,
+        encryption_key=encryption_key,
     )
 
     # Create local API client
@@ -116,6 +119,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Failed to connect to device at %s: %s", host, err)
         await api.close()
         raise ConfigEntryNotReady(f"Could not connect to device at {host}") from err
+
+    # For HTTP devices: fetch encryption key if not already stored
+    if not device_info.use_https and not device_info.encryption_key:
+        _LOGGER.info("HTTP device without encryption key, attempting key exchange")
+        key = await api.exchange_encryption_key(device_info)
+        if key:
+            # Persist the key so we don't have to fetch it every time
+            new_data = {**entry.data, CONF_ENCRYPTION_KEY: key}
+            hass.config_entries.async_update_entry(entry, data=new_data)
+            _LOGGER.info("Encryption key stored for %s", host)
 
     # Create coordinator
     coordinator = PhilipsHomeIDCoordinator(hass, api, device_info, entry)

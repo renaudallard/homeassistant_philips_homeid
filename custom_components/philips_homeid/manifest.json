@@ -8,9 +8,10 @@
   "iot_class": "local_polling",
   "requirements": [
     "aiohttp>=3.8.0",
+    "cryptography>=41.0.0",
     "qrcode>=7.0"
   ],
-  "version": "1.0.3",
+  "version": "1.0.4",
   "zeroconf": [
     {
       "type": "_philipscondor._tcp.local."

@@ -1,7 +1,7 @@
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
-[![Release](https://img.shields.io/badge/release-v1.0.3-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.4-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
@@ -174,8 +174,9 @@ If the device is already paired with the Philips HomeID app, you need to extract
 4. **Extract credentials**
    - Open SQLite Database Editor (grant root access)
    - Navigate to: `homeid` > `network_node.db` > `network_node`
-   - Find `client_id` and `client_secret` in the last columns
+   - Find `client_id`, `client_secret`, and `encryption_key` columns
    - Enter these values during integration setup
+   - Note: `encryption_key` is only needed for HTTP devices (e.g., HD9285). If left empty, the integration will try to fetch it automatically from the device.
 
 </details>
 
@@ -187,6 +188,7 @@ If the device is already paired with the Philips HomeID app, you need to extract
 |--------|---------|
 | Protocol | HTTPS (port 443) or HTTP (port 80) depending on device model/firmware |
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
+| Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 
 ---

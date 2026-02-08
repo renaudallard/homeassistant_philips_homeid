@@ -35,6 +35,9 @@ import ssl
 from dataclasses import dataclass, field
 from typing import Any
 
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.padding import PKCS7
+
 import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +52,7 @@ PORT_CONTROL = "control"
 PORT_AIR = "air"
 PORT_FLTSTS = "fltsts"  # Filter status
 PORT_DEVICE = "device"
+PORT_SECURITY = "security"
 
 # Airfryer-specific port (product_id=1, port=airfryer)
 PORT_AIRFRYER = "airfryer"
@@ -82,6 +86,8 @@ class LocalDeviceInfo:
     client_id: str | None = None
     client_secret: str | None = None
     credentials: str | None = None  # Cached auth header value
+    # AES encryption key (hex string) for HTTP devices - fetched from /security
+    encryption_key: str | None = None
 
 
 @dataclass
@@ -174,6 +180,88 @@ class PhilipsCondorAuth:
             return None
 
 
+class PhilipsCrypto:
+    """AES/CBC/PKCS7 encryption for HTTP devices.
+
+    From APK analysis: devices with https=0 encrypt response payloads
+    using AES-128-CBC with PKCS7 padding and a hardcoded zero IV.
+    The encryption key is a hex string fetched from the /security endpoint.
+    Responses are base64-encoded ciphertext.
+    """
+
+    # 16 bytes of zeros as IV (hardcoded in APK)
+    _ZERO_IV = b"\x00" * 16
+
+    @staticmethod
+    def _hex_to_key(hex_key: str) -> bytes:
+        """Convert hex string encryption key to 16-byte AES key."""
+        key_bytes = bytes.fromhex(hex_key)
+        # APK handles leading zero: if 17 bytes, strip first
+        if len(key_bytes) == 17 and key_bytes[0] == 0:
+            key_bytes = key_bytes[1:]
+        if len(key_bytes) != 16:
+            raise ValueError(
+                f"Invalid AES key length: {len(key_bytes)} bytes (expected 16)"
+            )
+        return key_bytes
+
+    @staticmethod
+    def decrypt(data_b64: str, hex_key: str) -> str | None:
+        """Decrypt a base64-encoded AES/CBC/PKCS7 payload.
+
+        Args:
+            data_b64: Base64-encoded ciphertext from device response
+            hex_key: Encryption key as hex string
+
+        Returns:
+            Decrypted JSON string, or None on failure.
+        """
+        try:
+            key = PhilipsCrypto._hex_to_key(hex_key)
+            ciphertext = base64.b64decode(data_b64.strip())
+
+            cipher = Cipher(algorithms.AES(key), modes.CBC(PhilipsCrypto._ZERO_IV))
+            decryptor = cipher.decryptor()
+            padded = decryptor.update(ciphertext) + decryptor.finalize()
+
+            # Remove PKCS7 padding
+            unpadder = PKCS7(128).unpadder()
+            plaintext = unpadder.update(padded) + unpadder.finalize()
+
+            return plaintext.decode("utf-8")
+        except Exception as err:
+            _LOGGER.error("AES decryption failed: %s", err)
+            return None
+
+    @staticmethod
+    def encrypt(data: str, hex_key: str) -> str | None:
+        """Encrypt a JSON string with AES/CBC/PKCS7.
+
+        Args:
+            data: Plain JSON string to encrypt
+            hex_key: Encryption key as hex string
+
+        Returns:
+            Base64-encoded ciphertext, or None on failure.
+        """
+        try:
+            key = PhilipsCrypto._hex_to_key(hex_key)
+            plaintext = data.encode("utf-8")
+
+            # Add PKCS7 padding
+            padder = PKCS7(128).padder()
+            padded = padder.update(plaintext) + padder.finalize()
+
+            cipher = Cipher(algorithms.AES(key), modes.CBC(PhilipsCrypto._ZERO_IV))
+            encryptor = cipher.encryptor()
+            ciphertext = encryptor.update(padded) + encryptor.finalize()
+
+            return base64.b64encode(ciphertext).decode("utf-8")
+        except Exception as err:
+            _LOGGER.error("AES encryption failed: %s", err)
+            return None
+
+
 class PhilipsLocalAPI:
     """Local API client for Philips HomeID devices."""
 
@@ -215,6 +303,26 @@ class PhilipsLocalAPI:
             f"/products/{device.product_id}/{port_name}"
         )
 
+    def _prepare_body(
+        self, device: LocalDeviceInfo, data: dict[str, Any] | None
+    ) -> tuple[str | None, bool]:
+        """Prepare request body, encrypting if needed.
+
+        Returns: (body_string, is_encrypted)
+        """
+        if data is None:
+            return None, False
+
+        json_str = json.dumps(data)
+
+        if device.encryption_key:
+            encrypted = PhilipsCrypto.encrypt(json_str, device.encryption_key)
+            if encrypted:
+                return encrypted, True
+            _LOGGER.warning("Encryption failed, sending as plain JSON")
+
+        return json_str, False
+
     async def _request(
         self,
         device: LocalDeviceInfo,
@@ -237,6 +345,9 @@ class PhilipsLocalAPI:
             headers["Authorization"] = device.credentials
             _LOGGER.debug("Using cached credentials")
 
+        # Prepare body (encrypt if device has encryption_key)
+        body, _ = self._prepare_body(device, data)
+
         try:
             _LOGGER.debug("Request: %s %s", method, url)
 
@@ -250,7 +361,7 @@ class PhilipsLocalAPI:
                     return result
             elif method == "PUT":
                 async with session.put(
-                    url, headers=headers, json=data or {}, timeout=10
+                    url, headers=headers, data=body, timeout=10
                 ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
@@ -260,7 +371,7 @@ class PhilipsLocalAPI:
                     return result
             elif method == "POST":
                 async with session.post(
-                    url, headers=headers, json=data or {}, timeout=10
+                    url, headers=headers, data=body, timeout=10
                 ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
@@ -283,14 +394,26 @@ class PhilipsLocalAPI:
     ) -> tuple[dict[str, Any] | None, bool]:
         """Handle API response, including authentication challenges.
 
+        For devices with an encryption_key, the response body is
+        base64-encoded AES/CBC/PKCS7 ciphertext that must be decrypted.
+
         Returns: (result, should_retry)
         """
         if resp.status == 200:
+            text = await resp.text()
+
+            # Decrypt if device uses AES encryption
+            if device.encryption_key:
+                decrypted = PhilipsCrypto.decrypt(text, device.encryption_key)
+                if decrypted is None:
+                    _LOGGER.warning("Failed to decrypt response, trying as plain JSON")
+                else:
+                    text = decrypted
+
             try:
-                return await resp.json(), False
-            except Exception:
-                text = await resp.text()
-                _LOGGER.debug("Non-JSON response: %s", text)
+                return json.loads(text), False
+            except (json.JSONDecodeError, ValueError):
+                _LOGGER.debug("Non-JSON response: %s", text[:200])
                 return {"raw": text}, False
 
         elif resp.status == 401:
@@ -339,6 +462,43 @@ class PhilipsLocalAPI:
     async def get_device_info(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
         """Get device information."""
         return await self._request(device, PORT_DEVICE)
+
+    async def exchange_encryption_key(self, device: LocalDeviceInfo) -> str | None:
+        """Fetch AES encryption key from device /security endpoint.
+
+        The key exchange uses product_id=0 and requires authentication.
+        Returns the hex-encoded encryption key, or None on failure.
+        """
+        saved_product_id = device.product_id
+        device.product_id = 0
+        try:
+            result = await self._request(device, PORT_SECURITY)
+            if result:
+                # The response may be the key directly as a string,
+                # or a JSON object containing the key
+                if isinstance(result, dict):
+                    key = result.get("raw", result.get("key", ""))
+                    if isinstance(key, str):
+                        key = key.strip()
+                else:
+                    key = str(result).strip()
+
+                if key:
+                    device.encryption_key = key
+                    _LOGGER.info(
+                        "Obtained encryption key for %s (%d chars)",
+                        device.ip_address,
+                        len(key),
+                    )
+                    return key
+                _LOGGER.warning("Empty encryption key from %s", device.ip_address)
+            else:
+                _LOGGER.warning(
+                    "Failed to fetch encryption key from %s", device.ip_address
+                )
+        finally:
+            device.product_id = saved_product_id
+        return None
 
     async def set_power(self, device: LocalDeviceInfo, power_on: bool) -> bool:
         """Set device power state."""

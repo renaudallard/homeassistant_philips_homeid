@@ -41,6 +41,7 @@ from .const import (
     CONF_CLIENT_SECRET,
     CONF_CPP_ID,
     CONF_DEVICE_ID,
+    CONF_ENCRYPTION_KEY,
     CONF_MODEL,
     CONF_USE_HTTPS,
     DOMAIN,
@@ -174,19 +175,26 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 success, message = await self._local_api.pair_device(device)
 
                 if success:
+                    # For HTTP devices, try to fetch the encryption key
+                    if not device.use_https:
+                        await self._local_api.exchange_encryption_key(device)
+
+                    entry_data = {
+                        CONF_HOST: device.ip_address,
+                        CONF_CPP_ID: device.cpp_id,
+                        CONF_MODEL: device.model_name,
+                        CONF_DEVICE_ID: device.cpp_id,
+                        CONF_CLIENT_ID: device.client_id,
+                        CONF_CLIENT_SECRET: device.client_secret,
+                        CONF_USE_HTTPS: device.use_https,
+                    }
+                    if device.encryption_key:
+                        entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
                     return self.async_create_entry(
                         title=device.friendly_name
                         or device.model_name
                         or device.ip_address,
-                        data={
-                            CONF_HOST: device.ip_address,
-                            CONF_CPP_ID: device.cpp_id,
-                            CONF_MODEL: device.model_name,
-                            CONF_DEVICE_ID: device.cpp_id,
-                            CONF_CLIENT_ID: device.client_id,
-                            CONF_CLIENT_SECRET: device.client_secret,
-                            CONF_USE_HTTPS: device.use_https,
-                        },
+                        data=entry_data,
                     )
                 else:
                     errors["base"] = "pairing_failed"
@@ -237,6 +245,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             client_id = user_input.get(CONF_CLIENT_ID, "").strip()
             client_secret = user_input.get(CONF_CLIENT_SECRET, "").strip()
+            encryption_key = user_input.get(CONF_ENCRYPTION_KEY, "").strip()
 
             if not client_id or not client_secret:
                 errors["base"] = "missing_credentials"
@@ -246,23 +255,32 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._local_api = PhilipsLocalAPI()
                     device.client_id = client_id
                     device.client_secret = client_secret
+                    if encryption_key:
+                        device.encryption_key = encryption_key
+
+                    # For HTTP devices without encryption key, try key exchange
+                    if not device.use_https and not device.encryption_key:
+                        await self._local_api.exchange_encryption_key(device)
 
                     # Try to make a request with these credentials
                     info = await self._local_api.get_device_info(device)
                     if info:
+                        entry_data = {
+                            CONF_HOST: device.ip_address,
+                            CONF_CPP_ID: device.cpp_id,
+                            CONF_MODEL: device.model_name,
+                            CONF_DEVICE_ID: device.cpp_id,
+                            CONF_CLIENT_ID: client_id,
+                            CONF_CLIENT_SECRET: client_secret,
+                            CONF_USE_HTTPS: device.use_https,
+                        }
+                        if device.encryption_key:
+                            entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
                         return self.async_create_entry(
                             title=device.friendly_name
                             or device.model_name
                             or device.ip_address,
-                            data={
-                                CONF_HOST: device.ip_address,
-                                CONF_CPP_ID: device.cpp_id,
-                                CONF_MODEL: device.model_name,
-                                CONF_DEVICE_ID: device.cpp_id,
-                                CONF_CLIENT_ID: client_id,
-                                CONF_CLIENT_SECRET: client_secret,
-                                CONF_USE_HTTPS: device.use_https,
-                            },
+                            data=entry_data,
                         )
                     else:
                         errors["base"] = "invalid_credentials"
@@ -280,6 +298,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_CLIENT_ID): str,
                     vol.Required(CONF_CLIENT_SECRET): str,
+                    vol.Optional(CONF_ENCRYPTION_KEY, default=""): str,
                 }
             ),
             description_placeholders={

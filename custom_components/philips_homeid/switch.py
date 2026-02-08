@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Switch platform for Philips HomeID."""
+
 from __future__ import annotations
 
 import logging
@@ -58,7 +59,9 @@ async def async_setup_entry(
     # Note: Airfryers don't have a power switch - they use start/stop buttons
     # Air purifiers use the fan entity for on/off control
     if device_type == "air_purifier":
-        entities.append(PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id))
+        entities.append(
+            PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
+        )
 
     if entities:
         async_add_entities(entities)

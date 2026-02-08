@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Number platform for Philips HomeID."""
+
 from __future__ import annotations
 
 import logging
@@ -53,7 +54,9 @@ class PhilipsHomeIDNumberEntityDescription(NumberEntityDescription):
 
     property_key: str | None = None
     nested_key: str | None = None  # For nested properties like airfryer.temp
-    set_fn: Callable[[PhilipsHomeIDCoordinator, float], Coroutine[Any, Any, bool]] | None = None
+    set_fn: (
+        Callable[[PhilipsHomeIDCoordinator, float], Coroutine[Any, Any, bool]] | None
+    ) = None
     available_key: str | None = None  # Key to check for availability
 
 
@@ -103,14 +106,18 @@ async def async_setup_entry(
     device_type = get_device_type(model_name)
 
     if device_type not in ("airfryer", "airfryer_dual"):
-        _LOGGER.debug("Skipping number entities for non-airfryer device: %s", model_name)
+        _LOGGER.debug(
+            "Skipping number entities for non-airfryer device: %s", model_name
+        )
         return
 
     entities: list[PhilipsHomeIDNumber] = []
 
     # Add airfryer number entities
     for description in AIRFRYER_NUMBERS:
-        entities.append(PhilipsHomeIDNumber(coordinator, description, coordinator.device_id))
+        entities.append(
+            PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
+        )
 
     async_add_entities(entities)
 

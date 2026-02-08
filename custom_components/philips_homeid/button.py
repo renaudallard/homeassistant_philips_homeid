@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Button platform for Philips HomeID."""
+
 from __future__ import annotations
 
 import logging
@@ -46,7 +47,9 @@ _LOGGER = logging.getLogger(__name__)
 class PhilipsHomeIDButtonEntityDescription(ButtonEntityDescription):
     """Describes Philips HomeID button entity."""
 
-    press_fn: Callable[[PhilipsHomeIDCoordinator], Coroutine[Any, Any, bool]] | None = None
+    press_fn: Callable[[PhilipsHomeIDCoordinator], Coroutine[Any, Any, bool]] | None = (
+        None
+    )
     available_key: str | None = None  # Nested key to check for availability
 
 
@@ -89,14 +92,18 @@ async def async_setup_entry(
     device_type = get_device_type(model_name)
 
     if device_type not in ("airfryer", "airfryer_dual"):
-        _LOGGER.debug("Skipping button entities for non-airfryer device: %s", model_name)
+        _LOGGER.debug(
+            "Skipping button entities for non-airfryer device: %s", model_name
+        )
         return
 
     entities: list[PhilipsHomeIDButton] = []
 
     # Add airfryer buttons
     for description in AIRFRYER_BUTTONS:
-        entities.append(PhilipsHomeIDButton(coordinator, description, coordinator.device_id))
+        entities.append(
+            PhilipsHomeIDButton(coordinator, description, coordinator.device_id)
+        )
 
     async_add_entities(entities)
 

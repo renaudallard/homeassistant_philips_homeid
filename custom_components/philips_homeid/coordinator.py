@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Data update coordinator for Philips HomeID."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -71,7 +72,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
         self._seen_properties: set[str] = set()  # Track all properties ever seen
-        self._new_properties_callbacks: list[callable] = []  # Callbacks for new properties
+        self._new_properties_callbacks: list[
+            callable
+        ] = []  # Callbacks for new properties
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -79,7 +82,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if not airfryer or not isinstance(airfryer, dict):
             return False
         status = airfryer.get("status", "")
-        return status in (AIRFRYER_STATUS_COOKING, AIRFRYER_STATUS_PAUSED, AIRFRYER_STATUS_SETTING)
+        return status in (
+            AIRFRYER_STATUS_COOKING,
+            AIRFRYER_STATUS_PAUSED,
+            AIRFRYER_STATUS_SETTING,
+        )
 
     def _update_polling_interval(self, state: LocalDeviceState | None) -> None:
         """Adjust polling interval based on device state."""
@@ -125,7 +132,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
                 return state
             else:
-                _LOGGER.warning("No response from device at %s", self.device_info.ip_address)
+                _LOGGER.warning(
+                    "No response from device at %s", self.device_info.ip_address
+                )
                 # Return cached state if available
                 return self._state
 
@@ -262,12 +271,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return f"{nested_key}.{property_key}"
         return property_key
 
-    def is_property_seen(self, property_key: str, nested_key: str | None = None) -> bool:
+    def is_property_seen(
+        self, property_key: str, nested_key: str | None = None
+    ) -> bool:
         """Check if a property has ever been seen."""
         key = self._get_property_key(property_key, nested_key)
         return key in self._seen_properties
 
-    def mark_property_seen(self, property_key: str, nested_key: str | None = None) -> None:
+    def mark_property_seen(
+        self, property_key: str, nested_key: str | None = None
+    ) -> None:
         """Mark a property as seen (entity created for it)."""
         key = self._get_property_key(property_key, nested_key)
         self._seen_properties.add(key)
@@ -285,7 +298,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         return unregister
 
-    def _check_for_new_properties(self, state: LocalDeviceState) -> list[tuple[str, str | None]]:
+    def _check_for_new_properties(
+        self, state: LocalDeviceState
+    ) -> list[tuple[str, str | None]]:
         """Check for new properties that haven't been seen before.
 
         Returns list of (property_key, nested_key) tuples for new properties.
@@ -308,7 +323,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         return new_properties
 
-    def _notify_new_properties(self, new_properties: list[tuple[str, str | None]]) -> None:
+    def _notify_new_properties(
+        self, new_properties: list[tuple[str, str | None]]
+    ) -> None:
         """Notify callbacks about new properties."""
         if not new_properties or not self._new_properties_callbacks:
             return

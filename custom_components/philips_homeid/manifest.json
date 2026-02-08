@@ -10,10 +10,14 @@
     "aiohttp>=3.8.0",
     "qrcode>=7.0"
   ],
-  "version": "1.0.2",
+  "version": "1.0.3",
   "zeroconf": [
     {
       "type": "_philipscondor._tcp.local."
+    },
+    {
+      "type": "_http._tcp.local.",
+      "name": "philips_*"
     }
   ],
   "ssdp": [

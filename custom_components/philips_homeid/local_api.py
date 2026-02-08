@@ -76,6 +76,8 @@ class LocalDeviceInfo:
     boot_id: str = ""
     protocol_version: int = 1
     product_id: int = 1
+    # Connection protocol
+    use_https: bool = True  # False for devices that use HTTP (e.g., HD9285)
     # Authentication credentials (obtained during pairing)
     client_id: str | None = None
     client_secret: str | None = None
@@ -201,10 +203,15 @@ class PhilipsLocalAPI:
             await self._session.close()
             self._session = None
 
+    @staticmethod
+    def _scheme(device: LocalDeviceInfo) -> str:
+        """Return URL scheme for a device."""
+        return "https" if device.use_https else "http"
+
     def _build_url(self, device: LocalDeviceInfo, port_name: str) -> str:
         """Build URL for device endpoint."""
         return (
-            f"https://{device.ip_address}/di/v{device.protocol_version}"
+            f"{self._scheme(device)}://{device.ip_address}/di/v{device.protocol_version}"
             f"/products/{device.product_id}/{port_name}"
         )
 
@@ -423,9 +430,7 @@ class PhilipsLocalAPI:
         session = await self._get_session()
 
         # Wi-Fi port is on product 0
-        url = (
-            f"https://{device.ip_address}/di/v{device.protocol_version}/products/0/wifi"
-        )
+        url = f"{self._scheme(device)}://{device.ip_address}/di/v{device.protocol_version}/products/0/wifi"
 
         headers = {"Content-Type": "application/json"}
         data = {"ssid": ssid, "password": password}
@@ -454,7 +459,7 @@ class PhilipsLocalAPI:
         This may not work on all devices but is worth trying before factory reset.
         """
         session = await self._get_session()
-        url = f"https://{device.ip_address}/auth/v{device.protocol_version}/"
+        url = f"{self._scheme(device)}://{device.ip_address}/auth/v{device.protocol_version}/"
 
         try:
             _LOGGER.info("Attempting to clear pairing via DELETE %s", url)
@@ -497,7 +502,7 @@ class PhilipsLocalAPI:
         }
 
         # Use PUT to /auth/v{version}/ - this is the correct endpoint based on APK analysis
-        url = f"https://{device.ip_address}/auth/v{device.protocol_version}/"
+        url = f"{self._scheme(device)}://{device.ip_address}/auth/v{device.protocol_version}/"
 
         try:
             # Step 1: Initial request to get seed
@@ -657,16 +662,15 @@ class PhilipsLocalAPI:
             _LOGGER.debug("Probe unexpected error for %s: %s", url, err)
             return None, None
 
-    async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
-        """Probe a device at the given IP to get its information.
+    async def _probe_with_protocol(
+        self, device: LocalDeviceInfo
+    ) -> LocalDeviceInfo | None:
+        """Try probing a device with its current protocol setting.
 
-        Tries multiple product IDs and endpoints. A 401 response is treated
-        as "device found but needs authentication" rather than a failure.
+        Returns the device if found, None otherwise.
         """
-        device = LocalDeviceInfo(
-            ip_address=ip_address,
-            cpp_id="",
-        )
+        ip_address = device.ip_address
+        protocol = "HTTPS" if device.use_https else "HTTP"
 
         # Try device info endpoint with product_id 1 and 0
         for product_id in (1, 0):
@@ -674,7 +678,11 @@ class PhilipsLocalAPI:
             info, status = await self._probe_request(device, PORT_DEVICE)
             if info:
                 _LOGGER.info(
-                    "Probed device at %s (product %d): %s", ip_address, product_id, info
+                    "Probed device at %s via %s (product %d): %s",
+                    ip_address,
+                    protocol,
+                    product_id,
+                    info,
                 )
                 device.cpp_id = info.get("DeviceId", info.get("cppId", ""))
                 device.model_name = info.get("modelid", info.get("ModelName", ""))
@@ -684,9 +692,10 @@ class PhilipsLocalAPI:
                 return device
             if status == 401:
                 _LOGGER.info(
-                    "Device at %s responded with 401 on product %d - "
+                    "Device at %s responded with 401 via %s on product %d - "
                     "device found but requires authentication",
                     ip_address,
+                    protocol,
                     product_id,
                 )
                 device.product_id = DEFAULT_PRODUCT_ID
@@ -696,17 +705,43 @@ class PhilipsLocalAPI:
         device.product_id = DEFAULT_PRODUCT_ID
         status_data, status = await self._probe_request(device, PORT_STATUS)
         if status_data:
-            _LOGGER.info("Got status from %s: %s", ip_address, status_data)
+            _LOGGER.info(
+                "Got status from %s via %s: %s", ip_address, protocol, status_data
+            )
             return device
         if status == 401:
             _LOGGER.info(
-                "Device at %s responded with 401 on status - "
+                "Device at %s responded with 401 via %s on status - "
                 "device found but requires authentication",
                 ip_address,
+                protocol,
             )
             return device
 
         return None
+
+    async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
+        """Probe a device at the given IP to get its information.
+
+        Tries HTTPS first (port 443), then falls back to HTTP (port 80).
+        Tries multiple product IDs and endpoints. A 401 response is treated
+        as "device found but needs authentication" rather than a failure.
+        """
+        device = LocalDeviceInfo(
+            ip_address=ip_address,
+            cpp_id="",
+            use_https=True,
+        )
+
+        # Try HTTPS first
+        result = await self._probe_with_protocol(device)
+        if result:
+            return result
+
+        # Fall back to HTTP
+        _LOGGER.info("HTTPS probe failed for %s, trying HTTP", ip_address)
+        device.use_https = False
+        return await self._probe_with_protocol(device)
 
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""
@@ -792,27 +827,40 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         return None
 
 
+def _parse_model_from_mdns_name(name: str) -> str:
+    """Extract model number from mDNS name like PHILIPS_HD9285_2_21D740."""
+    parts = name.split("_")
+    if len(parts) >= 2 and parts[0].upper() == "PHILIPS":
+        return parts[1]  # e.g., "HD9285"
+    return ""
+
+
 def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
     """Parse Zeroconf/mDNS discovery info into LocalDeviceInfo.
 
-    Zeroconf properties from Philips devices:
-    - fn: friendly name
-    - mn: model name
-    - mr: model reference/number
-    - id: device ID (MAC-style)
-    - bi: boot ID
+    Supports two discovery formats:
+    1. _philipscondor._tcp.local. - properties: fn, mn, mr, id, bi
+    2. _http._tcp.local. - name like PHILIPS_HD9285_2_21D740, uses HTTP
     """
     try:
         host = discovery_info.get("host", "")
         name = discovery_info.get("name", "")
         properties = discovery_info.get("properties", {})
+        service_type = discovery_info.get("type", "")
 
-        # Properties from Philips devices use short keys
+        # Detect HTTP-based devices (e.g., HD9285)
+        is_http_device = "_http._tcp" in service_type or "_http._tcp" in name
+
+        # Properties from _philipscondor devices use short keys
         cpp_id = properties.get("id", "")
         friendly_name = properties.get("fn", "")
         model_name = properties.get("mn", "")
         model_number = properties.get("mr", "")
         boot_id = properties.get("bi", "")
+
+        # For _http._tcp devices, extract model from mDNS name
+        if is_http_device and not model_name:
+            model_name = _parse_model_from_mdns_name(name.split("._")[0])
 
         # Use "modelName modelNumber" as name if friendlyName is generic placeholder
         if not friendly_name or friendly_name in (
@@ -823,9 +871,13 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
 
         # Fallback: extract from mDNS name if still no friendly name
         if not friendly_name:
-            friendly_name = (
-                name.split("._philipscondor")[0] if "._philipscondor" in name else name
-            )
+            # Strip service type suffix to get the device name part
+            for suffix in ("._philipscondor", "._http"):
+                if suffix in name:
+                    friendly_name = name.split(suffix)[0]
+                    break
+            else:
+                friendly_name = name
 
         device = LocalDeviceInfo(
             ip_address=host,
@@ -834,13 +886,15 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
             model_name=model_name,
             model_number=model_number,
             boot_id=boot_id,
+            use_https=not is_http_device,
         )
 
         _LOGGER.info(
-            "Parsed Zeroconf device: %s at %s (model: %s)",
+            "Parsed Zeroconf device: %s at %s (model: %s, https: %s)",
             friendly_name,
             host,
             model_name,
+            device.use_https,
         )
         return device
 

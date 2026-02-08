@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Sensor platform for Philips HomeID."""
+
 from __future__ import annotations
 
 import logging
@@ -444,7 +445,9 @@ async def async_setup_entry(
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    _LOGGER.debug("Setting up sensors for device type: %s (model: %s)", device_type, model_name)
+    _LOGGER.debug(
+        "Setting up sensors for device type: %s (model: %s)", device_type, model_name
+    )
 
     # Build a mapping of property keys to sensor descriptions for this device type
     property_to_description: dict[str, PhilipsHomeIDSensorEntityDescription] = {}
@@ -453,7 +456,9 @@ async def async_setup_entry(
             if device_type not in description.device_types:
                 continue
         if description.property_key:
-            key = coordinator._get_property_key(description.property_key, description.nested_key)
+            key = coordinator._get_property_key(
+                description.property_key, description.nested_key
+            )
             property_to_description[key] = description
 
     entities: list[PhilipsHomeIDSensor] = []
@@ -466,7 +471,9 @@ async def async_setup_entry(
                 continue
 
         # Only create sensor if the property exists in device state
-        if not coordinator.has_property(description.property_key, description.nested_key):
+        if not coordinator.has_property(
+            description.property_key, description.nested_key
+        ):
             _LOGGER.debug(
                 "Skipping sensor %s - property %s not found in device state",
                 description.key,
@@ -476,9 +483,13 @@ async def async_setup_entry(
 
         # Mark property as seen
         if description.property_key:
-            coordinator.mark_property_seen(description.property_key, description.nested_key)
+            coordinator.mark_property_seen(
+                description.property_key, description.nested_key
+            )
 
-        entities.append(PhilipsHomeIDSensor(coordinator, description, coordinator.device_id))
+        entities.append(
+            PhilipsHomeIDSensor(coordinator, description, coordinator.device_id)
+        )
 
     _LOGGER.info("Created %d sensors for %s", len(entities), model_name)
     async_add_entities(entities)
@@ -492,7 +503,9 @@ async def async_setup_entry(
             key = coordinator._get_property_key(property_key, nested_key)
             description = property_to_description.get(key)
 
-            if description and not coordinator.is_property_seen(property_key, nested_key):
+            if description and not coordinator.is_property_seen(
+                property_key, nested_key
+            ):
                 _LOGGER.info(
                     "Creating sensor %s for newly discovered property %s",
                     description.key,

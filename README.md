@@ -1,7 +1,7 @@
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
-[![Release](https://img.shields.io/badge/release-v1.0.2-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.3-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
@@ -152,6 +152,7 @@ Devices discovered via Zeroconf or SSDP will appear automatically. If the device
 - Verify the IP address is correct
 - Check that the device is powered on and connected
 - If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
+- Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
 
 ### Pairing Fails
 If the device is already paired with the Philips HomeID app, you need to extract credentials manually:
@@ -184,9 +185,9 @@ If the device is already paired with the Philips HomeID app, you need to extract
 
 | Aspect | Details |
 |--------|---------|
-| Protocol | HTTPS with self-signed certificates |
+| Protocol | HTTPS (port 443) or HTTP (port 80) depending on device model/firmware |
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
-| Discovery | Zeroconf (`_philipscondor._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
+| Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 
 ---
 

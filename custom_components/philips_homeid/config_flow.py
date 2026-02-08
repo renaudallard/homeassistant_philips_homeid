@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Config flow for Philips HomeID integration."""
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ from .const import (
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_MODEL,
+    CONF_USE_HTTPS,
     DOMAIN,
 )
 from .local_api import (
@@ -69,7 +71,6 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): str,
     }
 )
-
 
 
 class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -163,7 +164,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._local_api = PhilipsLocalAPI()
 
                 # First try to clear existing pairing
-                clear_success, clear_msg = await self._local_api.try_clear_pairing(device)
+                clear_success, clear_msg = await self._local_api.try_clear_pairing(
+                    device
+                )
                 if clear_success:
                     _LOGGER.info("Cleared existing pairing: %s", clear_msg)
 
@@ -172,7 +175,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if success:
                     return self.async_create_entry(
-                        title=device.friendly_name or device.model_name or device.ip_address,
+                        title=device.friendly_name
+                        or device.model_name
+                        or device.ip_address,
                         data={
                             CONF_HOST: device.ip_address,
                             CONF_CPP_ID: device.cpp_id,
@@ -180,6 +185,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_DEVICE_ID: device.cpp_id,
                             CONF_CLIENT_ID: device.client_id,
                             CONF_CLIENT_SECRET: device.client_secret,
+                            CONF_USE_HTTPS: device.use_https,
                         },
                     )
                 else:
@@ -209,9 +215,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="pair",
-            data_schema=vol.Schema({
-                vol.Optional("manual_entry", default=False): bool,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("manual_entry", default=False): bool,
+                }
+            ),
             description_placeholders={
                 "name": device.friendly_name or device.model_name or "Unknown Device",
                 "instructions": instructions + error_message,
@@ -243,7 +251,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     info = await self._local_api.get_device_info(device)
                     if info:
                         return self.async_create_entry(
-                            title=device.friendly_name or device.model_name or device.ip_address,
+                            title=device.friendly_name
+                            or device.model_name
+                            or device.ip_address,
                             data={
                                 CONF_HOST: device.ip_address,
                                 CONF_CPP_ID: device.cpp_id,
@@ -251,6 +261,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 CONF_DEVICE_ID: device.cpp_id,
                                 CONF_CLIENT_ID: client_id,
                                 CONF_CLIENT_SECRET: client_secret,
+                                CONF_USE_HTTPS: device.use_https,
                             },
                         )
                     else:
@@ -265,10 +276,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="manual_credentials",
-            data_schema=vol.Schema({
-                vol.Required(CONF_CLIENT_ID): str,
-                vol.Required(CONF_CLIENT_SECRET): str,
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CLIENT_ID): str,
+                    vol.Required(CONF_CLIENT_SECRET): str,
+                }
+            ),
             description_placeholders={
                 "name": device.friendly_name or device.model_name or "Unknown Device",
             },
@@ -282,11 +295,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info("Zeroconf discovery: %s", discovery_info)
 
         # Parse discovery info
-        device = parse_zeroconf_device({
-            "host": str(discovery_info.host),
-            "name": discovery_info.name,
-            "properties": discovery_info.properties,
-        })
+        device = parse_zeroconf_device(
+            {
+                "host": str(discovery_info.host),
+                "name": discovery_info.name,
+                "properties": discovery_info.properties,
+                "type": discovery_info.type,
+            }
+        )
 
         if not device:
             return self.async_abort(reason="cannot_connect")
@@ -323,23 +339,23 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_ssdp(
-        self, discovery_info: ssdp.SsdpServiceInfo
-    ) -> FlowResult:
+    async def async_step_ssdp(self, discovery_info: ssdp.SsdpServiceInfo) -> FlowResult:
         """Handle SSDP discovery."""
         _LOGGER.info("SSDP discovery: %s", discovery_info)
 
         # Parse discovery info - use keys directly from upnp dict
         upnp = discovery_info.upnp
-        device = parse_ssdp_device({
-            "location": discovery_info.ssdp_location or "",
-            "udn": upnp.get("UDN", ""),
-            "friendlyName": upnp.get("friendlyName", ""),
-            "modelName": upnp.get("modelName", ""),
-            "modelNumber": upnp.get("modelNumber", ""),
-            "serialNumber": upnp.get("serialNumber", ""),
-            "cppId": upnp.get("cppId", ""),
-        })
+        device = parse_ssdp_device(
+            {
+                "location": discovery_info.ssdp_location or "",
+                "udn": upnp.get("UDN", ""),
+                "friendlyName": upnp.get("friendlyName", ""),
+                "modelName": upnp.get("modelName", ""),
+                "modelNumber": upnp.get("modelNumber", ""),
+                "serialNumber": upnp.get("serialNumber", ""),
+                "cppId": upnp.get("cppId", ""),
+            }
+        )
 
         if not device:
             return self.async_abort(reason="cannot_connect")

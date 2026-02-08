@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """The Philips HomeID integration."""
+
 from __future__ import annotations
 
 import logging
@@ -37,6 +38,7 @@ from .const import (
     CONF_CLIENT_SECRET,
     CONF_CPP_ID,
     CONF_MODEL,
+    CONF_USE_HTTPS,
     DOMAIN,
 )
 from .coordinator import PhilipsHomeIDCoordinator
@@ -69,6 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     model = entry.data.get(CONF_MODEL, "")
     client_id = entry.data.get(CONF_CLIENT_ID)
     client_secret = entry.data.get(CONF_CLIENT_SECRET)
+    use_https = entry.data.get(CONF_USE_HTTPS, True)
 
     if not host:
         _LOGGER.error("No host configured for device")
@@ -79,6 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ip_address=host,
         cpp_id=cpp_id,
         model_name=model,
+        use_https=use_https,
         client_id=client_id,
         client_secret=client_secret,
     )
@@ -97,6 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 device_info.model_name = probed.model_name
             if probed.friendly_name:
                 device_info.friendly_name = probed.friendly_name
+            device_info.use_https = probed.use_https
             _LOGGER.info(
                 "Connected to device %s at %s (model: %s)",
                 device_info.friendly_name or device_info.cpp_id,
@@ -104,7 +109,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 device_info.model_name,
             )
         else:
-            _LOGGER.warning("Could not probe device at %s, will try polling anyway", host)
+            _LOGGER.warning(
+                "Could not probe device at %s, will try polling anyway", host
+            )
     except Exception as err:
         _LOGGER.error("Failed to connect to device at %s: %s", host, err)
         await api.close()

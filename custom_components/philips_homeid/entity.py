@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 """Base entity for Philips HomeID integration."""
+
 from __future__ import annotations
 
 import logging
@@ -55,7 +56,9 @@ class PhilipsHomeIDEntity(CoordinatorEntity[PhilipsHomeIDCoordinator]):
 
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
-            name=device_info.friendly_name or device_info.model_name or device_info.ip_address,
+            name=device_info.friendly_name
+            or device_info.model_name
+            or device_info.ip_address,
             manufacturer="Philips",
             model=device_info.model_name or device_info.model_number,
         )

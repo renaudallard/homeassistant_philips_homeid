@@ -11,7 +11,7 @@
     "cryptography>=41.0.0",
     "qrcode>=7.0"
   ],
-  "version": "1.0.4",
+  "version": "1.0.5",
   "zeroconf": [
     {
       "type": "_philipscondor._tcp.local."

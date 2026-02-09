@@ -827,6 +827,7 @@ class PhilipsLocalAPI:
     ) -> LocalDeviceInfo | None:
         """Try probing a device with its current protocol setting.
 
+        Any HTTP response (even 401/501) means the device is reachable.
         Returns the device if found, None otherwise.
         """
         ip_address = device.ip_address
@@ -850,11 +851,12 @@ class PhilipsLocalAPI:
                 device.friendly_name = info.get("name", info.get("FriendlyName", ""))
                 device.product_id = DEFAULT_PRODUCT_ID
                 return device
-            if status == 401:
+            if status is not None:
+                # Any HTTP response means the device is reachable
                 _LOGGER.info(
-                    "Device at %s responded with 401 via %s on product %d - "
-                    "device found but requires authentication",
+                    "Device at %s responded with %s via %s on product %d",
                     ip_address,
+                    status,
                     protocol,
                     product_id,
                 )
@@ -869,11 +871,11 @@ class PhilipsLocalAPI:
                 "Got status from %s via %s: %s", ip_address, protocol, status_data
             )
             return device
-        if status == 401:
+        if status is not None:
             _LOGGER.info(
-                "Device at %s responded with 401 via %s on status - "
-                "device found but requires authentication",
+                "Device at %s responded with %s via %s on status",
                 ip_address,
+                status,
                 protocol,
             )
             return device

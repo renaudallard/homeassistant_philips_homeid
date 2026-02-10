@@ -53,6 +53,7 @@ PORT_AIR = "air"
 PORT_FLTSTS = "fltsts"  # Filter status
 PORT_DEVICE = "device"
 PORT_SECURITY = "security"
+PORT_FIRMWARE = "firmware"
 
 # Airfryer-specific port (product_id=1, port=airfryer)
 PORT_AIRFRYER = "airfryer"
@@ -500,6 +501,19 @@ class PhilipsLocalAPI:
             device.product_id = saved_product_id
         return None
 
+    async def get_firmware_info(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
+        """Get firmware version info from device.
+
+        The firmware port uses product_id=0, so we temporarily switch.
+        Returns dict with 'version' (installed) and optionally 'upgrade' (available).
+        """
+        saved_product_id = device.product_id
+        device.product_id = 0
+        try:
+            return await self._request(device, PORT_FIRMWARE)
+        finally:
+            device.product_id = saved_product_id
+
     async def set_power(self, device: LocalDeviceInfo, power_on: bool) -> bool:
         """Set device power state."""
         data = {"pwr": "1" if power_on else "0"}
@@ -938,6 +952,11 @@ class PhilipsLocalAPI:
         filters = await self.get_filter_status(device)
         if filters:
             state.properties["filters"] = filters
+
+        # Get firmware version info
+        firmware = await self.get_firmware_info(device)
+        if firmware:
+            state.properties["firmware"] = firmware
 
         return state
 

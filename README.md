@@ -170,6 +170,8 @@ Some devices don't write credentials to the SQLite database. In that case, crede
 | Sensor | Total Runtime | Device runtime in hours |
 | Sensor | Mode / Fan Speed | Current settings |
 | Sensor | Error Code | Device error status |
+| Sensor | Firmware Version | Installed firmware version |
+| Sensor | Firmware Available | Available firmware upgrade |
 | Binary Sensor | Filter Replace Required | Filter needs replacement |
 | Binary Sensor | Water Tank Empty | Water tank status |
 | Switch | Child Lock | Child lock control |
@@ -187,6 +189,8 @@ Some devices don't write credentials to the SQLite database. In that case, crede
 | Sensor | Preset / Recipe | Selected program |
 | Sensor | Preheat Status / Keep Warm | Cooking modes |
 | Sensor | Error Code | Device error status |
+| Sensor | Firmware Version | Installed firmware version |
+| Sensor | Firmware Available | Available firmware upgrade |
 | Binary Sensor | Drawer | Drawer open/closed |
 | Binary Sensor | Shake / Flip Reminder | Food reminders |
 | Binary Sensor | Preheat Active | Preheat cycle status |

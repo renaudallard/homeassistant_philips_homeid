@@ -164,6 +164,12 @@
       },
       "airfryer_right_time": {
         "name": "Right Basket Time"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
+      },
+      "firmware_available": {
+        "name": "Firmware Available"
       }
     },
     "binary_sensor": {

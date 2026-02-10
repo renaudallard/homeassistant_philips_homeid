@@ -42,6 +42,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
     CONCENTRATION_PARTS_PER_BILLION,
+    EntityCategory,
     PERCENTAGE,
     UnitOfTemperature,
     UnitOfTime,
@@ -429,8 +430,30 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     ),
 )
 
+# Sensors common to all device types
+COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
+    PhilipsHomeIDSensorEntityDescription(
+        key="firmware_version",
+        translation_key="firmware_version",
+        property_key="version",
+        nested_key="firmware",
+        icon="mdi:information-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("air_purifier", "airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="firmware_available",
+        translation_key="firmware_available",
+        property_key="upgrade",
+        nested_key="firmware",
+        icon="mdi:update",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("air_purifier", "airfryer", "airfryer_dual"),
+    ),
+)
+
 # All sensors combined
-SENSORS = AIR_PURIFIER_SENSORS + AIRFRYER_SENSORS
+SENSORS = AIR_PURIFIER_SENSORS + AIRFRYER_SENSORS + COMMON_SENSORS
 
 
 async def async_setup_entry(

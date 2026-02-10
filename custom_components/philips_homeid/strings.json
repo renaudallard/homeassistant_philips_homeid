@@ -101,6 +101,12 @@
       },
       "airfryer_error": {
         "name": "Error Code"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
+      },
+      "firmware_available": {
+        "name": "Firmware Available"
       }
     },
     "binary_sensor": {

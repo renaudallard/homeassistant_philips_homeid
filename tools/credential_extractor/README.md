@@ -168,8 +168,8 @@ These checks prevent the extractor from corrupting your data. The app's SecurePr
 ### Method 3: "[WARN]" messages for credential keys
 Tink decryption is failing for individual keys. This is usually caused by SELinux context issues. The script tries to use `runcon` to switch to the app's SELinux context, but if the app isn't running or the context switch fails, `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try launching the Philips app first (so the script can find its context), or use `setenforce 0` temporarily.
 
-### "runcon to app context denied"
-The script found the app's SELinux context but `runcon` was denied. This can happen if Magisk's SELinux policy doesn't allow domain transitions. The script automatically falls back to running under the current context. If Methods 2/3 fail with Keystore errors, try `setenforce 0` temporarily.
+### "runcon failed, retrying without SELinux context switch"
+The script found the app's SELinux context but `runcon` failed (e.g., SELinux policy denied executing `app_process` from the app's domain). The script automatically retries without `runcon`. If Methods 2/3 still fail with Keystore errors, try launching the Philips app before running the extractor, or use `setenforce 0` temporarily.
 
 ### No credentials found in any method
 The app might not have stored any credentials yet. Make sure you've:

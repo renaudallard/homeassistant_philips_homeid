@@ -58,17 +58,12 @@ fi
 # SELinux denials when accessing AndroidKeyStore crypto operations.
 APP_SECONTEXT=""
 if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
-    # Best: grab context from the running app process
+    # Grab context from the running app process.
+    # pidof may return multiple space-separated PIDs — take the first.
     APP_PID=$(pidof "$PKG" 2>/dev/null)
+    APP_PID=${APP_PID%% *}
     if [ -n "$APP_PID" ]; then
         APP_SECONTEXT=$(cat "/proc/$APP_PID/attr/current" 2>/dev/null)
-    fi
-    # Fallback: look up the context from seapp_contexts via the app's seinfo
-    if [ -z "$APP_SECONTEXT" ]; then
-        # ps -o LABEL on Android shows the SELinux context
-        # Try to find any process with the app's UID for reference
-        APP_SECONTEXT=$(ps -eo label,user 2>/dev/null | grep "^u:r:" \
-            | grep "u${APP_UID}_" | head -1 | awk '{print $1}')
     fi
 fi
 
@@ -93,38 +88,42 @@ echo ""
 # - SuperSU/others: su <uid> -c may fail with "Cannot execute -c"
 # Using a script file is compatible with all implementations.
 #
-# If we found the app's SELinux context, test if runcon works before
-# using it for the real command. This avoids duplicate output from a
-# failed retry.
-USE_RUNCON=""
-if [ -n "$APP_SECONTEXT" ]; then
-    if runcon "$APP_SECONTEXT" id >/dev/null 2>&1; then
-        USE_RUNCON=1
-    else
-        echo "[WARN] runcon to app context denied, running under current context"
-        echo ""
-    fi
-fi
-
+# If we found the app's SELinux context, try running with runcon first.
+# The Java extractor always exits 0 (catches all exceptions), so any
+# non-zero exit means the process didn't start (e.g. runcon denied the
+# exec on app_process) — safe to retry without runcon.
 RUNNER="/data/local/tmp/_extract_run.sh"
 MAC_ARG="$1"
-if [ -n "$USE_RUNCON" ]; then
+
+if [ -n "$APP_SECONTEXT" ]; then
     cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
 exec runcon $APP_SECONTEXT app_process / ExtractCreds $MAC_ARG
 SCRIPT
-else
+    chmod 755 "$RUNNER"
+    su "$APP_UID" "$RUNNER" 2>&1
+    EXIT_CODE=$?
+
+    if [ "$EXIT_CODE" != "0" ]; then
+        echo ""
+        echo "[WARN] runcon failed (exit $EXIT_CODE), retrying without SELinux context switch..."
+        echo ""
+        APP_SECONTEXT=""
+    fi
+fi
+
+if [ -z "$APP_SECONTEXT" ]; then
     cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
 exec app_process / ExtractCreds $MAC_ARG
 SCRIPT
+    chmod 755 "$RUNNER"
+    su "$APP_UID" "$RUNNER" 2>&1
+    EXIT_CODE=$?
 fi
-chmod 755 "$RUNNER"
 
-su "$APP_UID" "$RUNNER" 2>&1
-EXIT_CODE=$?
 rm -f "$RUNNER"
 
 if [ "$EXIT_CODE" != "0" ]; then

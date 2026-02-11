@@ -53,9 +53,33 @@ if [ -z "$APK_PATH" ]; then
     exit 1
 fi
 
+# Try to find the app's SELinux context for runcon.
+# Running under the app's context instead of u:r:magisk:s0 avoids
+# SELinux denials when accessing AndroidKeyStore crypto operations.
+APP_SECONTEXT=""
+if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
+    # Best: grab context from the running app process
+    APP_PID=$(pidof "$PKG" 2>/dev/null)
+    if [ -n "$APP_PID" ]; then
+        APP_SECONTEXT=$(cat "/proc/$APP_PID/attr/current" 2>/dev/null)
+    fi
+    # Fallback: look up the context from seapp_contexts via the app's seinfo
+    if [ -z "$APP_SECONTEXT" ]; then
+        # ps -o LABEL on Android shows the SELinux context
+        # Try to find any process with the app's UID for reference
+        APP_SECONTEXT=$(ps -eo label,user 2>/dev/null | grep "^u:r:" \
+            | grep "u${APP_UID}_" | head -1 | awk '{print $1}')
+    fi
+fi
+
 echo "Package:  $PKG"
 echo "UID:      $APP_UID"
 echo "APK:      $APK_PATH"
+if [ -n "$APP_SECONTEXT" ]; then
+    echo "SELinux:  $APP_SECONTEXT (from app)"
+else
+    echo "SELinux:  $(cat /proc/self/attr/current 2>/dev/null || echo 'unknown')"
+fi
 echo ""
 
 # Run the extractor as the app's UID
@@ -68,13 +92,35 @@ echo ""
 # - Magisk: su <uid> -c 'cmd' works
 # - SuperSU/others: su <uid> -c may fail with "Cannot execute -c"
 # Using a script file is compatible with all implementations.
+#
+# If we found the app's SELinux context, test if runcon works before
+# using it for the real command. This avoids duplicate output from a
+# failed retry.
+USE_RUNCON=""
+if [ -n "$APP_SECONTEXT" ]; then
+    if runcon "$APP_SECONTEXT" id >/dev/null 2>&1; then
+        USE_RUNCON=1
+    else
+        echo "[WARN] runcon to app context denied, running under current context"
+        echo ""
+    fi
+fi
+
 RUNNER="/data/local/tmp/_extract_run.sh"
 MAC_ARG="$1"
-cat > "$RUNNER" << SCRIPT
+if [ -n "$USE_RUNCON" ]; then
+    cat > "$RUNNER" << SCRIPT
+#!/system/bin/sh
+export CLASSPATH=$DEX
+exec runcon $APP_SECONTEXT app_process / ExtractCreds $MAC_ARG
+SCRIPT
+else
+    cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
 exec app_process / ExtractCreds $MAC_ARG
 SCRIPT
+fi
 chmod 755 "$RUNNER"
 
 su "$APP_UID" "$RUNNER" 2>&1
@@ -89,4 +135,7 @@ if [ "$EXIT_CODE" != "0" ]; then
     echo "  APK file: $(ls -la $APK_PATH 2>&1)"
     echo "  Running as UID: $APP_UID"
     echo "  SELinux: $(getenforce 2>/dev/null || echo 'unknown')"
+    if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
+        echo "  Try: setenforce 0"
+    fi
 fi

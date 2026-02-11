@@ -108,8 +108,8 @@ This requires:
 
 ## How It Works
 
-1. The shell script finds the Philips app's UID and APK path on the device
-2. It runs `app_process` as the app's UID with our DEX on the classpath
+1. The shell script finds the Philips app's UID, APK path, and SELinux context on the device
+2. It runs `app_process` as the app's UID with our DEX on the classpath, using `runcon` to switch to the app's SELinux context when possible (avoids AndroidKeyStore denials under Magisk's `u:r:magisk:s0` context)
 3. The Java extractor bootstraps an Android runtime environment:
    - Creates an `ActivityThread` and `Application` via reflection
    - Bypasses hidden API restrictions for framework access
@@ -166,7 +166,10 @@ The tool skips Method 3 when it detects the encrypted store cannot be safely acc
 These checks prevent the extractor from corrupting your data. The app's SecurePreferences constructor destructively deletes the master key and preferences file when Tink fails, so the extractor skips Method 3 rather than risk data loss. Try `setenforce 0` temporarily if SELinux is the issue. Method 4 (AES-CBC) may still work without Keystore access.
 
 ### Method 3: "[WARN]" messages for credential keys
-Tink decryption is failing for individual keys. This is usually caused by SELinux context issues — the `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try `setenforce 0` temporarily.
+Tink decryption is failing for individual keys. This is usually caused by SELinux context issues. The script tries to use `runcon` to switch to the app's SELinux context, but if the app isn't running or the context switch fails, `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try launching the Philips app first (so the script can find its context), or use `setenforce 0` temporarily.
+
+### "runcon to app context denied"
+The script found the app's SELinux context but `runcon` was denied. This can happen if Magisk's SELinux policy doesn't allow domain transitions. The script automatically falls back to running under the current context. If Methods 2/3 fail with Keystore errors, try `setenforce 0` temporarily.
 
 ### No credentials found in any method
 The app might not have stored any credentials yet. Make sure you've:

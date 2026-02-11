@@ -173,7 +173,9 @@ Some devices (e.g., HD9285 with firmware 0.5.6/1.1.8) store credentials only in 
      ```
    - Run as root:
      ```sh
-     adb shell "su -c 'sh /data/local/tmp/extract_creds.sh'"
+     adb shell
+     su
+     sh /data/local/tmp/extract_creds.sh
      ```
    - Look for `DEVICE_CLIENT_ID` and `DEVICE_CLIENT_SECRET` in the output
 

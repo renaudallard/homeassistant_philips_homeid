@@ -28,7 +28,9 @@ adb push extract_creds.sh /data/local/tmp/
 ### 2. Run the extractor
 
 ```sh
-adb shell "su -c 'sh /data/local/tmp/extract_creds.sh'"
+adb shell
+su
+sh /data/local/tmp/extract_creds.sh
 ```
 
 ### 3. Read the output

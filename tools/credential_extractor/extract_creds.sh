@@ -9,7 +9,12 @@
 #   adb push extractor.dex extract_creds.sh /data/local/tmp/
 #   adb shell
 #   su
-#   sh /data/local/tmp/extract_creds.sh
+#   sh /data/local/tmp/extract_creds.sh [MAC_ADDRESS]
+#
+# The MAC address is optional. If the SQLite database is empty (newer
+# firmwares), pass the device MAC so the tool can look up credentials
+# in the encrypted preferences. Example:
+#   sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
 #
 
 PKG="com.philips.ka.oneka.app"
@@ -64,10 +69,11 @@ echo ""
 # - SuperSU/others: su <uid> -c may fail with "Cannot execute -c"
 # Using a script file is compatible with all implementations.
 RUNNER="/data/local/tmp/_extract_run.sh"
+MAC_ARG="$1"
 cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
-exec app_process / ExtractCreds
+exec app_process / ExtractCreds $MAC_ARG
 SCRIPT
 chmod 755 "$RUNNER"
 

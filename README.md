@@ -177,7 +177,11 @@ Some devices (e.g., HD9285 with firmware 0.5.6/1.1.8) store credentials only in 
      su
      sh /data/local/tmp/extract_creds.sh
      ```
-   - Look for `DEVICE_CLIENT_ID` and `DEVICE_CLIENT_SECRET` in the output
+   - On newer firmwares where the database is empty, pass the device MAC address (from the app or device label):
+     ```sh
+     sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
+     ```
+   - Look for `client_id` / `DEVICE_CLIENT_ID` and `client_secret` / `DEVICE_CLIENT_SECRET` in the output
 
 See [tools/credential_extractor/README.md](tools/credential_extractor/README.md) for full details and troubleshooting.
 

@@ -33,6 +33,12 @@ su
 sh /data/local/tmp/extract_creds.sh
 ```
 
+On newer firmwares where the SQLite database is empty, the tool cannot automatically discover the device MAC address. In that case, pass it as an argument (you can find it in the Philips HomeID app or on the device label):
+
+```sh
+sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
+```
+
 ### 3. Read the output
 
 The tool tries three extraction methods. Example output:

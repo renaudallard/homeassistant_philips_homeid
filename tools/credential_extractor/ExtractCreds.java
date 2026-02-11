@@ -51,6 +51,13 @@ public class ExtractCreds {
         System.out.println();
         System.out.flush();
 
+        // Optional MAC address argument for key lookups
+        if (args.length > 0 && args[0] != null && !args[0].isEmpty()) {
+            discoveredMacs.add(args[0]);
+            System.out.println("Using MAC: " + args[0]);
+            System.out.println();
+        }
+
         try {
             bypassHiddenApiRestrictions();
 

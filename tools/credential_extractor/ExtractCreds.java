@@ -112,10 +112,28 @@ public class ExtractCreds {
             Constructor<?> ctor = atClass.getDeclaredConstructor();
             ctor.setAccessible(true);
             Object thread = ctor.newInstance();
+
+            // Set as current ActivityThread (normally done by attach())
+            // Required for ActivityThread.currentApplication() used by KeyStore
+            try {
+                Field sThreadField = atClass.getDeclaredField("sCurrentActivityThread");
+                sThreadField.setAccessible(true);
+                sThreadField.set(null, thread);
+            } catch (Exception e) {
+                System.out.println("[DEBUG] sCurrentActivityThread: " + e.getMessage());
+            }
+
             Context sysContext =
                     (Context) atClass.getMethod("getSystemContext").invoke(thread);
-            return sysContext.createPackageContext(
+            Context pkgContext = sysContext.createPackageContext(
                     PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+
+            // Set up an Application so that ActivityThread.currentApplication()
+            // returns non-null. android.security.KeyStore calls this to get a
+            // Context and throws IllegalStateException if it returns null.
+            setupApplication(atClass, thread, pkgContext);
+
+            return pkgContext;
         } catch (Exception e) {
             System.out.println("[DEBUG] Method 1 failed: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
@@ -127,14 +145,48 @@ public class ExtractCreds {
             Object thread = atClass.getMethod("systemMain").invoke(null);
             Context sysContext =
                     (Context) atClass.getMethod("getSystemContext").invoke(thread);
-            return sysContext.createPackageContext(
+            Context pkgContext = sysContext.createPackageContext(
                     PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+            setupApplication(atClass, thread, pkgContext);
+            return pkgContext;
         } catch (Exception e) {
             System.out.println("[DEBUG] Method 2 failed: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
 
         throw new Exception("Could not create Android Context (all methods failed)");
+    }
+
+    /**
+     * Create an Application wrapping the given context and set it as the
+     * ActivityThread's initial application. This makes
+     * ActivityThread.currentApplication() return non-null, which is required
+     * by android.security.KeyStore.getApplicationContext() for Tink/Jetpack
+     * EncryptedSharedPreferences to access the master key.
+     */
+    private static void setupApplication(Class<?> atClass, Object thread,
+            Context context) {
+        try {
+            Class<?> appClass = Class.forName("android.app.Application");
+            Object app = appClass.getDeclaredConstructor().newInstance();
+
+            // Application extends ContextWrapper — attach our context as base
+            Class<?> cwClass = Class.forName("android.content.ContextWrapper");
+            Method attachMethod = cwClass.getDeclaredMethod(
+                    "attachBaseContext", Context.class);
+            attachMethod.setAccessible(true);
+            attachMethod.invoke(app, context);
+
+            // Set as the thread's initial application
+            Field appField = atClass.getDeclaredField("mInitialApplication");
+            appField.setAccessible(true);
+            appField.set(thread, app);
+
+            System.out.println("[OK] Set up Application for KeyStore access");
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Application setup: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
     }
 
     /**

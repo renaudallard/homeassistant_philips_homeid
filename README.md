@@ -241,7 +241,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 This is expected if the device is already paired with the Philips HomeID app. Devices can only be paired with one client at a time. Check **Enter credentials manually** and enter the credentials you extracted from the app (see [Extracting Credentials](#extracting-credentials)).
 
 ### Empty Database
-If `network_node.db` is empty in the SQLite editor, your device stores credentials in SharedPreferences instead. See [Method 2](#method-2-sharedpreferences-if-database-is-empty) in the credential extraction section. Note that `ONE_KA_ENCRYPTED_PREFERENCES.xml` is encrypted with Android Keystore and cannot be read directly — check the other preference files first.
+If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.
 
 ---
 

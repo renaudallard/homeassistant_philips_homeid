@@ -40,6 +40,10 @@ public class ExtractCreds {
         System.out.flush();
 
         try {
+            // Bypass hidden API restrictions (Android 9+) so we can use
+            // reflection on ActivityThread, KeyStore, etc.
+            bypassHiddenApiRestrictions();
+
             Context context = getAppContext();
             System.out.println("[OK] Got context for " + PKG);
             System.out.flush();
@@ -81,6 +85,27 @@ public class ExtractCreds {
             System.err.println("Troubleshooting:");
             System.err.println("  - Are you running as the Philips app's UID?");
             System.err.println("  - Is the Philips HomeID app installed and paired?");
+        }
+    }
+
+    /**
+     * Bypass Android's hidden API restrictions so that reflection on
+     * framework-internal fields (ActivityThread.sCurrentActivityThread,
+     * mInitialApplication, etc.) actually works. Without this, Android 9+
+     * silently blocks setAccessible/set on dark-greylisted fields.
+     */
+    private static void bypassHiddenApiRestrictions() {
+        try {
+            Class<?> vmRuntime = Class.forName("dalvik.system.VMRuntime");
+            Method getRuntime = vmRuntime.getMethod("getRuntime");
+            Object runtime = getRuntime.invoke(null);
+            Method setExemptions = vmRuntime.getMethod(
+                    "setHiddenApiExemptions", String[].class);
+            setExemptions.invoke(runtime, (Object) new String[]{""});
+            System.out.println("[OK] Bypassed hidden API restrictions");
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Hidden API bypass: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -169,6 +194,7 @@ public class ExtractCreds {
         try {
             Class<?> appClass = Class.forName("android.app.Application");
             Object app = appClass.getDeclaredConstructor().newInstance();
+            System.out.println("[DEBUG] Created Application instance");
 
             // Application extends ContextWrapper — attach our context as base
             Class<?> cwClass = Class.forName("android.content.ContextWrapper");
@@ -176,16 +202,33 @@ public class ExtractCreds {
                     "attachBaseContext", Context.class);
             attachMethod.setAccessible(true);
             attachMethod.invoke(app, context);
+            System.out.println("[DEBUG] Attached base context to Application");
 
             // Set as the thread's initial application
             Field appField = atClass.getDeclaredField("mInitialApplication");
             appField.setAccessible(true);
             appField.set(thread, app);
+            System.out.println("[DEBUG] Set mInitialApplication on ActivityThread");
 
-            System.out.println("[OK] Set up Application for KeyStore access");
+            // Verify: does currentApplication() now return non-null?
+            Method currentApp = atClass.getMethod("currentApplication");
+            Object result = currentApp.invoke(null);
+            if (result != null) {
+                System.out.println("[OK] Set up Application for KeyStore access");
+            } else {
+                System.out.println("[WARN] mInitialApplication set but "
+                        + "currentApplication() still returns null");
+                // sCurrentActivityThread might not be set — try setting it
+                System.out.println("[DEBUG] Checking currentActivityThread...");
+                Method currentThread = atClass.getMethod("currentActivityThread");
+                Object curThread = currentThread.invoke(null);
+                System.out.println("[DEBUG] currentActivityThread: " + curThread
+                        + " (ours: " + thread + ")");
+            }
         } catch (Exception e) {
-            System.out.println("[DEBUG] Application setup: "
+            System.out.println("[FAIL] Application setup: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
+            e.printStackTrace(System.out);
         }
     }
 

@@ -16,7 +16,9 @@ This tool runs a small DEX program via `app_process` as the Philips app's UID, w
 
 ## Usage
 
-### 1. Push files to the device
+### 1. Download the files
+
+The pre-built `extractor.dex` and `extract_creds.sh` are in the [`tools/credential_extractor/`](https://github.com/renaudallard/homeassistant_philips_homeid/tree/main/tools/credential_extractor) directory of the repository. Download both files, then push them to the device:
 
 ```sh
 adb push extractor.dex /data/local/tmp/

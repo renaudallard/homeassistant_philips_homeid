@@ -372,9 +372,10 @@ public class ExtractCreds {
     private static void dumpCoreSecurePreferences(Context context,
             ClassLoader loader) {
         try {
-            // Safety check: verify master key exists in AndroidKeyStore.
+            // Safety check: verify master key exists AND is accessible.
             // The SecurePreferences constructor DELETES the master key and
-            // the entire prefs file if EncryptedSharedPreferences fails.
+            // the entire prefs file if EncryptedSharedPreferences fails
+            // (e.g. due to SELinux blocking crypto under magisk context).
             try {
                 KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
                 ks.load(null);
@@ -384,9 +385,44 @@ public class ExtractCreds {
                     dumpRawPrefsCount(context, "ONE_KA_ENCRYPTED_PREFERENCES");
                     return;
                 }
+                // Actually try to access the key — containsAlias() can
+                // succeed even when SELinux blocks real crypto operations.
+                KeyStore.Entry entry = ks.getEntry(
+                        "_androidx_security_master_key_", null);
+                if (entry == null) {
+                    System.out.println("  [SKIP] Master key exists but "
+                            + "cannot be accessed (SELinux?)");
+                    System.out.println("  Try: setenforce 0");
+                    dumpRawPrefsCount(context, "ONE_KA_ENCRYPTED_PREFERENCES");
+                    return;
+                }
             } catch (Exception e) {
-                System.out.println("  [WARN] KeyStore check failed: "
-                        + e.getMessage());
+                System.out.println("  [SKIP] Cannot access AndroidKeyStore"
+                        + " master key: " + e.getMessage());
+                System.out.println("  Try: setenforce 0");
+                dumpRawPrefsCount(context, "ONE_KA_ENCRYPTED_PREFERENCES");
+                return;
+            }
+
+            // Verify Tink keysets exist in the prefs file before letting
+            // the constructor touch it — if they're missing, there's
+            // nothing to decrypt and the constructor would just destroy
+            // the file trying to recreate them.
+            {
+                SharedPreferences raw = context.getSharedPreferences(
+                        "ONE_KA_ENCRYPTED_PREFERENCES", 0);
+                String keyKeyset = raw.getString(
+                        "__androidx_security_crypto_encrypted_prefs_key_keyset__",
+                        null);
+                String valKeyset = raw.getString(
+                        "__androidx_security_crypto_encrypted_prefs_value_keyset__",
+                        null);
+                if (keyKeyset == null || valKeyset == null) {
+                    System.out.println("  [SKIP] Tink keysets missing "
+                            + "from preferences file");
+                    dumpRawPrefsCount(context, "ONE_KA_ENCRYPTED_PREFERENCES");
+                    return;
+                }
             }
 
             Class<?> cls = loader.loadClass(SECURE_PREFS_CLASS);

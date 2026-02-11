@@ -156,12 +156,14 @@ The Android Keystore keys might be inaccessible. This can happen if:
 - You're running on a different Android user profile
 - SELinux is blocking access — try `setenforce 0` temporarily
 
-### Method 3: "[SKIP] Master key not in AndroidKeyStore"
-The Android Keystore does not contain the Tink master key. This can happen if:
-- You're running on a different device than where the app was paired
-- The app was reinstalled or data was cleared
-- SELinux is blocking Keystore access — try `setenforce 0` temporarily
-The tool skips Method 3 in this case to prevent data corruption. Method 4 (AES-CBC) may still work.
+### Method 3: "[SKIP]" messages
+The tool skips Method 3 when it detects the encrypted store cannot be safely accessed. Common messages:
+- **"Master key not in AndroidKeyStore"** — the Tink master key doesn't exist (app reinstalled, different device, or data cleared)
+- **"Master key exists but cannot be accessed"** — the key exists but SELinux blocks crypto operations under the `app_process` context
+- **"Cannot access AndroidKeyStore master key"** — the Keystore itself is inaccessible
+- **"Tink keysets missing from preferences file"** — the preferences file exists but doesn't contain the Tink encryption keysets
+
+These checks prevent the extractor from corrupting your data. The app's SecurePreferences constructor destructively deletes the master key and preferences file when Tink fails, so the extractor skips Method 3 rather than risk data loss. Try `setenforce 0` temporarily if SELinux is the issue. Method 4 (AES-CBC) may still work without Keystore access.
 
 ### Method 3: "[WARN]" messages for credential keys
 Tink decryption is failing for individual keys. This is usually caused by SELinux context issues — the `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try `setenforce 0` temporarily.

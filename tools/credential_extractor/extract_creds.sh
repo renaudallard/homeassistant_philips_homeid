@@ -7,7 +7,7 @@
 #
 # Usage:
 #   adb push extractor.dex extract_creds.sh /data/local/tmp/
-#   adb shell su -c "sh /data/local/tmp/extract_creds.sh"
+#   adb shell "su -c 'sh /data/local/tmp/extract_creds.sh'"
 #
 
 PKG="com.philips.ka.oneka.app"

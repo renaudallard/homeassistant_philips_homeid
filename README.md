@@ -164,11 +164,12 @@ Some devices (e.g., HD9285 with firmware 0.5.6/1.1.8) store credentials only in 
    - Update Chrome (required for authentication)
    - Pair your device with the app
 
-3. **Run the credential extractor**
-   - Push the tool to the device:
+3. **Download and push the credential extractor**
+   - Download `extractor.dex` and `extract_creds.sh` from the [`tools/credential_extractor/`](https://github.com/renaudallard/homeassistant_philips_homeid/tree/main/tools/credential_extractor) directory
+   - Push them to the device:
      ```sh
-     adb push tools/credential_extractor/extractor.dex /data/local/tmp/
-     adb push tools/credential_extractor/extract_creds.sh /data/local/tmp/
+     adb push extractor.dex /data/local/tmp/
+     adb push extract_creds.sh /data/local/tmp/
      ```
    - Run as root:
      ```sh

@@ -52,18 +52,33 @@ echo "APK:      $APK_PATH"
 echo ""
 
 # Run the extractor as the app's UID
-# Only our small DEX is on the CLASSPATH — the 120MB Philips APK is NOT included
+# Only our small DEX is on the CLASSPATH — the Philips APK is NOT included
 # to avoid app_process crashing during DEX optimization of the huge APK.
 # The Philips APK's classes are loaded at runtime via createPackageContext().
 # Running as the app's UID gives access to its Android Keystore keys.
-su "$APP_UID" -c "CLASSPATH=$DEX app_process / ExtractCreds" 2>&1
+#
+# Write a runner script since su syntax varies across root managers:
+# - Magisk: su <uid> -c 'cmd' works
+# - SuperSU/others: su <uid> -c may fail with "Cannot execute -c"
+# Using a script file is compatible with all implementations.
+RUNNER="/data/local/tmp/_extract_run.sh"
+cat > "$RUNNER" << SCRIPT
+#!/system/bin/sh
+export CLASSPATH=$DEX
+exec app_process / ExtractCreds
+SCRIPT
+chmod 755 "$RUNNER"
+
+su "$APP_UID" "$RUNNER" 2>&1
 EXIT_CODE=$?
+rm -f "$RUNNER"
+
 if [ "$EXIT_CODE" != "0" ]; then
     echo ""
     echo "Error: extractor exited with code $EXIT_CODE"
     echo "Debug info:"
     echo "  DEX file: $(ls -la $DEX 2>&1)"
     echo "  APK file: $(ls -la $APK_PATH 2>&1)"
-    echo "  Running as: $(su $APP_UID -c 'id' 2>&1)"
+    echo "  Running as UID: $APP_UID"
     echo "  SELinux: $(getenforce 2>/dev/null || echo 'unknown')"
 fi

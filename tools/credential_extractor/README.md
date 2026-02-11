@@ -35,18 +35,47 @@ sh /data/local/tmp/extract_creds.sh
 
 ### 3. Read the output
 
-The tool tries multiple extraction methods. Look for these in the output:
+The tool tries three extraction methods. Example output:
 
-From the **SQLite database** (older firmwares):
+```
+Philips HomeID Credential Extractor
+====================================
+
+--- Method 1: SQLite Database ---
+  Row 1:
+    cppid = e4:bc:96:00:00:00
+    model_id = HD9280
+    client_id = abc123...
+    client_secret = xyz789...
+
+--- Method 2: Encrypted Preferences ---
+  e4:bc:96:00:00:00DEVICE_CLIENT_ID = abc123...
+  e4:bc:96:00:00:00DEVICE_CLIENT_SECRET = xyz789...
+  e4:bc:96:00:00:00DEVICE_CPP_ID = e4:bc:96:00:00:00
+  e4:bc:96:00:00:00DEVICE_HSDP_ID = xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  Found 4 entries
+
+--- Method 3: Secure Preferences ---
+  DEVICE_CLIENT_ID = abc123...
+  DEVICE_CLIENT_SECRET = xyz789...
+```
+
+**Method 1 (SQLite Database)** — works on older firmwares:
 - `client_id` — the `client_id` for the integration
 - `client_secret` — the `client_secret` for the integration
 - `encryption_key` — needed for HTTP devices (e.g., HD9285)
 
-From **EncryptedSharedPreferences** (newer firmwares):
+**Method 2 (Encrypted Preferences)** — works on newer firmwares:
 - `DEVICE_CLIENT_ID` — the `client_id` for the integration
 - `DEVICE_CLIENT_SECRET` — the `client_secret` for the integration
 - `DEVICE_CPP_ID` / `DEVICE_HSDP_ID` — device identifiers (not needed for setup)
-- Keys are prefixed with the device's MAC address (e.g., `e4:bc:96:1e:7f:b1DEVICE_CLIENT_ID`)
+- Keys are prefixed with the device's MAC address
+
+**Method 3 (Secure Preferences)** — additional encrypted store:
+- Same credential keys as Method 2, with an extra XOR encryption layer
+- MAC addresses discovered from Methods 1 and 2 are used automatically
+
+Not all methods will return results on every device — you only need credentials from one method.
 
 ## Building from Source
 
@@ -63,12 +92,16 @@ This requires:
 ## How It Works
 
 1. The shell script finds the Philips app's UID and APK path on the device
-2. It runs `app_process` as the app's UID with both our DEX and the Philips APK on the classpath
-3. The Java extractor tries multiple methods in order:
-   - **SQLite database** (`network_node.db`): Queries all rows from the `network_node` table. This is where older firmwares store credentials in plain text.
-   - **StoragePreferences** (`COMMUNICATION_LIB_PREFERENCES`): Uses the app's own class to open Tink EncryptedSharedPreferences. Since we're running as the same UID, the Android Keystore transparently provides the decryption keys.
-   - **Core SecurePreferences** (`ONE_KA_ENCRYPTED_PREFERENCES`): Opens the app preferences which use an additional XOR encryption layer on top of Tink.
-   - **Plain SharedPreferences**: Fallback that reads unencrypted preference files.
+2. It runs `app_process` as the app's UID with our DEX on the classpath
+3. The Java extractor bootstraps an Android runtime environment:
+   - Creates an `ActivityThread` and `Application` via reflection
+   - Bypasses hidden API restrictions for framework access
+   - Registers the `AndroidKeyStore` security provider
+   - Loads the Philips APK's classes via `createPackageContext`
+4. It then tries three extraction methods:
+   - **SQLite database** (`network_node.db`): Queries the `network_node` table where older firmwares store credentials in plain text.
+   - **StoragePreferences** (`COMMUNICATION_LIB_PREFERENCES`): Uses the app's own class to open Tink EncryptedSharedPreferences. Since we're running as the same UID, the Android Keystore provides the decryption keys.
+   - **SecurePreferences** (`ONE_KA_ENCRYPTED_PREFERENCES`): Uses the app's class which adds an XOR encryption layer on top of Tink. MAC addresses discovered from earlier methods are used to construct the lookup keys.
 
 ### Encryption layers
 
@@ -93,11 +126,11 @@ The Philips APK is not on the classpath. Make sure the app is installed and the 
 ### "cannot determine app UID"
 The Philips app's data directory doesn't exist. Make sure the app is installed.
 
-### KeyStore or decryption errors
+### "Application setup failed" or KeyStore errors
 The Android Keystore keys might be inaccessible. This can happen if:
 - The app was recently reinstalled (keys regenerated)
 - You're running on a different Android user profile
 - SELinux is blocking access — try `setenforce 0` temporarily
 
-### Empty output
+### No credentials found
 The app might not have stored any credentials yet. Make sure you've paired a device with the Philips HomeID app first.

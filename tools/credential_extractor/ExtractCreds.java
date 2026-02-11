@@ -44,6 +44,10 @@ public class ExtractCreds {
             System.out.println("[OK] Got context for " + PKG);
             System.out.flush();
 
+            // Register AndroidKeyStore provider — required for
+            // EncryptedSharedPreferences (Tink) decryption in app_process
+            registerAndroidKeyStore();
+
             // Get the classloader that includes the Philips APK's classes
             ClassLoader apkLoader = context.getClassLoader();
             System.out.println("[OK] Got APK classloader: "
@@ -131,6 +135,41 @@ public class ExtractCreds {
         }
 
         throw new Exception("Could not create Android Context (all methods failed)");
+    }
+
+    /**
+     * Register the AndroidKeyStore security provider.
+     *
+     * In a normal Android app process the provider is pre-registered, but when
+     * running via app_process it is missing. Without it, Tink/Jetpack
+     * EncryptedSharedPreferences cannot access the master key and decryption
+     * fails with "AndroidKeyStore not found".
+     *
+     * The provider class moved in Android 12 (API 31):
+     *   API 31+: android.security.keystore2.AndroidKeyStoreProvider
+     *   API 23-30: android.security.keystore.AndroidKeyStoreProvider
+     * Both expose a static install() method.
+     */
+    private static void registerAndroidKeyStore() {
+        String[] providerClasses = {
+            "android.security.keystore2.AndroidKeyStoreProvider",
+            "android.security.keystore.AndroidKeyStoreProvider"
+        };
+        for (String className : providerClasses) {
+            try {
+                Class<?> cls = Class.forName(className);
+                cls.getMethod("install").invoke(null);
+                System.out.println("[OK] Registered AndroidKeyStore via " + className);
+                return;
+            } catch (ClassNotFoundException e) {
+                // Try next class
+            } catch (Exception e) {
+                System.out.println("[DEBUG] " + className + ".install(): "
+                        + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }
+        System.out.println("[WARN] Could not register AndroidKeyStore provider"
+                + " — EncryptedSharedPreferences may not work");
     }
 
     /**

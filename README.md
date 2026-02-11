@@ -1,7 +1,7 @@
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
-[![Release](https://img.shields.io/badge/release-v1.0.5-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.6-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
@@ -146,6 +146,37 @@ Some devices don't write credentials to the SQLite database. In that case, crede
    - Check `ONE_KA_PREFERENCES_SECURE.xml` or `COMMUNICATION_LIB_PREFERENCES.xml` for `client_id`, `client_secret`, and `encryption_key` values
    - Note: `ONE_KA_ENCRYPTED_PREFERENCES.xml` is encrypted with Android Keystore and cannot be read directly
    - Enter the credentials during integration setup
+
+</details>
+
+### Method 3: Credential Extractor Tool (for encrypted preferences)
+
+Some devices (e.g., HD9285 with firmware 0.5.6/1.1.8) store credentials only in `EncryptedSharedPreferences`, which are encrypted with Android Keystore keys and cannot be read directly from the XML files. For these devices, use the included credential extractor tool.
+
+<details>
+<summary><b>Step-by-step instructions</b></summary>
+
+1. **Install Android x86 in a VM** with root access (VirtualBox or VMware)
+   - The VM must be on the same network as your Philips device
+
+2. **Set up the environment**
+   - Install Philips HomeID app from Play Store
+   - Update Chrome (required for authentication)
+   - Pair your device with the app
+
+3. **Run the credential extractor**
+   - Push the tool to the device:
+     ```sh
+     adb push tools/credential_extractor/extractor.dex /data/local/tmp/
+     adb push tools/credential_extractor/extract_creds.sh /data/local/tmp/
+     ```
+   - Run as root:
+     ```sh
+     adb shell su -c "sh /data/local/tmp/extract_creds.sh"
+     ```
+   - Look for `DEVICE_CLIENT_ID` and `DEVICE_CLIENT_SECRET` in the output
+
+See [tools/credential_extractor/README.md](tools/credential_extractor/README.md) for full details and troubleshooting.
 
 </details>
 

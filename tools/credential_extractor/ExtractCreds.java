@@ -32,6 +32,10 @@ public class ExtractCreds {
     private static final String SECURE_PREFS_CLASS =
             "com.philips.ka.oneka.core.android.SecurePreferences";
 
+    // Saved for deferred Application setup (after SQLite, before Tink)
+    private static Object sThread;
+    private static Class<?> sThreadClass;
+
     public static void main(String[] args) {
         // Early output to confirm main() was reached
         System.out.println("Philips HomeID Credential Extractor");
@@ -48,10 +52,6 @@ public class ExtractCreds {
             System.out.println("[OK] Got context for " + PKG);
             System.out.flush();
 
-            // Register AndroidKeyStore provider — required for
-            // EncryptedSharedPreferences (Tink) decryption in app_process
-            registerAndroidKeyStore();
-
             // Get the classloader that includes the Philips APK's classes
             ClassLoader apkLoader = context.getClassLoader();
             System.out.println("[OK] Got APK classloader: "
@@ -59,8 +59,15 @@ public class ExtractCreds {
             System.out.println();
 
             // Method 1: SQLite database (older firmwares)
+            // Done BEFORE Application setup — SQLiteDatabase triggers
+            // Settings provider access which fails if Application is set
             System.out.println("--- SQLite Database (network_node.db) ---");
             dumpSqliteDatabase();
+
+            // Now set up Application + KeyStore for encrypted prefs access.
+            // This must happen after SQLite but before any Tink operations.
+            setupApplication(sThreadClass, sThread, context);
+            registerAndroidKeyStore();
 
             // Method 2: WiFi credentials via StoragePreferences
             System.out.println();
@@ -153,11 +160,9 @@ public class ExtractCreds {
             Context pkgContext = sysContext.createPackageContext(
                     PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
 
-            // Set up an Application so that ActivityThread.currentApplication()
-            // returns non-null. android.security.KeyStore calls this to get a
-            // Context and throws IllegalStateException if it returns null.
-            setupApplication(atClass, thread, pkgContext);
-
+            // Save for deferred setupApplication() call in main()
+            sThread = thread;
+            sThreadClass = atClass;
             return pkgContext;
         } catch (Exception e) {
             System.out.println("[DEBUG] Method 1 failed: "
@@ -172,7 +177,8 @@ public class ExtractCreds {
                     (Context) atClass.getMethod("getSystemContext").invoke(thread);
             Context pkgContext = sysContext.createPackageContext(
                     PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
-            setupApplication(atClass, thread, pkgContext);
+            sThread = thread;
+            sThreadClass = atClass;
             return pkgContext;
         } catch (Exception e) {
             System.out.println("[DEBUG] Method 2 failed: "
@@ -194,7 +200,6 @@ public class ExtractCreds {
         try {
             Class<?> appClass = Class.forName("android.app.Application");
             Object app = appClass.getDeclaredConstructor().newInstance();
-            System.out.println("[DEBUG] Created Application instance");
 
             // Application extends ContextWrapper — attach our context as base
             Class<?> cwClass = Class.forName("android.content.ContextWrapper");
@@ -202,29 +207,43 @@ public class ExtractCreds {
                     "attachBaseContext", Context.class);
             attachMethod.setAccessible(true);
             attachMethod.invoke(app, context);
-            System.out.println("[DEBUG] Attached base context to Application");
 
             // Set as the thread's initial application
+            // (makes ActivityThread.currentApplication() return non-null)
             Field appField = atClass.getDeclaredField("mInitialApplication");
             appField.setAccessible(true);
             appField.set(thread, app);
-            System.out.println("[DEBUG] Set mInitialApplication on ActivityThread");
 
-            // Verify: does currentApplication() now return non-null?
+            // Also set mApplication on the context's LoadedApk so that
+            // context.getApplicationContext() returns non-null.
+            // ContextImpl.getApplicationContext() checks mPackageInfo.getApplication()
+            // first, which returns LoadedApk.mApplication. Without this, Tink's
+            // AndroidKeysetManager receives null context and throws.
+            try {
+                Field pkgInfoField = context.getClass()
+                        .getDeclaredField("mPackageInfo");
+                pkgInfoField.setAccessible(true);
+                Object loadedApk = pkgInfoField.get(context);
+                if (loadedApk != null) {
+                    Field mAppField = loadedApk.getClass()
+                            .getDeclaredField("mApplication");
+                    mAppField.setAccessible(true);
+                    mAppField.set(loadedApk, app);
+                    System.out.println("[OK] Set up Application for KeyStore access");
+                } else {
+                    System.out.println("[WARN] LoadedApk is null");
+                }
+            } catch (Exception e) {
+                System.out.println("[DEBUG] LoadedApk setup: "
+                        + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+
+            // Verify
             Method currentApp = atClass.getMethod("currentApplication");
             Object result = currentApp.invoke(null);
-            if (result != null) {
-                System.out.println("[OK] Set up Application for KeyStore access");
-            } else {
-                System.out.println("[WARN] mInitialApplication set but "
-                        + "currentApplication() still returns null");
-                // sCurrentActivityThread might not be set — try setting it
-                System.out.println("[DEBUG] Checking currentActivityThread...");
-                Method currentThread = atClass.getMethod("currentActivityThread");
-                Object curThread = currentThread.invoke(null);
-                System.out.println("[DEBUG] currentActivityThread: " + curThread
-                        + " (ours: " + thread + ")");
-            }
+            System.out.println("[DEBUG] currentApplication: " + result);
+            System.out.println("[DEBUG] getApplicationContext: "
+                    + context.getApplicationContext());
         } catch (Exception e) {
             System.out.println("[FAIL] Application setup: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());

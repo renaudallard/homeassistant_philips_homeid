@@ -17,4 +17,6 @@ public abstract class Context {
     public abstract Object getSystemService(String name);
 
     public abstract ClassLoader getClassLoader();
+
+    public abstract Context getApplicationContext();
 }

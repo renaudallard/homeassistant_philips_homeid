@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,7 @@ import java.util.Set;
  * 1. SQLite database (network_node.db) - used by older firmwares
  * 2. EncryptedSharedPreferences (COMMUNICATION_LIB_PREFERENCES) - newer firmwares
  * 3. Core SecurePreferences (ONE_KA_ENCRYPTED_PREFERENCES) - with XOR layer
+ * 4. AES-CBC SecurePreferences (COMMUNICATION_LIB_PREFERENCES) - fallback path
  *
  * Must be run on a rooted Android device as the Philips app's UID via app_process.
  * The Philips APK's classes are loaded via createPackageContext(CONTEXT_INCLUDE_CODE).
@@ -32,6 +34,10 @@ public class ExtractCreds {
             "com.philips.ka.oneka.communication.library.storage.StoragePreferences";
     private static final String SECURE_PREFS_CLASS =
             "com.philips.ka.oneka.core.android.SecurePreferences";
+    private static final String COMM_SECURE_PREFS_CLASS =
+            "com.philips.ka.oneka.communication.library.storage.SecurePreferences";
+    private static final String COMM_LIB_PACKAGE =
+            "com.philips.ka.oneka.communication.library";
 
     private static final String[] CREDENTIAL_SUFFIXES = {
         "DEVICE_CLIENT_ID", "DEVICE_CLIENT_SECRET",
@@ -89,6 +95,11 @@ public class ExtractCreds {
                 System.out.println("--- Method 3: Secure Preferences ---");
                 dumpCoreSecurePreferences(context, apkLoader);
             }
+
+            // Method 4: AES-CBC fallback (no Keystore needed)
+            System.out.println();
+            System.out.println("--- Method 4: AES-CBC Preferences ---");
+            dumpAesCbcPreferences(context, apkLoader);
 
         } catch (Throwable t) {
             System.err.println("[FAIL] " + t.getClass().getName()
@@ -361,6 +372,23 @@ public class ExtractCreds {
     private static void dumpCoreSecurePreferences(Context context,
             ClassLoader loader) {
         try {
+            // Safety check: verify master key exists in AndroidKeyStore.
+            // The SecurePreferences constructor DELETES the master key and
+            // the entire prefs file if EncryptedSharedPreferences fails.
+            try {
+                KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+                ks.load(null);
+                if (!ks.containsAlias("_androidx_security_master_key_")) {
+                    System.out.println("  [SKIP] Master key not in "
+                            + "AndroidKeyStore — cannot decrypt safely");
+                    dumpRawPrefsCount(context, "ONE_KA_ENCRYPTED_PREFERENCES");
+                    return;
+                }
+            } catch (Exception e) {
+                System.out.println("  [WARN] KeyStore check failed: "
+                        + e.getMessage());
+            }
+
             Class<?> cls = loader.loadClass(SECURE_PREFS_CLASS);
 
             Object instance = null;
@@ -384,6 +412,96 @@ public class ExtractCreds {
             Method getStringMethod = findGetStringMethod(cls);
             if (getStringMethod != null) {
                 tryKnownKeys(instance, getStringMethod);
+            }
+
+            // Dump entry count from the underlying EncryptedSharedPreferences
+            SharedPreferences underlying = findPrefsField(cls, instance);
+            if (underlying != null) {
+                try {
+                    Map<String, ?> all = underlying.getAll();
+                    int count = 0;
+                    for (String key : all.keySet()) {
+                        if (!key.startsWith("__androidx_security")) count++;
+                    }
+                    System.out.println("  (" + count
+                            + " total entries in encrypted store)");
+                } catch (Exception e) {
+                    System.out.println("  [WARN] Cannot enumerate entries: "
+                            + e.getClass().getSimpleName());
+                }
+            }
+
+        } catch (ClassNotFoundException e) {
+            System.out.println("  SecurePreferences class not found in APK");
+        } catch (Exception e) {
+            System.out.println("  [FAIL] " + e.getClass().getSimpleName()
+                    + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Show how many entries a raw SharedPreferences file has (for diagnostics).
+     */
+    private static void dumpRawPrefsCount(Context context, String name) {
+        try {
+            SharedPreferences raw = context.getSharedPreferences(name, 0);
+            Map<String, ?> all = raw.getAll();
+            int total = all.size();
+            int data = 0;
+            for (String key : all.keySet()) {
+                if (!key.startsWith("__androidx_security")) data++;
+            }
+            System.out.println("  (File has " + total + " raw entries, "
+                    + data + " are data)");
+        } catch (Exception e) {
+            // ignore
+        }
+    }
+
+    /**
+     * Try COMMUNICATION_LIB_PREFERENCES via the AES-CBC SecurePreferences.
+     * This is the fallback path StoragePreferences uses when Tink fails.
+     * Uses password-based key derivation (no Android Keystore needed).
+     */
+    private static void dumpAesCbcPreferences(Context context,
+            ClassLoader loader) {
+        try {
+            Class<?> cls = loader.loadClass(COMM_SECURE_PREFS_CLASS);
+            Constructor<?> ctor = cls.getConstructor(
+                    Context.class, String.class, String.class);
+            // password = library package name, file = COMMUNICATION_LIB_PREFERENCES
+            Object instance = ctor.newInstance(
+                    context, COMM_LIB_PACKAGE, "COMMUNICATION_LIB_PREFERENCES");
+
+            // This class implements SharedPreferences
+            SharedPreferences prefs = (SharedPreferences) instance;
+
+            int found = 0;
+            // Try without MAC prefix
+            for (String suffix : CREDENTIAL_SUFFIXES) {
+                String value = prefs.getString(suffix, null);
+                if (value != null && !value.isEmpty()) {
+                    System.out.println("  " + suffix + " = " + value);
+                    found++;
+                }
+            }
+
+            // Try with discovered MAC addresses
+            for (String mac : discoveredMacs) {
+                for (String suffix : CREDENTIAL_SUFFIXES) {
+                    String key = mac + suffix;
+                    String value = prefs.getString(key, null);
+                    if (value != null && !value.isEmpty()) {
+                        System.out.println("  " + suffix + " = " + value);
+                        found++;
+                    }
+                }
+            }
+
+            if (found == 0) {
+                Map<String, ?> all = prefs.getAll();
+                System.out.println("  No credentials found ("
+                        + all.size() + " entries in file)");
             }
 
         } catch (ClassNotFoundException e) {
@@ -460,7 +578,10 @@ public class ExtractCreds {
                 return true;
             }
         } catch (Exception e) {
-            // Key not found or decryption failed
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            System.out.println("  [WARN] " + key + ": "
+                    + cause.getClass().getSimpleName()
+                    + ": " + cause.getMessage());
         }
         return false;
     }

@@ -41,7 +41,7 @@ sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
 
 ### 3. Read the output
 
-The tool tries three extraction methods. Example output:
+The tool tries four extraction methods. Example output:
 
 ```
 Philips HomeID Credential Extractor
@@ -64,6 +64,11 @@ Philips HomeID Credential Extractor
 --- Method 3: Secure Preferences ---
   DEVICE_CLIENT_ID = abc123...
   DEVICE_CLIENT_SECRET = xyz789...
+  (42 total entries in encrypted store)
+
+--- Method 4: AES-CBC Preferences ---
+  DEVICE_CLIENT_ID = abc123...
+  DEVICE_CLIENT_SECRET = xyz789...
 ```
 
 **Method 1 (SQLite Database)** — works on older firmwares:
@@ -80,6 +85,12 @@ Philips HomeID Credential Extractor
 **Method 3 (Secure Preferences)** — additional encrypted store:
 - Same credential keys as Method 2, with an extra XOR encryption layer
 - MAC addresses discovered from Methods 1 and 2 are used automatically
+- Also reports the total number of entries in the encrypted store for diagnostics
+
+**Method 4 (AES-CBC Preferences)** — fallback encryption path:
+- Used when the app falls back from Tink to AES-CBC encryption
+- Does not require Android Keystore — uses password-based key derivation
+- Reads from `COMMUNICATION_LIB_PREFERENCES` with the app's library password
 
 Not all methods will return results on every device — you only need credentials from one method.
 
@@ -104,14 +115,15 @@ This requires:
    - Bypasses hidden API restrictions for framework access
    - Registers the `AndroidKeyStore` security provider
    - Loads the Philips APK's classes via `createPackageContext`
-4. It then tries three extraction methods:
+4. It then tries four extraction methods:
    - **SQLite database** (`network_node.db`): Queries the `network_node` table where older firmwares store credentials in plain text.
    - **StoragePreferences** (`COMMUNICATION_LIB_PREFERENCES`): Uses the app's own class to open Tink EncryptedSharedPreferences. Since we're running as the same UID, the Android Keystore provides the decryption keys.
-   - **SecurePreferences** (`ONE_KA_ENCRYPTED_PREFERENCES`): Uses the app's class which adds an XOR encryption layer on top of Tink. MAC addresses discovered from earlier methods are used to construct the lookup keys.
+   - **SecurePreferences** (`ONE_KA_ENCRYPTED_PREFERENCES`): Uses the app's class which adds an XOR encryption layer on top of Tink. Includes a safety check — if the Android Keystore master key is missing, it skips this method to avoid data corruption.
+   - **AES-CBC SecurePreferences** (`COMMUNICATION_LIB_PREFERENCES`): Uses the app's fallback encryption class which derives keys from a password via PBKDF2. Does not require Android Keystore access.
 
 ### Encryption layers
 
-The Philips app uses two layers of encryption for credential storage:
+The Philips app uses multiple encryption approaches for credential storage:
 
 1. **EncryptedSharedPreferences** (Android Jetpack Security / Google Tink):
    - Master key: `_androidx_security_master_key_` in Android Keystore (AES-256-GCM)
@@ -122,7 +134,13 @@ The Philips app uses two layers of encryption for credential storage:
    - Keys split into 4 SHA-1 hashed parts (`SHA1("key_0")` through `SHA1("key_3")`)
    - Values XOR'd with package name (`com.philips.ka.oneka.app`), hex-encoded, then split into 4 chunks
 
-The WiFi credentials in `COMMUNICATION_LIB_PREFERENCES` only use layer 1, so they're directly readable after Tink decryption.
+3. **AES-CBC fallback** (used when Tink fails):
+   - Password: `com.philips.ka.oneka.communication.library` (library package name)
+   - Salt: app package name
+   - Keys hashed with SHA-256 and Base64-encoded before storage
+   - Values encrypted with AES-CBC with HMAC integrity check
+
+The WiFi credentials in `COMMUNICATION_LIB_PREFERENCES` use either layer 1 (Tink) or layer 3 (AES-CBC fallback), depending on what the app chose at initialization.
 
 ## Troubleshooting
 
@@ -138,5 +156,18 @@ The Android Keystore keys might be inaccessible. This can happen if:
 - You're running on a different Android user profile
 - SELinux is blocking access — try `setenforce 0` temporarily
 
-### No credentials found
-The app might not have stored any credentials yet. Make sure you've paired a device with the Philips HomeID app first.
+### Method 3: "[SKIP] Master key not in AndroidKeyStore"
+The Android Keystore does not contain the Tink master key. This can happen if:
+- You're running on a different device than where the app was paired
+- The app was reinstalled or data was cleared
+- SELinux is blocking Keystore access — try `setenforce 0` temporarily
+The tool skips Method 3 in this case to prevent data corruption. Method 4 (AES-CBC) may still work.
+
+### Method 3: "[WARN]" messages for credential keys
+Tink decryption is failing for individual keys. This is usually caused by SELinux context issues — the `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try `setenforce 0` temporarily.
+
+### No credentials found in any method
+The app might not have stored any credentials yet. Make sure you've:
+- Paired a device with the Philips HomeID app **on the same device** where you're running the extractor
+- Actually completed the pairing process (not just added the device via cloud)
+The diagnostic entry counts (e.g., "42 total entries in encrypted store") help identify whether the encrypted stores contain data at all.

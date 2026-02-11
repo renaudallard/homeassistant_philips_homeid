@@ -52,11 +52,11 @@ echo "APK:      $APK_PATH"
 echo ""
 
 # Run the extractor as the app's UID
-# The CLASSPATH includes both our DEX and the Philips APK so that:
-# - Our ExtractCreds class is found
-# - The app's StoragePreferences and bundled Tink classes are available
-# Running as the app's UID gives access to its Android Keystore keys
-su "$APP_UID" -c "CLASSPATH=$DEX:$APK_PATH app_process / ExtractCreds" 2>&1
+# Only our small DEX is on the CLASSPATH — the 120MB Philips APK is NOT included
+# to avoid app_process crashing during DEX optimization of the huge APK.
+# The Philips APK's classes are loaded at runtime via createPackageContext().
+# Running as the app's UID gives access to its Android Keystore keys.
+su "$APP_UID" -c "CLASSPATH=$DEX app_process / ExtractCreds" 2>&1
 EXIT_CODE=$?
 if [ "$EXIT_CODE" != "0" ]; then
     echo ""

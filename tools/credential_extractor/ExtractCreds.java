@@ -19,13 +19,10 @@ import java.util.Map;
  * 3. Core SecurePreferences (ONE_KA_ENCRYPTED_PREFERENCES) - with XOR layer
  * 4. Plain SharedPreferences - fallback
  *
- * Must be run on a rooted Android device as the Philips app's UID via app_process,
- * with the Philips APK on the CLASSPATH. This gives access to:
- * - The Android Keystore keys (same UID = same keystore)
- * - The app's data directory (SharedPreferences files)
- * - The app's bundled classes (StoragePreferences, Tink, etc.)
+ * Must be run on a rooted Android device as the Philips app's UID via app_process.
+ * The Philips APK's classes are loaded via createPackageContext(CONTEXT_INCLUDE_CODE).
  *
- * Usage: CLASSPATH=extractor.dex:philips.apk app_process / ExtractCreds
+ * Usage: CLASSPATH=extractor.dex app_process / ExtractCreds
  */
 public class ExtractCreds {
 
@@ -36,13 +33,21 @@ public class ExtractCreds {
             "com.philips.ka.oneka.core.android.SecurePreferences";
 
     public static void main(String[] args) {
-        try {
-            System.out.println("Philips HomeID Credential Extractor");
-            System.out.println("====================================");
-            System.out.println();
+        // Early output to confirm main() was reached
+        System.out.println("Philips HomeID Credential Extractor");
+        System.out.println("====================================");
+        System.out.println();
+        System.out.flush();
 
+        try {
             Context context = getAppContext();
             System.out.println("[OK] Got context for " + PKG);
+            System.out.flush();
+
+            // Get the classloader that includes the Philips APK's classes
+            ClassLoader apkLoader = context.getClassLoader();
+            System.out.println("[OK] Got APK classloader: "
+                    + apkLoader.getClass().getName());
             System.out.println();
 
             // Method 1: SQLite database (older firmwares)
@@ -52,12 +57,12 @@ public class ExtractCreds {
             // Method 2: WiFi credentials via StoragePreferences
             System.out.println();
             System.out.println("--- WiFi Credentials (COMMUNICATION_LIB_PREFERENCES) ---");
-            dumpStoragePreferences(context);
+            dumpStoragePreferences(context, apkLoader);
 
             // Method 3: App preferences via core SecurePreferences
             System.out.println();
             System.out.println("--- App Preferences (ONE_KA_ENCRYPTED_PREFERENCES) ---");
-            dumpCoreSecurePreferences(context);
+            dumpCoreSecurePreferences(context, apkLoader);
 
             // Method 4: raw SharedPreferences (unencrypted view)
             System.out.println();
@@ -65,28 +70,67 @@ public class ExtractCreds {
             dumpPlainPrefs(context, "ONE_KA_PREFERENCES_SECURE");
             dumpPlainPrefs(context, "network_node");
 
-        } catch (Exception e) {
-            System.err.println("[FAIL] " + e.getMessage());
-            e.printStackTrace(System.err);
+        } catch (Throwable t) {
+            System.err.println("[FAIL] " + t.getClass().getName() + ": " + t.getMessage());
+            t.printStackTrace(System.err);
             System.err.println();
             System.err.println("Troubleshooting:");
             System.err.println("  - Are you running as the Philips app's UID?");
-            System.err.println("  - Is the Philips APK on the CLASSPATH?");
             System.err.println("  - Is the Philips HomeID app installed and paired?");
         }
     }
 
     /**
      * Get an Android Context for the Philips app package.
-     * Uses ActivityThread (hidden API) to bootstrap the Android runtime.
+     *
+     * Creates an ActivityThread without calling attach() to avoid system-level
+     * initialization that requires system UID permissions. Then uses
+     * createPackageContext with CONTEXT_INCLUDE_CODE to load the Philips APK's
+     * classes into the context's classloader.
      */
     private static Context getAppContext() throws Exception {
+        // Prepare the main looper (required by many Android APIs)
+        try {
+            Class.forName("android.os.Looper")
+                    .getMethod("prepareMainLooper").invoke(null);
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Looper: " + e.getMessage());
+        }
+
         Class<?> atClass = Class.forName("android.app.ActivityThread");
-        Object thread = atClass.getMethod("systemMain").invoke(null);
-        Context sysContext =
-                (Context) atClass.getMethod("getSystemContext").invoke(thread);
-        return sysContext.createPackageContext(
-                PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+
+        // Method 1: Create ActivityThread without attach()
+        // attach(true) requires system UID, attach(false) does IPC to ActivityManager.
+        // Neither works from app_process as a regular app UID.
+        // But getSystemContext() works without attach().
+        try {
+            System.out.println("[DEBUG] Trying ActivityThread without attach...");
+            Constructor<?> ctor = atClass.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            Object thread = ctor.newInstance();
+            Context sysContext =
+                    (Context) atClass.getMethod("getSystemContext").invoke(thread);
+            return sysContext.createPackageContext(
+                    PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Method 1 failed: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+
+        // Method 2: systemMain() — fallback, may crash on some devices
+        try {
+            System.out.println("[DEBUG] Trying ActivityThread.systemMain...");
+            Object thread = atClass.getMethod("systemMain").invoke(null);
+            Context sysContext =
+                    (Context) atClass.getMethod("getSystemContext").invoke(thread);
+            return sysContext.createPackageContext(
+                    PKG, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        } catch (Exception e) {
+            System.out.println("[DEBUG] Method 2 failed: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+
+        throw new Exception("Could not create Android Context (all methods failed)");
     }
 
     /**
@@ -148,10 +192,13 @@ public class ExtractCreds {
      * Open COMMUNICATION_LIB_PREFERENCES via the Philips app's StoragePreferences
      * class. This class internally handles EncryptedSharedPreferences (Tink) setup,
      * using the obfuscated Jetpack classes bundled in the APK.
+     *
+     * Classes are loaded from the APK via the context's classloader (set up by
+     * createPackageContext with CONTEXT_INCLUDE_CODE).
      */
-    private static void dumpStoragePreferences(Context context) {
+    private static void dumpStoragePreferences(Context context, ClassLoader loader) {
         try {
-            Class<?> cls = Class.forName(STORAGE_PREFS_CLASS);
+            Class<?> cls = loader.loadClass(STORAGE_PREFS_CLASS);
             Object instance = cls.getConstructor(Context.class).newInstance(context);
 
             // Find the underlying SharedPreferences field by type
@@ -174,7 +221,8 @@ public class ExtractCreds {
 
         } catch (ClassNotFoundException e) {
             System.out.println("[FAIL] StoragePreferences class not found");
-            System.out.println("  Ensure the Philips APK is on the CLASSPATH");
+            System.out.println("  Class: " + STORAGE_PREFS_CLASS);
+            System.out.println("  Loader: " + loader.getClass().getName());
         } catch (Exception e) {
             System.out.println("[FAIL] " + e.getClass().getSimpleName()
                     + ": " + e.getMessage());
@@ -190,9 +238,9 @@ public class ExtractCreds {
      *
      * We try to use the getString method directly with known credential key patterns.
      */
-    private static void dumpCoreSecurePreferences(Context context) {
+    private static void dumpCoreSecurePreferences(Context context, ClassLoader loader) {
         try {
-            Class<?> cls = Class.forName(SECURE_PREFS_CLASS);
+            Class<?> cls = loader.loadClass(SECURE_PREFS_CLASS);
 
             // Find a constructor we can use
             Object instance = null;

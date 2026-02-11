@@ -15,4 +15,6 @@ public abstract class Context {
     public abstract SharedPreferences getSharedPreferences(String name, int mode);
 
     public abstract Object getSystemService(String name);
+
+    public abstract ClassLoader getClassLoader();
 }

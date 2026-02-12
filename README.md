@@ -111,15 +111,7 @@ The included credential extractor tool automatically tries all known storage loc
    - Update Chrome (required for authentication)
    - Log into your Philips account
 
-3. **Trigger local authentication**
-   - The app initially controls your device via Philips cloud servers — local credentials are not stored yet
-   - Make sure the VM is on the **same network** as your Philips device
-   - Open the app and look for the **"Your appliance needs updating"** banner on the home screen or device dashboard
-   - Tap **"Ok, let's start"** to trigger local authentication
-   - This generates `client_id` and `client_secret` and stores them on the VM
-   - If you don't see the banner, try opening the device's page in the app — the banner may appear on the device dashboard instead
-
-4. **Download and push the credential extractor**
+3. **Download and push the credential extractor**
    - Download `extractor.dex` and `extract_creds.sh` from the [`tools/credential_extractor/`](https://github.com/renaudallard/homeassistant_philips_homeid/tree/main/tools/credential_extractor) directory
    - Push them to the device:
      ```sh
@@ -138,6 +130,13 @@ The included credential extractor tool automatically tries all known storage loc
      ```
    - Look for `client_id` / `DEVICE_CLIENT_ID` and `client_secret` / `DEVICE_CLIENT_SECRET` in the output
    - Note: `encryption_key` is only needed for HTTP devices (e.g., HD9285). If left empty, the integration will try to fetch it automatically from the device.
+
+4. **If the extractor found no credentials**, your firmware may require an extra step. On some firmwares, the app initially communicates with the device via Philips cloud servers only and does not store local credentials until you explicitly trigger local authentication:
+   - Make sure the VM is on the **same network** as your Philips device
+   - Open the app and look for the **"Your appliance needs updating"** banner on the home screen or device dashboard
+   - Tap **"Ok, let's start"** to trigger local authentication
+   - This generates `client_id` and `client_secret` and stores them on the VM
+   - Run the credential extractor again (step 3)
 
 See [tools/credential_extractor/README.md](tools/credential_extractor/README.md) for full details and troubleshooting.
 
@@ -249,9 +248,9 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 This is expected if the device is already paired with the Philips HomeID app. Devices can only be paired with one client at a time. Check **Enter credentials manually** and enter the credentials you extracted from the app (see [Extracting Credentials](#extracting-credentials)).
 
 ### No Credentials Found (Credential Extractor Returns Empty)
-The Philips app has two communication modes: **cloud relay** (via Philips MQTT servers) and **local** (direct HTTPS to the device). When you install the app on a new device and log into your Philips account, the app initially controls your appliance via cloud relay only — no local credentials are stored.
+On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.
 
-To generate local credentials, the app must perform a **local authentication handshake** with the device. This happens when you tap the **"Your appliance needs updating"** banner in the app (visible on the home screen or device dashboard when the app and device are on the same network). Until you complete this step, the credential extractor will find nothing.
+To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool-recommended).
 
 ### Empty Database
 If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.

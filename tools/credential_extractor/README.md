@@ -154,7 +154,7 @@ The Philips app's data directory doesn't exist. Make sure the app is installed.
 The Android Keystore keys might be inaccessible. This can happen if:
 - The app was recently reinstalled (keys regenerated)
 - You're running on a different Android user profile
-- SELinux is blocking access — try `setenforce 0` temporarily
+- SELinux is blocking access — the script now temporarily sets SELinux to Permissive when needed, but if that fails, try `setenforce 0` manually before running the extractor
 
 ### Method 3: "[SKIP]" messages
 The tool skips Method 3 when it detects the encrypted store cannot be safely accessed. Common messages:
@@ -163,13 +163,13 @@ The tool skips Method 3 when it detects the encrypted store cannot be safely acc
 - **"Cannot access AndroidKeyStore master key"** — the Keystore itself is inaccessible
 - **"Tink keysets missing from preferences file"** — the preferences file exists but doesn't contain the Tink encryption keysets
 
-These checks prevent the extractor from corrupting your data. The app's SecurePreferences constructor destructively deletes the master key and preferences file when Tink fails, so the extractor skips Method 3 rather than risk data loss. Try `setenforce 0` temporarily if SELinux is the issue. Method 4 (AES-CBC) may still work without Keystore access.
+These checks prevent the extractor from corrupting your data. The app's SecurePreferences constructor destructively deletes the master key and preferences file when Tink fails, so the extractor skips Method 3 rather than risk data loss. The script now temporarily disables SELinux enforcement when `runcon` fails, which should resolve most Keystore access issues. Method 4 (AES-CBC) may still work without Keystore access.
 
 ### Method 3: "[WARN]" messages for credential keys
-Tink decryption is failing for individual keys. This is usually caused by SELinux context issues. The script tries to use `runcon` to switch to the app's SELinux context, but if the app isn't running or the context switch fails, `app_process` runs under `u:r:magisk:s0` instead of the app's normal context. Try launching the Philips app first (so the script can find its context), or use `setenforce 0` temporarily.
+Tink decryption is failing for individual keys. This is usually caused by SELinux context issues. The script tries to use `runcon` to switch to the app's SELinux context, and now automatically sets SELinux to Permissive as a fallback. If decryption still fails, try launching the Philips app first (so the script can find its context).
 
 ### "runcon failed, retrying without SELinux context switch"
-The script found the app's SELinux context but `runcon` failed (e.g., SELinux policy denied executing `app_process` from the app's domain). The script automatically retries without `runcon`. If Methods 2/3 still fail with Keystore errors, try launching the Philips app before running the extractor, or use `setenforce 0` temporarily.
+The script found the app's SELinux context but `runcon` failed (e.g., SELinux policy denied executing `app_process` from the app's domain). The script automatically sets SELinux to Permissive and retries without `runcon`, then restores Enforcing mode afterwards.
 
 ### No credentials found in any method
 The app might not have stored any credentials yet. Make sure you've:

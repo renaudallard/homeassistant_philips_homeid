@@ -94,6 +94,7 @@ echo ""
 # exec on app_process) — safe to retry without runcon.
 RUNNER="/data/local/tmp/_extract_run.sh"
 MAC_ARG="$1"
+SELINUX_WAS_ENFORCING=""
 
 if [ -n "$APP_SECONTEXT" ]; then
     cat > "$RUNNER" << SCRIPT
@@ -114,6 +115,14 @@ SCRIPT
 fi
 
 if [ -z "$APP_SECONTEXT" ]; then
+    # Temporarily set SELinux to Permissive so app_process can access
+    # AndroidKeyStore without the app's SELinux context.
+    if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
+        setenforce 0
+        SELINUX_WAS_ENFORCING="1"
+        echo "[INFO] Temporarily set SELinux to Permissive for Keystore access"
+    fi
+
     cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
@@ -122,6 +131,12 @@ SCRIPT
     chmod 755 "$RUNNER"
     su "$APP_UID" "$RUNNER" 2>&1
     EXIT_CODE=$?
+fi
+
+# Restore SELinux if we changed it
+if [ -n "$SELINUX_WAS_ENFORCING" ]; then
+    setenforce 1
+    echo "[INFO] SELinux restored to Enforcing"
 fi
 
 rm -f "$RUNNER"
@@ -134,7 +149,4 @@ if [ "$EXIT_CODE" != "0" ]; then
     echo "  APK file: $(ls -la $APK_PATH 2>&1)"
     echo "  Running as UID: $APP_UID"
     echo "  SELinux: $(getenforce 2>/dev/null || echo 'unknown')"
-    if [ "$(getenforce 2>/dev/null)" = "Enforcing" ]; then
-        echo "  Try: setenforce 0"
-    fi
 fi

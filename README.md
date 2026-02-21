@@ -252,6 +252,13 @@ On some firmwares, the Philips app initially communicates with the device via **
 
 To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool-recommended).
 
+### "Could not obtain encryption key" or "credentials invalid" with HTTP Toolkit credentials
+HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_id` and `client_secret`. When you enter credentials without an encryption key, the integration tries to fetch it from the device automatically. If that fails, the most common causes are:
+
+- **Cloud vs local credentials**: HTTP Toolkit captures all traffic. Make sure the credentials you captured came from requests to the **device's local IP address**, not to Philips cloud servers. Cloud credentials will not work for local control.
+- **Device not in correct state**: The encryption key exchange requires valid local credentials. If the device doesn't recognize the credentials, the exchange will fail.
+- **Credential extractor is the recommended method**: The extractor reads credentials (including the encryption key) directly from the app's storage, which is more reliable than intercepting traffic. If the extractor fails due to SELinux issues, try running `setenforce 0` before running it.
+
 ### Empty Database
 If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.
 

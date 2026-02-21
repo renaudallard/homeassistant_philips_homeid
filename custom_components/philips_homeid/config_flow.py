@@ -178,6 +178,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # For HTTP devices, try to fetch the encryption key
                     if not device.use_https:
                         await self._local_api.exchange_encryption_key(device)
+                        if not device.encryption_key:
+                            _LOGGER.warning(
+                                "Failed to obtain encryption key for HTTP device %s after pairing",
+                                device.ip_address,
+                            )
 
                     entry_data = {
                         CONF_HOST: device.ip_address,
@@ -262,28 +267,37 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if not device.use_https and not device.encryption_key:
                         await self._local_api.exchange_encryption_key(device)
 
-                    # Try to make a request with these credentials
-                    info = await self._local_api.get_device_info(device)
-                    if info:
-                        entry_data = {
-                            CONF_HOST: device.ip_address,
-                            CONF_CPP_ID: device.cpp_id,
-                            CONF_MODEL: device.model_name,
-                            CONF_DEVICE_ID: device.cpp_id,
-                            CONF_CLIENT_ID: client_id,
-                            CONF_CLIENT_SECRET: client_secret,
-                            CONF_USE_HTTPS: device.use_https,
-                        }
-                        if device.encryption_key:
-                            entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
-                        return self.async_create_entry(
-                            title=device.friendly_name
-                            or device.model_name
-                            or device.ip_address,
-                            data=entry_data,
+                    if not device.use_https and not device.encryption_key:
+                        _LOGGER.warning(
+                            "Failed to obtain encryption key from %s — "
+                            "credentials may be invalid or device requires "
+                            "manual encryption key",
+                            device.ip_address,
                         )
+                        errors["base"] = "encryption_key_failed"
                     else:
-                        errors["base"] = "invalid_credentials"
+                        # Try to make a request with these credentials
+                        info = await self._local_api.get_device_info(device)
+                        if info:
+                            entry_data = {
+                                CONF_HOST: device.ip_address,
+                                CONF_CPP_ID: device.cpp_id,
+                                CONF_MODEL: device.model_name,
+                                CONF_DEVICE_ID: device.cpp_id,
+                                CONF_CLIENT_ID: client_id,
+                                CONF_CLIENT_SECRET: client_secret,
+                                CONF_USE_HTTPS: device.use_https,
+                            }
+                            if device.encryption_key:
+                                entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
+                            return self.async_create_entry(
+                                title=device.friendly_name
+                                or device.model_name
+                                or device.ip_address,
+                                data=entry_data,
+                            )
+                        else:
+                            errors["base"] = "invalid_credentials"
                 except Exception:
                     _LOGGER.exception("Error testing credentials")
                     errors["base"] = "invalid_credentials"

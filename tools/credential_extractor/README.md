@@ -39,6 +39,12 @@ On newer firmwares where the SQLite database is empty, the tool cannot automatic
 sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
 ```
 
+To dump all entries from the encrypted stores (not just known credential keys), use `--dump-all`. This is useful for diagnostics when the extractor reports entries exist but finds no credentials:
+
+```sh
+sh /data/local/tmp/extract_creds.sh --dump-all e4:bc:96:00:00:00
+```
+
 ### 3. Read the output
 
 The tool tries four extraction methods. Example output:
@@ -175,4 +181,5 @@ The script found the app's SELinux context but `runcon` failed (e.g., SELinux po
 The app might not have stored any credentials yet. Make sure you've:
 - Paired a device with the Philips HomeID app **on the same device** where you're running the extractor
 - Actually completed the pairing process (not just added the device via cloud)
-The diagnostic entry counts (e.g., "42 total entries in encrypted store") help identify whether the encrypted stores contain data at all.
+
+The diagnostic entry counts (e.g., "42 total entries in encrypted store") help identify whether the encrypted stores contain data at all. If entries exist but no credentials are found, run with `--dump-all` to see what the app actually stores — credentials may be under unexpected key names, or the app may use cloud-only communication on newer firmwares.

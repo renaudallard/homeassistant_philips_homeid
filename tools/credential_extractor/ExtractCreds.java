@@ -50,18 +50,27 @@ public class ExtractCreds {
     // MAC addresses discovered from SQLite/preferences for use in key lookups
     private static Set<String> discoveredMacs = new LinkedHashSet<>();
 
+    // When true, dump all entries from encrypted stores (not just known keys)
+    private static boolean dumpAll = false;
+
     public static void main(String[] args) {
         System.out.println("Philips HomeID Credential Extractor");
         System.out.println("====================================");
         System.out.println();
         System.out.flush();
 
-        // Optional MAC address argument for key lookups
-        if (args.length > 0 && args[0] != null && !args[0].isEmpty()) {
-            discoveredMacs.add(args[0]);
-            System.out.println("Using MAC: " + args[0]);
-            System.out.println();
+        // Parse arguments: [--dump-all] [MAC_ADDRESS]
+        for (String arg : args) {
+            if (arg == null || arg.isEmpty()) continue;
+            if ("--dump-all".equals(arg)) {
+                dumpAll = true;
+                System.out.println("Mode: dump all entries");
+            } else {
+                discoveredMacs.add(arg);
+                System.out.println("Using MAC: " + arg);
+            }
         }
+        if (args.length > 0) System.out.println();
 
         try {
             bypassHiddenApiRestrictions();
@@ -449,17 +458,28 @@ public class ExtractCreds {
                 tryKnownKeys(instance, getStringMethod);
             }
 
-            // Dump entry count from the underlying EncryptedSharedPreferences
+            // Dump entries from the underlying EncryptedSharedPreferences
             SharedPreferences underlying = findPrefsField(cls, instance);
             if (underlying != null) {
                 try {
                     Map<String, ?> all = underlying.getAll();
                     int count = 0;
-                    for (String key : all.keySet()) {
-                        if (!key.startsWith("__androidx_security")) count++;
+                    for (Map.Entry<String, ?> entry : all.entrySet()) {
+                        String key = entry.getKey();
+                        if (key.startsWith("__androidx_security")) continue;
+                        count++;
+                        if (dumpAll) {
+                            System.out.println("  [raw] " + key + " = "
+                                    + entry.getValue());
+                        }
                     }
-                    System.out.println("  (" + count
-                            + " total entries in encrypted store)");
+                    if (dumpAll) {
+                        System.out.println("  " + count
+                                + " total entries in encrypted store");
+                    } else {
+                        System.out.println("  (" + count
+                                + " total entries in encrypted store)");
+                    }
                 } catch (Exception e) {
                     System.out.println("  [WARN] Cannot enumerate entries: "
                             + e.getClass().getSimpleName());
@@ -533,10 +553,19 @@ public class ExtractCreds {
                 }
             }
 
-            if (found == 0) {
-                Map<String, ?> all = prefs.getAll();
+            Map<String, ?> all = prefs.getAll();
+            if (found == 0 && !dumpAll) {
                 System.out.println("  No credentials found ("
                         + all.size() + " entries in file)");
+            }
+
+            if (dumpAll) {
+                for (Map.Entry<String, ?> entry : all.entrySet()) {
+                    System.out.println("  [raw] " + entry.getKey()
+                            + " = " + entry.getValue());
+                }
+                System.out.println("  " + all.size()
+                        + " total entries in file");
             }
 
         } catch (ClassNotFoundException e) {

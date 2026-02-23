@@ -9,12 +9,17 @@
 #   adb push extractor.dex extract_creds.sh /data/local/tmp/
 #   adb shell
 #   su
-#   sh /data/local/tmp/extract_creds.sh [MAC_ADDRESS]
+#   sh /data/local/tmp/extract_creds.sh [--dump-all] [MAC_ADDRESS]
 #
 # The MAC address is optional. If the SQLite database is empty (newer
 # firmwares), pass the device MAC so the tool can look up credentials
 # in the encrypted preferences. Example:
 #   sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
+#
+# Use --dump-all to dump all entries from encrypted stores (not just
+# known credential keys). Useful for diagnostics when credentials are
+# stored under unexpected key names:
+#   sh /data/local/tmp/extract_creds.sh --dump-all e4:bc:96:00:00:00
 #
 
 PKG="com.philips.ka.oneka.app"
@@ -93,14 +98,14 @@ echo ""
 # non-zero exit means the process didn't start (e.g. runcon denied the
 # exec on app_process) — safe to retry without runcon.
 RUNNER="/data/local/tmp/_extract_run.sh"
-MAC_ARG="$1"
+EXTRA_ARGS="$*"
 SELINUX_WAS_ENFORCING=""
 
 if [ -n "$APP_SECONTEXT" ]; then
     cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
-exec runcon $APP_SECONTEXT app_process / ExtractCreds $MAC_ARG
+exec runcon $APP_SECONTEXT app_process / ExtractCreds $EXTRA_ARGS
 SCRIPT
     chmod 755 "$RUNNER"
     su "$APP_UID" "$RUNNER" 2>&1
@@ -126,7 +131,7 @@ if [ -z "$APP_SECONTEXT" ]; then
     cat > "$RUNNER" << SCRIPT
 #!/system/bin/sh
 export CLASSPATH=$DEX
-exec app_process / ExtractCreds $MAC_ARG
+exec app_process / ExtractCreds $EXTRA_ARGS
 SCRIPT
     chmod 755 "$RUNNER"
     su "$APP_UID" "$RUNNER" 2>&1

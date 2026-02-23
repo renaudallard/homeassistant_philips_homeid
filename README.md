@@ -128,6 +128,10 @@ The included credential extractor tool automatically tries all known storage loc
      ```sh
      sh /data/local/tmp/extract_creds.sh e4:bc:96:00:00:00
      ```
+   - If the extractor reports entries exist but finds no credentials, use `--dump-all` to see what the app actually stores:
+     ```sh
+     sh /data/local/tmp/extract_creds.sh --dump-all e4:bc:96:00:00:00
+     ```
    - Look for `client_id` / `DEVICE_CLIENT_ID` and `client_secret` / `DEVICE_CLIENT_SECRET` in the output
    - Note: `encryption_key` is only needed for HTTP devices (e.g., HD9285). If left empty, the integration will try to fetch it automatically from the device.
 

@@ -17,6 +17,8 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 | **Dual Basket Air Fryers** | HD9880 | Independent basket control |
 
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
+>
+> **Known limitation:** Some newer firmware versions (e.g., HD9280 firmware 4.0.0/0.6.8, HD9285 firmware 1.6.2/0.6.8) have the app communicate exclusively via cloud relay and never generate local credentials. The device still runs a local HTTP server, but the app does not store the credentials needed to access it. See [Cloud-only firmware](#cloud-only-firmware) in Troubleshooting.
 
 ---
 
@@ -262,6 +264,24 @@ HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_i
 - **Cloud vs local credentials**: HTTP Toolkit captures all traffic. Make sure the credentials you captured came from requests to the **device's local IP address**, not to Philips cloud servers. Cloud credentials will not work for local control.
 - **Device not in correct state**: The encryption key exchange requires valid local credentials. If the device doesn't recognize the credentials, the exchange will fail.
 - **Credential extractor is the recommended method**: The extractor reads credentials (including the encryption key) directly from the app's storage, which is more reliable than intercepting traffic. The extractor now automatically handles SELinux by temporarily setting it to Permissive when needed.
+
+### Cloud-only Firmware
+
+Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via `backend.vbs.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
+
+**Known affected firmwares:**
+- HD9280 firmware 4.0.0/0.6.8
+- HD9285 firmware 1.6.2/0.6.8
+
+**Symptoms:**
+- The credential extractor finds no credentials in any method
+- The `--dump-all` flag shows only app settings (no device credentials)
+- `COMMUNICATION_LIB_PREFERENCES` (Method 2) is completely empty
+- Traffic interception shows all communication goes through cloud websockets, never to the device's local IP
+- Built-in pairing fails because the device is already paired with the app
+- Credentials captured from cloud traffic (HTTP Toolkit) do not work for local auth
+
+**What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are generated or stored. The device is also already paired with the app via the cloud, so it rejects new pairing attempts from the integration.
 
 ### Empty Database
 If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.

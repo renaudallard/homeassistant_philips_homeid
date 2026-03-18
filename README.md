@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/logo.png" alt="Philips HomeID" width="120">
+</p>
+
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)

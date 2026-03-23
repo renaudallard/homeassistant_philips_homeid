@@ -152,7 +152,33 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 </details>
 
-### Method 2: SQLite Database (manual alternative)
+### Method 2: Cloud Key Fetcher (Experimental)
+
+For devices with cloud-only firmware (e.g. HD9280 4.0.0/0.6.8) where the app never generates local credentials, you can try fetching credentials from the Philips cloud API. This requires a Philips HomeID account with the device registered via the official app.
+
+<details>
+<summary><b>Step-by-step instructions</b></summary>
+
+1. **Install dependencies**
+   ```sh
+   pip install playwright && playwright install chromium
+   ```
+
+2. **Run the tool**
+   ```sh
+   python3 tools/cloud_key_fetcher.py your@email.com          # sends OTP to your email
+   python3 tools/cloud_key_fetcher.py your@email.com 123456    # verify OTP + fetch devices
+   ```
+
+3. **Check results** - the tool will print any registered devices and their `localCredentials` if available.
+
+This is experimental. It authenticates via email OTP + headless browser OAuth, then queries the Philips IoT API. It only works for devices registered in the Philips cloud.
+
+See [`tools/cloud_key_fetcher.py`](tools/cloud_key_fetcher.py) for details.
+
+</details>
+
+### Method 3: SQLite Database (manual alternative)
 
 On older firmwares, the app stores credentials in an unencrypted SQLite database. You can read them manually if you prefer not to use the extractor tool.
 

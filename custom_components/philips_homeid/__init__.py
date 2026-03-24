@@ -201,6 +201,17 @@ def _cleanup_stale_entities(
                         should_remove = True
                     break
 
+        elif platform == "number":
+            from .number import AIRFRYER_NUMBERS, MUJI_NUMBERS
+
+            for num_desc in (*AIRFRYER_NUMBERS, *MUJI_NUMBERS):
+                if num_desc.key == entity_key:
+                    if num_desc.property_key and not coordinator.has_property(
+                        num_desc.property_key, num_desc.nested_key
+                    ):
+                        should_remove = True
+                    break
+
         if should_remove:
             _LOGGER.info(
                 "Removing stale entity %s (%s)",

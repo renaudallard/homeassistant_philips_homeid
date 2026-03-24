@@ -239,7 +239,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.HOURS,
         icon="mdi:clock-outline",
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda x: x // 3600 if x else None,  # Convert seconds to hours
+        value_fn=lambda x: x // 3600 if x is not None else None,
         device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(

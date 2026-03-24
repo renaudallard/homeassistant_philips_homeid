@@ -32,10 +32,15 @@ def test_case_insensitive():
     assert get_device_type("HD9280") == "airfryer"
 
 
+def test_multicooker_models():
+    """NX* models should be detected as multicooker."""
+    assert get_device_type("NX0960") == "multicooker"
+    assert get_device_type("NX0950") == "multicooker"
+
+
 def test_unknown_models():
     """Unknown models should return unknown."""
     assert get_device_type("EP2520") == "unknown"
-    assert get_device_type("NX0950") == "unknown"
     assert get_device_type("") == "unknown"
     assert get_device_type("random") == "unknown"
 

@@ -97,7 +97,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="shake",
         nested_key="airfryer",
         icon="mdi:hand-wave",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_flip_reminder",
@@ -105,7 +105,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="flip",
         nested_key="airfryer",
         icon="mdi:rotate-3d-variant",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_preheat_active",
@@ -113,7 +113,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="preheat_active",
         nested_key="airfryer",
         icon="mdi:fire",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     # Venus-only sensors (HD9875, HD9876, HD9880)
     PhilipsHomeIDBinarySensorEntityDescription(
@@ -123,7 +123,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:thermometer-probe-off",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_probe_required",
@@ -131,7 +131,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="probe_required",
         nested_key="airfryer",
         icon="mdi:thermometer-probe",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_resting",
@@ -139,7 +139,26 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="resting",
         nested_key="airfryer",
         icon="mdi:sleep",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
+    ),
+    # Multicooker-specific sensors (Nutrimax NX0960, Hermes NX0950)
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="multicooker_lid_open",
+        translation_key="multicooker_lid_open",
+        property_key="lid_open",
+        nested_key="airfryer",
+        device_class=BinarySensorDeviceClass.DOOR,
+        icon="mdi:pot-steam-outline",
+        device_types=("multicooker",),
+    ),
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="multicooker_no_water",
+        translation_key="multicooker_no_water",
+        property_key="no_water",
+        nested_key="airfryer",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon="mdi:water-off",
+        device_types=("multicooker",),
     ),
     # Dual basket sensors
     PhilipsHomeIDBinarySensorEntityDescription(

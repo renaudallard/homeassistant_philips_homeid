@@ -64,6 +64,14 @@ PORT_VENUS1AF = "venus1af"  # VENUS 1 (HD9875, HD9876)
 # VENUS additional endpoints
 PORT_AUTOCOOK = "autocookprogram"  # VENUS auto cook program
 PORT_RECIPE = "recipe"  # VENUS recipe status
+# Multicooker ports
+PORT_NUTRIMAX = "nutrimax"  # Nutrimax multicooker (NX0960)
+PORT_HERMESAC = "hermesac"  # Hermes appliance (NX0950)
+
+# Ports that use Venus-style key naming (need normalization)
+VENUS_STYLE_PORTS = frozenset(
+    {PORT_VENUSAF, PORT_VENUS1AF, PORT_NUTRIMAX, PORT_HERMESAC}
+)
 # VENUS device current state (voltage, internal temp)
 PORT_DEVCURRSTATE = "devcurrstate"
 
@@ -599,7 +607,13 @@ class PhilipsLocalAPI:
         if isinstance(device.airfryer_port, str):
             ports_to_try = [device.airfryer_port]
         else:
-            ports_to_try = [PORT_AIRFRYER, PORT_VENUSAF, PORT_VENUS1AF]
+            ports_to_try = [
+                PORT_AIRFRYER,
+                PORT_VENUSAF,
+                PORT_VENUS1AF,
+                PORT_NUTRIMAX,
+                PORT_HERMESAC,
+            ]
 
         for port in ports_to_try:
             result = await self._request(device, port)
@@ -611,7 +625,7 @@ class PhilipsLocalAPI:
                         port,
                     )
                 device.airfryer_port = port
-                if port in (PORT_VENUSAF, PORT_VENUS1AF):
+                if port in VENUS_STYLE_PORTS:
                     result = self._normalize_venus_response(result)
                 return result
 
@@ -653,7 +667,7 @@ class PhilipsLocalAPI:
         """
         port = self._airfryer_port(device)
 
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             # Venus 3-step start: precook → settings → cooking
             precook: dict[str, Any] = {
                 "status": AIRFRYER_STATUS_PRECOOK,
@@ -697,7 +711,7 @@ class PhilipsLocalAPI:
         Venus uses pause → mainmenu. SPECTRE uses standby.
         """
         port = self._airfryer_port(device)
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             await self._request(
                 device, port, method="PUT", data={"status": AIRFRYER_STATUS_PAUSED}
             )
@@ -742,7 +756,7 @@ class PhilipsLocalAPI:
             data["probe_required"] = True
         if preset is not None:
             data["preset"] = preset
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             # Venus: temp_unit True=Fahrenheit, False=Celsius (standard)
             data["temp_unit"] = temp_unit_fahrenheit
             data = self._normalize_venus_command(data)
@@ -765,7 +779,7 @@ class PhilipsLocalAPI:
             temp: Keep warm temperature in Celsius (default 65, SPECTRE only)
         """
         port = self._airfryer_port(device)
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             # Venus: method=2 (KEEP_WARM), status="maintain"
             data: dict[str, Any] = {
                 "total_time": time_seconds,
@@ -804,7 +818,7 @@ class PhilipsLocalAPI:
         if time_seconds is not None:
             data["time"] = time_seconds
 
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             data["temp_unit"] = temp_unit_fahrenheit
             data = self._normalize_venus_command(data)
             if is_cooking:
@@ -1204,7 +1218,7 @@ class PhilipsLocalAPI:
                 _LOGGER.debug("Airfryer status: %s", airfryer)
 
                 # Fetch Venus-specific endpoints
-                if device.airfryer_port in (PORT_VENUSAF, PORT_VENUS1AF):
+                if device.airfryer_port in VENUS_STYLE_PORTS:
                     dev_state = await self.get_device_current_state(device)
                     if dev_state:
                         for key, value in dev_state.items():

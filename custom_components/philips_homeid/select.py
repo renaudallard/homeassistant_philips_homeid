@@ -74,7 +74,7 @@ async def async_setup_entry(
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    if device_type not in ("airfryer", "airfryer_dual"):
+    if device_type not in ("airfryer", "airfryer_dual", "multicooker"):
         return
 
     if coordinator.has_property("preset", "airfryer"):

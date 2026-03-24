@@ -20,6 +20,8 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 | **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
 | **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
+| **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
+| **Multicookers** | NX0950 | HERMES | Port `hermesac` |
 
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >

@@ -160,7 +160,7 @@ async def async_setup_entry(
 
     entities: list[NumberEntity] = []
 
-    if device_type in ("airfryer", "airfryer_dual"):
+    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
         for description in AIRFRYER_NUMBERS:
             if coordinator.has_property(
                 description.property_key, description.nested_key

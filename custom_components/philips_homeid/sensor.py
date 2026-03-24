@@ -72,6 +72,10 @@ def get_device_type(model_name: str) -> str:
     if model_lower.startswith("hd9") or "airfryer" in model_lower:
         return "airfryer"
 
+    # Multicookers - NX series (Nutrimax, Hermes)
+    if model_lower.startswith("nx"):
+        return "multicooker"
+
     # Default: try to detect from data
     return "unknown"
 
@@ -312,7 +316,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status",
         nested_key="airfryer",
         icon="mdi:stove",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_temperature",
@@ -357,7 +361,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer-outline",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
         extrapolate_countdown=True,  # Extrapolate between polls when cooking
     ),
     PhilipsHomeIDSensorEntityDescription(
@@ -366,7 +370,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="preset",
         nested_key="airfryer",
         icon="mdi:format-list-numbered",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_recipe_name",
@@ -374,7 +378,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="recipeName",
         nested_key="airfryer",
         icon="mdi:food",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_error",
@@ -382,7 +386,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="error",
         nested_key="airfryer",
         icon="mdi:alert-circle",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_preheat_status",
@@ -390,7 +394,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="preheat",
         nested_key="airfryer",
         icon="mdi:fire",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_keep_warm",
@@ -398,7 +402,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="keep_warm",
         nested_key="airfryer",
         icon="mdi:pot-steam",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_recipe_id",
@@ -407,7 +411,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="airfryer",
         icon="mdi:book-open-variant",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_step_id",
@@ -416,7 +420,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="airfryer",
         icon="mdi:format-list-numbered",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     # Venus-only sensors (HD9875, HD9876, HD9880)
     PhilipsHomeIDSensorEntityDescription(
@@ -426,7 +430,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="airfryer",
         icon="mdi:fan",
         state_class=SensorStateClass.MEASUREMENT,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_probe_temperature",
@@ -437,7 +441,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-probe",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_current_probe_temperature",
@@ -448,7 +452,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-probe-off",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_dialog",
@@ -456,7 +460,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="dialog",
         nested_key="airfryer",
         icon="mdi:message-alert",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_previous_status",
@@ -464,7 +468,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="prev_status",
         nested_key="airfryer",
         icon="mdi:history",
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_cooking_id",
@@ -473,7 +477,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="airfryer",
         icon="mdi:identifier",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_current_stage",
@@ -482,7 +486,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="airfryer",
         icon="mdi:stairs",
         state_class=SensorStateClass.MEASUREMENT,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_voltage",
@@ -494,7 +498,27 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:flash",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
+    ),
+    # Multicooker-specific sensors (Nutrimax NX0960, Hermes NX0950)
+    PhilipsHomeIDSensorEntityDescription(
+        key="multicooker_humidity",
+        translation_key="multicooker_humidity",
+        property_key="humidity",
+        nested_key="airfryer",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:water-percent",
+        device_types=("multicooker",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="multicooker_ingredient",
+        translation_key="multicooker_ingredient",
+        property_key="ingredient",
+        nested_key="airfryer",
+        icon="mdi:food-variant",
+        device_types=("multicooker",),
     ),
     # Dual basket airfryer sensors (left basket)
     PhilipsHomeIDSensorEntityDescription(
@@ -571,7 +595,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="autocook",
         icon="mdi:script-text-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="autocook_doneness",
@@ -580,7 +604,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="autocook",
         icon="mdi:gauge",
         state_class=SensorStateClass.MEASUREMENT,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="autocook_amount",
@@ -589,7 +613,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="autocook",
         icon="mdi:numeric",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="autocook_weight",
@@ -598,7 +622,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="autocook",
         icon="mdi:weight",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="autocook_thickness",
@@ -607,7 +631,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="autocook",
         icon="mdi:arrow-expand-vertical",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="recipe_current_stage",
@@ -616,7 +640,7 @@ VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="recipe",
         icon="mdi:stairs",
         state_class=SensorStateClass.MEASUREMENT,
-        device_types=("airfryer", "airfryer_dual"),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
 )
 
@@ -629,7 +653,7 @@ COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="firmware",
         icon="mdi:information-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("air_purifier", "airfryer", "airfryer_dual"),
+        device_types=("air_purifier", "airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="firmware_available",
@@ -638,7 +662,7 @@ COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         nested_key="firmware",
         icon="mdi:update",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("air_purifier", "airfryer", "airfryer_dual"),
+        device_types=("air_purifier", "airfryer", "airfryer_dual", "multicooker"),
     ),
 )
 

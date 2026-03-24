@@ -216,6 +216,12 @@
       "airfryer_right_time": {
         "name": "Right Basket Time"
       },
+      "multicooker_humidity": {
+        "name": "Humidity"
+      },
+      "multicooker_ingredient": {
+        "name": "Ingredient"
+      },
       "autocook_uuid": {
         "name": "AutoCook Program"
       },
@@ -268,6 +274,12 @@
       },
       "airfryer_resting": {
         "name": "Resting"
+      },
+      "multicooker_lid_open": {
+        "name": "Lid"
+      },
+      "multicooker_no_water": {
+        "name": "No Water"
       },
       "airfryer_left_drawer_open": {
         "name": "Left Basket Drawer"

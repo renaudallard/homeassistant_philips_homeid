@@ -62,9 +62,11 @@ async def async_setup_entry(
         )
 
     # Preheat toggle for airfryers that have airfryer data
-    if device_type in ("airfryer", "airfryer_dual") and coordinator.has_property(
-        "status", "airfryer"
-    ):
+    if device_type in (
+        "airfryer",
+        "airfryer_dual",
+        "multicooker",
+    ) and coordinator.has_property("status", "airfryer"):
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
     # MUJI sensor monitor in standby (AC0650/AC0651)

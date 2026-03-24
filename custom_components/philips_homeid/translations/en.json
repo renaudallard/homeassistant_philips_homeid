@@ -128,9 +128,6 @@
       "muji_filter1_remaining": {
         "name": "Filter 1 Remaining"
       },
-      "connection_state": {
-        "name": "Connection"
-      },
       "airfryer_status": {
         "name": "Cooking Status"
       },

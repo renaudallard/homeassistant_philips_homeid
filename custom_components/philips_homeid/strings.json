@@ -62,8 +62,23 @@
       "pm25": {
         "name": "PM2.5"
       },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
       "air_quality_index": {
         "name": "Air Quality Index"
+      },
+      "tvoc": {
+        "name": "Total VOC"
+      },
+      "gas": {
+        "name": "Gas Level"
+      },
+      "allergen_index": {
+        "name": "Allergen Index"
       },
       "humidity": {
         "name": "Humidity"
@@ -80,14 +95,35 @@
       "filter_carbon": {
         "name": "Carbon Filter"
       },
-      "connection_state": {
-        "name": "Connection"
+      "filter_wick": {
+        "name": "Humidifier Wick"
+      },
+      "water_level": {
+        "name": "Water Level"
+      },
+      "display_brightness": {
+        "name": "Display Brightness"
+      },
+      "runtime": {
+        "name": "Total Runtime"
+      },
+      "mode": {
+        "name": "Mode"
+      },
+      "fan_speed": {
+        "name": "Fan Speed"
+      },
+      "error_code": {
+        "name": "Error Code"
       },
       "airfryer_status": {
         "name": "Cooking Status"
       },
       "airfryer_temperature": {
         "name": "Target Temperature"
+      },
+      "airfryer_current_temperature": {
+        "name": "Current Temperature"
       },
       "airfryer_time_total": {
         "name": "Total Cook Time"
@@ -103,6 +139,12 @@
       },
       "airfryer_error": {
         "name": "Error Code"
+      },
+      "airfryer_preheat_status": {
+        "name": "Preheat Status"
+      },
+      "airfryer_keep_warm": {
+        "name": "Keep Warm"
       },
       "muji_filter0_lifetime": {
         "name": "Filter 0 Total Lifetime"
@@ -143,6 +185,24 @@
       "airfryer_voltage": {
         "name": "Voltage"
       },
+      "airfryer_left_status": {
+        "name": "Left Basket Status"
+      },
+      "airfryer_left_temperature": {
+        "name": "Left Basket Temperature"
+      },
+      "airfryer_left_time": {
+        "name": "Left Basket Time"
+      },
+      "airfryer_right_status": {
+        "name": "Right Basket Status"
+      },
+      "airfryer_right_temperature": {
+        "name": "Right Basket Temperature"
+      },
+      "airfryer_right_time": {
+        "name": "Right Basket Time"
+      },
       "firmware_version": {
         "name": "Firmware Version"
       },
@@ -151,8 +211,23 @@
       }
     },
     "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Filter Replace Required"
+      },
+      "water_tank_empty": {
+        "name": "Water Tank Empty"
+      },
       "airfryer_drawer_open": {
         "name": "Drawer"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Shake Reminder"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Flip Reminder"
+      },
+      "airfryer_preheat_active": {
+        "name": "Preheat Active"
       },
       "airfryer_probe_unplugged": {
         "name": "Probe Unplugged"
@@ -162,6 +237,12 @@
       },
       "airfryer_resting": {
         "name": "Resting"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Left Basket Drawer"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Right Basket Drawer"
       }
     },
     "button": {

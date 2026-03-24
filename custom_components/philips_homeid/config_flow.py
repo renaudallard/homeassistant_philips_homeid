@@ -40,7 +40,7 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from homeassistant.core import callback
 
-from .cloud_api import CloudAuthError, ConsentRequired, PhilipsCloudAPI
+from .cloud_api import CloudAuthError, PhilipsCloudAPI
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
@@ -421,9 +421,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     else:
                         return await self.async_step_cloud_devices()
 
-                except ConsentRequired:
-                    errors["base"] = "consent_required"
-                    await self._close_cloud_api()
                 except CloudAuthError as err:
                     _LOGGER.error("Cloud auth failed: %s", err)
                     errors["base"] = "otp_failed"

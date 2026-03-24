@@ -26,16 +26,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
 import secrets
+import shutil
+import subprocess
 import urllib.parse
 from base64 import urlsafe_b64encode
 from typing import Any
 
 import aiohttp
-from yarl import URL
 
 from .const import (
     GIGYA_API_KEY,
@@ -60,10 +62,6 @@ OAUTH_SCOPES = (
     "subscriptions consents profile_extended "
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
-
-
-class ConsentRequired(Exception):
-    """Raised when OAuth consent has not been granted yet."""
 
 
 class CloudAuthError(Exception):
@@ -148,17 +146,14 @@ class PhilipsCloudAPI:
         return session_token
 
     async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
-        """Exchange Gigya session for OIDC tokens.
+        """Exchange Gigya session for OIDC tokens using headless browser.
 
-        Uses PKCE flow. Follows the full redirect chain through
-        Gigya's authorize/continue endpoint to capture the auth code.
-
-        The redirect chain is: /authorize -> /authorize/continue ->
-        redirect_uri (custom scheme). aiohttp follows HTTP redirects
-        and we scan the history for the auth code in Location headers.
+        Uses PKCE flow with Playwright to execute the Gigya OAuth authorize
+        page JavaScript, exactly matching the mobile app's AppAuth flow.
+        Playwright is auto-installed before use and uninstalled after.
 
         Returns dict with access_token, refresh_token, id_token, expires_in.
-        Raises ConsentRequired if interactive consent is needed.
+        Raises CloudAuthError on failure.
         """
         # Generate PKCE challenge
         code_verifier = secrets.token_urlsafe(64)
@@ -167,7 +162,7 @@ class PhilipsCloudAPI:
             .rstrip(b"=")
             .decode()
         )
-        state = secrets.token_urlsafe(32)
+        state = secrets.token_urlsafe(16)
 
         # Build authorize URL
         params = {
@@ -181,81 +176,169 @@ class PhilipsCloudAPI:
         }
         auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(params)}"
 
-        # Create session with Gigya cookies
-        gmid = secrets.token_hex(16)
-        jar = aiohttp.CookieJar(unsafe=True)
-        gigya_url = URL(GIGYA_API_URL)
-        cookies = {
-            f"glt_{GIGYA_API_KEY}": session_token,
-            f"gac_{GIGYA_API_KEY}": session_token,
-            "gmid": gmid,
-            "ucid": gmid,
-            "hasGmid": "ver4",
-        }
-        jar.update_cookies(cookies, gigya_url)
-        cookie_session = aiohttp.ClientSession(cookie_jar=jar)
-        try:
-            auth_code = await self._follow_authorize_flow(cookie_session, auth_url)
-            if auth_code:
-                return await self._exchange_code(auth_code, code_verifier)
+        # Run headless browser OAuth in executor (Playwright is sync)
+        loop = asyncio.get_running_loop()
+        auth_code = await loop.run_in_executor(
+            None, self._browser_oauth, session_token, auth_url
+        )
 
-            raise ConsentRequired(
-                "Please open the Philips HomeID app on your phone, "
-                "log in with this account, then try again here."
+        if not auth_code:
+            raise CloudAuthError(
+                "Could not obtain authorization code. "
+                "Please ensure you have used the Philips HomeID app "
+                "with this account at least once."
             )
-        finally:
-            await cookie_session.close()
 
-    async def _follow_authorize_flow(
-        self, session: aiohttp.ClientSession, auth_url: str
-    ) -> str | None:
-        """Follow the OAuth authorize redirect chain to extract the auth code.
-
-        The Gigya authorize endpoint uses a multi-step flow:
-        1. GET /authorize -> 302 to /authorize/continue (or 200 with JS)
-        2. GET /authorize/continue -> 302 to redirect_uri with code=
-
-        aiohttp will fail on the final redirect to the custom scheme
-        (com.philips.ka.oneka.app.prod://), so we also scan redirect
-        history and catch InvalidUrlClientError.
-        """
-        try:
-            async with session.get(auth_url, max_redirects=10) as resp:
-                # Check final URL
-                final_url = str(resp.url)
-                auth_code = self._extract_code(final_url)
-                if auth_code:
-                    return auth_code
-
-                # Scan redirect history for the code
-                for hist_resp in resp.history:
-                    location = hist_resp.headers.get("Location", "")
-                    auth_code = self._extract_code(location)
-                    if auth_code:
-                        return auth_code
-
-        except aiohttp.InvalidUrlClientError as err:
-            # aiohttp raises this when redirected to a non-HTTP scheme
-            # (com.philips.ka.oneka.app.prod://oauthredirect?code=...)
-            # The auth code is in the invalid URL
-            err_url = str(err)
-            auth_code = self._extract_code(err_url)
-            if auth_code:
-                return auth_code
-        except Exception:
-            _LOGGER.debug("Error during authorize flow", exc_info=True)
-
-        return None
+        return await self._exchange_code(auth_code, code_verifier)
 
     @staticmethod
-    def _extract_code(url: str) -> str | None:
-        """Extract authorization code from a URL."""
-        if "code=" not in url:
+    def _ensure_playwright() -> bool:
+        """Install Playwright and Chromium if not present. Returns True on success."""
+        try:
+            import playwright  # noqa: F401
+
+            return True
+        except ImportError:
+            pass
+
+        _LOGGER.info("Installing playwright for cloud authentication")
+        try:
+            subprocess.run(
+                ["pip", "install", "playwright"],
+                capture_output=True,
+                check=True,
+                timeout=120,
+            )
+            subprocess.run(
+                ["playwright", "install", "chromium"],
+                capture_output=True,
+                check=True,
+                timeout=300,
+            )
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
+            _LOGGER.exception("Failed to install playwright")
+            return False
+
+    @staticmethod
+    def _uninstall_playwright() -> None:
+        """Uninstall Playwright and its browsers."""
+        _LOGGER.info("Uninstalling playwright")
+        try:
+            # Remove browser binaries first
+            if shutil.which("playwright"):
+                subprocess.run(
+                    ["playwright", "uninstall"],
+                    capture_output=True,
+                    timeout=60,
+                )
+            subprocess.run(
+                ["pip", "uninstall", "-y", "playwright"],
+                capture_output=True,
+                timeout=60,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
+            _LOGGER.debug("Playwright uninstall failed (non-critical)")
+
+    @staticmethod
+    def _browser_oauth(session_token: str, auth_url: str) -> str | None:
+        """Run headless browser OAuth flow (sync, runs in executor).
+
+        Matches the exact flow from cloud_key_fetcher.py:
+        1. Launch headless Chromium
+        2. Set Gigya session cookies
+        3. Navigate to authorize URL
+        4. Intercept authorize/continue response for auth code
+        """
+        if not PhilipsCloudAPI._ensure_playwright():
             return None
-        parsed = urllib.parse.urlparse(url)
-        qs = urllib.parse.parse_qs(parsed.query)
-        codes = qs.get("code")
-        return codes[0] if codes else None
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            return None
+
+        auth_code = None
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context()
+
+                # Set Gigya session cookies (exact match with cloud_key_fetcher)
+                gmid = secrets.token_hex(16)
+                context.add_cookies(
+                    [
+                        {
+                            "name": f"glt_{GIGYA_API_KEY}",
+                            "value": session_token,
+                            "domain": ".accounts.home.id",
+                            "path": "/",
+                        },
+                        {
+                            "name": f"gac_{GIGYA_API_KEY}",
+                            "value": session_token,
+                            "domain": ".accounts.home.id",
+                            "path": "/",
+                        },
+                        {
+                            "name": "gmid",
+                            "value": gmid,
+                            "domain": ".accounts.home.id",
+                            "path": "/",
+                        },
+                        {
+                            "name": "ucid",
+                            "value": gmid,
+                            "domain": ".accounts.home.id",
+                            "path": "/",
+                        },
+                        {
+                            "name": "hasGmid",
+                            "value": "ver4",
+                            "domain": ".accounts.home.id",
+                            "path": "/",
+                        },
+                    ]
+                )
+
+                page = context.new_page()
+
+                # Intercept authorize/continue response for the auth code
+                def handle_response(response: Any) -> None:
+                    nonlocal auth_code
+                    if "authorize/continue" in response.url and not auth_code:
+                        for header in response.headers_array():
+                            if header["name"].lower() == "location":
+                                location = header["value"]
+                                if "code=" in location:
+                                    parsed = urllib.parse.urlparse(location)
+                                    qs = urllib.parse.parse_qs(parsed.query)
+                                    codes = qs.get("code", [])
+                                    if codes:
+                                        auth_code = codes[0]
+
+                page.on("response", handle_response)
+
+                try:
+                    page.goto(auth_url, timeout=30000, wait_until="networkidle")
+                except Exception:
+                    pass
+
+                # Wait for JS to complete if code not captured yet
+                if not auth_code:
+                    for _ in range(10):
+                        page.wait_for_timeout(1000)
+                        if auth_code:
+                            break
+
+                browser.close()
+        except Exception:
+            _LOGGER.exception("Browser OAuth flow failed")
+        finally:
+            PhilipsCloudAPI._uninstall_playwright()
+
+        return auth_code
 
     async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
         """Exchange authorization code for OIDC tokens."""

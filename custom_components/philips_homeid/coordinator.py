@@ -443,6 +443,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     ) -> None:
         """Notify callbacks about new properties."""
         if not new_properties or not self._new_properties_callbacks:
+            # Mark unclaimed properties as seen to avoid re-scanning
+            for prop_key, nested_key in new_properties:
+                self.mark_property_seen(prop_key, nested_key)
             return
 
         _LOGGER.debug("New properties discovered: %s", new_properties)
@@ -451,3 +454,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 callback(new_properties)
             except Exception:
                 _LOGGER.exception("Error in new property callback")
+
+        # Mark any properties not claimed by callbacks as seen
+        for prop_key, nested_key in new_properties:
+            if not self.is_property_seen(prop_key, nested_key):
+                self.mark_property_seen(prop_key, nested_key)

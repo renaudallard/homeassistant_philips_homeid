@@ -76,6 +76,13 @@ AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         press_fn=lambda c: c.async_airfryer_stop(),
         available_key="airfryer",
     ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="airfryer_keep_warm",
+        translation_key="airfryer_keep_warm",
+        icon="mdi:pot-steam",
+        press_fn=lambda c: c.async_airfryer_keep_warm(),
+        available_key="airfryer",
+    ),
 )
 
 

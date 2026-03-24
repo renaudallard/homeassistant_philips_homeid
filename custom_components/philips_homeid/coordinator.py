@@ -216,6 +216,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         temp_unit_fahrenheit: bool = False,
         preset: int | None = None,
         airspeed: int | None = None,
+        probe_temp: int | None = None,
     ) -> bool:
         """Set airfryer cooking settings."""
         result = await self.api.airfryer_set_settings(
@@ -225,7 +226,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             temp_unit_fahrenheit,
             preset,
             airspeed,
+            probe_temp,
         )
+        if result:
+            await self.async_request_refresh()
+        return result
+
+    async def async_airfryer_keep_warm(self) -> bool:
+        """Start keep warm mode."""
+        result = await self.api.airfryer_keep_warm(self.device_info)
         if result:
             await self.async_request_refresh()
         return result

@@ -103,6 +103,20 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         set_fn=lambda c, v: c.async_airfryer_set_settings(airspeed=int(v)),
         available_key="airfryer",
     ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="airfryer_set_probe_temperature",
+        translation_key="airfryer_set_probe_temperature",
+        property_key="temp_probe",
+        nested_key="airfryer",
+        native_min_value=40,
+        native_max_value=100,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        icon="mdi:thermometer-probe",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_airfryer_set_settings(probe_temp=int(v)),
+        available_key="airfryer",
+    ),
 )
 
 

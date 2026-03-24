@@ -650,6 +650,7 @@ class PhilipsLocalAPI:
         temp_unit_fahrenheit: bool = False,
         preset: int | None = None,
         airspeed: int | None = None,
+        probe_temp: int | None = None,
     ) -> bool:
         """Set airfryer cooking settings.
 
@@ -659,6 +660,7 @@ class PhilipsLocalAPI:
             temp_unit_fahrenheit: True for Fahrenheit, False for Celsius
             preset: Preset program number
             airspeed: Air speed (0=LOW, 1=HIGH, Venus only)
+            probe_temp: Target probe temperature (Venus only)
         """
         port = device.airfryer_port or PORT_AIRFRYER
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
@@ -668,6 +670,9 @@ class PhilipsLocalAPI:
             data["time"] = time_seconds
         if airspeed is not None:
             data["airspeed"] = airspeed
+        if probe_temp is not None:
+            data["temp_probe"] = probe_temp
+            data["probe_required"] = True
         if preset is not None:
             data["preset"] = preset
         if port in (PORT_VENUSAF, PORT_VENUS1AF):
@@ -677,6 +682,37 @@ class PhilipsLocalAPI:
         else:
             # SPECTRE: temp_unit True=Celsius, False=Fahrenheit (inverted)
             data["temp_unit"] = not temp_unit_fahrenheit
+        result = await self._request(device, port, method="PUT", data=data)
+        return result is not None
+
+    async def airfryer_keep_warm(
+        self,
+        device: LocalDeviceInfo,
+        time_seconds: int = 3600,
+        temp: int = 65,
+    ) -> bool:
+        """Start keep warm mode on the airfryer.
+
+        Args:
+            time_seconds: Keep warm duration in seconds (default 1 hour)
+            temp: Keep warm temperature in Celsius (default 65, SPECTRE only)
+        """
+        port = device.airfryer_port or PORT_AIRFRYER
+        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            # Venus: method=2 (KEEP_WARM), status="maintain"
+            data: dict[str, Any] = {
+                "total_time": time_seconds,
+                "method": 2,
+                "status": "maintain",
+            }
+        else:
+            # SPECTRE: preset=8 (KEEP_WARM), status="cooking"
+            data = {
+                "time": time_seconds,
+                "temp": temp,
+                "preset": 8,
+                "status": AIRFRYER_STATUS_COOKING,
+            }
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 

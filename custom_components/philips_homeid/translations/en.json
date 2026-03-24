@@ -245,6 +245,9 @@
       },
       "airfryer_stop": {
         "name": "Stop"
+      },
+      "airfryer_keep_warm": {
+        "name": "Keep Warm"
       }
     },
     "number": {
@@ -256,6 +259,9 @@
       },
       "airfryer_set_airspeed": {
         "name": "Set Air Speed"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Set Probe Temperature"
       }
     },
     "switch": {

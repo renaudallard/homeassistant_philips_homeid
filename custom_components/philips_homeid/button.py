@@ -104,9 +104,12 @@ async def async_setup_entry(
         )
         return
 
+    # Only create buttons if device has airfryer data
+    if not coordinator.has_property("status", "airfryer"):
+        return
+
     entities: list[PhilipsHomeIDButton] = []
 
-    # Add airfryer buttons
     for description in AIRFRYER_BUTTONS:
         entities.append(
             PhilipsHomeIDButton(coordinator, description, coordinator.device_id)

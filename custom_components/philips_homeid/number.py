@@ -161,9 +161,12 @@ async def async_setup_entry(
 
     if device_type in ("airfryer", "airfryer_dual"):
         for description in AIRFRYER_NUMBERS:
-            entities.append(
-                PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
-            )
+            if coordinator.has_property(
+                description.property_key, description.nested_key
+            ):
+                entities.append(
+                    PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
+                )
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):

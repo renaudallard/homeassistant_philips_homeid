@@ -55,16 +55,16 @@ async def async_setup_entry(
 
     entities: list[SwitchEntity] = []
 
-    # Child lock only for air purifiers
-    # Note: Airfryers don't have a power switch - they use start/stop buttons
-    # Air purifiers use the fan entity for on/off control
-    if device_type == "air_purifier":
+    # Child lock only for air purifiers that report it
+    if device_type == "air_purifier" and coordinator.has_property("cl"):
         entities.append(
             PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
         )
 
-    # Preheat toggle for airfryers
-    if device_type in ("airfryer", "airfryer_dual"):
+    # Preheat toggle for airfryers that have airfryer data
+    if device_type in ("airfryer", "airfryer_dual") and coordinator.has_property(
+        "status", "airfryer"
+    ):
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
     # MUJI sensor monitor in standby (AC0650/AC0651)

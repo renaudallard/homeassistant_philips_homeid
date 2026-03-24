@@ -84,6 +84,10 @@ async def async_setup_entry(
         _LOGGER.debug("Skipping fan entity for non-air-purifier device: %s", model_name)
         return
 
+    # Only create if device reports fan speed or mode
+    if not coordinator.has_property("om") and not coordinator.has_property("mode"):
+        return
+
     entities = [PhilipsAirPurifierFan(coordinator, coordinator.device_id)]
     async_add_entities(entities)
 

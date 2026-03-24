@@ -32,6 +32,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_CLIENT_ID,
@@ -140,9 +141,66 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    # Remove stale entities whose properties no longer exist on the device
+    _cleanup_stale_entities(hass, entry, coordinator)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+def _cleanup_stale_entities(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: PhilipsHomeIDCoordinator,
+) -> None:
+    """Remove entities whose properties are no longer reported by the device."""
+    registry = er.async_get(hass)
+    entries = er.async_entries_for_config_entry(registry, entry.entry_id)
+
+    for entity_entry in entries:
+        unique_id = entity_entry.unique_id
+        # unique_id format: {device_id}_{key}
+        # Skip entities without a property mapping (e.g., fan, preheat switch)
+        parts = unique_id.split("_", 1)
+        if len(parts) != 2:
+            continue
+
+        platform = entity_entry.domain
+        entity_key = parts[1]
+
+        # Check if the property this entity represents still exists
+        should_remove = False
+
+        if platform == "sensor":
+            from .sensor import SENSORS
+
+            for sensor_desc in SENSORS:
+                if sensor_desc.key == entity_key:
+                    if sensor_desc.property_key and not coordinator.has_property(
+                        sensor_desc.property_key, sensor_desc.nested_key
+                    ):
+                        should_remove = True
+                    break
+
+        elif platform == "binary_sensor":
+            from .binary_sensor import BINARY_SENSORS
+
+            for bs_desc in BINARY_SENSORS:
+                if bs_desc.key == entity_key:
+                    if bs_desc.property_key and not coordinator.has_property(
+                        bs_desc.property_key, bs_desc.nested_key
+                    ):
+                        should_remove = True
+                    break
+
+        if should_remove:
+            _LOGGER.info(
+                "Removing stale entity %s (%s)",
+                entity_entry.entity_id,
+                entity_key,
+            )
+            registry.async_remove(entity_entry.entity_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

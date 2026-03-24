@@ -302,6 +302,13 @@ class PhilipsLocalAPI:
         """Return URL scheme for a device."""
         return "https" if device.use_https else "http"
 
+    @staticmethod
+    def _airfryer_port(device: LocalDeviceInfo) -> str:
+        """Return the airfryer port name for a device."""
+        if isinstance(device.airfryer_port, str):
+            return device.airfryer_port
+        return PORT_AIRFRYER
+
     def _build_url(self, device: LocalDeviceInfo, port_name: str) -> str:
         """Build URL for device endpoint."""
         return (
@@ -619,7 +626,7 @@ class PhilipsLocalAPI:
         self, device: LocalDeviceInfo, preheat: bool = False
     ) -> bool:
         """Start cooking on the airfryer."""
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_COOKING}
         if preheat:
             data["preheat"] = True
@@ -628,14 +635,14 @@ class PhilipsLocalAPI:
 
     async def airfryer_pause(self, device: LocalDeviceInfo) -> bool:
         """Pause the airfryer."""
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         data = {"status": AIRFRYER_STATUS_PAUSED}
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
     async def airfryer_stop(self, device: LocalDeviceInfo) -> bool:
         """Stop the airfryer and return to standby."""
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         data = {"status": AIRFRYER_STATUS_STANDBY}
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
@@ -660,7 +667,7 @@ class PhilipsLocalAPI:
             airspeed: Air speed (0=LOW, 1=HIGH, Venus only)
             probe_temp: Target probe temperature (Venus only)
         """
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
         if temp is not None:
             data["temp"] = temp
@@ -695,7 +702,7 @@ class PhilipsLocalAPI:
             time_seconds: Keep warm duration in seconds (default 1 hour)
             temp: Keep warm temperature in Celsius (default 65, SPECTRE only)
         """
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         if port in (PORT_VENUSAF, PORT_VENUS1AF):
             # Venus: method=2 (KEEP_WARM), status="maintain"
             data: dict[str, Any] = {
@@ -727,7 +734,7 @@ class PhilipsLocalAPI:
         so it can be used to adjust temp/time while cooking without
         interrupting the cooking process.
         """
-        port = device.airfryer_port or PORT_AIRFRYER
+        port = self._airfryer_port(device)
         data: dict[str, Any] = {}
         if temp is not None:
             data["temp"] = temp

@@ -180,6 +180,9 @@
       "airfryer_probe_temperature": {
         "name": "Probe Temperature"
       },
+      "airfryer_current_probe_temperature": {
+        "name": "Current Probe Temperature"
+      },
       "airfryer_dialog": {
         "name": "Dialog"
       },

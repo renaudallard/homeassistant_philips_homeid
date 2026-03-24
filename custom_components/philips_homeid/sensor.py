@@ -440,6 +440,17 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_types=("airfryer", "airfryer_dual"),
     ),
     PhilipsHomeIDSensorEntityDescription(
+        key="airfryer_current_probe_temperature",
+        translation_key="airfryer_current_probe_temperature",
+        property_key="current_temp_probe",
+        nested_key="airfryer",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:thermometer-probe-off",
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
         key="airfryer_dialog",
         translation_key="airfryer_dialog",
         property_key="dialog",

@@ -36,7 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .local_api import PORT_VENUS1AF, PORT_VENUSAF
+from .local_api import VENUS_STYLE_PORTS
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
     def _get_presets(self) -> dict[int, str]:
         """Return the correct preset list for this device's architecture."""
         port = self.coordinator.device_info.airfryer_port
-        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+        if port in VENUS_STYLE_PORTS:
             return VENUS_PRESETS
         return SPECTRE_PRESETS
 

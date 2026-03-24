@@ -31,7 +31,7 @@ import hashlib
 import json
 import logging
 import secrets
-import ssl
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -282,19 +282,12 @@ class PhilipsLocalAPI:
         """Initialize the local API client."""
         self._session = session
         self._own_session = session is None
-        self._ssl_context: ssl.SSLContext | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self._session is None:
-            # Create SSL context that doesn't verify certificates
-            # (devices use self-signed certificates)
-            # Use SSLContext directly to avoid blocking call in create_default_context()
-            self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            self._ssl_context.check_hostname = False
-            self._ssl_context.verify_mode = ssl.CERT_NONE
-
-            connector = aiohttp.TCPConnector(ssl=self._ssl_context)
+            # Disable certificate verification (devices use self-signed certs)
+            connector = aiohttp.TCPConnector(ssl=False)
             self._session = aiohttp.ClientSession(connector=connector)
         return self._session
 

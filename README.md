@@ -95,6 +95,16 @@ Once paired, you need to extract the `client_id`, `client_secret`, and (for some
 5. When pairing fails (expected if the device is already paired with the app), check **Enter credentials manually**
 6. Enter your `client_id`, `client_secret`, and `encryption_key` (if applicable)
 
+#### Cloud Login (Fallback)
+
+If you cannot extract credentials (e.g., cloud-only firmware), use the cloud login option during pairing:
+
+1. Enter the device IP and confirm
+2. When pairing fails, check **Log in with Philips account**
+3. Enter your Philips HomeID email and the verification code sent to you
+4. Select your device from the list
+5. Credentials are retrieved automatically from the cloud
+
 ### Auto-Discovered Devices
 
 Devices discovered via Zeroconf or SSDP will appear automatically. You will still need to enter the credentials extracted from the HomeID app.

@@ -40,11 +40,13 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from homeassistant.core import callback
 
+from .cloud_api import CloudAuthError, PhilipsCloudAPI
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_CLOUD_REFRESH_TOKEN,
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_ENCRYPTION_KEY,
@@ -67,11 +69,11 @@ _LOGGER = logging.getLogger(__name__)
 PAIRING_INSTRUCTIONS = {
     "airfryer": (
         "Device must be in pairing mode (factory reset or unpaired from HomeID app).\n\n"
-        "If pairing fails, check 'Enter credentials manually' below."
+        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
     ),
     "default": (
         "Device must be in pairing mode.\n\n"
-        "If pairing fails, check 'Enter credentials manually' below."
+        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
     ),
 }
 
@@ -99,11 +101,23 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize the config flow."""
         self._discovered_device: LocalDeviceInfo | None = None
         self._local_api: PhilipsLocalAPI | None = None
+        self._cloud_api: PhilipsCloudAPI | None = None
+        self._cloud_email: str = ""
+        self._cloud_vtoken: str = ""
+        self._cloud_session_token: str = ""
+        self._cloud_tokens: dict[str, Any] = {}
+        self._cloud_devices: list[dict[str, Any]] = []
+
+    async def _close_cloud_api(self) -> None:
+        """Close cloud API session if open."""
+        if self._cloud_api:
+            await self._cloud_api.close()
+            self._cloud_api = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle initial step - go directly to manual host entry."""
+        """Handle initial step - go to manual host entry."""
         return await self.async_step_manual_host(user_input)
 
     async def async_step_manual_host(
@@ -179,6 +193,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Check if user wants to enter credentials manually
             if user_input.get("manual_entry"):
                 return await self.async_step_manual_credentials()
+            # Check if user wants cloud login
+            if user_input.get("cloud_login"):
+                return await self.async_step_cloud_email()
 
             # Try pairing
             try:
@@ -251,6 +268,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Optional("manual_entry", default=False): bool,
+                    vol.Optional("cloud_login", default=False): bool,
                 }
             ),
             description_placeholders={
@@ -340,6 +358,176 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "name": device.friendly_name or device.model_name or "Unknown Device",
             },
+            errors=errors,
+        )
+
+    async def async_step_cloud_email(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle cloud login - email entry."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            email = user_input.get("email", "").strip()
+            if email:
+                try:
+                    self._cloud_api = PhilipsCloudAPI()
+                    vtoken = await self._cloud_api.request_otp(email)
+                    self._cloud_email = email
+                    self._cloud_vtoken = vtoken
+                    return await self.async_step_cloud_otp()
+                except CloudAuthError as err:
+                    _LOGGER.error("OTP request failed: %s", err)
+                    errors["base"] = "otp_send_failed"
+                    await self._close_cloud_api()
+                except Exception:
+                    _LOGGER.exception("Unexpected error sending OTP")
+                    errors["base"] = "unknown"
+                    await self._close_cloud_api()
+            else:
+                errors["base"] = "missing_email"
+
+        return self.async_show_form(
+            step_id="cloud_email",
+            data_schema=vol.Schema({vol.Required("email"): str}),
+            errors=errors,
+        )
+
+    async def async_step_cloud_otp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle cloud login - OTP code entry."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            code = user_input.get("code", "").strip()
+            if code and self._cloud_api:
+                try:
+                    session_token = await self._cloud_api.verify_otp(
+                        self._cloud_email, code, self._cloud_vtoken
+                    )
+                    self._cloud_session_token = session_token
+
+                    # Try auto-consent OAuth
+                    tokens = await self._cloud_api.get_oidc_tokens(session_token)
+                    self._cloud_tokens = tokens
+
+                    # Get device list
+                    devices = await self._cloud_api.get_devices(tokens["access_token"])
+                    self._cloud_devices = devices
+
+                    if not devices:
+                        errors["base"] = "no_cloud_devices"
+                    else:
+                        return await self.async_step_cloud_devices()
+
+                except CloudAuthError as err:
+                    _LOGGER.error("Cloud auth failed: %s", err)
+                    errors["base"] = "otp_failed"
+                    await self._close_cloud_api()
+                except Exception:
+                    _LOGGER.exception("Unexpected error during cloud auth")
+                    errors["base"] = "unknown"
+                    await self._close_cloud_api()
+            else:
+                errors["base"] = "missing_code"
+
+        return self.async_show_form(
+            step_id="cloud_otp",
+            data_schema=vol.Schema({vol.Required("code"): str}),
+            description_placeholders={"email": self._cloud_email},
+            errors=errors,
+        )
+
+    async def async_step_cloud_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle cloud login - device selection."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None and self._cloud_api:
+            selected = user_input.get("device")
+            if selected:
+                # Find selected device
+                device_data = None
+                for dev in self._cloud_devices:
+                    dev_id = dev.get("id", "")
+                    if dev_id == selected:
+                        device_data = dev
+                        break
+
+                if device_data:
+                    # Try to get credentials
+                    ctn = device_data.get("ctn", "")
+                    try:
+                        cred_list = await self._cloud_api.get_device_credentials(
+                            self._cloud_tokens["access_token"],
+                            [device_data["id"]],
+                            [ctn] if ctn else [],
+                        )
+                    except Exception:
+                        _LOGGER.exception("Error fetching credentials")
+                        cred_list = []
+                    finally:
+                        await self._cloud_api.close()
+                        self._cloud_api = None
+
+                    # Extract credentials
+                    creds = None
+                    for cred_dev in cred_list:
+                        parsed = cred_dev.get("parsed_credentials")
+                        if parsed:
+                            creds = parsed
+                            break
+
+                    if creds:
+                        # Get IP: try cloud response, fall back to discovered device
+                        host = device_data.get("ipAddress", "")
+                        if not host and self._discovered_device:
+                            host = self._discovered_device.ip_address
+                        if not host:
+                            errors["base"] = "cloud_no_ip"
+                        else:
+                            entry_data = {
+                                CONF_HOST: host,
+                                CONF_CPP_ID: device_data.get("id", ""),
+                                CONF_MODEL: ctn,
+                                CONF_DEVICE_ID: device_data.get("id", ""),
+                                CONF_CLIENT_ID: creds.get("client_id", ""),
+                                CONF_CLIENT_SECRET: creds.get("client_secret", ""),
+                                CONF_USE_HTTPS: True,
+                                CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get(
+                                    "refresh_token", ""
+                                ),
+                            }
+                            enc_key = creds.get("encryption_key")
+                            if enc_key:
+                                entry_data[CONF_ENCRYPTION_KEY] = enc_key
+
+                            await self.async_set_unique_id(device_data.get("id", host))
+                            self._abort_if_unique_id_configured()
+
+                            return self.async_create_entry(
+                                title=device_data.get("friendlyName", ctn)
+                                or ctn
+                                or host,
+                                data=entry_data,
+                            )
+                    else:
+                        errors["base"] = "cloud_credentials_not_found"
+
+        # Build device selection dropdown
+        device_options = {}
+        for dev in self._cloud_devices:
+            dev_id = dev.get("id", "")
+            name = dev.get("friendlyName", "") or dev.get("ctn", dev_id)
+            ctn = dev.get("ctn", "")
+            label = f"{name} ({ctn})" if ctn else name
+            device_options[dev_id] = label
+
+        return self.async_show_form(
+            step_id="cloud_devices",
+            data_schema=vol.Schema({vol.Required("device"): vol.In(device_options)}),
             errors=errors,
         )
 

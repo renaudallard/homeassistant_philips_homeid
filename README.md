@@ -14,11 +14,12 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 
 ## Supported Devices
 
-| Category | Models | Notes |
-|----------|--------|-------|
-| **Air Purifiers** | AC0650, AC0651, AC series | Local network connectivity required |
-| **Air Fryers** | HD9200, HD9255, HD9280, HD9285, HD9875, HD9876 | Single basket models |
-| **Dual Basket Air Fryers** | HD9880 | Independent basket control |
+| Category | Models | Architecture | Notes |
+|----------|--------|--------------|-------|
+| **Air Purifiers** | AC0650, AC0651, AC series | | Local network connectivity required |
+| **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
+| **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
+| **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
 
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >
@@ -47,7 +48,7 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 - Cooking status, temperature (target/current), time remaining
 - Controls: start, pause, stop, temperature, cook time
 - Sensors: drawer state, preheat status, shake/flip reminders, keep warm
-- Dual basket models: independent left/right basket monitoring
+- Multiple device architectures supported (SPECTRE, VENUS 1, VENUS 2)
 
 ---
 

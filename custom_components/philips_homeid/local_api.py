@@ -55,8 +55,10 @@ PORT_DEVICE = "device"
 PORT_SECURITY = "security"
 PORT_FIRMWARE = "firmware"
 
-# Airfryer-specific port (product_id=1, port=airfryer)
-PORT_AIRFRYER = "airfryer"
+# Airfryer-specific ports per device architecture
+PORT_AIRFRYER = "airfryer"  # SPECTRE (HD9280, HD9285, HD9255)
+PORT_VENUSAF = "venusaf"  # VENUS 2 (HD9880)
+PORT_VENUS1AF = "venus1af"  # VENUS 1 (HD9875, HD9876)
 
 # Airfryer status values
 AIRFRYER_STATUS_STANDBY = "standby"
@@ -89,6 +91,8 @@ class LocalDeviceInfo:
     credentials: str | None = None  # Cached auth header value
     # AES encryption key (hex string) for HTTP devices - fetched from /security
     encryption_key: str | None = None
+    # Discovered airfryer port name (cached after first successful request)
+    airfryer_port: str | None = None
 
 
 @dataclass
@@ -539,28 +543,81 @@ class PhilipsLocalAPI:
         return result is not None
 
     # Airfryer-specific methods
+    # Mapping between Venus and SPECTRE JSON property names.
+    # Venus (HD9875/HD9876/HD9880) uses different keys than
+    # SPECTRE (HD9280/HD9285/HD9255). Format: {venus_key: spectre_key}
+    _VENUS_KEY_MAP = {
+        "disp_time": "cur_time",
+        "total_time": "time",
+        "method": "preset",
+    }
+    _SPECTRE_KEY_MAP = {v: k for k, v in _VENUS_KEY_MAP.items()}
+
+    @staticmethod
+    def _normalize_venus_response(data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize Venus response keys to SPECTRE format for reading."""
+        for venus_key, spectre_key in PhilipsLocalAPI._VENUS_KEY_MAP.items():
+            if venus_key in data and spectre_key not in data:
+                data[spectre_key] = data[venus_key]
+        return data
+
+    @staticmethod
+    def _normalize_venus_command(data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize SPECTRE command keys to Venus format for writing."""
+        for spectre_key, venus_key in PhilipsLocalAPI._SPECTRE_KEY_MAP.items():
+            if spectre_key in data:
+                data[venus_key] = data.pop(spectre_key)
+        return data
+
     async def get_airfryer_status(
         self, device: LocalDeviceInfo
     ) -> dict[str, Any] | None:
-        """Get airfryer status."""
-        return await self._request(device, PORT_AIRFRYER)
+        """Get airfryer status.
+
+        Tries the cached port first, then probes all known airfryer ports
+        (SPECTRE, VENUS 2, VENUS 1) until one responds. Normalizes Venus
+        responses to match SPECTRE property names.
+        """
+        if device.airfryer_port:
+            ports_to_try = [device.airfryer_port]
+        else:
+            ports_to_try = [PORT_AIRFRYER, PORT_VENUSAF, PORT_VENUS1AF]
+
+        for port in ports_to_try:
+            result = await self._request(device, port)
+            if result is not None:
+                if not device.airfryer_port:
+                    _LOGGER.info(
+                        "Device %s responds on airfryer port '%s'",
+                        device.ip_address,
+                        port,
+                    )
+                device.airfryer_port = port
+                if port in (PORT_VENUSAF, PORT_VENUS1AF):
+                    result = self._normalize_venus_response(result)
+                return result
+
+        return None
 
     async def airfryer_start_cooking(self, device: LocalDeviceInfo) -> bool:
         """Start cooking on the airfryer."""
+        port = device.airfryer_port or PORT_AIRFRYER
         data = {"status": AIRFRYER_STATUS_COOKING}
-        result = await self._request(device, PORT_AIRFRYER, method="PUT", data=data)
+        result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
     async def airfryer_pause(self, device: LocalDeviceInfo) -> bool:
         """Pause the airfryer."""
+        port = device.airfryer_port or PORT_AIRFRYER
         data = {"status": AIRFRYER_STATUS_PAUSED}
-        result = await self._request(device, PORT_AIRFRYER, method="PUT", data=data)
+        result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
     async def airfryer_stop(self, device: LocalDeviceInfo) -> bool:
         """Stop the airfryer and return to standby."""
+        port = device.airfryer_port or PORT_AIRFRYER
         data = {"status": AIRFRYER_STATUS_STANDBY}
-        result = await self._request(device, PORT_AIRFRYER, method="PUT", data=data)
+        result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
     async def airfryer_set_settings(
@@ -579,6 +636,7 @@ class PhilipsLocalAPI:
             temp_unit_fahrenheit: True for Fahrenheit, False for Celsius
             preset: Preset program number
         """
+        port = device.airfryer_port or PORT_AIRFRYER
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
         if temp is not None:
             data["temp"] = temp
@@ -587,7 +645,9 @@ class PhilipsLocalAPI:
         data["temp_unit"] = temp_unit_fahrenheit
         if preset is not None:
             data["preset"] = preset
-        result = await self._request(device, PORT_AIRFRYER, method="PUT", data=data)
+        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            data = self._normalize_venus_command(data)
+        result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
     async def send_wifi_credentials(

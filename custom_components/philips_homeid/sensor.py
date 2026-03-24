@@ -67,11 +67,7 @@ def get_device_type(model_name: str) -> str:
     if model_lower.startswith("ac"):
         return "air_purifier"
 
-    # Dual basket air fryers - HD9880 series
-    if "hd988" in model_lower or "dual" in model_lower:
-        return "airfryer_dual"
-
-    # Air fryers - HD series (single basket)
+    # Air fryers - HD9 series (SPECTRE, VENUS 1, VENUS 2 architectures)
     if model_lower.startswith("hd9") or "airfryer" in model_lower:
         return "airfryer"
 

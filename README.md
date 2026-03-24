@@ -95,7 +95,9 @@ Once paired, you need to extract the `client_id`, `client_secret`, and (for some
 5. When pairing fails (expected if the device is already paired with the app), check **Enter credentials manually**
 6. Enter your `client_id`, `client_secret`, and `encryption_key` (if applicable)
 
-#### Cloud Login (Fallback)
+#### Cloud Login (Experimental Fallback)
+
+> **Note:** This feature is experimental and may not work with all accounts or devices.
 
 If you cannot extract credentials (e.g., cloud-only firmware), use the cloud login option during pairing:
 

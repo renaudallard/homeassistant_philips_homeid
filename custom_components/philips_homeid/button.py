@@ -28,7 +28,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, Coroutine, Any
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry

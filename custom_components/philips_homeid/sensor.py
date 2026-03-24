@@ -30,7 +30,8 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,

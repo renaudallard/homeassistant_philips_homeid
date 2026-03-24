@@ -8,12 +8,6 @@
           "host": "IP Address"
         }
       },
-      "user": {
-        "menu_options": {
-          "manual_host": "Enter device IP address",
-          "cloud_email": "Log in with Philips account"
-        }
-      },
       "manual_host": {
         "title": "Enter Device IP",
         "description": "Enter the IP address of your Philips device that is already connected to your network.",
@@ -58,7 +52,8 @@
         "title": "Pair with {name}",
         "description": "Attempting to pair with the device.\n\n{instructions}",
         "data": {
-          "manual_entry": "Enter credentials manually"
+          "manual_entry": "Enter credentials manually",
+          "cloud_login": "Log in with Philips account"
         }
       },
       "manual_credentials": {

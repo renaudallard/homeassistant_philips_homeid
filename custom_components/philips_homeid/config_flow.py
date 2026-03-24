@@ -69,11 +69,11 @@ _LOGGER = logging.getLogger(__name__)
 PAIRING_INSTRUCTIONS = {
     "airfryer": (
         "Device must be in pairing mode (factory reset or unpaired from HomeID app).\n\n"
-        "If pairing fails, check 'Enter credentials manually' below."
+        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
     ),
     "default": (
         "Device must be in pairing mode.\n\n"
-        "If pairing fails, check 'Enter credentials manually' below."
+        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
     ),
 }
 
@@ -111,11 +111,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle initial step - choose between local and cloud setup."""
-        return self.async_show_menu(
-            step_id="user",
-            menu_options=["manual_host", "cloud_email"],
-        )
+        """Handle initial step - go to manual host entry."""
+        return await self.async_step_manual_host(user_input)
 
     async def async_step_manual_host(
         self, user_input: dict[str, Any] | None = None
@@ -190,6 +187,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Check if user wants to enter credentials manually
             if user_input.get("manual_entry"):
                 return await self.async_step_manual_credentials()
+            # Check if user wants cloud login
+            if user_input.get("cloud_login"):
+                return await self.async_step_cloud_email()
 
             # Try pairing
             try:
@@ -262,6 +262,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Optional("manual_entry", default=False): bool,
+                    vol.Optional("cloud_login", default=False): bool,
                 }
             ),
             description_placeholders={

@@ -88,24 +88,22 @@ Once paired, you need to extract the `client_id`, `client_secret`, and (for some
 
 ### Adding a Device
 
-#### Option 1: Cloud Login (Recommended)
-
-1. Go to **Settings** > **Devices & Services** > **Add Integration**
-2. Search for **Philips HomeID**
-3. Choose **Log in with Philips account**
-4. Enter your Philips HomeID email address
-5. Enter the verification code sent to your email
-6. Select your device from the list
-7. Credentials are retrieved automatically
-
-#### Option 2: Manual Setup
-
 1. Extract credentials from the HomeID app (see below)
 2. Go to **Settings** > **Devices & Services** > **Add Integration**
 3. Search for **Philips HomeID**
-4. Choose **Enter device IP address**
+4. Enter the device's IP address (or accept an auto-discovered device)
 5. When pairing fails (expected if the device is already paired with the app), check **Enter credentials manually**
 6. Enter your `client_id`, `client_secret`, and `encryption_key` (if applicable)
+
+#### Cloud Login (Fallback)
+
+If you cannot extract credentials (e.g., cloud-only firmware), use the cloud login option during pairing:
+
+1. Enter the device IP and confirm
+2. When pairing fails, check **Log in with Philips account**
+3. Enter your Philips HomeID email and the verification code sent to you
+4. Select your device from the list
+5. Credentials are retrieved automatically from the cloud
 
 ### Auto-Discovered Devices
 

@@ -40,6 +40,8 @@ from cryptography.hazmat.primitives.padding import PKCS7
 
 import aiohttp
 
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
 _LOGGER = logging.getLogger(__name__)
 
 # Default ports/endpoints for air purifiers
@@ -363,7 +365,9 @@ class PhilipsLocalAPI:
             _LOGGER.debug("Request: %s %s", method, url)
 
             if method == "GET":
-                async with session.get(url, headers=headers, timeout=10) as resp:
+                async with session.get(
+                    url, headers=headers, timeout=REQUEST_TIMEOUT
+                ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
                         return await self._request(
@@ -372,7 +376,7 @@ class PhilipsLocalAPI:
                     return result
             elif method == "PUT":
                 async with session.put(
-                    url, headers=headers, data=body, timeout=10
+                    url, headers=headers, data=body, timeout=REQUEST_TIMEOUT
                 ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
@@ -382,7 +386,7 @@ class PhilipsLocalAPI:
                     return result
             elif method == "POST":
                 async with session.post(
-                    url, headers=headers, data=body, timeout=10
+                    url, headers=headers, data=body, timeout=REQUEST_TIMEOUT
                 ) as resp:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
@@ -776,7 +780,9 @@ class PhilipsLocalAPI:
 
         try:
             _LOGGER.info("Sending Wi-Fi credentials to %s", url)
-            async with session.put(url, headers=headers, json=data, timeout=10) as resp:
+            async with session.put(
+                url, headers=headers, json=data, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 text = await resp.text()
                 _LOGGER.info(
                     "Wi-Fi credentials response (%s): %s", resp.status, text[:200]
@@ -802,7 +808,7 @@ class PhilipsLocalAPI:
 
         try:
             _LOGGER.info("Attempting to clear pairing via DELETE %s", url)
-            async with session.delete(url, timeout=10) as resp:
+            async with session.delete(url, timeout=REQUEST_TIMEOUT) as resp:
                 text = await resp.text()
                 _LOGGER.info("DELETE response (%s): %s", resp.status, text[:500])
 
@@ -848,7 +854,9 @@ class PhilipsLocalAPI:
             data = {"id": device.client_id}
             _LOGGER.info("Pairing step 1: PUT %s with id=%s", url, device.client_id)
 
-            async with session.put(url, headers=headers, json=data, timeout=10) as resp:
+            async with session.put(
+                url, headers=headers, json=data, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 text = await resp.text()
                 _LOGGER.info("Step 1 response (%s): %s", resp.status, text[:500])
 
@@ -920,7 +928,9 @@ class PhilipsLocalAPI:
             data = {"id": device.client_id, "key": computed_evidence}
             _LOGGER.info("Pairing step 2: PUT %s with key", url)
 
-            async with session.put(url, headers=headers, json=data, timeout=10) as resp:
+            async with session.put(
+                url, headers=headers, json=data, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 text = await resp.text()
                 _LOGGER.info("Step 2 response (%s): %s", resp.status, text[:500])
 
@@ -987,7 +997,9 @@ class PhilipsLocalAPI:
         headers = {"Content-Type": "application/json"}
 
         try:
-            async with session.get(url, headers=headers, timeout=10) as resp:
+            async with session.get(
+                url, headers=headers, timeout=REQUEST_TIMEOUT
+            ) as resp:
                 if resp.status == 200:
                     try:
                         return await resp.json(), resp.status

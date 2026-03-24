@@ -138,6 +138,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_pair()
 
         device = self._discovered_device
+        if not device:
+            return self.async_abort(reason="cannot_connect")
         return self.async_show_form(
             step_id="confirm",
             description_placeholders={
@@ -153,6 +155,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Pair with the device to obtain credentials."""
         errors: dict[str, str] = {}
         device = self._discovered_device
+        if not device:
+            return self.async_abort(reason="cannot_connect")
         error_message = ""
 
         if user_input is not None:
@@ -246,6 +250,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Allow manual entry of credentials."""
         errors: dict[str, str] = {}
         device = self._discovered_device
+        if not device:
+            return self.async_abort(reason="cannot_connect")
 
         if user_input is not None:
             client_id = user_input.get(CONF_CLIENT_ID, "").strip()
@@ -359,10 +365,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Confirm zeroconf discovered device."""
         if user_input is not None:
-            # Try to pair with the device
             return await self.async_step_pair()
 
         device = self._discovered_device
+        if not device:
+            return self.async_abort(reason="cannot_connect")
         return self.async_show_form(
             step_id="zeroconf_confirm",
             description_placeholders={
@@ -412,10 +419,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Confirm SSDP discovered device."""
         if user_input is not None:
-            # Try to pair with the device
             return await self.async_step_pair()
 
         device = self._discovered_device
+        if not device:
+            return self.async_abort(reason="cannot_connect")
         return self.async_show_form(
             step_id="ssdp_confirm",
             description_placeholders={

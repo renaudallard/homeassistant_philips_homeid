@@ -886,8 +886,8 @@ class PhilipsLocalAPI:
         try:
             _LOGGER.info("Attempting to clear pairing via DELETE %s", url)
             async with session.delete(url, timeout=REQUEST_TIMEOUT) as resp:
-                text = await resp.text()
-                _LOGGER.info("DELETE response (%s): %s", resp.status, text[:500])
+                await resp.text()
+                _LOGGER.debug("DELETE response: %s", resp.status)
 
                 if resp.status == 200:
                     return True, "Pairing cleared successfully"
@@ -929,13 +929,13 @@ class PhilipsLocalAPI:
         try:
             # Step 1: Initial request to get seed
             data = {"id": device.client_id}
-            _LOGGER.info("Pairing step 1: PUT %s with id=%s", url, device.client_id)
+            _LOGGER.debug("Pairing step 1: PUT %s", url)
 
             async with session.put(
                 url, headers=headers, json=data, timeout=REQUEST_TIMEOUT
             ) as resp:
                 text = await resp.text()
-                _LOGGER.info("Step 1 response (%s): %s", resp.status, text[:500])
+                _LOGGER.debug("Step 1 response: %s", resp.status)
 
                 if resp.status != 200:
                     return (
@@ -1009,7 +1009,7 @@ class PhilipsLocalAPI:
                 url, headers=headers, json=data, timeout=REQUEST_TIMEOUT
             ) as resp:
                 text = await resp.text()
-                _LOGGER.info("Step 2 response (%s): %s", resp.status, text[:500])
+                _LOGGER.debug("Step 2 response: %s", resp.status)
 
                 if resp.status != 200:
                     # If step 2 failed, the device is likely already paired

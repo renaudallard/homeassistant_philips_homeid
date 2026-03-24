@@ -36,7 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .local_api import VENUS_STYLE_PORTS
+from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +60,39 @@ VENUS_PRESETS: dict[int, str] = {
     1: "Auto Cook",
     2: "Keep Warm",
     3: "Recipe",
+    4: "No Selection",
+}
+
+# Nutrimax preset IDs (from APK nutrimax/CookingMethodCategoryKt)
+NUTRIMAX_PRESETS: dict[int, str] = {
+    0: "Air Steam",
+    1: "Steaming",
+    2: "Roast",
+    3: "Bake",
+    4: "Slow Cook",
+    5: "Defrost",
+    6: "Reheat",
+    7: "Sous Vide",
+    8: "Manual",
+    9: "Keep Warm",
+}
+
+# Hermes preset IDs (from APK hermes/CookingMethodCategoryKt)
+HERMES_PRESETS: dict[int, str] = {
+    0: "No Selection",
+    1: "Manual",
+    2: "Air Steam",
+    3: "Roast",
+    4: "Bake",
+    11: "Steaming",
+    12: "Air Steam Pro",
+    13: "Defrost",
+    14: "Reheat",
+    15: "Stew",
+    30: "User Preset",
+    40: "Recipe",
+    50: "Keep Warm",
+    60: "Easy Clean",
 }
 
 
@@ -101,6 +134,10 @@ class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
     def _get_presets(self) -> dict[int, str]:
         """Return the correct preset list for this device's architecture."""
         port = self.coordinator.device_info.airfryer_port
+        if port == PORT_NUTRIMAX:
+            return NUTRIMAX_PRESETS
+        if port == PORT_HERMESAC:
+            return HERMES_PRESETS
         if port in VENUS_STYLE_PORTS:
             return VENUS_PRESETS
         return SPECTRE_PRESETS

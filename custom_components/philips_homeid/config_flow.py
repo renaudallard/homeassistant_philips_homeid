@@ -108,6 +108,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_tokens: dict[str, Any] = {}
         self._cloud_devices: list[dict[str, Any]] = []
 
+    async def _close_cloud_api(self) -> None:
+        """Close cloud API session if open."""
+        if self._cloud_api:
+            await self._cloud_api.close()
+            self._cloud_api = None
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -373,9 +379,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except CloudAuthError as err:
                     _LOGGER.error("OTP request failed: %s", err)
                     errors["base"] = "otp_send_failed"
+                    await self._close_cloud_api()
                 except Exception:
                     _LOGGER.exception("Unexpected error sending OTP")
                     errors["base"] = "unknown"
+                    await self._close_cloud_api()
             else:
                 errors["base"] = "missing_email"
 
@@ -415,12 +423,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 except ConsentRequired:
                     errors["base"] = "consent_required"
+                    await self._close_cloud_api()
                 except CloudAuthError as err:
                     _LOGGER.error("Cloud auth failed: %s", err)
                     errors["base"] = "otp_failed"
+                    await self._close_cloud_api()
                 except Exception:
                     _LOGGER.exception("Unexpected error during cloud auth")
                     errors["base"] = "unknown"
+                    await self._close_cloud_api()
             else:
                 errors["base"] = "missing_code"
 

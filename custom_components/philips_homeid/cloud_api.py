@@ -148,10 +148,14 @@ class PhilipsCloudAPI:
         return session_token
 
     async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
-        """Exchange Gigya session for OIDC tokens via auto-consent.
+        """Exchange Gigya session for OIDC tokens.
 
-        Uses PKCE flow. Works without a browser when the user has
-        previously granted consent via the Philips HomeID app.
+        Uses PKCE flow. Follows the full redirect chain through
+        Gigya's authorize/continue endpoint to capture the auth code.
+
+        The redirect chain is: /authorize -> /authorize/continue ->
+        redirect_uri (custom scheme). aiohttp follows HTTP redirects
+        and we scan the history for the auth code in Location headers.
 
         Returns dict with access_token, refresh_token, id_token, expires_in.
         Raises ConsentRequired if interactive consent is needed.
@@ -177,7 +181,7 @@ class PhilipsCloudAPI:
         }
         auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(params)}"
 
-        # Create session with Gigya cookies for auto-consent
+        # Create session with Gigya cookies
         gmid = secrets.token_hex(16)
         jar = aiohttp.CookieJar(unsafe=True)
         gigya_url = URL(GIGYA_API_URL)
@@ -191,37 +195,67 @@ class PhilipsCloudAPI:
         jar.update_cookies(cookies, gigya_url)
         cookie_session = aiohttp.ClientSession(cookie_jar=jar)
         try:
-            # Hit authorize endpoint - should auto-redirect if consent exists
-            async with cookie_session.get(auth_url, allow_redirects=False) as resp:
-                if resp.status in (301, 302, 303):
-                    location = resp.headers.get("Location", "")
-                    if "code=" in location:
-                        parsed = urllib.parse.urlparse(location)
-                        qs = urllib.parse.parse_qs(parsed.query)
-                        auth_code = qs.get("code", [None])[0]
-                        if auth_code:
-                            return await self._exchange_code(auth_code, code_verifier)
+            auth_code = await self._follow_authorize_flow(cookie_session, auth_url)
+            if auth_code:
+                return await self._exchange_code(auth_code, code_verifier)
 
-                # Try following redirects to find the code
-                if resp.status == 200:
-                    # Consent page rendered - need interactive browser
-                    raise ConsentRequired(
-                        "Please open the Philips HomeID app and log in "
-                        "with this account first, then try again."
-                    )
-
-                # Check if there's a chain of redirects
-                _LOGGER.debug(
-                    "Authorize response: %s, headers: %s",
-                    resp.status,
-                    dict(resp.headers),
-                )
-                raise ConsentRequired(
-                    "Could not obtain authorization automatically. "
-                    "Please open the Philips HomeID app and log in first."
-                )
+            raise ConsentRequired(
+                "Please open the Philips HomeID app on your phone, "
+                "log in with this account, then try again here."
+            )
         finally:
             await cookie_session.close()
+
+    async def _follow_authorize_flow(
+        self, session: aiohttp.ClientSession, auth_url: str
+    ) -> str | None:
+        """Follow the OAuth authorize redirect chain to extract the auth code.
+
+        The Gigya authorize endpoint uses a multi-step flow:
+        1. GET /authorize -> 302 to /authorize/continue (or 200 with JS)
+        2. GET /authorize/continue -> 302 to redirect_uri with code=
+
+        aiohttp will fail on the final redirect to the custom scheme
+        (com.philips.ka.oneka.app.prod://), so we also scan redirect
+        history and catch InvalidUrlClientError.
+        """
+        try:
+            async with session.get(auth_url, max_redirects=10) as resp:
+                # Check final URL
+                final_url = str(resp.url)
+                auth_code = self._extract_code(final_url)
+                if auth_code:
+                    return auth_code
+
+                # Scan redirect history for the code
+                for hist_resp in resp.history:
+                    location = hist_resp.headers.get("Location", "")
+                    auth_code = self._extract_code(location)
+                    if auth_code:
+                        return auth_code
+
+        except aiohttp.InvalidUrlClientError as err:
+            # aiohttp raises this when redirected to a non-HTTP scheme
+            # (com.philips.ka.oneka.app.prod://oauthredirect?code=...)
+            # The auth code is in the invalid URL
+            err_url = str(err)
+            auth_code = self._extract_code(err_url)
+            if auth_code:
+                return auth_code
+        except Exception:
+            _LOGGER.debug("Error during authorize flow", exc_info=True)
+
+        return None
+
+    @staticmethod
+    def _extract_code(url: str) -> str | None:
+        """Extract authorization code from a URL."""
+        if "code=" not in url:
+            return None
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        codes = qs.get("code")
+        return codes[0] if codes else None
 
     async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
         """Exchange authorization code for OIDC tokens."""

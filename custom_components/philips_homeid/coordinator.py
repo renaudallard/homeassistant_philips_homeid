@@ -82,6 +82,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
         self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
+        self._consecutive_failures: int = 0  # Track consecutive poll failures
+        self._max_failures: int = 3  # Failures before marking device offline
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -121,6 +123,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             state = await self.api.get_full_state(self.device_info)
 
             if state:
+                # Success: reset failure counter
+                self._consecutive_failures = 0
+
                 # Check for new properties before updating state
                 new_properties = self._check_for_new_properties(state)
 
@@ -140,12 +145,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     self._notify_new_properties(new_properties)
 
                 return state
-            else:
-                _LOGGER.warning(
-                    "No response from device at %s", self.device_info.ip_address
+
+            # No response: track consecutive failures
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._max_failures:
+                raise UpdateFailed(
+                    f"No response from device at {self.device_info.ip_address} "
+                    f"after {self._consecutive_failures} attempts"
                 )
-                # Return cached state if available
-                return self._state
+            _LOGGER.warning(
+                "No response from device at %s (attempt %d/%d)",
+                self.device_info.ip_address,
+                self._consecutive_failures,
+                self._max_failures,
+            )
+            return self._state
 
         except Exception as err:
             _LOGGER.exception("Error fetching data from device")

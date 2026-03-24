@@ -77,33 +77,6 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class PhilipsHomeIDPowerSwitch(PhilipsHomeIDEntity, SwitchEntity):
-    """Power switch for Philips HomeID devices."""
-
-    _attr_translation_key = "power"
-
-    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
-        """Initialize the switch."""
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{device_id}_power"
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if the switch is on."""
-        state = self.device_state
-        if state:
-            return state.power_on
-        return None
-
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn the device on."""
-        await self.coordinator.async_set_power(True)
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn the device off."""
-        await self.coordinator.async_set_power(False)
-
-
 class PhilipsHomeIDChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     """Child lock switch for Philips HomeID devices."""
 

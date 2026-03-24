@@ -285,9 +285,6 @@
       }
     },
     "switch": {
-      "power": {
-        "name": "Power"
-      },
       "child_lock": {
         "name": "Child Lock"
       },

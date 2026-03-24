@@ -61,6 +61,9 @@ PORT_FIRMWARE = "firmware"
 PORT_AIRFRYER = "airfryer"  # SPECTRE (HD9280, HD9285, HD9255)
 PORT_VENUSAF = "venusaf"  # VENUS 2 (HD9880)
 PORT_VENUS1AF = "venus1af"  # VENUS 1 (HD9875, HD9876)
+# VENUS additional endpoints
+PORT_AUTOCOOK = "autocookprogram"  # VENUS auto cook program
+PORT_RECIPE = "recipe"  # VENUS recipe status
 # VENUS device current state (voltage, internal temp)
 PORT_DEVCURRSTATE = "devcurrstate"
 
@@ -622,6 +625,16 @@ class PhilipsLocalAPI:
             result = self._normalize_venus_response(result)
         return result
 
+    async def get_autocook_program(
+        self, device: LocalDeviceInfo
+    ) -> dict[str, Any] | None:
+        """Get auto cook program (Venus devices only)."""
+        return await self._request(device, PORT_AUTOCOOK)
+
+    async def get_recipe_status(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
+        """Get recipe status (Venus devices only)."""
+        return await self._request(device, PORT_RECIPE)
+
     async def airfryer_start_cooking(
         self,
         device: LocalDeviceInfo,
@@ -1182,13 +1195,19 @@ class PhilipsLocalAPI:
                 )
                 _LOGGER.debug("Airfryer status: %s", airfryer)
 
-                # Fetch device current state for Venus devices
+                # Fetch Venus-specific endpoints
                 if device.airfryer_port in (PORT_VENUSAF, PORT_VENUS1AF):
                     dev_state = await self.get_device_current_state(device)
                     if dev_state:
                         for key, value in dev_state.items():
                             if key not in airfryer:
                                 airfryer[key] = value
+                    autocook = await self.get_autocook_program(device)
+                    if autocook:
+                        state.properties["autocook"] = autocook
+                    recipe = await self.get_recipe_status(device)
+                    if recipe:
+                        state.properties["recipe"] = recipe
             elif device.airfryer_port is None:
                 # No port responded; remember this device is not an airfryer
                 device.airfryer_port = False

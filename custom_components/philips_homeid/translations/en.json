@@ -203,6 +203,15 @@
       "airfryer_right_time": {
         "name": "Right Basket Time"
       },
+      "autocook_uuid": {
+        "name": "AutoCook Program"
+      },
+      "autocook_doneness": {
+        "name": "AutoCook Doneness"
+      },
+      "recipe_current_stage": {
+        "name": "Recipe Current Stage"
+      },
       "firmware_version": {
         "name": "Firmware Version"
       },

@@ -550,6 +550,37 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     ),
 )
 
+# Venus-only endpoint sensors (autocook + recipe)
+VENUS_ENDPOINT_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
+    PhilipsHomeIDSensorEntityDescription(
+        key="autocook_uuid",
+        translation_key="autocook_uuid",
+        property_key="UUID",
+        nested_key="autocook",
+        icon="mdi:script-text-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="autocook_doneness",
+        translation_key="autocook_doneness",
+        property_key="doneness",
+        nested_key="autocook",
+        icon="mdi:gauge",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="recipe_current_stage",
+        translation_key="recipe_current_stage",
+        property_key="cur_stage",
+        nested_key="recipe",
+        icon="mdi:stairs",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+)
+
 # Sensors common to all device types
 COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     PhilipsHomeIDSensorEntityDescription(
@@ -573,7 +604,9 @@ COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
 )
 
 # All sensors combined
-SENSORS = AIR_PURIFIER_SENSORS + AIRFRYER_SENSORS + COMMON_SENSORS
+SENSORS = (
+    AIR_PURIFIER_SENSORS + AIRFRYER_SENSORS + VENUS_ENDPOINT_SENSORS + COMMON_SENSORS
+)
 
 
 async def async_setup_entry(

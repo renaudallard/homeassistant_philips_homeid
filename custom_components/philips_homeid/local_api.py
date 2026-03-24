@@ -675,8 +675,19 @@ class PhilipsLocalAPI:
         return result is not None
 
     async def airfryer_stop(self, device: LocalDeviceInfo) -> bool:
-        """Stop the airfryer and return to standby."""
+        """Stop the airfryer and return to standby.
+
+        Venus uses pause → mainmenu. SPECTRE uses standby.
+        """
         port = self._airfryer_port(device)
+        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            await self._request(
+                device, port, method="PUT", data={"status": AIRFRYER_STATUS_PAUSED}
+            )
+            result = await self._request(
+                device, port, method="PUT", data={"status": "mainmenu"}
+            )
+            return result is not None
         data = {"status": AIRFRYER_STATUS_STANDBY}
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None

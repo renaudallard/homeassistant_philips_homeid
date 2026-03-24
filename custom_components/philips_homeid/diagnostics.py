@@ -79,7 +79,7 @@ async def async_get_config_entry_diagnostics(
     coordinator_data = {
         "update_interval": str(coordinator.update_interval),
         "last_update_time": coordinator.last_update_time,
-        "consecutive_failures": coordinator._consecutive_failures,
+        "consecutive_failures": coordinator.consecutive_failures,
         "available": coordinator.available,
         "preheat_enabled": coordinator.preheat_enabled,
         "keep_warm_time": coordinator.keep_warm_time,

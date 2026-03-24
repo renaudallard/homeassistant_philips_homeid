@@ -352,6 +352,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Return timestamp of last successful poll."""
         return self._last_update_time
 
+    @property
+    def consecutive_failures(self) -> int:
+        """Return number of consecutive poll failures."""
+        return self._consecutive_failures
+
     def is_airfryer_cooking(self) -> bool:
         """Check if airfryer is actively cooking (not paused)."""
         if not self._state:
@@ -380,7 +385,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return False
         return property_key in self._state.properties
 
-    def _get_property_key(self, property_key: str, nested_key: str | None) -> str:
+    def get_property_key(self, property_key: str, nested_key: str | None) -> str:
         """Generate a unique key for tracking properties."""
         if nested_key:
             return f"{nested_key}.{property_key}"
@@ -390,14 +395,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self, property_key: str, nested_key: str | None = None
     ) -> bool:
         """Check if a property has ever been seen."""
-        key = self._get_property_key(property_key, nested_key)
+        key = self.get_property_key(property_key, nested_key)
         return key in self._seen_properties
 
     def mark_property_seen(
         self, property_key: str, nested_key: str | None = None
     ) -> None:
         """Mark a property as seen (entity created for it)."""
-        key = self._get_property_key(property_key, nested_key)
+        key = self.get_property_key(property_key, nested_key)
         self._seen_properties.add(key)
 
     def register_new_property_callback(

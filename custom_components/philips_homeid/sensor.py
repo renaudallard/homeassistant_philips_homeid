@@ -632,7 +632,7 @@ async def async_setup_entry(
             if device_type not in description.device_types:
                 continue
         if description.property_key:
-            key = coordinator._get_property_key(
+            key = coordinator.get_property_key(
                 description.property_key, description.nested_key
             )
             property_to_description[key] = description
@@ -676,7 +676,7 @@ async def async_setup_entry(
         new_entities: list[PhilipsHomeIDSensor] = []
 
         for property_key, nested_key in new_properties:
-            key = coordinator._get_property_key(property_key, nested_key)
+            key = coordinator.get_property_key(property_key, nested_key)
             description = property_to_description.get(key)
 
             if description and not coordinator.is_property_seen(

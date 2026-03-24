@@ -80,6 +80,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             Callable[[list[tuple[str, str | None]]], None]
         ] = []  # Callbacks for new properties
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
+        self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
+        self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -246,11 +248,33 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return result
 
     async def async_airfryer_keep_warm(self) -> bool:
-        """Start keep warm mode."""
-        result = await self.api.airfryer_keep_warm(self.device_info)
+        """Start keep warm mode with configured time and temperature."""
+        result = await self.api.airfryer_keep_warm(
+            self.device_info,
+            time_seconds=self._keep_warm_time,
+            temp=self._keep_warm_temp,
+        )
         if result:
             await self.async_request_refresh()
         return result
+
+    @property
+    def keep_warm_time(self) -> int:
+        """Return keep warm time in seconds."""
+        return self._keep_warm_time
+
+    def set_keep_warm_time(self, seconds: int) -> None:
+        """Set keep warm time in seconds."""
+        self._keep_warm_time = seconds
+
+    @property
+    def keep_warm_temp(self) -> int:
+        """Return keep warm temperature."""
+        return self._keep_warm_temp
+
+    def set_keep_warm_temp(self, temp: int) -> None:
+        """Set keep warm temperature."""
+        self._keep_warm_temp = temp
 
     async def async_airfryer_update_settings(
         self,

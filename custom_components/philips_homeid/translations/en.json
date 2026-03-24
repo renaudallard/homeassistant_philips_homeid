@@ -286,6 +286,12 @@
       },
       "set_air_quality_threshold": {
         "name": "Air Quality Threshold"
+      },
+      "set_keep_warm_time": {
+        "name": "Keep Warm Duration"
+      },
+      "set_keep_warm_temp": {
+        "name": "Keep Warm Temperature"
       }
     },
     "select": {

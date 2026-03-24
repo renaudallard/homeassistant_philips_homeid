@@ -157,7 +157,7 @@ async def async_setup_entry(
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    entities: list[PhilipsHomeIDNumber] = []
+    entities: list[NumberEntity] = []
 
     if device_type in ("airfryer", "airfryer_dual"):
         for description in AIRFRYER_NUMBERS:
@@ -167,6 +167,14 @@ async def async_setup_entry(
                 entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
+        # Keep warm setting numbers (always available for airfryers)
+        if coordinator.has_property("status", "airfryer"):
+            entities.append(
+                PhilipsHomeIDKeepWarmTimeNumber(coordinator, coordinator.device_id)
+            )
+            entities.append(
+                PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id)
+            )
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):
@@ -219,3 +227,57 @@ class PhilipsHomeIDNumber(PhilipsHomeIDEntity, NumberEntity):
         if self.entity_description.available_key:
             return self._has_property(self.entity_description.available_key)
         return True
+
+
+class PhilipsHomeIDKeepWarmTimeNumber(PhilipsHomeIDEntity, NumberEntity):
+    """Keep warm duration setting."""
+
+    _attr_translation_key = "set_keep_warm_time"
+    _attr_icon = "mdi:timer"
+    _attr_native_min_value = 1
+    _attr_native_max_value = 180
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_set_keep_warm_time"
+
+    @property
+    def native_value(self) -> float:
+        """Return the current value in minutes."""
+        return self.coordinator.keep_warm_time // 60
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set the value."""
+        self.coordinator.set_keep_warm_time(int(value) * 60)
+        self.async_write_ha_state()
+
+
+class PhilipsHomeIDKeepWarmTempNumber(PhilipsHomeIDEntity, NumberEntity):
+    """Keep warm temperature setting."""
+
+    _attr_translation_key = "set_keep_warm_temp"
+    _attr_icon = "mdi:thermometer"
+    _attr_native_min_value = 40
+    _attr_native_max_value = 100
+    _attr_native_step = 5
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_set_keep_warm_temp"
+
+    @property
+    def native_value(self) -> float:
+        """Return the current value."""
+        return float(self.coordinator.keep_warm_temp)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set the value."""
+        self.coordinator.set_keep_warm_temp(int(value))
+        self.async_write_ha_state()

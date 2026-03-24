@@ -116,6 +116,18 @@
       "error_code": {
         "name": "Error Code"
       },
+      "muji_filter0_lifetime": {
+        "name": "Filter 0 Total Lifetime"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Filter 1 Total Lifetime"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filter 0 Remaining"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filter 1 Remaining"
+      },
       "connection_state": {
         "name": "Connection"
       },
@@ -262,6 +274,17 @@
       },
       "airfryer_set_probe_temperature": {
         "name": "Set Probe Temperature"
+      },
+      "set_beep_volume": {
+        "name": "Beep Volume"
+      },
+      "set_air_quality_threshold": {
+        "name": "Air Quality Threshold"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "Cooking Method"
       }
     },
     "switch": {
@@ -273,6 +296,9 @@
       },
       "preheat": {
         "name": "Preheat"
+      },
+      "sensor_monitor_standby": {
+        "name": "Sensor Monitor in Standby"
       }
     },
     "update": {

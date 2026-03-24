@@ -716,6 +716,44 @@ class PhilipsLocalAPI:
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
+    async def airfryer_update_settings(
+        self,
+        device: LocalDeviceInfo,
+        temp: int | None = None,
+        time_seconds: int | None = None,
+        temp_unit_fahrenheit: bool = False,
+    ) -> bool:
+        """Update airfryer settings without changing cooking state.
+
+        Unlike airfryer_set_settings(), this does not send a status field,
+        so it can be used to adjust temp/time while cooking without
+        interrupting the cooking process.
+        """
+        port = device.airfryer_port or PORT_AIRFRYER
+        data: dict[str, Any] = {}
+        if temp is not None:
+            data["temp"] = temp
+        if time_seconds is not None:
+            data["time"] = time_seconds
+        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            data["temp_unit"] = temp_unit_fahrenheit
+            data = self._normalize_venus_command(data)
+        else:
+            data["temp_unit"] = not temp_unit_fahrenheit
+        result = await self._request(device, port, method="PUT", data=data)
+        return result is not None
+
+    async def set_status_property(
+        self,
+        device: LocalDeviceInfo,
+        key: str,
+        value: Any,
+    ) -> bool:
+        """Set a single property on the device status port."""
+        data = {key: value}
+        result = await self._request(device, PORT_STATUS, method="PUT", data=data)
+        return result is not None
+
     async def send_wifi_credentials(
         self,
         device: LocalDeviceInfo,

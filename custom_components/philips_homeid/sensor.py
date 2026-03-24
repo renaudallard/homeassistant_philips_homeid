@@ -262,6 +262,45 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         icon="mdi:alert-circle",
         device_types=("air_purifier",),
     ),
+    # MUJI air purifier sensors (hex-key properties, AC0650/AC0651)
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_filter0_lifetime",
+        translation_key="muji_filter0_lifetime",
+        property_key="D05207",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        icon="mdi:air-filter",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("air_purifier",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_filter1_lifetime",
+        translation_key="muji_filter1_lifetime",
+        property_key="D05408",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        icon="mdi:air-filter",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("air_purifier",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_filter0_remaining",
+        translation_key="muji_filter0_remaining",
+        property_key="D0520D",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        icon="mdi:air-filter",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_filter1_remaining",
+        translation_key="muji_filter1_remaining",
+        property_key="D0540E",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        icon="mdi:air-filter",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
+    ),
 )
 
 # Airfryer sensors - common to single and dual basket

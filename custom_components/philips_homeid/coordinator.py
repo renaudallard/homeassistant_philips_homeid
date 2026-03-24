@@ -29,6 +29,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 import time
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -235,6 +236,27 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_keep_warm(self) -> bool:
         """Start keep warm mode."""
         result = await self.api.airfryer_keep_warm(self.device_info)
+        if result:
+            await self.async_request_refresh()
+        return result
+
+    async def async_airfryer_update_settings(
+        self,
+        temp: int | None = None,
+        time_seconds: int | None = None,
+        temp_unit_fahrenheit: bool = False,
+    ) -> bool:
+        """Update airfryer settings without changing cooking state."""
+        result = await self.api.airfryer_update_settings(
+            self.device_info, temp, time_seconds, temp_unit_fahrenheit
+        )
+        if result:
+            await self.async_request_refresh()
+        return result
+
+    async def async_set_status_property(self, key: str, value: Any) -> bool:
+        """Set a property on the device status port."""
+        result = await self.api.set_status_property(self.device_info, key, value)
         if result:
             await self.async_request_refresh()
         return result

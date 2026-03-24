@@ -232,6 +232,9 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Filter Replace Required | Filter needs replacement |
 | Binary Sensor | Water Tank Empty | Water tank status |
 | Switch | Child Lock | Child lock control |
+| Switch | Sensor Monitor in Standby | Keep sensors active in standby (MUJI only) |
+| Number | Beep Volume / Air Quality Threshold | Device settings (MUJI only) |
+| Sensor | Filter 0/1 Lifetime / Remaining | Filter tracking (MUJI only) |
 
 </details>
 
@@ -265,6 +268,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
+| Select | Cooking Method | Preset selection (architecture-specific) |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Update | Firmware | Installed and available firmware version |
 

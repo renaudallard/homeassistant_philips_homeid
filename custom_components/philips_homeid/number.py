@@ -73,7 +73,7 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:thermometer",
         mode=NumberMode.SLIDER,
-        set_fn=lambda c, v: c.async_airfryer_set_settings(temp=int(v)),
+        set_fn=lambda c, v: c.async_airfryer_update_settings(temp=int(v)),
         available_key="airfryer",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -87,7 +87,7 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.MINUTES,
         icon="mdi:timer",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_airfryer_set_settings(time_seconds=int(v * 60)),
+        set_fn=lambda c, v: c.async_airfryer_update_settings(time_seconds=int(v * 60)),
         available_key="airfryer",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -119,6 +119,32 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
     ),
 )
 
+# MUJI air purifier number entities (hex-key properties)
+MUJI_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
+    PhilipsHomeIDNumberEntityDescription(
+        key="set_beep_volume",
+        translation_key="set_beep_volume",
+        property_key="D03130",
+        native_min_value=0,
+        native_max_value=3,
+        native_step=1,
+        icon="mdi:volume-medium",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("D03130", int(v)),
+    ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="set_air_quality_threshold",
+        translation_key="set_air_quality_threshold",
+        property_key="D0312C",
+        native_min_value=1,
+        native_max_value=4,
+        native_step=1,
+        icon="mdi:air-filter",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("D0312C", int(v)),
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -128,25 +154,25 @@ async def async_setup_entry(
     """Set up number entities from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    # Only create number entities for airfryers
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    if device_type not in ("airfryer", "airfryer_dual"):
-        _LOGGER.debug(
-            "Skipping number entities for non-airfryer device: %s", model_name
-        )
-        return
-
     entities: list[PhilipsHomeIDNumber] = []
 
-    # Add airfryer number entities
-    for description in AIRFRYER_NUMBERS:
-        entities.append(
-            PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
-        )
+    if device_type in ("airfryer", "airfryer_dual"):
+        for description in AIRFRYER_NUMBERS:
+            entities.append(
+                PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
+            )
+    elif device_type == "air_purifier":
+        for description in MUJI_NUMBERS:
+            if coordinator.has_property(description.property_key):
+                entities.append(
+                    PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
+                )
 
-    async_add_entities(entities)
+    if entities:
+        async_add_entities(entities)
 
 
 class PhilipsHomeIDNumber(PhilipsHomeIDEntity, NumberEntity):

@@ -67,6 +67,12 @@ async def async_setup_entry(
     if device_type in ("airfryer", "airfryer_dual"):
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
+    # MUJI sensor monitor in standby (AC0650/AC0651)
+    if device_type == "air_purifier" and coordinator.has_property("D03134"):
+        entities.append(
+            PhilipsHomeIDSensorMonitorSwitch(coordinator, coordinator.device_id)
+        )
+
     if entities:
         async_add_entities(entities)
 
@@ -163,3 +169,39 @@ class PhilipsHomeIDPreheatSwitch(PhilipsHomeIDEntity, SwitchEntity):
         """Disable preheat."""
         self.coordinator.set_preheat_enabled(False)
         self.async_write_ha_state()
+
+
+class PhilipsHomeIDSensorMonitorSwitch(PhilipsHomeIDEntity, SwitchEntity):
+    """Sensor monitor in standby switch for MUJI air purifiers."""
+
+    _attr_translation_key = "sensor_monitor_standby"
+    _attr_icon = "mdi:eye"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_sensor_monitor_standby"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if sensor monitor in standby is enabled."""
+        state = self.device_state
+        if state:
+            return bool(state.properties.get("D03134", 0))
+        return None
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        if not super().available:
+            return False
+        state = self.device_state
+        return state is not None and "D03134" in state.properties
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable sensor monitor in standby."""
+        await self.coordinator.async_set_status_property("D03134", 1)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable sensor monitor in standby."""
+        await self.coordinator.async_set_status_property("D03134", 0)

@@ -772,12 +772,13 @@ class PhilipsLocalAPI:
         temp: int | None = None,
         time_seconds: int | None = None,
         temp_unit_fahrenheit: bool = False,
+        is_cooking: bool = False,
     ) -> bool:
         """Update airfryer settings without changing cooking state.
 
-        Unlike airfryer_set_settings(), this does not send a status field,
-        so it can be used to adjust temp/time while cooking without
-        interrupting the cooking process.
+        For SPECTRE: sends only temp/time/temp_unit (no status field).
+        For Venus while cooking: pause → set values → resume.
+        For Venus while not cooking: send values directly.
         """
         port = self._airfryer_port(device)
         data: dict[str, Any] = {}
@@ -785,11 +786,29 @@ class PhilipsLocalAPI:
             data["temp"] = temp
         if time_seconds is not None:
             data["time"] = time_seconds
+
         if port in (PORT_VENUSAF, PORT_VENUS1AF):
             data["temp_unit"] = temp_unit_fahrenheit
             data = self._normalize_venus_command(data)
+            if is_cooking:
+                # Venus: pause → set → resume
+                await self._request(
+                    device,
+                    port,
+                    method="PUT",
+                    data={"status": AIRFRYER_STATUS_PAUSED},
+                )
+                await self._request(device, port, method="PUT", data=data)
+                result = await self._request(
+                    device,
+                    port,
+                    method="PUT",
+                    data={"status": AIRFRYER_STATUS_COOKING},
+                )
+                return result is not None
         else:
             data["temp_unit"] = not temp_unit_fahrenheit
+
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 

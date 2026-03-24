@@ -259,8 +259,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         temp_unit_fahrenheit: bool = False,
     ) -> bool:
         """Update airfryer settings without changing cooking state."""
+        cooking = self.is_airfryer_cooking()
         result = await self.api.airfryer_update_settings(
-            self.device_info, temp, time_seconds, temp_unit_fahrenheit
+            self.device_info, temp, time_seconds, temp_unit_fahrenheit, cooking
         )
         if result:
             await self.async_request_refresh()

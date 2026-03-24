@@ -222,6 +222,15 @@
       "autocook_doneness": {
         "name": "AutoCook Doneness"
       },
+      "autocook_amount": {
+        "name": "AutoCook Amount"
+      },
+      "autocook_weight": {
+        "name": "AutoCook Weight"
+      },
+      "autocook_thickness": {
+        "name": "AutoCook Thickness"
+      },
       "recipe_current_stage": {
         "name": "Recipe Current Stage"
       },

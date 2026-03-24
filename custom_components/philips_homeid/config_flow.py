@@ -38,14 +38,20 @@ from homeassistant.const import CONF_HOST
 from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
+from homeassistant.core import callback
+
 from .const import (
+    ACTIVE_SCAN_INTERVAL,
+    CONF_ACTIVE_SCAN_INTERVAL,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_ENCRYPTION_KEY,
     CONF_MODEL,
+    CONF_SCAN_INTERVAL,
     CONF_USE_HTTPS,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 from .local_api import (
@@ -80,6 +86,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Philips HomeID."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> PhilipsHomeIDOptionsFlow:
+        """Get the options flow handler."""
+        return PhilipsHomeIDOptionsFlow()
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -435,4 +449,34 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "host": device.ip_address,
                 "model": device.model_name or "Unknown",
             },
+        )
+
+
+class PhilipsHomeIDOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Philips HomeID."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SCAN_INTERVAL,
+                        default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=10, max=300)),
+                    vol.Optional(
+                        CONF_ACTIVE_SCAN_INTERVAL,
+                        default=options.get(
+                            CONF_ACTIVE_SCAN_INTERVAL, ACTIVE_SCAN_INTERVAL
+                        ),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=60)),
+                }
+            ),
         )

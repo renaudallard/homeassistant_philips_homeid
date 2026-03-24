@@ -36,7 +36,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import ACTIVE_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    ACTIVE_SCAN_INTERVAL,
+    CONF_ACTIVE_SCAN_INTERVAL,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
     AIRFRYER_STATUS_PARASETTING,
@@ -64,12 +70,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         entry: ConfigEntry,
     ) -> None:
         """Initialize the coordinator."""
+        scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         super().__init__(
             hass,
             _LOGGER,
             config_entry=entry,
             name=f"{DOMAIN}_{device_info.cpp_id or device_info.ip_address}",
-            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
         self.api = api
         self.device_info = device_info
@@ -101,10 +108,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     def _update_polling_interval(self, state: LocalDeviceState | None) -> None:
         """Adjust polling interval based on device state."""
+        options = self.config_entry.options
         if state and self._is_airfryer_active(state):
-            new_interval = timedelta(seconds=ACTIVE_SCAN_INTERVAL)
+            interval = options.get(CONF_ACTIVE_SCAN_INTERVAL, ACTIVE_SCAN_INTERVAL)
         else:
-            new_interval = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+            interval = options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        new_interval = timedelta(seconds=interval)
 
         if self.update_interval != new_interval:
             _LOGGER.debug(

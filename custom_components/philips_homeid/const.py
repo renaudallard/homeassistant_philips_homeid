@@ -76,6 +76,10 @@ CONF_SIGNATURE_TIMESTAMP = "signature_timestamp"
 ZEROCONF_TYPE = "_philipscondor._tcp.local."
 SSDP_ST = "urn:philips-com:device:DiProduct:1"
 
+# Options keys
+CONF_SCAN_INTERVAL = "scan_interval"
+CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
+
 # Default values
 DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking

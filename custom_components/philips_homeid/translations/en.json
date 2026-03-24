@@ -57,6 +57,16 @@
       "cannot_connect": "Cannot connect to device"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "active_scan_interval": "Active polling interval while cooking (seconds)"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "pm25": {

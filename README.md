@@ -5,7 +5,7 @@
 # Philips HomeID Integration for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
-[![Release](https://img.shields.io/badge/release-v1.1.1-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Release](https://img.shields.io/badge/release-v1.1.2-blue.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.

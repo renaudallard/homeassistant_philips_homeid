@@ -190,8 +190,19 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     # Airfryer-specific methods
     async def async_airfryer_start(self) -> bool:
         """Start airfryer cooking."""
+        # Pass current temp/time from device state for Venus 3-step flow
+        temp = None
+        time_seconds = None
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if airfryer and isinstance(airfryer, dict):
+                temp = airfryer.get("temp")
+                time_seconds = airfryer.get("time")
         result = await self.api.airfryer_start_cooking(
-            self.device_info, preheat=self._preheat_enabled
+            self.device_info,
+            preheat=self._preheat_enabled,
+            temp=temp,
+            time_seconds=time_seconds,
         )
         if result:
             await self.async_request_refresh()

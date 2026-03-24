@@ -623,10 +623,44 @@ class PhilipsLocalAPI:
         return result
 
     async def airfryer_start_cooking(
-        self, device: LocalDeviceInfo, preheat: bool = False
+        self,
+        device: LocalDeviceInfo,
+        preheat: bool = False,
+        temp: int | None = None,
+        time_seconds: int | None = None,
     ) -> bool:
-        """Start cooking on the airfryer."""
+        """Start cooking on the airfryer.
+
+        Venus uses a 3-step flow: precook → settings → cooking.
+        SPECTRE uses a single cooking command.
+        """
         port = self._airfryer_port(device)
+
+        if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            # Venus 3-step start: precook → settings → cooking
+            precook: dict[str, Any] = {
+                "status": AIRFRYER_STATUS_PRECOOK,
+                "probe_required": False,
+                "method": 0,
+                "temp_unit": False,
+            }
+            await self._request(device, port, method="PUT", data=precook)
+
+            if temp is not None or time_seconds is not None:
+                settings: dict[str, Any] = {}
+                if temp is not None:
+                    settings["temp"] = temp
+                if time_seconds is not None:
+                    settings["total_time"] = time_seconds
+                await self._request(device, port, method="PUT", data=settings)
+
+            start: dict[str, Any] = {"status": AIRFRYER_STATUS_COOKING}
+            if preheat:
+                start["preheat"] = True
+            result = await self._request(device, port, method="PUT", data=start)
+            return result is not None
+
+        # SPECTRE: single-step start
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_COOKING}
         if preheat:
             data["preheat"] = True

@@ -8,11 +8,38 @@
           "host": "IP Address"
         }
       },
+      "user": {
+        "menu_options": {
+          "manual_host": "Enter device IP address",
+          "cloud_email": "Log in with Philips account"
+        }
+      },
       "manual_host": {
         "title": "Enter Device IP",
         "description": "Enter the IP address of your Philips device that is already connected to your network.",
         "data": {
           "host": "IP Address"
+        }
+      },
+      "cloud_email": {
+        "title": "Philips Account Login",
+        "description": "Enter your Philips HomeID account email. A verification code will be sent to this address.",
+        "data": {
+          "email": "Email"
+        }
+      },
+      "cloud_otp": {
+        "title": "Enter Verification Code",
+        "description": "A verification code has been sent to {email}. Enter it below.",
+        "data": {
+          "code": "Verification Code"
+        }
+      },
+      "cloud_devices": {
+        "title": "Select Device",
+        "description": "Select the device you want to add to Home Assistant.",
+        "data": {
+          "device": "Device"
         }
       },
       "confirm": {
@@ -50,7 +77,15 @@
       "missing_credentials": "Both Client ID and Client Secret are required",
       "invalid_credentials": "The credentials are invalid or the device rejected them",
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",
-      "unknown": "An unexpected error occurred"
+      "unknown": "An unexpected error occurred",
+      "missing_email": "Please enter your email address",
+      "missing_code": "Please enter the verification code",
+      "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
+      "otp_failed": "Invalid verification code. Please try again.",
+      "consent_required": "Please open the Philips HomeID app on your phone, log in with this account, then try again here.",
+      "no_cloud_devices": "No devices found in your Philips account.",
+      "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",
+      "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually."
     },
     "abort": {
       "already_configured": "Device already configured",

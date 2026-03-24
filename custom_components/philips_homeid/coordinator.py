@@ -170,6 +170,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             )
             return self._state
 
+        except UpdateFailed:
+            raise
         except Exception as err:
             _LOGGER.exception("Error fetching data from device")
             raise UpdateFailed(f"Error communicating with device: {err}") from err

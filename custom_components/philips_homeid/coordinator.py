@@ -45,10 +45,12 @@ from .const import (
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_MAINTAIN,
     AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
     AIRFRYER_STATUS_PRECOOK,
     AIRFRYER_STATUS_SETTING,
+    AIRFRYER_STATUS_USER_ACTION,
     LocalDeviceInfo,
     LocalDeviceState,
     PhilipsLocalAPI,
@@ -104,6 +106,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             AIRFRYER_STATUS_SETTING,
             AIRFRYER_STATUS_PRECOOK,
             AIRFRYER_STATUS_PARASETTING,
+            AIRFRYER_STATUS_MAINTAIN,
+            AIRFRYER_STATUS_USER_ACTION,
         )
 
     def _update_polling_interval(self, state: LocalDeviceState | None) -> None:

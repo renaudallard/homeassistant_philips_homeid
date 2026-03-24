@@ -75,9 +75,13 @@ AIRFRYER_STATUS_COOKING = "cooking"
 AIRFRYER_STATUS_PAUSED = "pause"
 AIRFRYER_STATUS_FINISH = "finish"
 AIRFRYER_STATUS_PAIRING = "pairing"
-# Venus-specific status values
+# Venus/Nutrimax/Hermes status values
 AIRFRYER_STATUS_PRECOOK = "precook"
 AIRFRYER_STATUS_PARASETTING = "parasetting"
+AIRFRYER_STATUS_MAINTAIN = "maintain"
+AIRFRYER_STATUS_USER_ACTION = "user_action"
+AIRFRYER_STATUS_POWERSAVE = "powersave"
+AIRFRYER_STATUS_MAINMENU = "mainmenu"
 
 
 @dataclass
@@ -1194,6 +1198,8 @@ class PhilipsLocalAPI:
                     AIRFRYER_STATUS_SETTING,
                     AIRFRYER_STATUS_PRECOOK,
                     AIRFRYER_STATUS_PARASETTING,
+                    AIRFRYER_STATUS_MAINTAIN,
+                    AIRFRYER_STATUS_USER_ACTION,
                 )
                 _LOGGER.debug("Airfryer status: %s", airfryer)
 

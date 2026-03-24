@@ -100,7 +100,7 @@ class PhilipsCloudAPI:
             "format": "json",
         }
 
-        async with session.get(url, params=params) as resp:
+        async with session.post(url, data=params) as resp:
             data = await resp.json(content_type=None)
 
         error_code = data.get("errorCode", -1)
@@ -130,7 +130,7 @@ class PhilipsCloudAPI:
             "format": "json",
         }
 
-        async with session.get(url, params=params) as resp:
+        async with session.post(url, data=params) as resp:
             data = await resp.json(content_type=None)
 
         error_code = data.get("errorCode", -1)

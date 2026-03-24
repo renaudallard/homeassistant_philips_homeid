@@ -481,8 +481,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             break
 
                     if creds:
-                        # Probe device to get IP and details
+                        # Get IP: try cloud response, fall back to discovered device
                         host = device_data.get("ipAddress", "")
+                        if not host and self._discovered_device:
+                            host = self._discovered_device.ip_address
                         if not host:
                             errors["base"] = "cloud_no_ip"
                         else:

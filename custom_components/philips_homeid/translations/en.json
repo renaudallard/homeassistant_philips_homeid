@@ -77,7 +77,6 @@
       "missing_code": "Please enter the verification code",
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
-      "consent_required": "Please open the Philips HomeID app on your phone, log in with this account, then try again here.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",
       "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually."

@@ -617,10 +617,14 @@ class PhilipsLocalAPI:
             result = self._normalize_venus_response(result)
         return result
 
-    async def airfryer_start_cooking(self, device: LocalDeviceInfo) -> bool:
+    async def airfryer_start_cooking(
+        self, device: LocalDeviceInfo, preheat: bool = False
+    ) -> bool:
         """Start cooking on the airfryer."""
         port = device.airfryer_port or PORT_AIRFRYER
-        data = {"status": AIRFRYER_STATUS_COOKING}
+        data: dict[str, Any] = {"status": AIRFRYER_STATUS_COOKING}
+        if preheat:
+            data["preheat"] = True
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
@@ -645,6 +649,7 @@ class PhilipsLocalAPI:
         time_seconds: int | None = None,
         temp_unit_fahrenheit: bool = False,
         preset: int | None = None,
+        airspeed: int | None = None,
     ) -> bool:
         """Set airfryer cooking settings.
 
@@ -653,6 +658,7 @@ class PhilipsLocalAPI:
             time_seconds: Total cooking time in seconds
             temp_unit_fahrenheit: True for Fahrenheit, False for Celsius
             preset: Preset program number
+            airspeed: Air speed (0=LOW, 1=HIGH, Venus only)
         """
         port = device.airfryer_port or PORT_AIRFRYER
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
@@ -660,11 +666,17 @@ class PhilipsLocalAPI:
             data["temp"] = temp
         if time_seconds is not None:
             data["time"] = time_seconds
-        data["temp_unit"] = temp_unit_fahrenheit
+        if airspeed is not None:
+            data["airspeed"] = airspeed
         if preset is not None:
             data["preset"] = preset
         if port in (PORT_VENUSAF, PORT_VENUS1AF):
+            # Venus: temp_unit True=Fahrenheit, False=Celsius (standard)
+            data["temp_unit"] = temp_unit_fahrenheit
             data = self._normalize_venus_command(data)
+        else:
+            # SPECTRE: temp_unit True=Celsius, False=Fahrenheit (inverted)
+            data["temp_unit"] = not temp_unit_fahrenheit
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 

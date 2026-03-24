@@ -169,6 +169,9 @@
       },
       "airfryer_set_time": {
         "name": "Set Cook Time"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Set Air Speed"
       }
     },
     "switch": {
@@ -177,6 +180,14 @@
       },
       "child_lock": {
         "name": "Child Lock"
+      },
+      "preheat": {
+        "name": "Preheat"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
       }
     },
     "fan": {

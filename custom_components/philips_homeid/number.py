@@ -90,6 +90,19 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         set_fn=lambda c, v: c.async_airfryer_set_settings(time_seconds=int(v * 60)),
         available_key="airfryer",
     ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="airfryer_set_airspeed",
+        translation_key="airfryer_set_airspeed",
+        property_key="airspeed",
+        nested_key="airfryer",
+        native_min_value=0,
+        native_max_value=1,
+        native_step=1,
+        icon="mdi:fan",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_airfryer_set_settings(airspeed=int(v)),
+        available_key="airfryer",
+    ),
 )
 
 

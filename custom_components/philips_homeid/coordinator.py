@@ -77,6 +77,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._new_properties_callbacks: list[
             callable
         ] = []  # Callbacks for new properties
+        self._preheat_enabled: bool = False  # Preheat flag for next cooking start
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -187,7 +188,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     # Airfryer-specific methods
     async def async_airfryer_start(self) -> bool:
         """Start airfryer cooking."""
-        result = await self.api.airfryer_start_cooking(self.device_info)
+        result = await self.api.airfryer_start_cooking(
+            self.device_info, preheat=self._preheat_enabled
+        )
         if result:
             await self.async_request_refresh()
         return result
@@ -212,14 +215,29 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         time_seconds: int | None = None,
         temp_unit_fahrenheit: bool = False,
         preset: int | None = None,
+        airspeed: int | None = None,
     ) -> bool:
         """Set airfryer cooking settings."""
         result = await self.api.airfryer_set_settings(
-            self.device_info, temp, time_seconds, temp_unit_fahrenheit, preset
+            self.device_info,
+            temp,
+            time_seconds,
+            temp_unit_fahrenheit,
+            preset,
+            airspeed,
         )
         if result:
             await self.async_request_refresh()
         return result
+
+    @property
+    def preheat_enabled(self) -> bool:
+        """Return preheat setting."""
+        return self._preheat_enabled
+
+    def set_preheat_enabled(self, enabled: bool) -> None:
+        """Set preheat flag for next cooking start."""
+        self._preheat_enabled = enabled
 
     @property
     def device_state(self) -> LocalDeviceState | None:

@@ -262,6 +262,9 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Resting | Resting phase active (Venus only) |
 | Button | Start / Pause / Stop | Cooking controls |
 | Number | Set Temperature / Cook Time | Adjustable settings |
+| Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
+| Switch | Preheat | Enable preheat for next cooking start |
+| Update | Firmware | Installed and available firmware version |
 
 </details>
 

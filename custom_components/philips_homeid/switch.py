@@ -63,6 +63,10 @@ async def async_setup_entry(
             PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
         )
 
+    # Preheat toggle for airfryers
+    if device_type in ("airfryer", "airfryer_dual"):
+        entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
+
     if entities:
         async_add_entities(entities)
 
@@ -129,3 +133,33 @@ class PhilipsHomeIDChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable child lock."""
         await self.coordinator.async_set_child_lock(False)
+
+
+class PhilipsHomeIDPreheatSwitch(PhilipsHomeIDEntity, SwitchEntity):
+    """Preheat toggle for Philips airfryers.
+
+    Controls whether preheat is enabled when the Start button is pressed.
+    """
+
+    _attr_translation_key = "preheat"
+    _attr_icon = "mdi:fire"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_preheat"
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if preheat is enabled."""
+        return self.coordinator.preheat_enabled
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable preheat."""
+        self.coordinator.set_preheat_enabled(True)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable preheat."""
+        self.coordinator.set_preheat_enabled(False)
+        self.async_write_ha_state()

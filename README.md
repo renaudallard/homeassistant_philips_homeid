@@ -248,9 +248,18 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Sensor | Error Code | Device error status |
 | Sensor | Firmware Version | Installed firmware version |
 | Sensor | Firmware Available | Available firmware upgrade |
+| Sensor | Recipe ID / Step ID | Cooking program identifiers (diagnostic) |
+| Sensor | Air Speed | Fan speed setting (Venus only) |
+| Sensor | Probe Temperature | Probe temperature reading (Venus only) |
+| Sensor | Dialog | Device dialog/notification (Venus only) |
+| Sensor | Previous Status | Previous cooking state (Venus only) |
+| Sensor | Cooking ID / Current Stage | Cooking session details (Venus only) |
+| Sensor | Voltage | Device voltage (Venus only, diagnostic) |
 | Binary Sensor | Drawer | Drawer open/closed |
 | Binary Sensor | Shake / Flip Reminder | Food reminders |
 | Binary Sensor | Preheat Active | Preheat cycle status |
+| Binary Sensor | Probe Unplugged / Required | Probe connection state (Venus only) |
+| Binary Sensor | Resting | Resting phase active (Venus only) |
 | Button | Start / Pause / Stop | Cooking controls |
 | Number | Set Temperature / Cook Time | Adjustable settings |
 

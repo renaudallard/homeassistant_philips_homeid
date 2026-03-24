@@ -59,6 +59,8 @@ PORT_FIRMWARE = "firmware"
 PORT_AIRFRYER = "airfryer"  # SPECTRE (HD9280, HD9285, HD9255)
 PORT_VENUSAF = "venusaf"  # VENUS 2 (HD9880)
 PORT_VENUS1AF = "venus1af"  # VENUS 1 (HD9875, HD9876)
+# VENUS device current state (voltage, internal temp)
+PORT_DEVCURRSTATE = "devcurrstate"
 
 # Airfryer status values
 AIRFRYER_STATUS_STANDBY = "standby"
@@ -68,6 +70,9 @@ AIRFRYER_STATUS_COOKING = "cooking"
 AIRFRYER_STATUS_PAUSED = "pause"
 AIRFRYER_STATUS_FINISH = "finish"
 AIRFRYER_STATUS_PAIRING = "pairing"
+# Venus-specific status values
+AIRFRYER_STATUS_PRECOOK = "precook"
+AIRFRYER_STATUS_PARASETTING = "parasetting"
 
 
 @dataclass
@@ -550,6 +555,7 @@ class PhilipsLocalAPI:
         "disp_time": "cur_time",
         "total_time": "time",
         "method": "preset",
+        "current_temp": "cur_temp",
     }
     _SPECTRE_KEY_MAP = {v: k for k, v in _VENUS_KEY_MAP.items()}
 
@@ -598,6 +604,18 @@ class PhilipsLocalAPI:
                 return result
 
         return None
+
+    async def get_device_current_state(
+        self, device: LocalDeviceInfo
+    ) -> dict[str, Any] | None:
+        """Get device current state (Venus devices only).
+
+        Returns voltage, current_temp, current_temp_probe.
+        """
+        result = await self._request(device, PORT_DEVCURRSTATE)
+        if result is not None:
+            result = self._normalize_venus_response(result)
+        return result
 
     async def airfryer_start_cooking(self, device: LocalDeviceInfo) -> bool:
         """Start cooking on the airfryer."""
@@ -993,8 +1011,18 @@ class PhilipsLocalAPI:
                 AIRFRYER_STATUS_COOKING,
                 AIRFRYER_STATUS_PAUSED,
                 AIRFRYER_STATUS_SETTING,
+                AIRFRYER_STATUS_PRECOOK,
+                AIRFRYER_STATUS_PARASETTING,
             )
             _LOGGER.debug("Airfryer status: %s", airfryer)
+
+            # Fetch device current state for Venus devices (voltage, internal temp)
+            if device.airfryer_port in (PORT_VENUSAF, PORT_VENUS1AF):
+                dev_state = await self.get_device_current_state(device)
+                if dev_state:
+                    for key, value in dev_state.items():
+                        if key not in airfryer:
+                            airfryer[key] = value
 
         # Get status (for air purifiers and other devices)
         status = await self.get_status(device)

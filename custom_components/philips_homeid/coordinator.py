@@ -37,7 +37,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import ACTIVE_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
+    AIRFRYER_STATUS_PRECOOK,
     AIRFRYER_STATUS_SETTING,
     LocalDeviceInfo,
     LocalDeviceState,
@@ -86,6 +88,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             AIRFRYER_STATUS_COOKING,
             AIRFRYER_STATUS_PAUSED,
             AIRFRYER_STATUS_SETTING,
+            AIRFRYER_STATUS_PRECOOK,
+            AIRFRYER_STATUS_PARASETTING,
         )
 
     def _update_polling_interval(self, state: LocalDeviceState | None) -> None:

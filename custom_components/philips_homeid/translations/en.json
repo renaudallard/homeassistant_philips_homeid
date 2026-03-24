@@ -149,6 +149,33 @@
       "airfryer_keep_warm": {
         "name": "Keep Warm"
       },
+      "airfryer_recipe_id": {
+        "name": "Recipe ID"
+      },
+      "airfryer_step_id": {
+        "name": "Step ID"
+      },
+      "airfryer_airspeed": {
+        "name": "Air Speed"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Probe Temperature"
+      },
+      "airfryer_dialog": {
+        "name": "Dialog"
+      },
+      "airfryer_previous_status": {
+        "name": "Previous Status"
+      },
+      "airfryer_cooking_id": {
+        "name": "Cooking ID"
+      },
+      "airfryer_current_stage": {
+        "name": "Current Stage"
+      },
+      "airfryer_voltage": {
+        "name": "Voltage"
+      },
       "airfryer_left_status": {
         "name": "Left Basket Status"
       },
@@ -192,6 +219,15 @@
       },
       "airfryer_preheat_active": {
         "name": "Preheat Active"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Probe Unplugged"
+      },
+      "airfryer_probe_required": {
+        "name": "Probe Required"
+      },
+      "airfryer_resting": {
+        "name": "Resting"
       },
       "airfryer_left_drawer_open": {
         "name": "Left Basket Drawer"

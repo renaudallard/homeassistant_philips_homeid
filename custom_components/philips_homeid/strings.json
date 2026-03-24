@@ -104,6 +104,33 @@
       "airfryer_error": {
         "name": "Error Code"
       },
+      "airfryer_recipe_id": {
+        "name": "Recipe ID"
+      },
+      "airfryer_step_id": {
+        "name": "Step ID"
+      },
+      "airfryer_airspeed": {
+        "name": "Air Speed"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Probe Temperature"
+      },
+      "airfryer_dialog": {
+        "name": "Dialog"
+      },
+      "airfryer_previous_status": {
+        "name": "Previous Status"
+      },
+      "airfryer_cooking_id": {
+        "name": "Cooking ID"
+      },
+      "airfryer_current_stage": {
+        "name": "Current Stage"
+      },
+      "airfryer_voltage": {
+        "name": "Voltage"
+      },
       "firmware_version": {
         "name": "Firmware Version"
       },
@@ -114,6 +141,15 @@
     "binary_sensor": {
       "airfryer_drawer_open": {
         "name": "Drawer"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Probe Unplugged"
+      },
+      "airfryer_probe_required": {
+        "name": "Probe Required"
+      },
+      "airfryer_resting": {
+        "name": "Resting"
       }
     },
     "button": {

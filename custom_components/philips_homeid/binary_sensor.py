@@ -111,6 +111,32 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         icon="mdi:fire",
         device_types=("airfryer", "airfryer_dual"),
     ),
+    # Venus-only sensors (HD9875, HD9876, HD9880)
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="airfryer_probe_unplugged",
+        translation_key="airfryer_probe_unplugged",
+        property_key="probe_unplugged",
+        nested_key="airfryer",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon="mdi:thermometer-probe-off",
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="airfryer_probe_required",
+        translation_key="airfryer_probe_required",
+        property_key="probe_required",
+        nested_key="airfryer",
+        icon="mdi:thermometer-probe",
+        device_types=("airfryer", "airfryer_dual"),
+    ),
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="airfryer_resting",
+        translation_key="airfryer_resting",
+        property_key="resting",
+        nested_key="airfryer",
+        icon="mdi:sleep",
+        device_types=("airfryer", "airfryer_dual"),
+    ),
     # Dual basket sensors
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_left_drawer_open",

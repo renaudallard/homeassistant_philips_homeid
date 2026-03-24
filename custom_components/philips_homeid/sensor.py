@@ -68,12 +68,21 @@ def get_device_type(model_name: str) -> str:
     if model_lower.startswith("ac"):
         return "air_purifier"
 
-    # Air fryers - HD9 series (SPECTRE, VENUS 1, VENUS 2 architectures)
-    if model_lower.startswith("hd9") or "airfryer" in model_lower:
+    # Air fryers - HD9 series and codenames (SPECTRE, VENUS 1, VENUS 2)
+    if (
+        model_lower.startswith("hd9")
+        or "airfryer" in model_lower
+        or "venus" in model_lower
+        or "spectre" in model_lower
+    ):
         return "airfryer"
 
-    # Multicookers - NX series (Nutrimax, Hermes)
-    if model_lower.startswith("nx"):
+    # Multicookers - NX series and codenames (Nutrimax, Hermes)
+    if (
+        model_lower.startswith("nx")
+        or "nutrimax" in model_lower
+        or "hermes" in model_lower
+    ):
         return "multicooker"
 
     # Default: try to detect from data

@@ -25,6 +25,19 @@ def test_venus_airfryer_models():
     assert get_device_type("HD9880") == "airfryer"
 
 
+def test_venus_codename_models():
+    """Venus codename models should be detected as airfryer."""
+    assert get_device_type("Venus2") == "airfryer"
+    assert get_device_type("Venus1") == "airfryer"
+    assert get_device_type("venus") == "airfryer"
+
+
+def test_spectre_codename_models():
+    """Spectre codename models should be detected as airfryer."""
+    assert get_device_type("Spectre") == "airfryer"
+    assert get_device_type("SPECTRE") == "airfryer"
+
+
 def test_case_insensitive():
     """Detection should be case insensitive."""
     assert get_device_type("hd9280") == "airfryer"
@@ -36,6 +49,13 @@ def test_multicooker_models():
     """NX* models should be detected as multicooker."""
     assert get_device_type("NX0960") == "multicooker"
     assert get_device_type("NX0950") == "multicooker"
+
+
+def test_multicooker_codename_models():
+    """Multicooker codename models should be detected as multicooker."""
+    assert get_device_type("Nutrimax") == "multicooker"
+    assert get_device_type("Hermes") == "multicooker"
+    assert get_device_type("HERMES") == "multicooker"
 
 
 def test_unknown_models():

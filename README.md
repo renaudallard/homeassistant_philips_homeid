@@ -23,6 +23,8 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
 
+> **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
+
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >
 > **Known limitation:** Some newer firmware versions (e.g., HD9280 firmware 4.0.0/0.6.8, HD9285 firmware 1.6.2/0.6.8) have the app communicate exclusively via cloud relay and never generate local credentials. The device still runs a local HTTP server, but the app does not store the credentials needed to access it. See [Cloud-only firmware](#cloud-only-firmware) in Troubleshooting.

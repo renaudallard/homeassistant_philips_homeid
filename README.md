@@ -35,9 +35,12 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 |---------|-------------|
 | **Local Control** | Direct communication over your local network |
 | **Auto Discovery** | Automatic device detection via Zeroconf/SSDP |
-| **Smart Polling** | 60s when idle, 10s while cooking |
+| **Smart Polling** | Configurable intervals (default 60s idle / 10s cooking) |
 | **Extrapolated Timers** | Smooth countdown updates between polls |
 | **Dynamic Entities** | Sensors created only when device reports data |
+| **Firmware Updates** | Shows installed and available firmware versions |
+| **Diagnostics** | Built-in diagnostics for troubleshooting |
+| **Cloud Login** | Experimental fallback for credential retrieval |
 
 ### Air Purifiers
 - Fan speed and preset modes (auto, manual, sleep, turbo, allergen, bacteria, night)
@@ -45,12 +48,23 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 - Environment sensors: humidity, temperature
 - Filter status: pre-filter, HEPA, carbon, humidifier wick
 - Controls: power, child lock
+- MUJI devices (AC0650/AC0651): beep volume, sensor monitor, air quality threshold, filter lifetime tracking
 
 ### Air Fryers
 - Cooking status, temperature (target/current), time remaining
-- Controls: start, pause, stop, temperature, cook time
-- Sensors: drawer state, preheat status, shake/flip reminders, keep warm
+- Controls: start, pause, stop, keep warm, temperature, cook time, preheat toggle
+- Cooking method select (architecture-specific presets)
+- Sensors: drawer state, preheat status, shake/flip reminders
+- Venus devices: air speed, probe temperature, dialog, voltage, previous status
+- AutoCook program tracking (UUID, doneness, amount, weight, thickness)
+- Recipe stage tracking
 - Multiple device architectures supported (SPECTRE, VENUS 1, VENUS 2)
+
+### Multicookers
+- Same cooking controls as air fryers (start, pause, stop, keep warm)
+- Sensors: humidity, ingredient, temperature, cooking status
+- Binary sensors: lid open, no water
+- Architecture-specific cooking presets (Nutrimax: 10 methods, Hermes: 14 methods)
 
 ---
 
@@ -282,21 +296,28 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
+| Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
 | Switch | Preheat | Enable preheat for next cooking start |
+| Sensor | Current Probe Temperature | Live probe reading (Venus only) |
+| Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
+| Sensor | AutoCook Amount / Weight / Thickness | AutoCook parameters (Venus only) |
+| Sensor | Recipe Current Stage | Multi-stage recipe tracking (Venus only) |
 | Update | Firmware | Installed and available firmware version |
 
 </details>
 
 <details>
-<summary><b>Dual Basket Air Fryer (Additional)</b></summary>
+<summary><b>Multicooker Entities (NX0960/NX0950)</b></summary>
+
+All air fryer entities above, plus:
 
 | Type | Entity | Description |
 |------|--------|-------------|
-| Sensor | Left/Right Basket Status | Per-basket cooking state |
-| Sensor | Left/Right Basket Temperature | Per-basket target temp |
-| Sensor | Left/Right Basket Time | Per-basket cook time |
-| Binary Sensor | Left/Right Drawer | Per-basket drawer state |
+| Sensor | Humidity | Cooking chamber humidity |
+| Sensor | Ingredient | Selected ingredient |
+| Binary Sensor | Lid | Lid open/closed |
+| Binary Sensor | No Water | Water tank empty |
 
 </details>
 
@@ -314,7 +335,9 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 - Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
 
 ### Pairing Fails
-This is expected if the device is already paired with the Philips HomeID app. Devices can only be paired with one client at a time. Check **Enter credentials manually** and enter the credentials you extracted from the app (see [Extracting Credentials](#extracting-credentials)).
+This is expected if the device is already paired with the Philips HomeID app. Devices can only be paired with one client at a time. You have two options:
+- Check **Enter credentials manually** and enter the credentials you extracted from the app (see [Extracting Credentials](#extracting-credentials))
+- Check **Log in with Philips account** to retrieve credentials from the cloud (experimental)
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.
@@ -346,6 +369,8 @@ Some newer firmware versions do not generate local credentials at all. The Phili
 
 **What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are generated or stored. The device is also already paired with the app via the cloud, so it rejects new pairing attempts from the integration.
 
+**Workaround:** Try the **Cloud Login** option during pairing. This retrieves credentials directly from the Philips cloud API using your account. See [Cloud Login](#cloud-login-experimental-fallback) above.
+
 ### Empty Database
 If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.
 
@@ -359,6 +384,8 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
 | Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
+| Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
+| Port Discovery | Automatic: tries `airfryer`, `venusaf`, `venus1af`, `nutrimax`, `hermesac` |
 
 ---
 

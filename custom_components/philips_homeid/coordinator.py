@@ -67,12 +67,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN}_{device_info.cpp_id or device_info.ip_address}",
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
         self.api = api
         self.device_info = device_info
-        self.config_entry = entry
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
         self._seen_properties: set[str] = set()  # Track all properties ever seen

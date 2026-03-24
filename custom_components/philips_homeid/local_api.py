@@ -804,20 +804,22 @@ class PhilipsLocalAPI:
             data["temp_unit"] = temp_unit_fahrenheit
             data = self._normalize_venus_command(data)
             if is_cooking:
-                # Venus: pause → set → resume
+                # Venus: pause → set → resume (always try to resume)
                 await self._request(
                     device,
                     port,
                     method="PUT",
                     data={"status": AIRFRYER_STATUS_PAUSED},
                 )
-                await self._request(device, port, method="PUT", data=data)
-                result = await self._request(
-                    device,
-                    port,
-                    method="PUT",
-                    data={"status": AIRFRYER_STATUS_COOKING},
-                )
+                try:
+                    await self._request(device, port, method="PUT", data=data)
+                finally:
+                    result = await self._request(
+                        device,
+                        port,
+                        method="PUT",
+                        data={"status": AIRFRYER_STATUS_COOKING},
+                    )
                 return result is not None
         else:
             data["temp_unit"] = not temp_unit_fahrenheit

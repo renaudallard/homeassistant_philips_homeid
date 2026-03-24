@@ -54,6 +54,8 @@ class PhilipsHomeIDBinarySensorEntityDescription(BinarySensorEntityDescription):
     nested_key: str | None = None  # For nested properties like airfryer.drawer_open
     # Device types this sensor applies to: air_purifier, airfryer, airfryer_dual
     device_types: tuple[str, ...] | None = None
+    # If True, invert the boolean value (problem when value is 0/False)
+    invert: bool = False
 
 
 # Air purifier binary sensors
@@ -73,6 +75,8 @@ AIR_PURIFIER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, .
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:water-off",
         device_types=("air_purifier",),
+        # wl is water level percentage; 0 = empty = problem
+        invert=True,
     ),
 )
 
@@ -280,7 +284,10 @@ class PhilipsHomeIDBinarySensor(PhilipsHomeIDEntity, BinarySensorEntity):
         """Return true if the binary sensor is on."""
         desc = self.entity_description
         value = self._get_property_value(desc.property_key, desc.nested_key)
-        return bool(value) if value is not None else None
+        if value is None:
+            return None
+        result = bool(value)
+        return not result if desc.invert else result
 
     @property
     def available(self) -> bool:

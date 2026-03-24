@@ -97,7 +97,8 @@ class LocalDeviceInfo:
     # AES encryption key (hex string) for HTTP devices - fetched from /security
     encryption_key: str | None = None
     # Discovered airfryer port name (cached after first successful request)
-    airfryer_port: str | None = None
+    # None = not yet probed, False = not an airfryer, str = port name
+    airfryer_port: str | bool | None = None
 
 
 @dataclass
@@ -584,7 +585,7 @@ class PhilipsLocalAPI:
         (SPECTRE, VENUS 2, VENUS 1) until one responds. Normalizes Venus
         responses to match SPECTRE property names.
         """
-        if device.airfryer_port:
+        if isinstance(device.airfryer_port, str):
             ports_to_try = [device.airfryer_port]
         else:
             ports_to_try = [PORT_AIRFRYER, PORT_VENUSAF, PORT_VENUS1AF]
@@ -592,7 +593,7 @@ class PhilipsLocalAPI:
         for port in ports_to_try:
             result = await self._request(device, port)
             if result is not None:
-                if not device.airfryer_port:
+                if not isinstance(device.airfryer_port, str):
                     _LOGGER.info(
                         "Device %s responds on airfryer port '%s'",
                         device.ip_address,
@@ -1086,51 +1087,64 @@ class PhilipsLocalAPI:
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""
         state = LocalDeviceState(device_info=device)
+        got_data = False
 
-        # Try airfryer endpoint first (for airfryer devices)
-        airfryer = await self.get_airfryer_status(device)
-        if airfryer:
-            state.properties["airfryer"] = airfryer
-            # Airfryer is "on" when status is cooking or paused
-            af_status = airfryer.get("status", "")
-            state.power_on = af_status in (
-                AIRFRYER_STATUS_COOKING,
-                AIRFRYER_STATUS_PAUSED,
-                AIRFRYER_STATUS_SETTING,
-                AIRFRYER_STATUS_PRECOOK,
-                AIRFRYER_STATUS_PARASETTING,
-            )
-            _LOGGER.debug("Airfryer status: %s", airfryer)
+        # Try airfryer endpoint (skip if device is known to be non-airfryer)
+        airfryer = None
+        if device.airfryer_port is not False:
+            airfryer = await self.get_airfryer_status(device)
+            if airfryer:
+                got_data = True
+                state.properties["airfryer"] = airfryer
+                af_status = airfryer.get("status", "")
+                state.power_on = af_status in (
+                    AIRFRYER_STATUS_COOKING,
+                    AIRFRYER_STATUS_PAUSED,
+                    AIRFRYER_STATUS_SETTING,
+                    AIRFRYER_STATUS_PRECOOK,
+                    AIRFRYER_STATUS_PARASETTING,
+                )
+                _LOGGER.debug("Airfryer status: %s", airfryer)
 
-            # Fetch device current state for Venus devices (voltage, internal temp)
-            if device.airfryer_port in (PORT_VENUSAF, PORT_VENUS1AF):
-                dev_state = await self.get_device_current_state(device)
-                if dev_state:
-                    for key, value in dev_state.items():
-                        if key not in airfryer:
-                            airfryer[key] = value
+                # Fetch device current state for Venus devices
+                if device.airfryer_port in (PORT_VENUSAF, PORT_VENUS1AF):
+                    dev_state = await self.get_device_current_state(device)
+                    if dev_state:
+                        for key, value in dev_state.items():
+                            if key not in airfryer:
+                                airfryer[key] = value
+            elif device.airfryer_port is None:
+                # No port responded; remember this device is not an airfryer
+                device.airfryer_port = False
 
         # Get status (for air purifiers and other devices)
         status = await self.get_status(device)
         if status:
-            if not airfryer:  # Don't override airfryer power state
+            got_data = True
+            if not airfryer:
                 state.power_on = status.get("pwr") == "1"
             state.properties.update(status)
 
-        # Get air quality (for air purifiers)
+        # Get air quality (for air purifiers) - merge into top level
         air = await self.get_air_quality(device)
         if air:
-            state.properties["air"] = air
+            got_data = True
+            state.properties.update(air)
 
-        # Get filter status
+        # Get filter status - merge into top level
         filters = await self.get_filter_status(device)
         if filters:
-            state.properties["filters"] = filters
+            got_data = True
+            state.properties.update(filters)
 
         # Get firmware version info
         firmware = await self.get_firmware_info(device)
         if firmware:
+            got_data = True
             state.properties["firmware"] = firmware
+
+        if not got_data:
+            return None
 
         return state
 

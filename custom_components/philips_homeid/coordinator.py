@@ -29,6 +29,7 @@ from __future__ import annotations
 from datetime import timedelta
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -76,7 +77,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
         self._seen_properties: set[str] = set()  # Track all properties ever seen
         self._new_properties_callbacks: list[
-            callable
+            Callable[[list[tuple[str, str | None]]], None]
         ] = []  # Callbacks for new properties
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
 
@@ -338,7 +339,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         key = self._get_property_key(property_key, nested_key)
         self._seen_properties.add(key)
 
-    def register_new_property_callback(self, callback: callable) -> callable:
+    def register_new_property_callback(
+        self, callback: Callable[[list[tuple[str, str | None]]], None]
+    ) -> Callable[[], None]:
         """Register a callback to be called when new properties are discovered.
 
         Returns a function to unregister the callback.

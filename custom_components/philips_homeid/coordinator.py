@@ -365,17 +365,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         # Check top-level properties
         for key in state.properties:
-            if key not in self._seen_properties:
-                # Check if it's a nested dict (like airfryer)
-                value = state.properties[key]
-                if isinstance(value, dict):
-                    # Check nested properties
-                    for nested_prop in value:
-                        full_key = f"{key}.{nested_prop}"
-                        if full_key not in self._seen_properties:
-                            new_properties.append((nested_prop, key))
-                else:
-                    new_properties.append((key, None))
+            value = state.properties[key]
+            if isinstance(value, dict):
+                # Check nested properties (e.g., airfryer.status)
+                for nested_prop in value:
+                    full_key = f"{key}.{nested_prop}"
+                    if full_key not in self._seen_properties:
+                        new_properties.append((nested_prop, key))
+            elif key not in self._seen_properties:
+                new_properties.append((key, None))
 
         return new_properties
 

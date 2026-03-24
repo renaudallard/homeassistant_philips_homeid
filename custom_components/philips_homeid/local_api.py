@@ -780,11 +780,17 @@ class PhilipsLocalAPI:
         """
         port = self._airfryer_port(device)
         if port in VENUS_STYLE_PORTS:
-            # Venus: method=2 (KEEP_WARM), status="maintain"
+            # Keep warm method ID varies by device architecture
+            if port == PORT_NUTRIMAX:
+                keep_warm_method = 9
+            elif port == PORT_HERMESAC:
+                keep_warm_method = 50
+            else:
+                keep_warm_method = 2  # Venus airfryers
             data: dict[str, Any] = {
                 "total_time": time_seconds,
-                "method": 2,
-                "status": "maintain",
+                "method": keep_warm_method,
+                "status": AIRFRYER_STATUS_MAINTAIN,
             }
         else:
             # SPECTRE: preset=8 (KEEP_WARM), status="cooking"

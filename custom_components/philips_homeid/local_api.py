@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -1192,25 +1193,45 @@ class PhilipsLocalAPI:
     async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
         """Probe a device at the given IP to get its information.
 
-        Tries HTTPS first (port 443), then falls back to HTTP (port 80).
+        Tries HTTPS (port 443) and HTTP (port 80) concurrently.
         Tries multiple product IDs and endpoints. A 401 response is treated
         as "device found but needs authentication" rather than a failure.
         """
-        device = LocalDeviceInfo(
+        https_device = LocalDeviceInfo(
             ip_address=ip_address,
             cpp_id="",
             use_https=True,
         )
+        http_device = LocalDeviceInfo(
+            ip_address=ip_address,
+            cpp_id="",
+            use_https=False,
+        )
 
-        # Try HTTPS first
-        result = await self._probe_with_protocol(device)
-        if result:
-            return result
+        https_task = asyncio.ensure_future(self._probe_with_protocol(https_device))
+        http_task = asyncio.ensure_future(self._probe_with_protocol(http_device))
 
-        # Fall back to HTTP
-        _LOGGER.info("HTTPS probe failed for %s, trying HTTP", ip_address)
-        device.use_https = False
-        return await self._probe_with_protocol(device)
+        done, pending = await asyncio.wait(
+            [https_task, http_task],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        # Check completed tasks for a result
+        for task in done:
+            result = task.result()
+            if result:
+                for p in pending:
+                    p.cancel()
+                return result
+
+        # First completed task returned None, wait for the other
+        if pending:
+            remaining = await asyncio.gather(*pending, return_exceptions=True)
+            for item in remaining:
+                if isinstance(item, LocalDeviceInfo):
+                    return item
+
+        return None
 
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""
@@ -1292,10 +1313,13 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         location = discovery_info.get("location", "")
         udn = discovery_info.get("udn", "")
 
-        # Extract IP from location URL (e.g., http://192.168.1.100:80/description.xml)
+        # Extract IP and protocol from location URL
+        # (e.g., http://192.168.1.100:80/description.xml)
         if "://" in location:
+            scheme = location.split("://")[0].lower()
             host_part = location.split("://")[1].split("/")[0]
             ip_address = host_part.split(":")[0]
+            use_https = scheme == "https"
         else:
             return None
 
@@ -1322,9 +1346,15 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
             model_name=model_name,
             model_number=model_number,
             serial_number=discovery_info.get("serialNumber", ""),
+            use_https=use_https,
         )
 
-        _LOGGER.info("Parsed SSDP device: %s at %s", device.friendly_name, ip_address)
+        _LOGGER.info(
+            "Parsed SSDP device: %s at %s (https: %s)",
+            device.friendly_name,
+            ip_address,
+            use_https,
+        )
         return device
 
     except Exception as err:

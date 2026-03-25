@@ -145,6 +145,11 @@ class PhilipsCloudAPI:
         _LOGGER.debug("OTP verified for %s", email)
         return session_token
 
+    async def async_install_playwright(self) -> bool:
+        """Install Playwright asynchronously (runs in executor)."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.install_playwright)
+
     async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
         """Exchange Gigya session for OIDC tokens using headless browser.
 
@@ -192,11 +197,25 @@ class PhilipsCloudAPI:
         return await self._exchange_code(auth_code, code_verifier)
 
     @staticmethod
-    def _ensure_playwright() -> bool:
-        """Install Playwright and Chromium if not present. Returns True on success."""
+    def _playwright_available() -> bool:
+        """Check if Playwright is already installed."""
         try:
             import playwright  # noqa: F401
 
+            return True
+        except ImportError:
+            return False
+
+    @staticmethod
+    def install_playwright() -> bool:
+        """Install Playwright and Chromium. Returns True on success.
+
+        Safe to call if already installed (no-op).
+        """
+        try:
+            import playwright  # noqa: F401
+
+            _LOGGER.debug("Playwright already installed")
             return True
         except ImportError:
             pass
@@ -209,12 +228,14 @@ class PhilipsCloudAPI:
                 check=True,
                 timeout=120,
             )
+            _LOGGER.debug("Playwright pip package installed, installing chromium")
             subprocess.run(
                 ["playwright", "install", "chromium"],
                 capture_output=True,
                 check=True,
                 timeout=300,
             )
+            _LOGGER.info("Playwright and chromium installed successfully")
             return True
         except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
             _LOGGER.exception("Failed to install playwright")
@@ -250,7 +271,7 @@ class PhilipsCloudAPI:
         3. Navigate to authorize URL
         4. Intercept authorize/continue response for auth code
         """
-        if not PhilipsCloudAPI._ensure_playwright():
+        if not PhilipsCloudAPI.install_playwright():
             return None
 
         try:
@@ -351,14 +372,25 @@ class PhilipsCloudAPI:
             "code_verifier": code_verifier,
         }
 
+        _LOGGER.debug("Exchanging auth code for tokens at %s", OIDC_TOKEN_ENDPOINT)
         async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            result = await resp.json(content_type=None)
+            text = await resp.text()
+            _LOGGER.debug("Token exchange response: HTTP %s", resp.status)
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                raise CloudAuthError(f"Token exchange response not JSON: {text[:200]}")
 
         if "access_token" not in result:
             error = result.get("error_description", result.get("error", "Unknown"))
+            _LOGGER.debug("Token exchange error response: %s", text[:500])
             raise CloudAuthError(f"Token exchange failed: {error}")
 
-        _LOGGER.debug("OIDC tokens obtained")
+        _LOGGER.debug(
+            "OIDC tokens obtained (scopes: %s, expires_in: %s)",
+            result.get("scope", "?"),
+            result.get("expires_in", "?"),
+        )
         return result
 
     async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
@@ -379,6 +411,28 @@ class PhilipsCloudAPI:
 
         return result
 
+    async def get_user_profile(self, access_token: str) -> dict[str, Any]:
+        """Get the cloud user profile to verify the token works."""
+        session = await self._get_session()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+        async with session.get(f"{IOT_BASE}/user/self", headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "User profile response: HTTP %s, body: %s", resp.status, text[:500]
+            )
+            if resp.status != 200:
+                raise CloudAuthError(f"User profile request failed: {resp.status}")
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                raise CloudAuthError(f"User profile response not JSON: {text[:200]}")
+            _LOGGER.debug("Cloud user ID: %s", data.get("id", "unknown"))
+            return data
+
     async def get_devices(self, access_token: str) -> list[dict[str, Any]]:
         """List devices registered to the user's account."""
         session = await self._get_session()
@@ -388,9 +442,66 @@ class PhilipsCloudAPI:
         }
 
         async with session.get(f"{IOT_BASE}/user/self/device", headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "Device list response: HTTP %s, body: %s", resp.status, text[:1000]
+            )
             if resp.status != 200:
-                raise CloudAuthError(f"Device list request failed: {resp.status}")
-            return await resp.json(content_type=None)
+                raise CloudAuthError(
+                    f"Device list request failed: HTTP {resp.status}, body: {text[:200]}"
+                )
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                raise CloudAuthError(f"Device list response not JSON: {text[:200]}")
+
+        # Handle both flat list and nested dict responses
+        if isinstance(data, list):
+            devices = data
+        elif isinstance(data, dict):
+            # Try common nesting patterns
+            devices = data.get("devices") or data.get("data") or data.get("items") or []
+            if not devices:
+                _LOGGER.debug(
+                    "Device response is dict with keys: %s", list(data.keys())
+                )
+        else:
+            _LOGGER.debug("Unexpected device response type: %s", type(data).__name__)
+            devices = []
+
+        _LOGGER.debug("Found %d device(s)", len(devices))
+        for dev in devices:
+            _LOGGER.debug(
+                "  Device: id=%s, ctn=%s, name=%s, mac=%s",
+                dev.get("id", "?"),
+                dev.get("ctn", "?"),
+                dev.get("friendlyName", "?"),
+                dev.get("macAddress", "?"),
+            )
+        return devices
+
+    async def get_homes(self, access_token: str) -> list[dict[str, Any]]:
+        """List homes from IoT API (for debugging)."""
+        session = await self._get_session()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+        async with session.get(f"{IOT_BASE}/user/self/home", headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug("Homes response: HTTP %s, body: %s", resp.status, text[:500])
+            if resp.status != 200:
+                return []
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                return []
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("homes") or data.get("data") or []
+        return []
 
     async def get_device_credentials(
         self, access_token: str, device_ids: list[str], ctns: list[str]
@@ -419,23 +530,38 @@ class PhilipsCloudAPI:
             "deviceIds": device_ids,
         }
 
+        _LOGGER.debug("Migration request: POST %s, body: %s", url, json.dumps(body))
+
         async with session.post(url, headers=headers, json=body) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "Migration response: HTTP %s, body: %s", resp.status, text[:1000]
+            )
             if resp.status != 200:
-                text = await resp.text()
-                _LOGGER.debug("Migration API response: %s %s", resp.status, text[:200])
                 return []
-            data = await resp.json(content_type=None)
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                _LOGGER.debug("Migration response not JSON: %s", text[:200])
+                return []
 
         devices = data if isinstance(data, list) else data.get("devices", [])
+        _LOGGER.debug("Migration returned %d device(s)", len(devices))
         result = []
         for device in devices:
             creds_str = device.get("localCredentials")
+            _LOGGER.debug(
+                "  Migration device id=%s, has localCredentials=%s",
+                device.get("id", "?"),
+                bool(creds_str),
+            )
             if creds_str:
                 try:
                     creds = json.loads(creds_str)
                     device["parsed_credentials"] = creds
+                    _LOGGER.debug("  Parsed credential keys: %s", list(creds.keys()))
                 except (json.JSONDecodeError, TypeError):
-                    pass
+                    _LOGGER.debug("  Failed to parse localCredentials JSON")
             result.append(device)
 
         return result

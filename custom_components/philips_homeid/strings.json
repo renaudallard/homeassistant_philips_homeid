@@ -1,5 +1,8 @@
 {
   "config": {
+    "progress": {
+      "cloud_install": "Please wait while required components are being installed. This may take a few minutes..."
+    },
     "step": {
       "user": {
         "title": "Enter Device IP",
@@ -14,6 +17,10 @@
         "data": {
           "host": "IP Address"
         }
+      },
+      "cloud_install": {
+        "title": "Preparing Cloud Login",
+        "description": "Installing required components and sending verification code..."
       },
       "cloud_email": {
         "title": "Philips Account Login",
@@ -83,7 +90,8 @@
     },
     "abort": {
       "already_configured": "Device already configured",
-      "cannot_connect": "Cannot connect to device"
+      "cannot_connect": "Cannot connect to device",
+      "cloud_setup_failed": "Cloud login setup failed. Check logs for details."
     }
   },
   "options": {

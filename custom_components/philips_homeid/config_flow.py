@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -107,6 +108,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_session_token: str = ""
         self._cloud_tokens: dict[str, Any] = {}
         self._cloud_devices: list[dict[str, Any]] = []
+        self._install_task: asyncio.Task[bool] | None = None
 
     async def _close_cloud_api(self) -> None:
         """Close cloud API session if open."""
@@ -370,20 +372,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             email = user_input.get("email", "").strip()
             if email:
-                try:
-                    self._cloud_api = PhilipsCloudAPI()
-                    vtoken = await self._cloud_api.request_otp(email)
-                    self._cloud_email = email
-                    self._cloud_vtoken = vtoken
-                    return await self.async_step_cloud_otp()
-                except CloudAuthError as err:
-                    _LOGGER.error("OTP request failed: %s", err)
-                    errors["base"] = "otp_send_failed"
-                    await self._close_cloud_api()
-                except Exception:
-                    _LOGGER.exception("Unexpected error sending OTP")
-                    errors["base"] = "unknown"
-                    await self._close_cloud_api()
+                self._cloud_email = email
+                self._cloud_api = PhilipsCloudAPI()
+                return await self.async_step_cloud_install()
             else:
                 errors["base"] = "missing_email"
 
@@ -392,6 +383,54 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required("email"): str}),
             errors=errors,
         )
+
+    async def _async_install_and_send_otp(self) -> bool:
+        """Install playwright and send OTP in one background task."""
+        assert self._cloud_api is not None
+        if not await self._cloud_api.async_install_playwright():
+            raise CloudAuthError("Failed to install playwright")
+        vtoken = await self._cloud_api.request_otp(self._cloud_email)
+        self._cloud_vtoken = vtoken
+        return True
+
+    async def async_step_cloud_install(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Install playwright and send OTP with progress indicator."""
+        if self._install_task is None:
+            self._install_task = self.hass.async_create_task(
+                self._async_install_and_send_otp()
+            )
+
+        if not self._install_task.done():
+            return self.async_show_progress(
+                step_id="cloud_install",
+                progress_action="cloud_install",
+                progress_task=self._install_task,
+            )
+
+        try:
+            await self._install_task
+        except CloudAuthError as err:
+            _LOGGER.error("Cloud setup failed: %s", err)
+            self._install_task = None
+            await self._close_cloud_api()
+            return self.async_show_progress_done(next_step_id="cloud_install_failed")
+        except Exception:
+            _LOGGER.exception("Unexpected error during cloud setup")
+            self._install_task = None
+            await self._close_cloud_api()
+            return self.async_show_progress_done(next_step_id="cloud_install_failed")
+        finally:
+            self._install_task = None
+
+        return self.async_show_progress_done(next_step_id="cloud_otp")
+
+    async def async_step_cloud_install_failed(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle cloud install/OTP failure."""
+        return self.async_abort(reason="cloud_setup_failed")
 
     async def async_step_cloud_otp(
         self, user_input: dict[str, Any] | None = None
@@ -408,13 +447,30 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     self._cloud_session_token = session_token
 
-                    # Try auto-consent OAuth
+                    # Headless browser OAuth (playwright already installed)
                     tokens = await self._cloud_api.get_oidc_tokens(session_token)
                     self._cloud_tokens = tokens
+
+                    # Verify token with user profile
+                    try:
+                        profile = await self._cloud_api.get_user_profile(
+                            tokens["access_token"]
+                        )
+                        _LOGGER.debug("Cloud user: id=%s", profile.get("id", "unknown"))
+                    except CloudAuthError:
+                        _LOGGER.warning("Could not fetch user profile (non-fatal)")
 
                     # Get device list
                     devices = await self._cloud_api.get_devices(tokens["access_token"])
                     self._cloud_devices = devices
+
+                    # Also query homes for debug context
+                    try:
+                        homes = await self._cloud_api.get_homes(tokens["access_token"])
+                        if homes:
+                            _LOGGER.debug("Cloud homes: %d found", len(homes))
+                    except Exception:
+                        pass
 
                     if not devices:
                         errors["base"] = "no_cloud_devices"

@@ -119,9 +119,20 @@ If you cannot extract credentials (e.g., cloud-only firmware), use the cloud log
 
 1. Enter the device IP and confirm
 2. When pairing fails, check **Log in with Philips account**
-3. Enter your Philips HomeID email and the verification code sent to you
-4. Select your device from the list
-5. Credentials are retrieved automatically from the cloud
+3. Enter your Philips HomeID email
+4. Wait while required components are installed (a progress indicator is shown, this may take a few minutes on the first run)
+5. Enter the verification code sent to your email
+6. Select your device from the list
+7. Credentials are retrieved automatically from the cloud
+
+To debug cloud login issues, enable debug logging:
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.philips_homeid.cloud_api: debug
+    custom_components.philips_homeid.config_flow: debug
+```
 
 ### Auto-Discovered Devices
 

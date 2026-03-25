@@ -42,6 +42,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    FUSION_HEARTBEAT_INTERVAL,
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
@@ -55,6 +56,7 @@ from .local_api import (
     LocalDeviceState,
     PhilipsLocalAPI,
 )
+from .mqtt_api import PhilipsMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,9 +72,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         api: PhilipsLocalAPI,
         device_info: LocalDeviceInfo,
         entry: ConfigEntry,
+        mqtt_client: PhilipsMQTTClient | None = None,
     ) -> None:
         """Initialize the coordinator."""
-        scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        self._is_fusion = mqtt_client is not None
+        if self._is_fusion:
+            scan_interval = FUSION_HEARTBEAT_INTERVAL
+        else:
+            scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         super().__init__(
             hass,
             _LOGGER,
@@ -81,6 +88,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             update_interval=timedelta(seconds=scan_interval),
         )
         self.api = api
+        self.mqtt_client = mqtt_client
         self.device_info = device_info
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
@@ -127,7 +135,41 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             )
             self.update_interval = new_interval
 
+    def update_from_mqtt(self, state: LocalDeviceState) -> None:
+        """Receive a push state update from MQTT.
+
+        Called from the MQTT client's message callback via
+        loop.call_soon_threadsafe.
+        """
+        new_properties = self._check_for_new_properties(state)
+        self._state = state
+        self._last_update_time = time.monotonic()
+        self._consecutive_failures = 0
+        self._update_polling_interval(state)
+        if new_properties:
+            self._notify_new_properties(new_properties)
+        self.async_set_updated_data(state)
+
     async def _async_update_data(self) -> LocalDeviceState | None:
+        """Fetch data from device."""
+        if self._is_fusion and self.mqtt_client:
+            return await self._async_update_data_fusion()
+        return await self._async_update_data_local()
+
+    async def _async_update_data_fusion(self) -> LocalDeviceState | None:
+        """Heartbeat poll for FUSION devices via MQTT shadow request."""
+        assert self.mqtt_client is not None
+        try:
+            if self.mqtt_client.connected:
+                await self.hass.async_add_executor_job(self.mqtt_client.request_state)
+            else:
+                _LOGGER.warning("MQTT not connected for heartbeat")
+        except Exception as err:
+            _LOGGER.debug("MQTT heartbeat error: %s", err)
+        # Return cached state (real updates come via MQTT push)
+        return self._state
+
+    async def _async_update_data_local(self) -> LocalDeviceState | None:
         """Fetch data from device via local API."""
         try:
             _LOGGER.debug("Polling device at %s", self.device_info.ip_address)
@@ -180,14 +222,23 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             _LOGGER.exception("Error fetching data from device")
             raise UpdateFailed(f"Error communicating with device: {err}") from err
 
+    async def _mqtt_command(self, port: str, props: dict[str, Any]) -> bool:
+        """Send a command via MQTT for FUSION devices."""
+        if not self.mqtt_client:
+            return False
+        await self.hass.async_add_executor_job(
+            self.mqtt_client.send_port_command, port, "updatePort", props
+        )
+        return True
+
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
+        if self._is_fusion:
+            return await self._mqtt_command("status", {"pwr": "1" if power_on else "0"})
         result = await self.api.set_power(self.device_info, power_on)
         if result:
-            # Update local state immediately
             if self._state:
                 self._state.power_on = power_on
-            # Request a refresh
             await self.async_request_refresh()
         return result
 

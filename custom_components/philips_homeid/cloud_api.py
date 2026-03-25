@@ -89,6 +89,88 @@ class CloudAuthError(Exception):
 _ALPINE_PW_TARGET = "/tmp/playwright_lib"
 _ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
 
+# Script executed in a subprocess to isolate Playwright from HA's process
+# management (signal handlers, child process reaping).
+_BROWSER_OAUTH_SCRIPT = """\
+import sys, os, secrets, urllib.parse
+os.environ["DEBUG"] = "pw:*"
+from playwright.sync_api import sync_playwright
+
+session_token = "{session_token}"
+auth_url = "{auth_url}"
+GIGYA_API_KEY = "{gigya_api_key}"
+executable_path = "{executable_path}" or None
+
+auth_code = None
+
+with sync_playwright() as p:
+    launch_args = {{
+        "headless": True,
+        "args": [
+            "--disable-gpu",
+            "--disable-software-rasterizer",
+            "--in-process-gpu",
+            "--disable-gpu-compositing",
+            "--disable-gpu-sandbox",
+            "--disable-seccomp-filter-sandbox",
+            "--single-process",
+            "--enable-logging=stderr",
+            "--v=1",
+        ],
+    }}
+    if executable_path:
+        launch_args["executable_path"] = executable_path
+    browser = p.chromium.launch(**launch_args)
+    page = browser.new_page()
+
+    gmid = secrets.token_hex(16)
+    page.context.add_cookies([
+        {{"name": f"glt_{{GIGYA_API_KEY}}", "value": session_token,
+          "domain": ".accounts.home.id", "path": "/"}},
+        {{"name": f"gac_{{GIGYA_API_KEY}}", "value": session_token,
+          "domain": ".accounts.home.id", "path": "/"}},
+        {{"name": "gmid", "value": gmid,
+          "domain": ".accounts.home.id", "path": "/"}},
+        {{"name": "ucid", "value": gmid,
+          "domain": ".accounts.home.id", "path": "/"}},
+        {{"name": "hasGmid", "value": "ver4",
+          "domain": ".accounts.home.id", "path": "/"}},
+    ])
+
+    def handle_response(response):
+        global auth_code
+        if "authorize/continue" in response.url and not auth_code:
+            for header in response.headers_array():
+                if header["name"].lower() == "location":
+                    location = header["value"]
+                    if "code=" in location:
+                        parsed = urllib.parse.urlparse(location)
+                        qs = urllib.parse.parse_qs(parsed.query)
+                        codes = qs.get("code", [])
+                        if codes:
+                            auth_code = codes[0]
+
+    page.on("response", handle_response)
+
+    try:
+        page.goto(auth_url, timeout=30000, wait_until="networkidle")
+    except Exception:
+        pass
+
+    if not auth_code:
+        for _ in range(10):
+            page.wait_for_timeout(1000)
+            if auth_code:
+                break
+
+    browser.close()
+
+if auth_code:
+    print(auth_code)
+else:
+    sys.exit(1)
+"""
+
 
 class PhilipsCloudAPI:
     """Async client for Philips cloud authentication and device management."""
@@ -209,6 +291,7 @@ class PhilipsCloudAPI:
         # Only uninstall after if we installed it ourselves
         uninstall = self._we_installed_playwright
         alpine = self._alpine_install
+        _LOGGER.warning("OAuth params: alpine=%s, we_installed=%s", alpine, uninstall)
         loop = asyncio.get_running_loop()
         auth_code = await loop.run_in_executor(
             None,
@@ -288,7 +371,13 @@ class PhilipsCloudAPI:
         try:
             import playwright  # noqa: F401
 
-            _LOGGER.debug("Playwright already installed")
+            _LOGGER.warning(
+                "Playwright already importable from %s", playwright.__file__
+            )
+            # Detect Alpine even if playwright was pre-installed
+            if not self._alpine_install and os.path.exists("/etc/alpine-release"):
+                self._alpine_install = True
+                _LOGGER.warning("Alpine detected, setting alpine flag")
             return True
         except ImportError:
             pass
@@ -299,7 +388,9 @@ class PhilipsCloudAPI:
             _LOGGER.error(platform_error)
             return False
 
-        if self._is_musl():
+        is_musl = self._is_musl()
+        _LOGGER.warning("musl detected: %s", is_musl)
+        if is_musl:
             return self._install_playwright_alpine()
         return self._install_playwright_glibc()
 
@@ -483,109 +574,48 @@ class PhilipsCloudAPI:
         uninstall_after: bool = True,
         alpine: bool = False,
     ) -> str | None:
-        """Run headless browser OAuth flow (sync, runs in executor).
+        """Run headless browser OAuth flow in a subprocess.
 
-        Matches the exact flow from cloud_key_fetcher.py:
-        1. Launch headless Chromium
-        2. Set Gigya session cookies
-        3. Navigate to authorize URL
-        4. Intercept authorize/continue response for auth code
+        Runs Playwright in a separate Python process to isolate it from
+        Home Assistant's process management (signal handlers, child process
+        reaping) which can kill Playwright's internal Node.js driver.
         """
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            _LOGGER.error("Playwright not available for browser OAuth")
-            return None
-
+        executable = _ALPINE_CHROMIUM if alpine else ""
+        script = _BROWSER_OAUTH_SCRIPT.format(
+            session_token=session_token,
+            auth_url=auth_url,
+            gigya_api_key=GIGYA_API_KEY,
+            executable_path=executable,
+            pw_target=_ALPINE_PW_TARGET,
+        )
         auth_code = None
-
         try:
-            with sync_playwright() as p:
-                launch_args: dict[str, Any] = {
-                    "headless": True,
-                    "args": [
-                        "--disable-gpu",
-                        "--disable-software-rasterizer",
-                        "--in-process-gpu",
-                        "--disable-gpu-compositing",
-                        "--disable-gpu-sandbox",
-                    ],
-                }
-                if alpine:
-                    launch_args["executable_path"] = _ALPINE_CHROMIUM
-                browser = p.chromium.launch(**launch_args)
-                context = browser.new_context()
-
-                # Set Gigya session cookies (exact match with cloud_key_fetcher)
-                gmid = secrets.token_hex(16)
-                context.add_cookies(
-                    [
-                        {
-                            "name": f"glt_{GIGYA_API_KEY}",
-                            "value": session_token,
-                            "domain": ".accounts.home.id",
-                            "path": "/",
-                        },
-                        {
-                            "name": f"gac_{GIGYA_API_KEY}",
-                            "value": session_token,
-                            "domain": ".accounts.home.id",
-                            "path": "/",
-                        },
-                        {
-                            "name": "gmid",
-                            "value": gmid,
-                            "domain": ".accounts.home.id",
-                            "path": "/",
-                        },
-                        {
-                            "name": "ucid",
-                            "value": gmid,
-                            "domain": ".accounts.home.id",
-                            "path": "/",
-                        },
-                        {
-                            "name": "hasGmid",
-                            "value": "ver4",
-                            "domain": ".accounts.home.id",
-                            "path": "/",
-                        },
-                    ]
+            env = os.environ.copy()
+            env["DEBUG"] = "pw:*"
+            if _ALPINE_PW_TARGET not in (env.get("PYTHONPATH") or ""):
+                env["PYTHONPATH"] = _ALPINE_PW_TARGET + ":" + env.get("PYTHONPATH", "")
+            debug_log = "/tmp/playwright_debug.log"
+            with open(debug_log, "w") as dbg:
+                result = subprocess.run(
+                    [sys.executable, "-c", script],
+                    stdout=subprocess.PIPE,
+                    stderr=dbg,
+                    text=True,
+                    timeout=60,
+                    env=env,
                 )
-
-                page = context.new_page()
-
-                # Intercept authorize/continue response for the auth code
-                def handle_response(response: Any) -> None:
-                    nonlocal auth_code
-                    if "authorize/continue" in response.url and not auth_code:
-                        for header in response.headers_array():
-                            if header["name"].lower() == "location":
-                                location = header["value"]
-                                if "code=" in location:
-                                    parsed = urllib.parse.urlparse(location)
-                                    qs = urllib.parse.parse_qs(parsed.query)
-                                    codes = qs.get("code", [])
-                                    if codes:
-                                        auth_code = codes[0]
-
-                page.on("response", handle_response)
-
-                try:
-                    page.goto(auth_url, timeout=30000, wait_until="networkidle")
-                except Exception:
-                    pass
-
-                # Wait for JS to complete if code not captured yet
-                if not auth_code:
-                    for _ in range(10):
-                        page.wait_for_timeout(1000)
-                        if auth_code:
-                            break
-
-                browser.close()
-        except Exception:
-            _LOGGER.exception("Browser OAuth flow failed")
+            if result.returncode == 0:
+                auth_code = result.stdout.strip() or None
+                if auth_code:
+                    _LOGGER.info("Browser OAuth obtained auth code")
+            else:
+                _LOGGER.error(
+                    "Browser OAuth subprocess failed (exit %d), debug log at %s",
+                    result.returncode,
+                    debug_log,
+                )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            _LOGGER.exception("Browser OAuth subprocess error")
         finally:
             if uninstall_after:
                 PhilipsCloudAPI._uninstall_playwright()

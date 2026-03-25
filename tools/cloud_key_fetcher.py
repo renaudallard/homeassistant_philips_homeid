@@ -27,7 +27,8 @@
 Fetch Philips HomeID device credentials from the cloud API.
 
 Authenticates via email OTP + headless browser OAuth, then queries the
-IoT API for registered devices and their local credentials.
+Home ID backend API (primary) and IoT API (fallback) for registered
+devices and their local credentials.
 
 Requirements:
   pip install playwright && playwright install chromium
@@ -42,8 +43,10 @@ import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import ssl
+import time
 import urllib.parse
 import urllib.request
 
@@ -56,6 +59,15 @@ REDIRECT_URI = "com.philips.ka.oneka.app.prod://oauthredirect"
 
 # IoT API (production, from APK DomainConfig)
 IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
+
+# Home ID backend (from APK BackendConfigKt)
+BACKEND_BASE = "https://www.backend.vbs.versuni.com"
+BACKEND_API_BASE = "https://www.backend.vbs.versuni.com/api"
+HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
+HOMEID_USER_AGENT = (
+    "HomeID/8.16.0 (com.philips.ka.oneka.app; build:8160001; Android 14)"
+)
+HOMEID_X_USER_AGENT = "Android 14;8.16.0"
 
 # OAuth scopes (full set from APK)
 SCOPES = (
@@ -107,7 +119,10 @@ def request_otp(email):
     )
     if not isinstance(body, dict) or body.get("errorCode") != 0:
         raise RuntimeError(f"OTP request failed: {body}")
-    return body["vToken"]
+    vtoken = body.get("vToken")
+    if not vtoken:
+        raise RuntimeError("No vToken in OTP response")
+    return vtoken
 
 
 def verify_otp(email, code, vtoken):
@@ -250,6 +265,173 @@ def headless_oauth(session_token):
     return body
 
 
+# Home ID backend API (primary method)
+
+
+def backend_login(oidc_tokens, email):
+    """Login to Home ID backend. Returns (backend_token, discovery) or (None, {})."""
+    id_token = oidc_tokens.get("id_token", "")
+    if not id_token:
+        print("  No id_token available, skipping backend login")
+        return None, {}
+
+    jsonapi_headers = {
+        "Content-Type": "application/vnd.api+json",
+        "Accept": "application/vnd.api+json",
+        "User-Agent": HOMEID_USER_AGENT,
+        "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        "Accept-Language": "en-GB",
+    }
+
+    # Step 1: Discovery
+    discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
+    print(f"  Discovery: GET {discovery_url}")
+    status, discovery = api_request(discovery_url)
+    if status != 200 or not isinstance(discovery, dict):
+        print(f"  Discovery failed: HTTP {status}")
+        return None, {}
+
+    auth_url = discovery.get("authorizationUrl", "")
+    if not auth_url:
+        print("  Discovery has no authorizationUrl")
+        return None, discovery
+
+    spaces = discovery.get("spaces", [])
+    space_id = spaces[0].get("spaceId", "") if spaces else ""
+    print(f"  Login URL: {auth_url}")
+    print(f"  Space ID:  {space_id}")
+
+    if not space_id:
+        print("  No spaceId in discovery")
+        return None, discovery
+
+    # Step 2: Login with OIDC id_token
+    login_body = json.dumps(
+        {
+            "data": {
+                "type": "consumerLoginRequest",
+                "attributes": {
+                    "email": email,
+                    "token": id_token,
+                    "identityProvider": "DI",
+                    "spaceId": space_id,
+                },
+            }
+        }
+    )
+
+    status, data = api_request(
+        auth_url,
+        data=login_body,
+        headers=jsonapi_headers,
+        method="POST",
+    )
+    if status not in (200, 201) or not isinstance(data, dict):
+        print(f"  Backend login failed: HTTP {status}")
+        return None, discovery
+
+    token = data.get("data", {}).get("attributes", {}).get("token")
+    if not token:
+        token = data.get("token")
+    if token:
+        print("  Backend login succeeded")
+        return token, discovery
+
+    print(f"  Backend login response has no token, keys: {list(data.keys())}")
+    return None, discovery
+
+
+def fetch_appliances_via_homeid(oidc_tokens, email):
+    """Fetch appliances via the Home ID backend API (primary method).
+
+    Chain: discovery -> backend login -> profile -> appliances.
+    Returns list of appliance dicts with clientId/clientSecret.
+    """
+    access_token = oidc_tokens.get("access_token", "")
+    ts = int(time.time() * 1000)
+
+    backend_token, discovery = backend_login(oidc_tokens, email)
+
+    auth_token = backend_token or access_token
+    token_source = "backend" if backend_token else "oidc"
+    print(f"  Using {token_source} token for Home ID API")
+
+    if not discovery:
+        print("  No discovery data available")
+        return []
+
+    hal_headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Accept": HOMEID_ACCEPT,
+        "Accept-Language": "en-GB",
+        "User-Agent": HOMEID_USER_AGENT,
+        "X-USER-AGENT": HOMEID_X_USER_AGENT,
+    }
+
+    profile_url = discovery.get("profileUrl")
+    if not profile_url:
+        print(f"  No profileUrl in discovery, keys: {list(discovery.keys())}")
+        return []
+
+    if profile_url.startswith("/"):
+        profile_url = f"{BACKEND_API_BASE}{profile_url}"
+
+    # Step 3: Get user profile
+    profile_req_url = f"{profile_url}?ts={ts}"
+    print(f"  Profile: GET {profile_req_url}")
+    status, profile = api_request(profile_req_url, headers=hal_headers)
+    if status != 200 or not isinstance(profile, dict):
+        print(f"  Profile failed: HTTP {status}")
+        return []
+
+    # Try embedded appliances first
+    embedded = profile.get("_embedded", {})
+    appliances_embedded = embedded.get("userAppliances", {})
+    if isinstance(appliances_embedded, dict):
+        items = appliances_embedded.get("_embedded", {}).get("item", [])
+        if items:
+            print(f"  Found {len(items)} embedded appliance(s) in profile")
+            return items
+
+    # Follow HAL link to appliances
+    links = profile.get("_links", {})
+    appliances_link = links.get("userAppliances", {})
+    appliances_href = (
+        appliances_link.get("href", "") if isinstance(appliances_link, dict) else ""
+    )
+
+    if not appliances_href:
+        print(f"  No userAppliances link, _links keys: {list(links.keys())}")
+        return []
+
+    if appliances_href.startswith("/"):
+        appliances_href = f"{BACKEND_API_BASE}{appliances_href}"
+
+    # Expand HAL URI template: strip {?param} placeholders
+    appliances_href = re.sub(r"\{[^}]*\}", "", appliances_href)
+
+    # Step 4: Get appliances
+    appliances_req_url = f"{appliances_href}?ts={ts}&includeSkippedPairing=true"
+    print(f"  Appliances: GET {appliances_req_url}")
+    status, appliances_data = api_request(appliances_req_url, headers=hal_headers)
+    if status != 200:
+        print(f"  Appliances failed: HTTP {status}")
+        return []
+
+    if isinstance(appliances_data, dict):
+        items = appliances_data.get("_embedded", {}).get("item", [])
+    elif isinstance(appliances_data, list):
+        items = appliances_data
+    else:
+        items = []
+
+    print(f"  Found {len(items)} appliance(s)")
+    return items
+
+
+# IoT API (fallback method)
+
+
 def fetch_devices(access_token):
     """List devices from IoT API."""
     status, body = api_request(
@@ -259,8 +441,12 @@ def fetch_devices(access_token):
             "Accept": "application/json",
         },
     )
-    if status == 200 and isinstance(body, list):
+    if status != 200:
+        return []
+    if isinstance(body, list):
         return body
+    if isinstance(body, dict):
+        return body.get("devices") or body.get("data") or body.get("items") or []
     return []
 
 
@@ -298,36 +484,56 @@ def post_device_migration(access_token, device_ids, ctns):
     return status, body
 
 
-def print_summary(devices):
+def print_summary(homeid_appliances, iot_devices):
     """Print device credentials summary."""
     print("\n" + "=" * 60)
     print("RESULTS")
     print("=" * 60)
 
-    if not devices:
+    if homeid_appliances:
+        print("\n--- Home ID API (primary) ---")
+        for item in homeid_appliances:
+            name = item.get("name", "") or "Unknown"
+            mac = item.get("macAddress", "")
+            print(f"\nDevice: {name}")
+            print(f"  MAC:            {mac or '?'}")
+            print(f"  Firmware:       {item.get('firmwareVersion', '?')}")
+            print(f"  External ID:    {item.get('externalDeviceId', '?')}")
+            print(f"  Registered in:  {item.get('registeredIn', '?')}")
+
+            client_id = item.get("clientId", "")
+            client_secret = item.get("clientSecret", "")
+            if client_id and client_secret:
+                print(f"  client_id:      {client_id}")
+                print(f"  client_secret:  {client_secret}")
+            else:
+                print("  Credentials:    not available from Home ID API")
+
+    if iot_devices:
+        print("\n--- IoT API (fallback) ---")
+        for dev in iot_devices:
+            name = dev.get("friendlyName") or dev.get("ctn", "Unknown")
+            print(f"\nDevice: {name}")
+            print(f"  Model (CTN):  {dev.get('ctn', '?')}")
+            print(f"  MAC:          {dev.get('macAddress', '?')}")
+            print(f"  Device ID:    {dev.get('id', '?')}")
+            print(f"  Thing Name:   {dev.get('thingName', '?')}")
+
+            creds = dev.get("localCredentials")
+            if creds:
+                print(f"  Local Creds:  {creds}")
+                try:
+                    parsed = json.loads(creds)
+                    for k, v in parsed.items():
+                        print(f"    {k}: {v}")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            else:
+                print("  Local Creds:  not available")
+
+    if not homeid_appliances and not iot_devices:
         print("\nNo devices found in your Philips cloud account.")
         print("Devices must be registered via the HomeID app first.")
-        return
-
-    for dev in devices:
-        name = dev.get("friendlyName") or dev.get("ctn", "Unknown")
-        print(f"\nDevice: {name}")
-        print(f"  Model (CTN):  {dev.get('ctn', '?')}")
-        print(f"  MAC:          {dev.get('macAddress', '?')}")
-        print(f"  Device ID:    {dev.get('id', '?')}")
-        print(f"  Thing Name:   {dev.get('thingName', '?')}")
-
-        creds = dev.get("localCredentials")
-        if creds:
-            print(f"  Local Creds:  {creds}")
-            try:
-                parsed = json.loads(creds)
-                for k, v in parsed.items():
-                    print(f"    {k}: {v}")
-            except (json.JSONDecodeError, TypeError):
-                pass
-        else:
-            print("  Local Creds:  not available")
 
 
 def main():
@@ -341,18 +547,24 @@ def main():
         action="store_true",
         help="Reuse saved OIDC tokens (valid ~1 hour)",
     )
+    parser.add_argument(
+        "--iot-only",
+        action="store_true",
+        help="Skip Home ID API, only use IoT API",
+    )
     args = parser.parse_args()
 
     print("Philips HomeID Cloud Key Fetcher")
     print("=" * 40)
 
     access_token = None
+    oidc_tokens = None
 
     # Resume with saved tokens
     if args.resume and os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
-            state = json.load(f)
-        access_token = state.get("access_token")
+            oidc_tokens = json.load(f)
+        access_token = oidc_tokens.get("access_token")
         if access_token:
             print("Resuming with saved tokens.")
 
@@ -400,14 +612,20 @@ def main():
 
         # Save for resume
         with open(STATE_FILE, "w") as f:
-            json.dump({"access_token": access_token}, f)
+            json.dump(oidc_tokens, f)
         print(f"  Tokens saved to {STATE_FILE}")
 
         # Clean up
         if os.path.exists(vtoken_file):
             os.remove(vtoken_file)
 
-    # Step 4: Query IoT API
+    # Step 4: Try Home ID API first (primary method)
+    homeid_appliances = []
+    if not args.iot_only and oidc_tokens:
+        print("\nQuerying Home ID API (primary)...")
+        homeid_appliances = fetch_appliances_via_homeid(oidc_tokens, args.email)
+
+    # Step 5: Query IoT API (fallback or additional info)
     print("\nQuerying IoT API...")
 
     # User profile
@@ -422,13 +640,13 @@ def main():
         print(f"  Cloud user ID: {user_info.get('id', '?')}")
 
     # Device list
-    devices = fetch_devices(access_token)
-    print(f"  Devices found: {len(devices)}")
+    iot_devices = fetch_devices(access_token)
+    print(f"  Devices found: {len(iot_devices)}")
 
-    if devices:
+    if iot_devices:
         # Try device migration for credentials
-        ctns = list({d.get("ctn") for d in devices if d.get("ctn")})
-        device_ids = [d["id"] for d in devices if d.get("id")]
+        ctns = list({d.get("ctn") for d in iot_devices if d.get("ctn")})
+        device_ids = [d["id"] for d in iot_devices if d.get("id")]
 
         if ctns:
             print(f"\nQuerying device migration (CTNs: {ctns})...")
@@ -439,7 +657,7 @@ def main():
                 if isinstance(mig, dict):
                     mig_devs = mig.get("devices", [])
                     for md in mig_devs:
-                        for d in devices:
+                        for d in iot_devices:
                             if d.get("id") == md.get("id"):
                                 d["localCredentials"] = md.get("localCredentials")
 
@@ -459,7 +677,7 @@ def main():
     if status == 200 and isinstance(homes, list) and homes:
         print(f"  Homes: {json.dumps(homes, indent=2)[:500]}")
 
-    print_summary(devices)
+    print_summary(homeid_appliances, iot_devices)
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import secrets
 import shutil
 import subprocess
@@ -529,7 +530,6 @@ class PhilipsCloudAPI:
         """
         session = await self._get_session()
         id_token = oidc_tokens.get("id_token", "")
-        access_token = oidc_tokens.get("access_token", "")
 
         if not id_token:
             _LOGGER.debug("No id_token available, skipping backend login")
@@ -593,8 +593,8 @@ class PhilipsCloudAPI:
         }
 
         # Step 2: Login with OIDC id_token
+        # App's DefaultRequestInterceptor skips Bearer for login requests
         headers = dict(common_headers)
-        headers["Authorization"] = f"Bearer {access_token}"
 
         _LOGGER.debug("Backend login: POST %s", auth_url)
         try:
@@ -725,6 +725,9 @@ class PhilipsCloudAPI:
 
         if appliances_href.startswith("/"):
             appliances_href = f"{BACKEND_API_BASE}{appliances_href}"
+
+        # Expand HAL URI template: strip {?param} placeholders
+        appliances_href = re.sub(r"\{[^}]*\}", "", appliances_href)
 
         # Step 4: Get appliances
         appliances_req_url = f"{appliances_href}?ts={ts}&includeSkippedPairing=true"

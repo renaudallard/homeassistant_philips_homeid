@@ -6,11 +6,11 @@
   "dependencies": [],
   "documentation": "https://github.com/renaudallard/homeassistant_philips_homeid",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/renaudallard/homeassistant_philips_homeid/issues",
   "requirements": [
     "aiohttp>=3.8.0",
     "cryptography>=41.0.0"
   ],
-  "homeassistant": "2024.1.0",
   "version": "2.0.2",
   "zeroconf": [
     {

@@ -541,7 +541,7 @@ class PhilipsCloudAPI:
         # Step 1: Discovery service
         discovery_url = f"{HOMEID_API_BASE}/.well-known/tenant/oneka"
         _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
-        async with session.get(discovery_url) as resp:
+        async with session.get(discovery_url, headers=hal_headers) as resp:
             text = await resp.text()
             _LOGGER.debug(
                 "HomeID discovery response: HTTP %s, body: %s",

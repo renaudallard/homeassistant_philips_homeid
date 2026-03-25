@@ -517,7 +517,7 @@ class PhilipsCloudAPI:
 
     async def _backend_login(
         self, oidc_tokens: dict[str, Any], email: str
-    ) -> str | None:
+    ) -> tuple[str | None, dict[str, Any]]:
         """Login to the Home ID backend and return a backend session token.
 
         The backend at backend.vbs.versuni.com requires its own session token,
@@ -533,19 +533,7 @@ class PhilipsCloudAPI:
 
         if not id_token:
             _LOGGER.debug("No id_token available, skipping backend login")
-            return None
-
-        # JSON:API format matching LoginUserParams (type=consumerLoginRequest)
-        login_body = {
-            "data": {
-                "type": "consumerLoginRequest",
-                "attributes": {
-                    "email": email,
-                    "token": id_token,
-                    "identityProvider": "DI",
-                },
-            }
-        }
+            return None, {}
 
         common_headers = {
             "Content-Type": "application/vnd.api+json",
@@ -555,8 +543,7 @@ class PhilipsCloudAPI:
             "Accept-Language": "en-GB",
         }
 
-        # Try with and without Bearer token, multiple paths
-        # Step 1: Get the login URL from discovery service
+        # Step 1: Get the login URL and spaceId from discovery service
         # In Retrofit, @GET("/.well-known/...") resolves to host root, not /api/
         discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
         _LOGGER.debug("Backend discovery: GET %s", discovery_url)
@@ -570,19 +557,40 @@ class PhilipsCloudAPI:
                 )
                 if resp.status != 200:
                     _LOGGER.error("Backend discovery failed: HTTP %s", resp.status)
-                    return None
+                    return None, {}
                 discovery = json.loads(disc_text)
         except Exception:
             _LOGGER.exception("Backend discovery request failed")
-            return None
+            return None, {}
 
         auth_url = discovery.get("authorizationUrl", "")
         if not auth_url:
             _LOGGER.error("Backend discovery has no authorizationUrl")
-            return None
+            return None, discovery
 
+        # Extract spaceId from discovery (required for login)
+        spaces = discovery.get("spaces", [])
+        space_id = spaces[0].get("spaceId", "") if spaces else ""
         _LOGGER.debug("Backend login URL: %s", auth_url)
         _LOGGER.debug("Backend profile URL: %s", discovery.get("profileUrl"))
+        _LOGGER.debug("Backend spaceId: %s", space_id)
+
+        if not space_id:
+            _LOGGER.error("No spaceId in discovery response")
+            return None, discovery
+
+        # JSON:API format matching LoginUserParams (type=consumerLoginRequest)
+        login_body = {
+            "data": {
+                "type": "consumerLoginRequest",
+                "attributes": {
+                    "email": email,
+                    "token": id_token,
+                    "identityProvider": "DI",
+                    "spaceId": space_id,
+                },
+            }
+        }
 
         # Step 2: Login with OIDC id_token
         headers = dict(common_headers)
@@ -599,11 +607,11 @@ class PhilipsCloudAPI:
                 )
                 if resp.status not in (200, 201):
                     _LOGGER.error("Backend login failed: HTTP %s", resp.status)
-                    return None
+                    return None, discovery
                 data = json.loads(text)
         except Exception:
             _LOGGER.exception("Backend login request failed")
-            return None
+            return None, discovery
 
         # Extract token from response (try JSON:API and flat formats)
         token = data.get("data", {}).get("attributes", {}).get("token")
@@ -611,13 +619,13 @@ class PhilipsCloudAPI:
             token = data.get("token")
         if token:
             _LOGGER.info("Backend login succeeded")
-            return token
+            return token, discovery
 
         _LOGGER.debug(
             "Backend login response has no token, keys: %s",
             list(data.keys()),
         )
-        return None
+        return None, discovery
 
     async def get_appliances_via_homeid(
         self, oidc_tokens: dict[str, Any], email: str
@@ -637,13 +645,17 @@ class PhilipsCloudAPI:
         access_token = oidc_tokens.get("access_token", "")
         ts = int(time.time() * 1000)
 
-        # Step 1: Try to get a backend session token
-        backend_token = await self._backend_login(oidc_tokens, email)
+        # Step 1: Try to get a backend session token (also returns discovery)
+        backend_token, discovery = await self._backend_login(oidc_tokens, email)
 
         # Use backend token if available, otherwise try OIDC access_token
         auth_token = backend_token or access_token
         token_source = "backend" if backend_token else "oidc"
         _LOGGER.debug("Using %s token for Home ID API", token_source)
+
+        if not discovery:
+            _LOGGER.error("No discovery data available")
+            return []
 
         hal_headers = {
             "Authorization": f"Bearer {auth_token}",
@@ -652,35 +664,6 @@ class PhilipsCloudAPI:
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
-
-        # Step 2: Discovery service (Retrofit resolves to host root, not /api/)
-        discovery = None
-        for base in [BACKEND_BASE, "https://www.home.id"]:
-            discovery_url = f"{base}/.well-known/tenant/oneka"
-            _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
-            try:
-                async with session.get(discovery_url, headers=hal_headers) as resp:
-                    text = await resp.text()
-                    _LOGGER.debug(
-                        "HomeID discovery response: HTTP %s, body: %s",
-                        resp.status,
-                        text[:500],
-                    )
-                    if resp.status == 200:
-                        try:
-                            discovery = json.loads(text)
-                            _LOGGER.info("HomeID discovery succeeded at %s", base)
-                            break
-                        except json.JSONDecodeError:
-                            _LOGGER.error("HomeID discovery not JSON: %s", text[:200])
-            except Exception:
-                _LOGGER.debug("HomeID discovery request failed for %s", base)
-
-        if not discovery:
-            _LOGGER.error("HomeID discovery failed on all base URLs")
-            return []
-
-        _LOGGER.debug("Discovery keys: %s", list(discovery.keys()))
 
         profile_url = discovery.get("profileUrl")
         if not profile_url:

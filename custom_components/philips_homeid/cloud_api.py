@@ -690,6 +690,40 @@ class PhilipsCloudAPI:
 
         return result
 
+    async def get_mqtt_signature(
+        self,
+        access_token: str,
+        platform_rest_url: str = "prod.eu-da.iot.versuni.com",
+        tenant: str = "da",
+    ) -> dict[str, Any]:
+        """Get MQTT signature for FUSION device cloud relay.
+
+        Calls the DaConnect signature endpoint to obtain the accessToken and
+        mqttSignature needed for AWS IoT Custom Authorizer authentication.
+
+        Returns dict with 'accessToken' and 'mqttSignature' keys.
+        """
+        session = await self._get_session()
+        url = f"https://{platform_rest_url}/api/{tenant}/user/self/signature"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+        _LOGGER.debug("MQTT signature: GET %s", url)
+        async with session.get(url, headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "MQTT signature response: HTTP %s, body: %s",
+                resp.status,
+                text[:500],
+            )
+            if resp.status != 200:
+                raise CloudAuthError(
+                    f"MQTT signature request failed: HTTP {resp.status}"
+                )
+            return json.loads(text)
+
     async def get_user_profile(self, access_token: str) -> dict[str, Any]:
         """Get the cloud user profile to verify the token works."""
         session = await self._get_session()

@@ -49,6 +49,13 @@ CONF_USE_HTTPS = "use_https"
 CONF_ENCRYPTION_KEY = "encryption_key"
 CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
 
+# FUSION (cloud MQTT relay) configuration keys
+CONF_IS_FUSION = "is_fusion"
+CONF_THING_NAME = "thing_name"
+CONF_TENANT = "tenant"
+CONF_MQTT_HOST = "mqtt_host"
+CONF_PLATFORM_REST_URL = "platform_rest_url"
+
 # Local discovery constants
 ZEROCONF_TYPE = "_philipscondor._tcp.local."
 SSDP_ST = "urn:philips-com:device:DiProduct:1"
@@ -60,3 +67,9 @@ CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
 # Default values
 DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking
+FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
+
+# FUSION / DaConnect platform defaults (from APK DomainConfig)
+FUSION_PLATFORM_REST_URL = "prod.eu-da.iot.versuni.com"
+FUSION_TENANT = "da"
+FUSION_MQTT_HOST = "ats.prod.eu-da.iot.versuni.com"

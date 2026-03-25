@@ -126,8 +126,9 @@ After confirming the discovered device, the integration uses cloud login to retr
 > - Linux aarch64 (ARM 64-bit, e.g., Raspberry Pi 4/5 with 64-bit OS)
 > - macOS (Intel and Apple Silicon)
 > - Windows (x86, x64, ARM64)
+> - Home Assistant Docker containers (Alpine Linux): uses system Chromium and Node.js via apk
 >
-> **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS), Alpine Linux (musl libc). On unsupported platforms, the integration will show an error and you should use the credential extractor tool or enter credentials manually.
+> **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS). On unsupported platforms, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
 To debug cloud login issues, enable debug logging:
 ```yaml

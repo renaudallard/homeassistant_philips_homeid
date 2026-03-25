@@ -58,6 +58,10 @@ IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
 HOMEID_API_BASE = "https://www.home.id/api"
 HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
 
+# Headers matching the Android app (DefaultRequestInterceptor)
+HOMEID_USER_AGENT = "HomeID/8.16.0 (com.philips.ka.oneka.app; build:1; Android 14)"
+HOMEID_X_USER_AGENT = "Android 14;8.16.0"
+
 # OAuth scopes (full set from APK)
 OAUTH_SCOPES = (
     "openid profile email offline_access "
@@ -526,6 +530,9 @@ class PhilipsCloudAPI:
         hal_headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": HOMEID_ACCEPT,
+            "Accept-Language": "en-GB",
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
 
         # Step 1: Discovery service

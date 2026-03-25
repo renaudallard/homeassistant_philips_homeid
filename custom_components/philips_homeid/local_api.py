@@ -69,6 +69,20 @@ PORT_RECIPE = "recipe"  # VENUS recipe status
 PORT_NUTRIMAX = "nutrimax"  # Nutrimax multicooker (NX0960)
 PORT_HERMESAC = "hermesac"  # Hermes appliance (NX0950)
 
+# Model-to-port mapping: avoids probing all ports and overwhelming
+# the device's limited web server.
+_MODEL_PORT_MAP: dict[str, str] = {
+    "HD9200": PORT_AIRFRYER,
+    "HD9255": PORT_AIRFRYER,
+    "HD9280": PORT_AIRFRYER,
+    "HD9285": PORT_AIRFRYER,
+    "HD9875": PORT_VENUS1AF,
+    "HD9876": PORT_VENUS1AF,
+    "HD9880": PORT_VENUSAF,
+    "NX0950": PORT_HERMESAC,
+    "NX0960": PORT_NUTRIMAX,
+}
+
 # Ports that use Venus-style key naming (need normalization)
 VENUS_STYLE_PORTS = frozenset(
     {PORT_VENUSAF, PORT_VENUS1AF, PORT_NUTRIMAX, PORT_HERMESAC}
@@ -608,25 +622,40 @@ class PhilipsLocalAPI:
                 data[venus_key] = data.pop(spectre_key)
         return data
 
+    @staticmethod
+    def _port_for_model(model: str) -> str | None:
+        """Return the airfryer port for a known model, or None."""
+        model_upper = model.upper()
+        for prefix, port in _MODEL_PORT_MAP.items():
+            if prefix in model_upper:
+                return port
+        return None
+
     async def get_airfryer_status(
         self, device: LocalDeviceInfo
     ) -> dict[str, Any] | None:
         """Get airfryer status.
 
-        Tries the cached port first, then probes all known airfryer ports
-        (SPECTRE, VENUS 2, VENUS 1) until one responds. Normalizes Venus
-        responses to match SPECTRE property names.
+        Uses cached port, or model-based lookup, or probes all known ports.
+        Normalizes Venus responses to match SPECTRE property names.
         """
         if isinstance(device.airfryer_port, str):
             ports_to_try = [device.airfryer_port]
         else:
-            ports_to_try = [
-                PORT_AIRFRYER,
-                PORT_VENUSAF,
-                PORT_VENUS1AF,
-                PORT_NUTRIMAX,
-                PORT_HERMESAC,
-            ]
+            # Try model-based lookup first to avoid probing
+            model_port = self._port_for_model(
+                device.model_name or device.model_number or ""
+            )
+            if model_port:
+                ports_to_try = [model_port]
+            else:
+                ports_to_try = [
+                    PORT_AIRFRYER,
+                    PORT_VENUSAF,
+                    PORT_VENUS1AF,
+                    PORT_NUTRIMAX,
+                    PORT_HERMESAC,
+                ]
 
         for port in ports_to_try:
             result = await self._request(device, port)

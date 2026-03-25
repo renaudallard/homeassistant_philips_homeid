@@ -106,13 +106,21 @@ Your device must first be paired with the **official Philips HomeID app** on And
 
 ### Adding a Device
 
+#### Auto-discovered devices
+Devices discovered via Zeroconf or SSDP appear automatically as a notification. Clicking the notification starts the setup flow with cloud login.
+
+#### Manual setup
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **Philips HomeID**
-3. Enter the device's IP address (or accept an auto-discovered device)
+3. Enter the device's IP address and select your device model from the dropdown
 4. Enter your Philips HomeID account email
 5. Wait while required components are installed (first run only)
 6. Enter the verification code sent to your email
 7. Select your device from the list and credentials are retrieved automatically
+
+> **Important:** Select the correct device model. Auto-detect probes multiple endpoints which can overwhelm and crash the device's web server. Use auto-detect only if your model is not listed.
+
+> **Note:** All entities may take a few minutes to appear after setup. The integration needs one polling cycle to establish authentication with the device before all sensors become available.
 
 If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
@@ -136,9 +144,9 @@ After confirming the discovered device, the integration uses cloud login to retr
 >
 > **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS). On unsupported platforms, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
-If cloud login fails with "Cloud authentication failed: the browser could not complete the login flow", check the Home Assistant logs for Chromium errors. In some container environments, the headless browser may fail to start. If the issue persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
+If cloud login fails with "Cloud authentication failed: the browser could not complete the login flow", check the Home Assistant logs for Chromium errors. The integration includes workarounds for container environments (seccomp filters, GPU unavailability), but some setups may still have issues. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
-To debug cloud login issues, enable debug logging:
+To debug cloud login issues, enable debug logging. This also enables full Playwright and Chromium debug output to `/tmp/playwright_debug.log`:
 ```yaml
 logger:
   default: warning
@@ -146,10 +154,6 @@ logger:
     custom_components.philips_homeid.cloud_api: debug
     custom_components.philips_homeid.config_flow: debug
 ```
-
-### Auto-Discovered Devices
-
-Devices discovered via Zeroconf or SSDP will appear automatically as a notification. Clicking the notification starts the setup flow with cloud login.
 
 ---
 
@@ -360,8 +364,10 @@ All air fryer entities above (including target/current temperature and total coo
 - Ensure the device is on the same network as Home Assistant
 - Verify the IP address is correct
 - Check that the device is powered on and connected
+- If running HA in Docker without `--network=host`, mDNS/SSDP discovery will not work. Use `--network=host` or add the device manually by IP address.
 - If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
-- Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
+- Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration tries both protocols concurrently when probing.
+- The device's web server has limited capacity. Avoid sending too many requests in quick succession or the web server may crash, requiring a power cycle.
 
 ### Cloud Login Not Available
 Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
@@ -412,7 +418,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
-| Port Discovery | Automatic: tries `airfryer`, `venusaf`, `venus1af`, `nutrimax`, `hermesac` |
+| Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 
 ---
 
@@ -426,4 +432,4 @@ This is an unofficial integration and is not affiliated with Philips or Versuni.
 
 BSD 2-Clause License - see [LICENSE](LICENSE) for details.
 
-Copyright (c) 2025, Renaud Allard <renaud@allard.it>
+Copyright (c) 2025-2026, Renaud Allard <renaud@allard.it>

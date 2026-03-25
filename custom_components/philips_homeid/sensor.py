@@ -336,7 +336,10 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        device_types=("airfryer",),  # Single basket only - dual uses temp_l/temp_r
+        device_types=(
+            "airfryer",
+            "multicooker",
+        ),  # Single basket - dual uses temp_l/temp_r
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_current_temperature",
@@ -347,7 +350,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-check",
-        device_types=("airfryer",),  # Only some models have current temp sensor
+        device_types=("airfryer", "multicooker"),  # Models with current temp sensor
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_time_total",
@@ -359,7 +362,10 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
-        device_types=("airfryer",),  # Single basket only - dual uses time_l/time_r
+        device_types=(
+            "airfryer",
+            "multicooker",
+        ),  # Single basket - dual uses time_l/time_r
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_time_remaining",

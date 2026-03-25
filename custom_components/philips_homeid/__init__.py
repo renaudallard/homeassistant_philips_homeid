@@ -137,7 +137,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = PhilipsHomeIDCoordinator(hass, api, device_info, entry)
 
     # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        await api.close()
+        raise
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

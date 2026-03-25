@@ -8,14 +8,16 @@
         "title": "Enter Device IP",
         "description": "Enter the IP address of your Philips device that is already connected to your network.",
         "data": {
-          "host": "IP Address"
+          "host": "IP Address",
+          "model": "Device Model"
         }
       },
       "manual_host": {
         "title": "Enter Device IP",
         "description": "Enter the IP address of your Philips device that is already connected to your network.",
         "data": {
-          "host": "IP Address"
+          "host": "IP Address",
+          "model": "Device Model"
         }
       },
       "cloud_install": {

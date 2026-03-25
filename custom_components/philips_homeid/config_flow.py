@@ -66,9 +66,24 @@ from .local_api import (
 
 _LOGGER = logging.getLogger(__name__)
 
+DEVICE_MODELS = {
+    "auto": "Auto-detect",
+    "HD9200": "Air Fryer HD9200",
+    "HD9255": "Air Fryer HD9255",
+    "HD9280": "Air Fryer HD9280",
+    "HD9285": "Air Fryer HD9285",
+    "HD9875": "Air Fryer HD9875 (Venus 1)",
+    "HD9876": "Air Fryer HD9876 (Venus 1)",
+    "HD9880": "Air Fryer HD9880 (Venus 2)",
+    "NX0950": "Multicooker NX0950 (Hermes)",
+    "NX0960": "Multicooker NX0960 (Nutrimax)",
+    "AC": "Air Purifier (AC series)",
+}
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
+        vol.Optional("model", default="auto"): vol.In(DEVICE_MODELS),
     }
 )
 
@@ -119,6 +134,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             host = user_input[CONF_HOST]
+            model = user_input.get("model", "auto")
 
             try:
                 # Probe the device
@@ -126,6 +142,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 device = await self._local_api.probe_device(host)
 
                 if device:
+                    # Apply user-selected model if not auto-detect
+                    if model != "auto":
+                        device.model_name = model
+
                     self._discovered_device = device
 
                     # Set unique ID based on device ID

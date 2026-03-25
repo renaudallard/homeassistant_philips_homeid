@@ -48,15 +48,15 @@
       },
       "confirm": {
         "title": "Confirm Device",
-        "description": "Do you want to add {name} at {host}?\n\nModel: {model}"
+        "description": "Do you want to add {name} at {host}?\n\nModel: {model}\n\n**Note:** All entities may take a few minutes to appear while the integration establishes authentication with the device."
       },
       "zeroconf_confirm": {
         "title": "Discovered Philips Device",
-        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?"
+        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?\n\n**Note:** All entities may take a few minutes to appear while the integration establishes authentication with the device."
       },
       "ssdp_confirm": {
         "title": "Discovered Philips Device",
-        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?"
+        "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?\n\n**Note:** All entities may take a few minutes to appear while the integration establishes authentication with the device."
       },
 "manual_credentials": {
         "title": "Enter Credentials for {name}",

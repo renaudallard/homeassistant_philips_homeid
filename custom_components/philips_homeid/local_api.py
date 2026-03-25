@@ -432,14 +432,16 @@ class PhilipsLocalAPI:
                         )
                     return result
 
+            else:
+                _LOGGER.error("Unsupported HTTP method: %s for %s", method, url)
+                return None
+
         except aiohttp.ClientError as err:
             _LOGGER.error("Request failed for %s: %s", url, err)
             return None
         except Exception as err:
             _LOGGER.error("Unexpected error for %s: %s", url, err)
             return None
-
-        return None
 
     async def _handle_response(
         self, device: LocalDeviceInfo, resp: aiohttp.ClientResponse

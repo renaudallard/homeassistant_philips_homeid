@@ -105,15 +105,16 @@ Your device must first be paired with the **official Philips HomeID app** on And
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **Philips HomeID**
 3. Enter the device's IP address (or accept an auto-discovered device)
-4. The integration tries auto-pairing first, then automatically offers cloud login
-5. Enter your Philips HomeID account email and the verification code sent to you
+4. Enter your Philips HomeID account email
+5. Wait while required components are installed (first run only)
+6. Enter the verification code sent to your email
 6. Select your device from the list and credentials are retrieved automatically
 
 If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 #### Cloud Login
 
-When auto-pairing fails (which is expected if the device is already paired with the HomeID app), the integration automatically offers cloud login. The cloud login flow:
+After confirming the discovered device, the integration uses cloud login to retrieve credentials. The cloud login flow:
 
 1. Authenticates with Philips via email OTP (one-time password)
 2. Temporarily installs a headless Chromium browser (Playwright) to complete OAuth authentication
@@ -348,8 +349,8 @@ All air fryer entities above, plus:
 - If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
 - Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
 
-### Pairing Fails
-This is expected if the device is already paired with the Philips HomeID app. The integration will automatically fall back to cloud login, which retrieves credentials from your Philips account. If cloud login is not available on your platform, check **Enter credentials manually instead** on the email form and enter credentials extracted from the app (see [Extracting Credentials](#extracting-credentials-manual-alternative)).
+### Cloud Login Not Available
+If cloud login is not supported on your platform (see [platform requirements](#cloud-login)), check **Enter credentials manually instead** on the email form and enter credentials extracted from the app (see [Extracting Credentials](#extracting-credentials-manual-alternative)).
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.
@@ -376,10 +377,10 @@ Some newer firmware versions do not generate local credentials at all. The Phili
 - The `--dump-all` flag shows only app settings (no device credentials)
 - `COMMUNICATION_LIB_PREFERENCES` (Method 2) is completely empty
 - Traffic interception shows all communication goes through cloud websockets, never to the device's local IP
-- Built-in pairing fails because the device is already paired with the app
+- The device is already paired with the app via the cloud
 - Credentials captured from cloud traffic (HTTP Toolkit) do not work for local auth
 
-**What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are generated or stored. The device is also already paired with the app via the cloud, so it rejects new pairing attempts from the integration.
+**What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are stored on the phone. The credential extractor tool will find nothing.
 
 **Workaround:** The built-in **Cloud Login** retrieves credentials directly from the Philips cloud API using your account. This is now the default authentication method and handles cloud-only firmwares automatically. See [Cloud Login](#cloud-login) above.
 

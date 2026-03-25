@@ -1,7 +1,7 @@
 {
   "config": {
     "progress": {
-      "cloud_install": "Please wait while required components are being installed. This may take a few minutes..."
+      "cloud_install": "Temporarily installing Playwright browser for cloud authentication. This may take a few minutes and will be removed after use..."
     },
     "step": {
       "user": {
@@ -20,7 +20,7 @@
       },
       "cloud_install": {
         "title": "Preparing Cloud Login",
-        "description": "Installing required components and sending verification code..."
+        "description": "Installing Playwright browser and sending verification code..."
       },
       "cloud_email": {
         "title": "Philips Account Login",

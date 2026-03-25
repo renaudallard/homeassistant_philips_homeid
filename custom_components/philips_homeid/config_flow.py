@@ -491,6 +491,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._discovered_device and self._discovered_device.model_name:
             model = self._discovered_device.model_name
         name = device_data.get("name", "") or model or mac or host
+        use_https = True
+        if self._discovered_device:
+            use_https = self._discovered_device.use_https
+
         entry_data = {
             CONF_HOST: host,
             CONF_CPP_ID: mac,
@@ -498,7 +502,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_DEVICE_ID: mac,
             CONF_CLIENT_ID: client_id,
             CONF_CLIENT_SECRET: client_secret,
-            CONF_USE_HTTPS: True,
+            CONF_USE_HTTPS: use_https,
             CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
         }
 
@@ -545,6 +549,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 
+        use_https = True
+        if self._discovered_device:
+            use_https = self._discovered_device.use_https
+
         entry_data = {
             CONF_HOST: host,
             CONF_CPP_ID: device_data.get("id", ""),
@@ -552,7 +560,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_DEVICE_ID: device_data.get("id", ""),
             CONF_CLIENT_ID: creds.get("client_id", ""),
             CONF_CLIENT_SECRET: creds.get("client_secret", ""),
-            CONF_USE_HTTPS: True,
+            CONF_USE_HTTPS: use_https,
             CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
         }
         enc_key = creds.get("encryption_key")

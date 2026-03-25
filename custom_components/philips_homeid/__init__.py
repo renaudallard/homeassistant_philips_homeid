@@ -104,7 +104,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 device_info.model_name = probed.model_name
             if probed.friendly_name:
                 device_info.friendly_name = probed.friendly_name
-            device_info.use_https = probed.use_https
+            # Keep the configured use_https; the probe tries both protocols
+            # and the HTTP probe may win for devices that have a UPnP HTTP
+            # endpoint alongside their HTTPS API.
             _LOGGER.info(
                 "Connected to device %s at %s (model: %s)",
                 device_info.friendly_name or device_info.cpp_id,

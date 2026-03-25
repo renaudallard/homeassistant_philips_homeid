@@ -54,7 +54,8 @@ _LOGGER = logging.getLogger(__name__)
 # IoT API (production, from APK DomainConfig)
 IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
 
-# Home ID API (from APK BackendConfigKt, used for HAL-based appliance listing)
+# Home ID API (from APK BackendConfigKt)
+BACKEND_API_BASE = "https://www.backend.vbs.versuni.com/api"
 HOMEID_API_BASE = "https://www.home.id/api"
 HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
 
@@ -513,47 +514,162 @@ class PhilipsCloudAPI:
             return data.get("homes") or data.get("data") or []
         return []
 
-    async def get_appliances_via_homeid(
-        self, access_token: str
-    ) -> list[dict[str, Any]]:
-        """Get appliances via the Home ID HAL API (the app's primary backend).
+    async def _backend_login(
+        self, oidc_tokens: dict[str, Any], email: str
+    ) -> str | None:
+        """Login to the Home ID backend and return a backend session token.
 
-        Follows the HAL link chain:
-        1. Discovery: GET /.well-known/tenant/oneka -> profileUrl
-        2. Profile: GET {profileUrl} -> _links.userAppliances.href
-        3. Appliances: GET {appliancesUrl} -> _embedded.item[]
+        The backend at backend.vbs.versuni.com requires its own session token,
+        obtained by POSTing the OIDC id_token via the loginConsumer endpoint.
+        Uses JSON:API format (LoginUserParams type=consumerLoginRequest).
 
-        Each appliance may contain clientId, clientSecret, macAddress, etc.
-        Returns list of appliance dicts.
+        Tries multiple candidate paths since the exact URL normally comes
+        from the discovery service which itself requires auth.
         """
         session = await self._get_session()
+        id_token = oidc_tokens.get("id_token", "")
+        access_token = oidc_tokens.get("access_token", "")
+
+        if not id_token:
+            _LOGGER.debug("No id_token available, skipping backend login")
+            return None
+
+        # JSON:API format matching LoginUserParams (type=consumerLoginRequest)
+        login_body = {
+            "data": {
+                "type": "consumerLoginRequest",
+                "attributes": {
+                    "email": email,
+                    "token": id_token,
+                    "identityProvider": "DI",
+                },
+            }
+        }
+
+        common_headers = {
+            "Content-Type": "application/vnd.api+json",
+            "Accept": "application/vnd.api+json",
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+            "Accept-Language": "en-GB",
+        }
+
+        # Try with and without Bearer token, multiple paths
+        login_paths = [
+            "v2/authorization",
+            "v1/authorization",
+            "v2/consumer/login",
+            "v2/login",
+        ]
+
+        for path in login_paths:
+            url = f"{BACKEND_API_BASE}/{path}"
+            for token_type, token_val in [
+                ("access_token", access_token),
+                ("none", ""),
+            ]:
+                headers = dict(common_headers)
+                if token_val:
+                    headers["Authorization"] = f"Bearer {token_val}"
+
+                _LOGGER.debug("Backend login: POST %s (auth=%s)", url, token_type)
+                try:
+                    async with session.post(
+                        url, headers=headers, json=login_body
+                    ) as resp:
+                        text = await resp.text()
+                        _LOGGER.debug(
+                            "Backend login response: HTTP %s, body: %s",
+                            resp.status,
+                            text[:500],
+                        )
+                        if resp.status == 200 or resp.status == 201:
+                            try:
+                                data = json.loads(text)
+                            except json.JSONDecodeError:
+                                continue
+                            # JSON:API response: data.attributes.token
+                            token = (
+                                data.get("data", {}).get("attributes", {}).get("token")
+                            )
+                            if not token:
+                                # Try flat response
+                                token = data.get("token")
+                            if token:
+                                _LOGGER.info("Backend login succeeded at %s", url)
+                                return token
+                            _LOGGER.debug(
+                                "Login 200 but no token in response: %s",
+                                list(data.keys()),
+                            )
+                except Exception:
+                    _LOGGER.debug("Backend login request failed for %s", url)
+
+        _LOGGER.warning("Backend login failed on all paths")
+        return None
+
+    async def get_appliances_via_homeid(
+        self, oidc_tokens: dict[str, Any], email: str
+    ) -> list[dict[str, Any]]:
+        """Get appliances via the Home ID backend API.
+
+        The full chain:
+        1. Login to backend with OIDC id_token -> backend session token
+        2. Discovery: GET /.well-known/tenant/oneka -> profileUrl
+        3. Profile: GET {profileUrl} -> _links.userAppliances.href
+        4. Appliances: GET {appliancesUrl} -> _embedded.item[]
+
+        Falls back to trying discovery directly with the OIDC access_token
+        if backend login fails.
+        """
+        session = await self._get_session()
+        access_token = oidc_tokens.get("access_token", "")
         ts = int(time.time() * 1000)
+
+        # Step 1: Try to get a backend session token
+        backend_token = await self._backend_login(oidc_tokens, email)
+
+        # Use backend token if available, otherwise try OIDC access_token
+        auth_token = backend_token or access_token
+        token_source = "backend" if backend_token else "oidc"
+        _LOGGER.debug("Using %s token for Home ID API", token_source)
+
         hal_headers = {
-            "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {auth_token}",
             "Accept": HOMEID_ACCEPT,
             "Accept-Language": "en-GB",
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
 
-        # Step 1: Discovery service
-        discovery_url = f"{HOMEID_API_BASE}/.well-known/tenant/oneka"
-        _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
-        async with session.get(discovery_url, headers=hal_headers) as resp:
-            text = await resp.text()
-            _LOGGER.debug(
-                "HomeID discovery response: HTTP %s, body: %s",
-                resp.status,
-                text[:500],
-            )
-            if resp.status != 200:
-                _LOGGER.error("HomeID discovery failed: HTTP %s", resp.status)
-                return []
+        # Step 2: Discovery service (try both base URLs)
+        discovery = None
+        for base in [BACKEND_API_BASE, HOMEID_API_BASE]:
+            discovery_url = f"{base}/.well-known/tenant/oneka"
+            _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
             try:
-                discovery = json.loads(text)
-            except json.JSONDecodeError:
-                _LOGGER.error("HomeID discovery not JSON: %s", text[:200])
-                return []
+                async with session.get(discovery_url, headers=hal_headers) as resp:
+                    text = await resp.text()
+                    _LOGGER.debug(
+                        "HomeID discovery response: HTTP %s, body: %s",
+                        resp.status,
+                        text[:500],
+                    )
+                    if resp.status == 200:
+                        try:
+                            discovery = json.loads(text)
+                            _LOGGER.info("HomeID discovery succeeded at %s", base)
+                            break
+                        except json.JSONDecodeError:
+                            _LOGGER.error("HomeID discovery not JSON: %s", text[:200])
+            except Exception:
+                _LOGGER.debug("HomeID discovery request failed for %s", base)
+
+        if not discovery:
+            _LOGGER.error("HomeID discovery failed on all base URLs")
+            return []
+
+        _LOGGER.debug("Discovery keys: %s", list(discovery.keys()))
 
         profile_url = discovery.get("profileUrl")
         if not profile_url:
@@ -565,9 +681,9 @@ class PhilipsCloudAPI:
 
         # Make profile URL absolute if relative
         if profile_url.startswith("/"):
-            profile_url = f"{HOMEID_API_BASE}{profile_url}"
+            profile_url = f"{BACKEND_API_BASE}{profile_url}"
 
-        # Step 2: Get user profile (contains appliances link and maybe embedded)
+        # Step 3: Get user profile
         profile_req_url = f"{profile_url}?ts={ts}"
         _LOGGER.debug("HomeID profile: GET %s", profile_req_url)
         async with session.get(profile_req_url, headers=hal_headers) as resp:
@@ -586,14 +702,15 @@ class PhilipsCloudAPI:
                 _LOGGER.error("HomeID profile not JSON: %s", text[:200])
                 return []
 
-        # Try embedded appliances first (profile may include them inline)
+        # Try embedded appliances first
         embedded = profile.get("_embedded", {})
         appliances_embedded = embedded.get("userAppliances", {})
         if isinstance(appliances_embedded, dict):
             items = appliances_embedded.get("_embedded", {}).get("item", [])
             if items:
                 _LOGGER.debug(
-                    "HomeID: found %d embedded appliance(s) in profile", len(items)
+                    "HomeID: found %d embedded appliance(s) in profile",
+                    len(items),
                 )
                 self._log_appliances(items)
                 return items
@@ -612,11 +729,10 @@ class PhilipsCloudAPI:
             )
             return []
 
-        # Make absolute if relative
         if appliances_href.startswith("/"):
-            appliances_href = f"{HOMEID_API_BASE}{appliances_href}"
+            appliances_href = f"{BACKEND_API_BASE}{appliances_href}"
 
-        # Step 3: Get appliances
+        # Step 4: Get appliances
         appliances_req_url = f"{appliances_href}?ts={ts}&includeSkippedPairing=true"
         _LOGGER.debug("HomeID appliances: GET %s", appliances_req_url)
         async with session.get(appliances_req_url, headers=hal_headers) as resp:

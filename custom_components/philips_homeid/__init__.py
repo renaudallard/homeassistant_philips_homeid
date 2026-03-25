@@ -37,14 +37,24 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from .const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_CLOUD_REFRESH_TOKEN,
     CONF_CPP_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_IS_FUSION,
     CONF_MODEL,
+    CONF_MQTT_HOST,
+    CONF_PLATFORM_REST_URL,
+    CONF_TENANT,
+    CONF_THING_NAME,
     CONF_USE_HTTPS,
     DOMAIN,
+    FUSION_MQTT_HOST,
+    FUSION_PLATFORM_REST_URL,
+    FUSION_TENANT,
 )
 from .coordinator import PhilipsHomeIDCoordinator
 from .local_api import LocalDeviceInfo, PhilipsLocalAPI
+from .mqtt_api import FusionDeviceInfo, PhilipsMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +76,115 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Get device configuration
+    if entry.data.get(CONF_IS_FUSION):
+        return await _async_setup_fusion_entry(hass, entry)
+    return await _async_setup_local_entry(hass, entry)
+
+
+async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a FUSION device via MQTT cloud relay."""
+    from .cloud_api import CloudAuthError, PhilipsCloudAPI
+
+    thing_name = entry.data.get(CONF_THING_NAME, "")
+    tenant = entry.data.get(CONF_TENANT, FUSION_TENANT)
+    mqtt_host = entry.data.get(CONF_MQTT_HOST, FUSION_MQTT_HOST)
+    platform_rest_url = entry.data.get(CONF_PLATFORM_REST_URL, FUSION_PLATFORM_REST_URL)
+    refresh_token = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+    model = entry.data.get(CONF_MODEL, "")
+    cpp_id = entry.data.get(CONF_CPP_ID, "")
+
+    if not thing_name or not refresh_token:
+        _LOGGER.error("FUSION device missing thing_name or refresh_token")
+        return False
+
+    # Refresh OIDC tokens
+    cloud_api = PhilipsCloudAPI()
+    try:
+        tokens = await cloud_api.refresh_tokens(refresh_token)
+        access_token = tokens["access_token"]
+        new_refresh = tokens.get("refresh_token", refresh_token)
+
+        # Update stored refresh token if rotated
+        if new_refresh != refresh_token:
+            new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_refresh}
+            hass.config_entries.async_update_entry(entry, data=new_data)
+
+        # Get MQTT signature
+        sig_data = await cloud_api.get_mqtt_signature(
+            access_token, platform_rest_url, tenant
+        )
+    except CloudAuthError as err:
+        await cloud_api.close()
+        raise ConfigEntryNotReady(
+            f"FUSION auth failed: {err}. Re-authenticate via config flow."
+        ) from err
+    except Exception as err:
+        await cloud_api.close()
+        raise ConfigEntryNotReady(f"FUSION setup error: {err}") from err
+    finally:
+        await cloud_api.close()
+
+    # Create FUSION device info
+    fusion_device = FusionDeviceInfo(
+        thing_name=thing_name,
+        device_id=cpp_id or thing_name,
+        tenant=tenant,
+        mqtt_host=mqtt_host,
+        platform_rest_url=platform_rest_url,
+        model_name=model,
+        friendly_name=entry.title,
+    )
+
+    # Create device info for entity compatibility
+    device_info = LocalDeviceInfo(
+        ip_address="",
+        cpp_id=cpp_id or thing_name,
+        model_name=model,
+        friendly_name=entry.title,
+    )
+
+    # Create and connect MQTT client
+    mqtt_client = PhilipsMQTTClient(
+        device=fusion_device,
+        loop=hass.loop,
+    )
+
+    try:
+        await hass.async_add_executor_job(
+            mqtt_client.connect,
+            sig_data.get("accessToken", access_token),
+            sig_data.get("mqttSignature", ""),
+        )
+    except Exception as err:
+        raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
+
+    # Create coordinator in MQTT mode
+    api = PhilipsLocalAPI()  # unused but required by coordinator signature
+    coordinator = PhilipsHomeIDCoordinator(
+        hass, api, device_info, entry, mqtt_client=mqtt_client
+    )
+
+    # Wire MQTT push updates to coordinator
+    mqtt_client.set_state_callback(coordinator.update_from_mqtt)
+
+    # Initial data fetch via shadow/get
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        mqtt_client.disconnect()
+        raise
+
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    _cleanup_stale_entities(hass, entry, coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
+    return True
+
+
+async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a local (HSDP) device via HTTPS API."""
     host = entry.data.get(CONF_HOST)
     cpp_id = entry.data.get(CONF_CPP_ID, "")
     model = entry.data.get(CONF_MODEL, "")
@@ -97,7 +215,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         probed = await api.probe_device(host)
         if probed:
-            # Update device info with probed data
             if probed.cpp_id:
                 device_info.cpp_id = probed.cpp_id
             if probed.model_name:
@@ -127,7 +244,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("HTTP device without encryption key, attempting key exchange")
         key = await api.exchange_encryption_key(device_info)
         if key:
-            # Persist the key so we don't have to fetch it every time
             new_data = {**entry.data, CONF_ENCRYPTION_KEY: key}
             hass.config_entries.async_update_entry(entry, data=new_data)
             _LOGGER.info("Encryption key stored for %s", host)
@@ -144,11 +260,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Remove stale entities whose properties no longer exist on the device
     _cleanup_stale_entities(hass, entry, coordinator)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     return True
@@ -228,6 +341,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        if coordinator.mqtt_client:
+            await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)
         await coordinator.api.close()
 
     return unload_ok

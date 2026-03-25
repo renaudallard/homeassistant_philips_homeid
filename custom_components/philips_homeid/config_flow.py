@@ -537,9 +537,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         # Use discovered device model if available, fall back to cloud data
+        # Include model_number (e.g., "HD9280/9x") for port lookup
         model = ""
-        if self._discovered_device and self._discovered_device.model_name:
-            model = self._discovered_device.model_name
+        if self._discovered_device:
+            parts = [
+                self._discovered_device.model_name,
+                self._discovered_device.model_number,
+            ]
+            model = " ".join(filter(None, parts))
         name = device_data.get("name", "") or model or mac or host
         use_https = True
         if self._discovered_device:

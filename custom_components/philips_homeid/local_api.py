@@ -623,11 +623,20 @@ class PhilipsLocalAPI:
         return data
 
     @staticmethod
-    def _port_for_model(model: str) -> str | None:
-        """Return the airfryer port for a known model, or None."""
-        model_upper = model.upper()
+    def _port_for_model(device: LocalDeviceInfo) -> str | None:
+        """Return the airfryer port for a known model, or None.
+
+        Checks model_name, model_number, and friendly_name since different
+        discovery methods populate different fields.
+        """
+        candidates = " ".join(
+            filter(
+                None,
+                [device.model_name, device.model_number, device.friendly_name],
+            )
+        ).upper()
         for prefix, port in _MODEL_PORT_MAP.items():
-            if prefix in model_upper:
+            if prefix in candidates:
                 return port
         return None
 
@@ -643,9 +652,7 @@ class PhilipsLocalAPI:
             ports_to_try = [device.airfryer_port]
         else:
             # Try model-based lookup first to avoid probing
-            model_port = self._port_for_model(
-                device.model_name or device.model_number or ""
-            )
+            model_port = self._port_for_model(device)
             if model_port:
                 ports_to_try = [model_port]
             else:

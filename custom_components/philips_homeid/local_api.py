@@ -1270,8 +1270,10 @@ class PhilipsLocalAPI:
                     recipe = await self.get_recipe_status(device)
                     if recipe:
                         state.properties["recipe"] = recipe
-            elif device.airfryer_port is None:
-                # No port responded; remember this device is not an airfryer
+            elif device.airfryer_port is None and device.credentials:
+                # No port responded after successful auth; not an airfryer.
+                # Only cache this if auth is established (credentials set),
+                # otherwise timeouts could be from pre-auth state.
                 device.airfryer_port = False
 
         # Get status (for air purifiers and other devices)

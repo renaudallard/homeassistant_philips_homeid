@@ -132,6 +132,8 @@ After confirming the discovered device, the integration uses cloud login to retr
 >
 > **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS). On unsupported platforms, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
+If cloud login fails with "Cloud authentication failed: the browser could not complete the login flow", check the Home Assistant logs for Chromium errors. In some container environments, the headless browser may fail to start. If the issue persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
+
 To debug cloud login issues, enable debug logging:
 ```yaml
 logger:

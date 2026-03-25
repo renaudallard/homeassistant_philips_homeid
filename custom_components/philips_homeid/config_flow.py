@@ -363,59 +363,75 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._cloud_email, code, self._cloud_vtoken
                     )
                     self._cloud_session_token = session_token
-
-                    # Headless browser OAuth (playwright already installed)
-                    tokens = await self._cloud_api.get_oidc_tokens(session_token)
-                    self._cloud_tokens = tokens
-
-                    # Try Home ID HAL API first (the app's primary backend)
-                    _LOGGER.debug("Trying Home ID API for appliances")
-                    appliances = await self._cloud_api.get_appliances_via_homeid(
-                        tokens, self._cloud_email
-                    )
-
-                    if appliances:
-                        self._cloud_devices = appliances
-                        self._cloud_source = "homeid"
-                        return await self.async_step_cloud_devices()
-
-                    # Fall back to IoT API
-                    _LOGGER.debug("Home ID API returned no appliances, trying IoT API")
-
-                    # Verify token with user profile (IoT)
-                    try:
-                        profile = await self._cloud_api.get_user_profile(
-                            tokens["access_token"]
-                        )
-                        _LOGGER.debug("IoT user: id=%s", profile.get("id", "unknown"))
-                    except CloudAuthError:
-                        _LOGGER.warning("Could not fetch IoT user profile (non-fatal)")
-
-                    devices = await self._cloud_api.get_devices(tokens["access_token"])
-
-                    # Also query homes for debug context
-                    try:
-                        homes = await self._cloud_api.get_homes(tokens["access_token"])
-                        if homes:
-                            _LOGGER.debug("IoT homes: %d found", len(homes))
-                    except Exception:
-                        pass
-
-                    if devices:
-                        self._cloud_devices = devices
-                        self._cloud_source = "iot"
-                        return await self.async_step_cloud_devices()
-
-                    errors["base"] = "no_cloud_devices"
-
                 except CloudAuthError as err:
-                    _LOGGER.error("Cloud auth failed: %s", err)
+                    _LOGGER.error("OTP verification failed: %s", err)
                     errors["base"] = "otp_failed"
                     await self._close_cloud_api()
-                except Exception:
-                    _LOGGER.exception("Unexpected error during cloud auth")
-                    errors["base"] = "unknown"
-                    await self._close_cloud_api()
+
+                if not errors:
+                    try:
+                        # Headless browser OAuth (playwright already installed)
+                        tokens = await self._cloud_api.get_oidc_tokens(session_token)
+                        self._cloud_tokens = tokens
+
+                        # Try Home ID HAL API first (the app's primary backend)
+                        _LOGGER.debug("Trying Home ID API for appliances")
+                        appliances = await self._cloud_api.get_appliances_via_homeid(
+                            tokens, self._cloud_email
+                        )
+
+                        if appliances:
+                            self._cloud_devices = appliances
+                            self._cloud_source = "homeid"
+                            return await self.async_step_cloud_devices()
+
+                        # Fall back to IoT API
+                        _LOGGER.debug(
+                            "Home ID API returned no appliances, trying IoT API"
+                        )
+
+                        # Verify token with user profile (IoT)
+                        try:
+                            profile = await self._cloud_api.get_user_profile(
+                                tokens["access_token"]
+                            )
+                            _LOGGER.debug(
+                                "IoT user: id=%s", profile.get("id", "unknown")
+                            )
+                        except CloudAuthError:
+                            _LOGGER.warning(
+                                "Could not fetch IoT user profile (non-fatal)"
+                            )
+
+                        devices = await self._cloud_api.get_devices(
+                            tokens["access_token"]
+                        )
+
+                        # Also query homes for debug context
+                        try:
+                            homes = await self._cloud_api.get_homes(
+                                tokens["access_token"]
+                            )
+                            if homes:
+                                _LOGGER.debug("IoT homes: %d found", len(homes))
+                        except Exception:
+                            pass
+
+                        if devices:
+                            self._cloud_devices = devices
+                            self._cloud_source = "iot"
+                            return await self.async_step_cloud_devices()
+
+                        errors["base"] = "no_cloud_devices"
+
+                    except CloudAuthError as err:
+                        _LOGGER.error("Cloud auth failed: %s", err)
+                        errors["base"] = "cloud_browser_failed"
+                        await self._close_cloud_api()
+                    except Exception:
+                        _LOGGER.exception("Unexpected error during cloud auth")
+                        errors["base"] = "unknown"
+                        await self._close_cloud_api()
             else:
                 errors["base"] = "missing_code"
 

@@ -471,7 +471,10 @@ class PhilipsCloudAPI:
 
         try:
             with sync_playwright() as p:
-                launch_args: dict[str, Any] = {"headless": True}
+                launch_args: dict[str, Any] = {
+                    "headless": True,
+                    "args": ["--disable-gpu"],
+                }
                 if alpine:
                     launch_args["executable_path"] = _ALPINE_CHROMIUM
                 browser = p.chromium.launch(**launch_args)

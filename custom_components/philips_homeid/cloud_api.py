@@ -86,6 +86,10 @@ class CloudAuthError(Exception):
     """Raised on cloud authentication failures."""
 
 
+_ALPINE_PW_TARGET = "/tmp/playwright_lib"
+_ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
+
+
 class PhilipsCloudAPI:
     """Async client for Philips cloud authentication and device management."""
 
@@ -93,6 +97,7 @@ class PhilipsCloudAPI:
         """Initialize the cloud API client."""
         self._session: aiohttp.ClientSession | None = None
         self._we_installed_playwright: bool = False
+        self._alpine_install: bool = False  # True if installed via apk path
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -203,10 +208,11 @@ class PhilipsCloudAPI:
         # Run headless browser OAuth in executor (Playwright is sync)
         # Only uninstall after if we installed it ourselves
         uninstall = self._we_installed_playwright
+        alpine = self._alpine_install
         loop = asyncio.get_running_loop()
         auth_code = await loop.run_in_executor(
             None,
-            lambda: self._browser_oauth(session_token, auth_url, uninstall),
+            lambda: self._browser_oauth(session_token, auth_url, uninstall, alpine),
         )
 
         if not auth_code:
@@ -252,39 +258,32 @@ class PhilipsCloudAPI:
         """Check if the current platform supports Playwright.
 
         Returns None if supported, or an error message if not.
-        Playwright requires glibc (not musl) and Linux x86_64/aarch64,
-        macOS x86_64/arm64, or Windows x86/amd64/arm64.
+        On musl/Alpine, we use system Chromium + Node.js instead of
+        Playwright's bundled binaries.
         """
         plat = sys.platform
         machine = platform.machine().lower()
 
         if plat == "linux":
-            if PhilipsCloudAPI._is_musl():
-                return (
-                    "Playwright requires glibc but this system uses musl libc "
-                    "(Alpine Linux / Home Assistant Docker container). "
-                    "Run the standalone cloud_key_fetcher.py tool on a "
-                    "supported system (Debian, Ubuntu, Fedora, macOS, or "
-                    "Windows) to obtain credentials, then enter them manually."
-                )
             if machine in ("x86_64", "aarch64"):
-                return None
+                return None  # glibc and musl/Alpine both supported
             return (
                 f"Playwright does not support Linux {machine}. "
                 "Cloud login requires Linux x86_64 or aarch64 (64-bit)."
             )
         if plat == "darwin":
-            return None  # macOS x86_64 and arm64 both supported
+            return None
         if plat == "win32":
-            return None  # Windows x86, amd64, arm64 all supported
+            return None
 
         return f"Playwright does not support platform {plat}/{machine}."
 
     def install_playwright(self) -> bool:
         """Install Playwright and Chromium. Returns True on success.
 
-        Safe to call if already installed (no-op).
-        Tracks whether we installed it so we only uninstall our own install.
+        On glibc systems: pip install playwright + playwright install chromium.
+        On musl/Alpine: apk add chromium nodejs + pip install deps from source
+        + force-install playwright wheel + symlink system node.
         """
         try:
             import playwright  # noqa: F401
@@ -300,10 +299,16 @@ class PhilipsCloudAPI:
             _LOGGER.error(platform_error)
             return False
 
+        if self._is_musl():
+            return self._install_playwright_alpine()
+        return self._install_playwright_glibc()
+
+    def _install_playwright_glibc(self) -> bool:
+        """Install Playwright on glibc systems (standard pip path)."""
         _LOGGER.info("Installing playwright for cloud authentication")
         try:
             subprocess.run(
-                ["pip", "install", "playwright"],
+                [sys.executable, "-m", "pip", "install", "playwright"],
                 capture_output=True,
                 check=True,
                 timeout=120,
@@ -322,12 +327,111 @@ class PhilipsCloudAPI:
             _LOGGER.exception("Failed to install playwright")
             return False
 
+    def _install_playwright_alpine(self) -> bool:
+        """Install Playwright on Alpine/musl using system Chromium and Node.js."""
+        _LOGGER.info("Alpine/musl detected, installing system Chromium + Node.js")
+        try:
+            # Step 1: Install system Chromium and Node.js via apk
+            subprocess.run(
+                ["apk", "add", "--no-cache", "chromium", "nodejs-current"],
+                capture_output=True,
+                check=True,
+                timeout=120,
+            )
+            _LOGGER.debug("System chromium and node.js installed")
+
+            # Step 2: Install greenlet and pyee (build from source on musl)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-cache-dir",
+                    "greenlet",
+                    "pyee",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=120,
+            )
+            _LOGGER.debug("greenlet and pyee installed")
+
+            # Step 3: Force-install playwright wheel to temp dir
+            # (manylinux wheel, --no-deps since we installed deps above)
+            machine = platform.machine().lower()
+            plat_tag = f"manylinux_2_17_{machine}"
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-cache-dir",
+                    "--no-deps",
+                    "--platform",
+                    plat_tag,
+                    "--only-binary=:all:",
+                    "--target",
+                    _ALPINE_PW_TARGET,
+                    "playwright",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=120,
+            )
+            _LOGGER.debug("Playwright wheel installed to %s", _ALPINE_PW_TARGET)
+
+            # Step 4: Replace bundled glibc node with system node
+            system_node = shutil.which("node")
+            if not system_node:
+                _LOGGER.error("System node.js not found after apk install")
+                return False
+            bundled_node = os.path.join(
+                _ALPINE_PW_TARGET, "playwright", "driver", "node"
+            )
+            if os.path.exists(bundled_node):
+                os.remove(bundled_node)
+            os.symlink(system_node, bundled_node)
+            _LOGGER.debug("Symlinked system node to %s", bundled_node)
+
+            # Step 5: Add to sys.path so import works
+            if _ALPINE_PW_TARGET not in sys.path:
+                sys.path.insert(0, _ALPINE_PW_TARGET)
+
+            # Verify import
+            import importlib
+
+            importlib.invalidate_caches()
+            import playwright  # noqa: F401
+
+            _LOGGER.info(
+                "Playwright installed via Alpine path (system Chromium + Node.js)"
+            )
+            self._we_installed_playwright = True
+            self._alpine_install = True
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
+            _LOGGER.exception("Failed to install playwright on Alpine")
+            return False
+        except ImportError:
+            _LOGGER.error("Playwright installed but import failed")
+            return False
+
     @staticmethod
     def _uninstall_playwright() -> None:
         """Uninstall Playwright and its browsers."""
         _LOGGER.info("Uninstalling playwright")
         try:
-            # Remove browser binaries first
+            # Clean up Alpine target dir if it exists
+            if os.path.isdir(_ALPINE_PW_TARGET):
+                shutil.rmtree(_ALPINE_PW_TARGET, ignore_errors=True)
+                if _ALPINE_PW_TARGET in sys.path:
+                    sys.path.remove(_ALPINE_PW_TARGET)
+                _LOGGER.debug("Removed Alpine playwright target dir")
+                return
+
+            # Standard glibc uninstall
             if shutil.which("playwright"):
                 subprocess.run(
                     ["playwright", "uninstall"],
@@ -335,7 +439,7 @@ class PhilipsCloudAPI:
                     timeout=60,
                 )
             subprocess.run(
-                ["pip", "uninstall", "-y", "playwright"],
+                [sys.executable, "-m", "pip", "uninstall", "-y", "playwright"],
                 capture_output=True,
                 timeout=60,
             )
@@ -344,7 +448,10 @@ class PhilipsCloudAPI:
 
     @staticmethod
     def _browser_oauth(
-        session_token: str, auth_url: str, uninstall_after: bool = True
+        session_token: str,
+        auth_url: str,
+        uninstall_after: bool = True,
+        alpine: bool = False,
     ) -> str | None:
         """Run headless browser OAuth flow (sync, runs in executor).
 
@@ -364,7 +471,10 @@ class PhilipsCloudAPI:
 
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+                launch_args: dict[str, Any] = {"headless": True}
+                if alpine:
+                    launch_args["executable_path"] = _ALPINE_CHROMIUM
+                browser = p.chromium.launch(**launch_args)
                 context = browser.new_context()
 
                 # Set Gigya session cookies (exact match with cloud_key_fetcher)

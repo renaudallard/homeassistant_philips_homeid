@@ -1239,8 +1239,10 @@ class PhilipsLocalAPI:
         got_data = False
 
         # Try airfryer endpoint (skip if device is known to be non-airfryer)
+        # Wait until auth is established before probing: unauthenticated
+        # requests hang and overwhelm the device's limited web server.
         airfryer = None
-        if device.airfryer_port is not False:
+        if device.airfryer_port is not False and device.credentials:
             airfryer = await self.get_airfryer_status(device)
             if airfryer:
                 got_data = True

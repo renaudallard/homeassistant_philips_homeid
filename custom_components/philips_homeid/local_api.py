@@ -324,11 +324,17 @@ class PhilipsLocalAPI:
             return device.airfryer_port
         return PORT_AIRFRYER
 
-    def _build_url(self, device: LocalDeviceInfo, port_name: str) -> str:
+    def _build_url(
+        self,
+        device: LocalDeviceInfo,
+        port_name: str,
+        product_id: int | None = None,
+    ) -> str:
         """Build URL for device endpoint."""
+        pid = product_id if product_id is not None else device.product_id
         return (
             f"{self._scheme(device)}://{device.ip_address}/di/v{device.protocol_version}"
-            f"/products/{device.product_id}/{port_name}"
+            f"/products/{pid}/{port_name}"
         )
 
     def _prepare_body(
@@ -358,10 +364,11 @@ class PhilipsLocalAPI:
         method: str = "GET",
         data: dict[str, Any] | None = None,
         _retry: bool = True,
+        product_id: int | None = None,
     ) -> dict[str, Any] | None:
         """Make a request to the device."""
         session = await self._get_session()
-        url = self._build_url(device, port_name)
+        url = self._build_url(device, port_name, product_id)
 
         headers = {
             "Content-Type": "application/json",
@@ -386,7 +393,12 @@ class PhilipsLocalAPI:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
                         return await self._request(
-                            device, port_name, method, data, _retry=False
+                            device,
+                            port_name,
+                            method,
+                            data,
+                            _retry=False,
+                            product_id=product_id,
                         )
                     return result
             elif method == "PUT":
@@ -396,7 +408,12 @@ class PhilipsLocalAPI:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
                         return await self._request(
-                            device, port_name, method, data, _retry=False
+                            device,
+                            port_name,
+                            method,
+                            data,
+                            _retry=False,
+                            product_id=product_id,
                         )
                     return result
             elif method == "POST":
@@ -406,7 +423,12 @@ class PhilipsLocalAPI:
                     result, should_retry = await self._handle_response(device, resp)
                     if should_retry and _retry:
                         return await self._request(
-                            device, port_name, method, data, _retry=False
+                            device,
+                            port_name,
+                            method,
+                            data,
+                            _retry=False,
+                            product_id=product_id,
                         )
                     return result
 
@@ -499,49 +521,37 @@ class PhilipsLocalAPI:
         The key exchange uses product_id=0 and requires authentication.
         Returns the hex-encoded encryption key, or None on failure.
         """
-        saved_product_id = device.product_id
-        device.product_id = 0
-        try:
-            result = await self._request(device, PORT_SECURITY)
-            if result:
-                # The response may be the key directly as a string,
-                # or a JSON object containing the key
-                if isinstance(result, dict):
-                    key = result.get("raw", result.get("key", ""))
-                    if isinstance(key, str):
-                        key = key.strip()
-                else:
-                    key = str(result).strip()
-
-                if key:
-                    device.encryption_key = key
-                    _LOGGER.info(
-                        "Obtained encryption key for %s (%d chars)",
-                        device.ip_address,
-                        len(key),
-                    )
-                    return key
-                _LOGGER.warning("Empty encryption key from %s", device.ip_address)
+        result = await self._request(device, PORT_SECURITY, product_id=0)
+        if result:
+            # The response may be the key directly as a string,
+            # or a JSON object containing the key
+            if isinstance(result, dict):
+                key = result.get("raw", result.get("key", ""))
+                if isinstance(key, str):
+                    key = key.strip()
             else:
-                _LOGGER.warning(
-                    "Failed to fetch encryption key from %s", device.ip_address
+                key = str(result).strip()
+
+            if key:
+                device.encryption_key = key
+                _LOGGER.info(
+                    "Obtained encryption key for %s (%d chars)",
+                    device.ip_address,
+                    len(key),
                 )
-        finally:
-            device.product_id = saved_product_id
+                return key
+            _LOGGER.warning("Empty encryption key from %s", device.ip_address)
+        else:
+            _LOGGER.warning("Failed to fetch encryption key from %s", device.ip_address)
         return None
 
     async def get_firmware_info(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
         """Get firmware version info from device.
 
-        The firmware port uses product_id=0, so we temporarily switch.
+        The firmware port uses product_id=0.
         Returns dict with 'version' (installed) and optionally 'upgrade' (available).
         """
-        saved_product_id = device.product_id
-        device.product_id = 0
-        try:
-            return await self._request(device, PORT_FIRMWARE)
-        finally:
-            device.product_id = saved_product_id
+        return await self._request(device, PORT_FIRMWARE, product_id=0)
 
     async def set_power(self, device: LocalDeviceInfo, power_on: bool) -> bool:
         """Set device power state."""
@@ -1088,7 +1098,10 @@ class PhilipsLocalAPI:
             return False, f"Unexpected error: {err}"
 
     async def _probe_request(
-        self, device: LocalDeviceInfo, port_name: str
+        self,
+        device: LocalDeviceInfo,
+        port_name: str,
+        product_id: int | None = None,
     ) -> tuple[dict[str, Any] | None, int | None]:
         """Make a probe request, returning (data, status_code).
 
@@ -1096,7 +1109,7 @@ class PhilipsLocalAPI:
         can distinguish 401 (device exists, needs auth) from connection errors.
         """
         session = await self._get_session()
-        url = self._build_url(device, port_name)
+        url = self._build_url(device, port_name, product_id)
         headers = {"Content-Type": "application/json"}
 
         try:
@@ -1129,8 +1142,9 @@ class PhilipsLocalAPI:
 
         # Try device info endpoint with product_id 1 and 0
         for product_id in (1, 0):
-            device.product_id = product_id
-            info, status = await self._probe_request(device, PORT_DEVICE)
+            info, status = await self._probe_request(
+                device, PORT_DEVICE, product_id=product_id
+            )
             if info:
                 _LOGGER.info(
                     "Probed device at %s via %s (product %d): %s",
@@ -1143,7 +1157,6 @@ class PhilipsLocalAPI:
                 device.model_name = info.get("modelid", info.get("ModelName", ""))
                 device.model_number = info.get("type", info.get("ModelNumber", ""))
                 device.friendly_name = info.get("name", info.get("FriendlyName", ""))
-                device.product_id = DEFAULT_PRODUCT_ID
                 return device
             if status is not None:
                 # Any HTTP response means the device is reachable
@@ -1154,11 +1167,9 @@ class PhilipsLocalAPI:
                     protocol,
                     product_id,
                 )
-                device.product_id = DEFAULT_PRODUCT_ID
                 return device
 
         # Try status endpoint as fallback
-        device.product_id = DEFAULT_PRODUCT_ID
         status_data, status = await self._probe_request(device, PORT_STATUS)
         if status_data:
             _LOGGER.info(

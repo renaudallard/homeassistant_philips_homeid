@@ -47,8 +47,9 @@ _LOGGER = logging.getLogger(__name__)
 MQTT_KEEPALIVE = 30
 MQTT_CONNECT_TIMEOUT = 10
 
-# QoS levels
-QOS_AT_MOST_ONCE = 0
+# QoS levels (from APK fv/a enum)
+QOS_AT_MOST_ONCE = 0  # subscriptions
+QOS_AT_LEAST_ONCE = 1  # publishes (shadow + NCP commands)
 
 
 @dataclass
@@ -96,6 +97,7 @@ class PhilipsMQTTClient:
             "shadow_update_accepted": f"$aws/things/{tn}/shadow/update/accepted",
             "shadow_get_rejected": f"$aws/things/{tn}/shadow/get/rejected",
             "shadow_update_rejected": f"$aws/things/{tn}/shadow/update/rejected",
+            "shadow_update": f"$aws/things/{tn}/shadow/update",
             "from_ncp": f"{t}_ctrl/{tn}/from_ncp",
             "shadow_get": f"$aws/things/{tn}/shadow/get",
             "to_ncp": f"{t}_ctrl/{tn}/to_ncp",
@@ -194,9 +196,21 @@ class PhilipsMQTTClient:
         self._client.publish(
             self._topics["shadow_get"],
             payload=b"{}",
-            qos=QOS_AT_MOST_ONCE,
+            qos=QOS_AT_LEAST_ONCE,
         )
         _LOGGER.debug("Requested shadow state for %s", self._device.thing_name)
+
+    def set_power(self, power_on: bool) -> None:
+        """Set device power via shadow update (APK UpdatePowerState)."""
+        if not self._client or not self._connected:
+            return
+        payload = json.dumps({"state": {"desired": {"powerOn": power_on}}})
+        self._client.publish(
+            self._topics["shadow_update"],
+            payload=payload,
+            qos=QOS_AT_LEAST_ONCE,
+        )
+        _LOGGER.debug("Shadow power update: %s", power_on)
 
     def send_port_command(
         self,
@@ -218,9 +232,12 @@ class PhilipsMQTTClient:
         data: dict[str, Any] = {"portName": port_name}
         if properties:
             data["properties"] = properties
+        # CID: APK uses 8-char hex (32-bit random, byte-reversed)
+        cid = secrets.token_bytes(4).hex()
         payload = {
-            "cid": secrets.token_hex(16),
-            "time": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "cid": cid,
+            # APK NcpRequestTime: "yyyy-MM-dd'T'HH:mm:ss'Z'" (no fractional seconds)
+            "time": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "type": "command",
             "cn": command_name,
             "ct": "mobile",
@@ -230,7 +247,7 @@ class PhilipsMQTTClient:
         self._client.publish(
             self._topics["to_ncp"],
             payload=json.dumps(payload),
-            qos=QOS_AT_MOST_ONCE,
+            qos=QOS_AT_LEAST_ONCE,
         )
         _LOGGER.debug(
             "Sent %s to %s/%s: %s",

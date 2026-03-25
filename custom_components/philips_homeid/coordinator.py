@@ -233,8 +233,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
-        if self._is_fusion:
-            return await self._mqtt_command("status", {"pwr": "1" if power_on else "0"})
+        if self._is_fusion and self.mqtt_client:
+            await self.hass.async_add_executor_job(self.mqtt_client.set_power, power_on)
+            return True
         result = await self.api.set_power(self.device_info, power_on)
         if result:
             if self._state:

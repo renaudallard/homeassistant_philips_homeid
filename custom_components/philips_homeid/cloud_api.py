@@ -114,7 +114,10 @@ with sync_playwright() as p:
             "--disable-gpu-compositing",
             "--disable-gpu-sandbox",
             "--disable-seccomp-filter-sandbox",
-            "--single-process",{chromium_debug_args}
+            "--single-process",
+            "--js-flags=--max-old-space-size=128",
+            "--disable-site-isolation-trials",
+            "--disable-features=IsolateOrigins,site-per-process",{chromium_debug_args}
         ],
     }}
     if executable_path:

@@ -33,9 +33,14 @@ devices and their local credentials.
 Requirements:
   pip install playwright && playwright install chromium
 
-Usage:
-  python3 cloud_key_fetcher.py <email>           # Request OTP
-  python3 cloud_key_fetcher.py <email> <code>     # Verify OTP + fetch
+Usage (interactive):
+  python3 cloud_key_fetcher.py                    # Prompts for everything
+  python3 cloud_key_fetcher.py user@example.com   # Prompts for OTP code
+
+Usage (non-interactive):
+  python3 cloud_key_fetcher.py user@example.com          # Send OTP
+  python3 cloud_key_fetcher.py user@example.com 123456    # Verify + fetch
+  python3 cloud_key_fetcher.py --resume                   # Reuse saved tokens
 """
 
 import argparse
@@ -536,96 +541,15 @@ def print_summary(homeid_appliances, iot_devices):
         print("Devices must be registered via the HomeID app first.")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Fetch Philips HomeID device credentials from cloud"
-    )
-    parser.add_argument("email", help="Philips HomeID account email")
-    parser.add_argument("otp_code", nargs="?", help="OTP code from email")
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Reuse saved OIDC tokens (valid ~1 hour)",
-    )
-    parser.add_argument(
-        "--iot-only",
-        action="store_true",
-        help="Skip Home ID API, only use IoT API",
-    )
-    args = parser.parse_args()
-
-    print("Philips HomeID Cloud Key Fetcher")
-    print("=" * 40)
-
-    access_token = None
-    oidc_tokens = None
-
-    # Resume with saved tokens
-    if args.resume and os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            oidc_tokens = json.load(f)
-        access_token = oidc_tokens.get("access_token")
-        if access_token:
-            print("Resuming with saved tokens.")
-
-    if not access_token:
-        vtoken_file = "/tmp/philips_vtoken.txt"
-
-        if not args.otp_code:
-            # Step 1: Request OTP
-            print(f"\nSending OTP to {args.email}...")
-            vtoken = request_otp(args.email)
-            with open(vtoken_file, "w") as f:
-                f.write(vtoken)
-            print("OTP sent! Run again with the code:")
-            print(f"  python3 {__file__} {args.email} <CODE>")
-            return
-
-        # Step 2: Verify OTP
-        if not os.path.exists(vtoken_file):
-            print("No vToken found. Run without code first.")
-            return
-
-        with open(vtoken_file) as f:
-            vtoken = f.read().strip()
-
-        print("\nVerifying OTP...")
-        session_token = verify_otp(args.email, args.otp_code, vtoken)
-        print("  Login successful.")
-
-        # Step 3: Headless browser OAuth
-        print("\nRunning headless OAuth flow...")
-        oidc_tokens = headless_oauth(session_token)
-        if not oidc_tokens:
-            print("  Failed to obtain OIDC tokens.")
-            return
-
-        access_token = oidc_tokens["access_token"]
-
-        # Decode and show token info
-        parts = oidc_tokens.get("id_token", "").split(".")
-        if len(parts) >= 2:
-            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(padded))
-            print(f"  Authenticated as: {payload.get('sub', '?')[:30]}")
-            print(f"  Token audience:   {payload.get('aud')}")
-
-        # Save for resume
-        with open(STATE_FILE, "w") as f:
-            json.dump(oidc_tokens, f)
-        print(f"  Tokens saved to {STATE_FILE}")
-
-        # Clean up
-        if os.path.exists(vtoken_file):
-            os.remove(vtoken_file)
-
-    # Step 4: Try Home ID API first (primary method)
+def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
+    """Fetch device credentials using Home ID and IoT APIs."""
+    # Try Home ID API first (primary method)
     homeid_appliances = []
-    if not args.iot_only and oidc_tokens:
+    if not iot_only and oidc_tokens:
         print("\nQuerying Home ID API (primary)...")
-        homeid_appliances = fetch_appliances_via_homeid(oidc_tokens, args.email)
+        homeid_appliances = fetch_appliances_via_homeid(oidc_tokens, email)
 
-    # Step 5: Query IoT API (fallback or additional info)
+    # Query IoT API (fallback or additional info)
     print("\nQuerying IoT API...")
 
     # User profile
@@ -653,7 +577,6 @@ def main():
             status, mig = fetch_device_migration(access_token, ctns)
             if status == 200:
                 print(f"  Migration response: {json.dumps(mig, indent=2)[:2000]}")
-                # Merge localCredentials into device list
                 if isinstance(mig, dict):
                     mig_devs = mig.get("devices", [])
                     for md in mig_devs:
@@ -678,6 +601,128 @@ def main():
         print(f"  Homes: {json.dumps(homes, indent=2)[:500]}")
 
     print_summary(homeid_appliances, iot_devices)
+
+
+def authenticate(email):
+    """Run the full OTP + OAuth flow interactively. Returns (oidc_tokens, access_token)."""
+    print(f"\nSending verification code to {email}...")
+    vtoken = request_otp(email)
+    print("  Verification code sent! Check your email.")
+
+    code = input("\nEnter verification code: ").strip()
+    if not code:
+        print("No code entered.")
+        return None, None
+
+    print("\nVerifying code...")
+    session_token = verify_otp(email, code, vtoken)
+    print("  Login successful.")
+
+    print("\nRunning headless OAuth flow (this may take a moment)...")
+    oidc_tokens = headless_oauth(session_token)
+    if not oidc_tokens:
+        print("  Failed to obtain OIDC tokens.")
+        return None, None
+
+    access_token = oidc_tokens["access_token"]
+
+    # Decode and show token info
+    parts = oidc_tokens.get("id_token", "").split(".")
+    if len(parts) >= 2:
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded))
+        print(f"  Authenticated as: {payload.get('sub', '?')[:30]}")
+
+    # Save for resume
+    with open(STATE_FILE, "w") as f:
+        json.dump(oidc_tokens, f)
+    print(f"  Tokens saved to {STATE_FILE}")
+
+    return oidc_tokens, access_token
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Fetch Philips HomeID device credentials from cloud"
+    )
+    parser.add_argument("email", nargs="?", help="Philips HomeID account email")
+    parser.add_argument("otp_code", nargs="?", help="OTP code (non-interactive mode)")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse saved OIDC tokens (valid ~1 hour)",
+    )
+    parser.add_argument(
+        "--iot-only",
+        action="store_true",
+        help="Skip Home ID API, only use IoT API",
+    )
+    args = parser.parse_args()
+
+    print("Philips HomeID Cloud Key Fetcher")
+    print("=" * 40)
+
+    access_token = None
+    oidc_tokens = None
+    email = args.email
+
+    # Resume with saved tokens
+    if args.resume and os.path.exists(STATE_FILE):
+        with open(STATE_FILE) as f:
+            oidc_tokens = json.load(f)
+        access_token = oidc_tokens.get("access_token")
+        if access_token:
+            print("Resuming with saved tokens.")
+            if not email:
+                email = input("Email (needed for Home ID API): ").strip()
+
+    if not access_token:
+        # Get email if not provided
+        if not email:
+            email = input("\nEnter your Philips HomeID email: ").strip()
+            if not email:
+                print("No email entered.")
+                return
+
+        if args.otp_code:
+            # Non-interactive: OTP code provided on command line
+            vtoken_file = "/tmp/philips_vtoken.txt"
+            if not os.path.exists(vtoken_file):
+                print("No vToken found. Run without code first to send OTP.")
+                return
+            with open(vtoken_file) as f:
+                vtoken = f.read().strip()
+
+            print("\nVerifying OTP...")
+            session_token = verify_otp(email, args.otp_code, vtoken)
+            print("  Login successful.")
+
+            print("\nRunning headless OAuth flow...")
+            oidc_tokens = headless_oauth(session_token)
+            if not oidc_tokens:
+                print("  Failed to obtain OIDC tokens.")
+                return
+
+            access_token = oidc_tokens["access_token"]
+
+            parts = oidc_tokens.get("id_token", "").split(".")
+            if len(parts) >= 2:
+                padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                payload = json.loads(base64.urlsafe_b64decode(padded))
+                print(f"  Authenticated as: {payload.get('sub', '?')[:30]}")
+
+            with open(STATE_FILE, "w") as f:
+                json.dump(oidc_tokens, f)
+
+            if os.path.exists(vtoken_file):
+                os.remove(vtoken_file)
+        else:
+            # Interactive mode
+            oidc_tokens, access_token = authenticate(email)
+            if not access_token:
+                return
+
+    fetch_credentials(email, oidc_tokens, access_token, args.iot_only)
 
 
 if __name__ == "__main__":

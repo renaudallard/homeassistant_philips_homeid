@@ -30,6 +30,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import platform
 import re
 import secrets
@@ -228,17 +229,44 @@ class PhilipsCloudAPI:
             return False
 
     @staticmethod
+    def _is_musl() -> bool:
+        """Check if the system uses musl libc (e.g. Alpine Linux, HA Docker)."""
+        try:
+            import ctypes.util
+
+            libc_path = ctypes.util.find_library("c")
+            if libc_path and "musl" in libc_path:
+                return True
+        except Exception:
+            pass
+        # Fallback: check if /etc/alpine-release exists
+        try:
+            if os.path.exists("/etc/alpine-release"):
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
     def check_playwright_platform() -> str | None:
         """Check if the current platform supports Playwright.
 
         Returns None if supported, or an error message if not.
-        Playwright supports: Linux x86_64/aarch64, macOS x86_64/arm64,
-        Windows x86/amd64/arm64.
+        Playwright requires glibc (not musl) and Linux x86_64/aarch64,
+        macOS x86_64/arm64, or Windows x86/amd64/arm64.
         """
         plat = sys.platform
         machine = platform.machine().lower()
 
         if plat == "linux":
+            if PhilipsCloudAPI._is_musl():
+                return (
+                    "Playwright requires glibc but this system uses musl libc "
+                    "(Alpine Linux / Home Assistant Docker container). "
+                    "Run the standalone cloud_key_fetcher.py tool on a "
+                    "supported system (Debian, Ubuntu, Fedora, macOS, or "
+                    "Windows) to obtain credentials, then enter them manually."
+                )
             if machine in ("x86_64", "aarch64"):
                 return None
             return (

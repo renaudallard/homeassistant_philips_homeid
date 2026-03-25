@@ -83,8 +83,8 @@
     "abort": {
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
-      "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Enter credentials manually instead.",
-      "playwright_unsupported": "Cloud login is not supported on this platform. Playwright requires Linux x86_64/aarch64, macOS, or Windows. Enter credentials manually instead."
+      "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
+      "playwright_unsupported": "Cloud login is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually."
     }
   },
   "options": {

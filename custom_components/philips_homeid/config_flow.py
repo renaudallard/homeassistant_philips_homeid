@@ -51,11 +51,19 @@ from .const import (
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_IS_FUSION,
     CONF_MODEL,
+    CONF_MQTT_HOST,
+    CONF_PLATFORM_REST_URL,
     CONF_SCAN_INTERVAL,
+    CONF_TENANT,
+    CONF_THING_NAME,
     CONF_USE_HTTPS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    FUSION_MQTT_HOST,
+    FUSION_PLATFORM_REST_URL,
+    FUSION_TENANT,
 )
 from .local_api import (
     LocalDeviceInfo,
@@ -514,10 +522,19 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         client_secret = device_data.get("clientSecret", "")
 
         if not client_id or not client_secret:
+            # No local credentials: try FUSION (cloud MQTT relay)
+            registered_in = device_data.get("registeredIn", "")
+            external_id = device_data.get("externalDeviceId", "")
+            if external_id:
+                _LOGGER.info(
+                    "No local credentials, attempting FUSION cloud relay "
+                    "(registeredIn=%s, externalDeviceId=%s)",
+                    registered_in,
+                    external_id,
+                )
+                return await self._create_fusion_entry(device_data, errors)
             _LOGGER.warning(
-                "Home ID appliance has no credentials: clientId=%s, clientSecret=%s",
-                bool(client_id),
-                bool(client_secret),
+                "Home ID appliance has no credentials and no externalDeviceId"
             )
             errors["base"] = "cloud_credentials_not_found"
             return None
@@ -624,6 +641,58 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         name = device_data.get("friendlyName", ctn) or ctn or host
         return self.async_create_entry(title=name, data=entry_data)
+
+    async def _create_fusion_entry(
+        self, device_data: dict[str, Any], errors: dict[str, str]
+    ) -> ConfigFlowResult | None:
+        """Create config entry for a FUSION device (cloud MQTT relay)."""
+        external_id = device_data.get("externalDeviceId", "")
+        mac = device_data.get("macAddress", "")
+        fw = device_data.get("firmwareVersion", "")
+        name = device_data.get("name", "") or mac or external_id
+
+        unique_id = mac or external_id
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+
+        # Use discovered device model if available
+        model = ""
+        if self._discovered_device:
+            parts = [
+                self._discovered_device.model_name,
+                self._discovered_device.model_number,
+            ]
+            model = " ".join(filter(None, parts))
+        if not model:
+            model = name
+
+        host = ""
+        if self._discovered_device:
+            host = self._discovered_device.ip_address
+
+        entry_data = {
+            CONF_HOST: host,
+            CONF_CPP_ID: mac or external_id,
+            CONF_MODEL: model,
+            CONF_DEVICE_ID: external_id,
+            CONF_IS_FUSION: True,
+            CONF_THING_NAME: external_id,
+            CONF_TENANT: FUSION_TENANT,
+            CONF_MQTT_HOST: FUSION_MQTT_HOST,
+            CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
+            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+        }
+
+        _LOGGER.info(
+            "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s",
+            name,
+            external_id,
+            mac,
+            fw,
+        )
+
+        await self._close_cloud_api()
+        return self.async_create_entry(title=f"{name} (Cloud)", data=entry_data)
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo

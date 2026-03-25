@@ -283,12 +283,10 @@ class PhilipsCloudAPI:
         3. Navigate to authorize URL
         4. Intercept authorize/continue response for auth code
         """
-        if not PhilipsCloudAPI.install_playwright():
-            return None
-
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
+            _LOGGER.error("Playwright not available for browser OAuth")
             return None
 
         auth_code = None

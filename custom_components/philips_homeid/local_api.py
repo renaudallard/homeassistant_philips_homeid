@@ -1313,13 +1313,12 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         location = discovery_info.get("location", "")
         udn = discovery_info.get("udn", "")
 
-        # Extract IP and protocol from location URL
-        # (e.g., http://192.168.1.100:80/description.xml)
+        # Extract IP from location URL (e.g., http://192.168.1.100:80/description.xml)
+        # Note: SSDP location URL is always HTTP (UPnP standard) even when
+        # the device API uses HTTPS, so we cannot derive use_https from it.
         if "://" in location:
-            scheme = location.split("://")[0].lower()
             host_part = location.split("://")[1].split("/")[0]
             ip_address = host_part.split(":")[0]
-            use_https = scheme == "https"
         else:
             return None
 
@@ -1346,14 +1345,12 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
             model_name=model_name,
             model_number=model_number,
             serial_number=discovery_info.get("serialNumber", ""),
-            use_https=use_https,
         )
 
         _LOGGER.info(
-            "Parsed SSDP device: %s at %s (https: %s)",
+            "Parsed SSDP device: %s at %s",
             device.friendly_name,
             ip_address,
-            use_https,
         )
         return device
 

@@ -477,6 +477,8 @@ class PhilipsCloudAPI:
                         "--disable-gpu",
                         "--disable-software-rasterizer",
                         "--in-process-gpu",
+                        "--disable-gpu-compositing",
+                        "--disable-gpu-sandbox",
                     ],
                 }
                 if alpine:

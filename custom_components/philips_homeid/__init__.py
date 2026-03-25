@@ -114,12 +114,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             access_token, platform_rest_url, tenant
         )
     except CloudAuthError as err:
-        await cloud_api.close()
         raise ConfigEntryNotReady(
             f"FUSION auth failed: {err}. Re-authenticate via config flow."
         ) from err
     except Exception as err:
-        await cloud_api.close()
         raise ConfigEntryNotReady(f"FUSION setup error: {err}") from err
     finally:
         await cloud_api.close()

@@ -31,7 +31,7 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >
-> **Note:** Some newer firmware versions (e.g., HD9280, HD9285) have the app communicate exclusively via cloud relay and never store local credentials on the phone. The built-in cloud login handles these devices automatically by retrieving credentials from the Philips cloud. See [Cloud-only firmware](#cloud-only-firmware) in Troubleshooting for details.
+> **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
 
 ---
 
@@ -47,6 +47,7 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 | **Firmware Updates** | Shows installed and available firmware versions |
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account |
+| **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
 
 ### Air Purifiers
 - Fan speed and preset modes (auto, manual, sleep, turbo, allergen, bacteria, night)
@@ -358,6 +359,27 @@ All air fryer entities above (including target/current temperature and total coo
 
 ---
 
+## Cloud Relay (FUSION devices)
+
+Some newer Philips devices are registered as "FUSION" devices in the Philips cloud. These devices do not have local credentials available via the cloud API and communicate exclusively via MQTT cloud relay through AWS IoT.
+
+The integration automatically detects FUSION devices during setup. When a device has no local credentials but has an `externalDeviceId`, the integration creates a cloud relay entry that communicates via MQTT over WebSocket.
+
+**How it works:**
+- Uses your Philips account OIDC tokens (from cloud login) to authenticate with AWS IoT
+- Connects via MQTT over WebSocket Secure to the Philips DaConnect platform
+- Receives device state updates in real-time via push notifications
+- Sends control commands via MQTT pub/sub
+
+**Limitations:**
+- Requires internet connectivity (cloud-dependent)
+- Entities may take a few minutes to appear after initial setup
+- Token refresh happens automatically but requires a valid refresh token
+
+**Identification:** FUSION devices show as "(Cloud)" in their title in Home Assistant.
+
+---
+
 ## Troubleshooting
 
 ### Device Not Found
@@ -402,7 +424,7 @@ Some newer firmware versions do not generate local credentials at all. The Phili
 
 **What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are stored on the phone. The credential extractor tool will find nothing.
 
-**Workaround:** The built-in **Cloud Login** retrieves credentials directly from the Philips cloud API using your account. This is now the default authentication method and handles cloud-only firmwares automatically. See [Cloud Login](#cloud-login) above.
+**Resolution:** The integration now supports these devices via **Cloud Relay (MQTT)**. During setup, if no local credentials are available but the device has an `externalDeviceId` (FUSION registration), the integration automatically creates a cloud relay entry. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices).
 
 ### Empty Database
 If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool) or the built-in cloud login, which handles all storage locations including encrypted preferences.
@@ -419,6 +441,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
+| Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt) |
 
 ---
 

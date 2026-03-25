@@ -108,7 +108,7 @@ Your device must first be paired with the **official Philips HomeID app** on And
 4. Enter your Philips HomeID account email
 5. Wait while required components are installed (first run only)
 6. Enter the verification code sent to your email
-6. Select your device from the list and credentials are retrieved automatically
+7. Select your device from the list and credentials are retrieved automatically
 
 If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
@@ -117,9 +117,11 @@ If cloud login is not available on your platform, or you prefer to enter credent
 After confirming the discovered device, the integration uses cloud login to retrieve credentials. The cloud login flow:
 
 1. Authenticates with Philips via email OTP (one-time password)
-2. Temporarily installs a headless Chromium browser (Playwright) to complete OAuth authentication
+2. Installs a headless Chromium browser (Playwright) to complete OAuth authentication
+   - On glibc systems: standard pip install
+   - On Alpine/Docker: uses system Chromium and Node.js via apk
 3. Queries the Philips Home ID backend API to retrieve your device's `client_id` and `client_secret`
-4. Uninstalls Playwright after use (only if it was not already installed)
+4. Cleans up Playwright after use (only if it was not already installed)
 
 > **Platform requirements:** Cloud login uses Playwright (headless Chromium) for the OAuth step. Supported platforms:
 > - Linux x86_64 (Intel/AMD 64-bit)
@@ -201,7 +203,7 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 ### Method 2: Cloud Key Fetcher (Standalone Tool)
 
-A standalone command-line version of the cloud login is available for debugging or use outside Home Assistant. This is the same authentication flow used by the built-in cloud login.
+A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. Uses the same authentication flow as the built-in cloud login.
 
 <details>
 <summary><b>Step-by-step instructions</b></summary>
@@ -211,13 +213,18 @@ A standalone command-line version of the cloud login is available for debugging 
    pip install playwright && playwright install chromium
    ```
 
-2. **Run the tool**
+2. **Run the tool** (interactive mode, prompts for everything)
    ```sh
-   python3 tools/cloud_key_fetcher.py your@email.com          # sends OTP to your email
-   python3 tools/cloud_key_fetcher.py your@email.com 123456    # verify OTP + fetch devices
+   python3 tools/cloud_key_fetcher.py
+   ```
+   Or with arguments:
+   ```sh
+   python3 tools/cloud_key_fetcher.py your@email.com          # sends OTP, prompts for code
+   python3 tools/cloud_key_fetcher.py your@email.com 123456    # non-interactive
+   python3 tools/cloud_key_fetcher.py --resume                  # reuse saved tokens
    ```
 
-3. **Check results** - the tool will print any registered devices and their credentials if available.
+3. **Check results** - the tool queries both the Home ID backend API (primary) and IoT API (fallback), and prints any registered devices with their credentials.
 
 See [`tools/cloud_key_fetcher.py`](tools/cloud_key_fetcher.py) for details.
 
@@ -351,7 +358,7 @@ All air fryer entities above (including target/current temperature and total coo
 - Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
 
 ### Cloud Login Not Available
-If cloud login is not supported on your platform (see [platform requirements](#cloud-login)), check **Enter credentials manually instead** on the email form and enter credentials extracted from the app (see [Extracting Credentials](#extracting-credentials-manual-alternative)).
+Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.

@@ -214,7 +214,7 @@ For devices with cloud-only firmware (e.g. HD9280 4.0.0/0.6.8) where the app nev
 
 3. **Check results** - the tool will print any registered devices and their `localCredentials` if available.
 
-This is experimental. It authenticates via email OTP + headless browser OAuth, then queries the Philips IoT API. It only works for devices registered in the Philips cloud.
+This is experimental. It authenticates via email OTP + headless browser OAuth, then queries both the Philips Home ID API (the app's primary backend) and the IoT API for registered devices and credentials.
 
 See [`tools/cloud_key_fetcher.py`](tools/cloud_key_fetcher.py) for details.
 

@@ -33,6 +33,7 @@ import logging
 import secrets
 import shutil
 import subprocess
+import time
 import urllib.parse
 from base64 import urlsafe_b64encode
 from typing import Any
@@ -52,6 +53,10 @@ _LOGGER = logging.getLogger(__name__)
 
 # IoT API (production, from APK DomainConfig)
 IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
+
+# Home ID API (from APK BackendConfigKt, used for HAL-based appliance listing)
+HOMEID_API_BASE = "https://www.home.id/api"
+HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
 
 # OAuth scopes (full set from APK)
 OAUTH_SCOPES = (
@@ -502,6 +507,153 @@ class PhilipsCloudAPI:
         if isinstance(data, dict):
             return data.get("homes") or data.get("data") or []
         return []
+
+    async def get_appliances_via_homeid(
+        self, access_token: str
+    ) -> list[dict[str, Any]]:
+        """Get appliances via the Home ID HAL API (the app's primary backend).
+
+        Follows the HAL link chain:
+        1. Discovery: GET /.well-known/tenant/oneka -> profileUrl
+        2. Profile: GET {profileUrl} -> _links.userAppliances.href
+        3. Appliances: GET {appliancesUrl} -> _embedded.item[]
+
+        Each appliance may contain clientId, clientSecret, macAddress, etc.
+        Returns list of appliance dicts.
+        """
+        session = await self._get_session()
+        ts = int(time.time() * 1000)
+        hal_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": HOMEID_ACCEPT,
+        }
+
+        # Step 1: Discovery service
+        discovery_url = f"{HOMEID_API_BASE}/.well-known/tenant/oneka"
+        _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
+        async with session.get(discovery_url) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "HomeID discovery response: HTTP %s, body: %s",
+                resp.status,
+                text[:500],
+            )
+            if resp.status != 200:
+                _LOGGER.error("HomeID discovery failed: HTTP %s", resp.status)
+                return []
+            try:
+                discovery = json.loads(text)
+            except json.JSONDecodeError:
+                _LOGGER.error("HomeID discovery not JSON: %s", text[:200])
+                return []
+
+        profile_url = discovery.get("profileUrl")
+        if not profile_url:
+            _LOGGER.error(
+                "HomeID discovery has no profileUrl, keys: %s",
+                list(discovery.keys()),
+            )
+            return []
+
+        # Make profile URL absolute if relative
+        if profile_url.startswith("/"):
+            profile_url = f"{HOMEID_API_BASE}{profile_url}"
+
+        # Step 2: Get user profile (contains appliances link and maybe embedded)
+        profile_req_url = f"{profile_url}?ts={ts}"
+        _LOGGER.debug("HomeID profile: GET %s", profile_req_url)
+        async with session.get(profile_req_url, headers=hal_headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "HomeID profile response: HTTP %s, body (first 1000): %s",
+                resp.status,
+                text[:1000],
+            )
+            if resp.status != 200:
+                _LOGGER.error("HomeID profile failed: HTTP %s", resp.status)
+                return []
+            try:
+                profile = json.loads(text)
+            except json.JSONDecodeError:
+                _LOGGER.error("HomeID profile not JSON: %s", text[:200])
+                return []
+
+        # Try embedded appliances first (profile may include them inline)
+        embedded = profile.get("_embedded", {})
+        appliances_embedded = embedded.get("userAppliances", {})
+        if isinstance(appliances_embedded, dict):
+            items = appliances_embedded.get("_embedded", {}).get("item", [])
+            if items:
+                _LOGGER.debug(
+                    "HomeID: found %d embedded appliance(s) in profile", len(items)
+                )
+                self._log_appliances(items)
+                return items
+
+        # Follow HAL link to appliances
+        links = profile.get("_links", {})
+        appliances_link = links.get("userAppliances", {})
+        appliances_href = (
+            appliances_link.get("href", "") if isinstance(appliances_link, dict) else ""
+        )
+
+        if not appliances_href:
+            _LOGGER.debug(
+                "HomeID profile has no userAppliances link, _links keys: %s",
+                list(links.keys()),
+            )
+            return []
+
+        # Make absolute if relative
+        if appliances_href.startswith("/"):
+            appliances_href = f"{HOMEID_API_BASE}{appliances_href}"
+
+        # Step 3: Get appliances
+        appliances_req_url = f"{appliances_href}?ts={ts}&includeSkippedPairing=true"
+        _LOGGER.debug("HomeID appliances: GET %s", appliances_req_url)
+        async with session.get(appliances_req_url, headers=hal_headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "HomeID appliances response: HTTP %s, body (first 2000): %s",
+                resp.status,
+                text[:2000],
+            )
+            if resp.status != 200:
+                _LOGGER.error("HomeID appliances failed: HTTP %s", resp.status)
+                return []
+            try:
+                appliances_data = json.loads(text)
+            except json.JSONDecodeError:
+                _LOGGER.error("HomeID appliances not JSON: %s", text[:200])
+                return []
+
+        # Extract items from HAL _embedded.item
+        if isinstance(appliances_data, dict):
+            items = appliances_data.get("_embedded", {}).get("item", [])
+        elif isinstance(appliances_data, list):
+            items = appliances_data
+        else:
+            items = []
+
+        _LOGGER.debug("HomeID: found %d appliance(s)", len(items))
+        self._log_appliances(items)
+        return items
+
+    def _log_appliances(self, items: list[dict[str, Any]]) -> None:
+        """Log appliance details for debugging."""
+        for item in items:
+            _LOGGER.debug(
+                "  Appliance: name=%s, mac=%s, fw=%s, "
+                "has_clientId=%s, has_clientSecret=%s, "
+                "registeredIn=%s, externalDeviceId=%s",
+                item.get("name", "?"),
+                item.get("macAddress", "?"),
+                item.get("firmwareVersion", "?"),
+                bool(item.get("clientId")),
+                bool(item.get("clientSecret")),
+                item.get("registeredIn", "?"),
+                item.get("externalDeviceId", "?"),
+            )
 
     async def get_device_credentials(
         self, access_token: str, device_ids: list[str], ctns: list[str]

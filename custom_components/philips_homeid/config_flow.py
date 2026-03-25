@@ -108,6 +108,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_session_token: str = ""
         self._cloud_tokens: dict[str, Any] = {}
         self._cloud_devices: list[dict[str, Any]] = []
+        self._cloud_source: str = ""  # "homeid" or "iot"
         self._install_task: asyncio.Task[bool] | None = None
 
     async def _close_cloud_api(self) -> None:
@@ -451,31 +452,45 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     tokens = await self._cloud_api.get_oidc_tokens(session_token)
                     self._cloud_tokens = tokens
 
-                    # Verify token with user profile
+                    # Try Home ID HAL API first (the app's primary backend)
+                    _LOGGER.debug("Trying Home ID API for appliances")
+                    appliances = await self._cloud_api.get_appliances_via_homeid(
+                        tokens["access_token"]
+                    )
+
+                    if appliances:
+                        self._cloud_devices = appliances
+                        self._cloud_source = "homeid"
+                        return await self.async_step_cloud_devices()
+
+                    # Fall back to IoT API
+                    _LOGGER.debug("Home ID API returned no appliances, trying IoT API")
+
+                    # Verify token with user profile (IoT)
                     try:
                         profile = await self._cloud_api.get_user_profile(
                             tokens["access_token"]
                         )
-                        _LOGGER.debug("Cloud user: id=%s", profile.get("id", "unknown"))
+                        _LOGGER.debug("IoT user: id=%s", profile.get("id", "unknown"))
                     except CloudAuthError:
-                        _LOGGER.warning("Could not fetch user profile (non-fatal)")
+                        _LOGGER.warning("Could not fetch IoT user profile (non-fatal)")
 
-                    # Get device list
                     devices = await self._cloud_api.get_devices(tokens["access_token"])
-                    self._cloud_devices = devices
 
                     # Also query homes for debug context
                     try:
                         homes = await self._cloud_api.get_homes(tokens["access_token"])
                         if homes:
-                            _LOGGER.debug("Cloud homes: %d found", len(homes))
+                            _LOGGER.debug("IoT homes: %d found", len(homes))
                     except Exception:
                         pass
 
-                    if not devices:
-                        errors["base"] = "no_cloud_devices"
-                    else:
+                    if devices:
+                        self._cloud_devices = devices
+                        self._cloud_source = "iot"
                         return await self.async_step_cloud_devices()
+
+                    errors["base"] = "no_cloud_devices"
 
                 except CloudAuthError as err:
                     _LOGGER.error("Cloud auth failed: %s", err)
@@ -504,88 +519,142 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None and self._cloud_api:
             selected = user_input.get("device")
             if selected:
-                # Find selected device
                 device_data = None
-                for dev in self._cloud_devices:
-                    dev_id = dev.get("id", "")
-                    if dev_id == selected:
+                for idx, dev in enumerate(self._cloud_devices):
+                    if str(idx) == selected:
                         device_data = dev
                         break
 
                 if device_data:
-                    # Try to get credentials
-                    ctn = device_data.get("ctn", "")
-                    try:
-                        cred_list = await self._cloud_api.get_device_credentials(
-                            self._cloud_tokens["access_token"],
-                            [device_data["id"]],
-                            [ctn] if ctn else [],
+                    if self._cloud_source == "homeid":
+                        result = await self._create_entry_from_homeid(
+                            device_data, errors
                         )
-                    except Exception:
-                        _LOGGER.exception("Error fetching credentials")
-                        cred_list = []
-                    finally:
-                        await self._cloud_api.close()
-                        self._cloud_api = None
-
-                    # Extract credentials
-                    creds = None
-                    for cred_dev in cred_list:
-                        parsed = cred_dev.get("parsed_credentials")
-                        if parsed:
-                            creds = parsed
-                            break
-
-                    if creds:
-                        # Get IP: try cloud response, fall back to discovered device
-                        host = device_data.get("ipAddress", "")
-                        if not host and self._discovered_device:
-                            host = self._discovered_device.ip_address
-                        if not host:
-                            errors["base"] = "cloud_no_ip"
-                        else:
-                            entry_data = {
-                                CONF_HOST: host,
-                                CONF_CPP_ID: device_data.get("id", ""),
-                                CONF_MODEL: ctn,
-                                CONF_DEVICE_ID: device_data.get("id", ""),
-                                CONF_CLIENT_ID: creds.get("client_id", ""),
-                                CONF_CLIENT_SECRET: creds.get("client_secret", ""),
-                                CONF_USE_HTTPS: True,
-                                CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get(
-                                    "refresh_token", ""
-                                ),
-                            }
-                            enc_key = creds.get("encryption_key")
-                            if enc_key:
-                                entry_data[CONF_ENCRYPTION_KEY] = enc_key
-
-                            await self.async_set_unique_id(device_data.get("id", host))
-                            self._abort_if_unique_id_configured()
-
-                            return self.async_create_entry(
-                                title=device_data.get("friendlyName", ctn)
-                                or ctn
-                                or host,
-                                data=entry_data,
-                            )
                     else:
-                        errors["base"] = "cloud_credentials_not_found"
+                        result = await self._create_entry_from_iot(device_data, errors)
+                    if result:
+                        return result
 
-        # Build device selection dropdown
-        device_options = {}
-        for dev in self._cloud_devices:
-            dev_id = dev.get("id", "")
-            name = dev.get("friendlyName", "") or dev.get("ctn", dev_id)
-            ctn = dev.get("ctn", "")
-            label = f"{name} ({ctn})" if ctn else name
-            device_options[dev_id] = label
+        # Build device selection dropdown (use index as key for both sources)
+        device_options: dict[str, str] = {}
+        for idx, dev in enumerate(self._cloud_devices):
+            if self._cloud_source == "homeid":
+                name = dev.get("name", "") or "Unknown"
+                mac = dev.get("macAddress", "")
+                label = f"{name} ({mac})" if mac else name
+            else:
+                name = dev.get("friendlyName", "") or dev.get("ctn", "")
+                ctn = dev.get("ctn", "")
+                label = f"{name} ({ctn})" if ctn else name
+            device_options[str(idx)] = label
 
         return self.async_show_form(
             step_id="cloud_devices",
             data_schema=vol.Schema({vol.Required("device"): vol.In(device_options)}),
             errors=errors,
         )
+
+    async def _create_entry_from_homeid(
+        self, device_data: dict[str, Any], errors: dict[str, str]
+    ) -> ConfigFlowResult | None:
+        """Create config entry from Home ID appliance data."""
+        client_id = device_data.get("clientId", "")
+        client_secret = device_data.get("clientSecret", "")
+
+        if not client_id or not client_secret:
+            _LOGGER.warning(
+                "Home ID appliance has no credentials: clientId=%s, clientSecret=%s",
+                bool(client_id),
+                bool(client_secret),
+            )
+            errors["base"] = "cloud_credentials_not_found"
+            return None
+
+        # Resolve IP: use discovered device or MAC-based lookup
+        host = ""
+        mac = device_data.get("macAddress", "")
+        if self._discovered_device:
+            host = self._discovered_device.ip_address
+        if not host:
+            errors["base"] = "cloud_no_ip"
+            return None
+
+        # Use MAC as unique ID (matches cpp_id format)
+        unique_id = mac or host
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+
+        name = device_data.get("name", "") or mac or host
+        entry_data = {
+            CONF_HOST: host,
+            CONF_CPP_ID: mac,
+            CONF_MODEL: device_data.get("serialNumber", ""),
+            CONF_DEVICE_ID: mac,
+            CONF_CLIENT_ID: client_id,
+            CONF_CLIENT_SECRET: client_secret,
+            CONF_USE_HTTPS: True,
+            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+        }
+
+        await self._close_cloud_api()
+        return self.async_create_entry(title=name, data=entry_data)
+
+    async def _create_entry_from_iot(
+        self, device_data: dict[str, Any], errors: dict[str, str]
+    ) -> ConfigFlowResult | None:
+        """Create config entry from IoT API device data (migration flow)."""
+        assert self._cloud_api is not None
+        ctn = device_data.get("ctn", "")
+        try:
+            cred_list = await self._cloud_api.get_device_credentials(
+                self._cloud_tokens["access_token"],
+                [device_data["id"]],
+                [ctn] if ctn else [],
+            )
+        except Exception:
+            _LOGGER.exception("Error fetching credentials")
+            cred_list = []
+        finally:
+            await self._close_cloud_api()
+
+        creds = None
+        for cred_dev in cred_list:
+            parsed = cred_dev.get("parsed_credentials")
+            if parsed:
+                creds = parsed
+                break
+
+        if not creds:
+            errors["base"] = "cloud_credentials_not_found"
+            return None
+
+        host = device_data.get("ipAddress", "")
+        if not host and self._discovered_device:
+            host = self._discovered_device.ip_address
+        if not host:
+            errors["base"] = "cloud_no_ip"
+            return None
+
+        unique_id = device_data.get("id", host)
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured()
+
+        entry_data = {
+            CONF_HOST: host,
+            CONF_CPP_ID: device_data.get("id", ""),
+            CONF_MODEL: ctn,
+            CONF_DEVICE_ID: device_data.get("id", ""),
+            CONF_CLIENT_ID: creds.get("client_id", ""),
+            CONF_CLIENT_SECRET: creds.get("client_secret", ""),
+            CONF_USE_HTTPS: True,
+            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+        }
+        enc_key = creds.get("encryption_key")
+        if enc_key:
+            entry_data[CONF_ENCRYPTION_KEY] = enc_key
+
+        name = device_data.get("friendlyName", ctn) or ctn or host
+        return self.async_create_entry(title=name, data=entry_data)
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo

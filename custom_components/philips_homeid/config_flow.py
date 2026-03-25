@@ -67,7 +67,6 @@ from .local_api import (
 _LOGGER = logging.getLogger(__name__)
 
 DEVICE_MODELS = {
-    "auto": "Auto-detect",
     "HD9200": "Air Fryer HD9200",
     "HD9255": "Air Fryer HD9255",
     "HD9280": "Air Fryer HD9280",
@@ -78,12 +77,13 @@ DEVICE_MODELS = {
     "NX0950": "Multicooker NX0950 (Hermes)",
     "NX0960": "Multicooker NX0960 (Nutrimax)",
     "AC": "Air Purifier (AC series)",
+    "auto": "Auto-detect (may crash device, use only if model not listed)",
 }
 
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
-        vol.Optional("model", default="auto"): vol.In(DEVICE_MODELS),
+        vol.Required("model"): vol.In(DEVICE_MODELS),
     }
 )
 

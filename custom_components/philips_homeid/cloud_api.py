@@ -473,7 +473,7 @@ class PhilipsCloudAPI:
             with sync_playwright() as p:
                 launch_args: dict[str, Any] = {
                     "headless": True,
-                    "args": ["--disable-gpu"],
+                    "args": ["--disable-gpu", "--disable-software-rasterizer"],
                 }
                 if alpine:
                     launch_args["executable_path"] = _ALPINE_CHROMIUM

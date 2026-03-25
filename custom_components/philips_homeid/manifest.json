@@ -16,7 +16,7 @@
       "st": "urn:philips-com:device:DiProduct:1"
     }
   ],
-  "version": "2.0.9",
+  "version": "2.0.10",
   "zeroconf": [
     {
       "type": "_philipscondor._tcp.local."

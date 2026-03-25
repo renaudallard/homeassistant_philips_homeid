@@ -584,11 +584,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 
-        name = device_data.get("name", "") or mac or host
+        # Use discovered device model if available, fall back to cloud data
+        model = ""
+        if self._discovered_device and self._discovered_device.model_name:
+            model = self._discovered_device.model_name
+        name = device_data.get("name", "") or model or mac or host
         entry_data = {
             CONF_HOST: host,
             CONF_CPP_ID: mac,
-            CONF_MODEL: device_data.get("serialNumber", ""),
+            CONF_MODEL: model,
             CONF_DEVICE_ID: mac,
             CONF_CLIENT_ID: client_id,
             CONF_CLIENT_SECRET: client_secret,

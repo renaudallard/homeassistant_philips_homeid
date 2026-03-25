@@ -325,7 +325,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 <details>
 <summary><b>Multicooker Entities (NX0960/NX0950)</b></summary>
 
-All air fryer entities above, plus:
+All air fryer entities above (including target/current temperature and total cook time), plus:
 
 | Type | Entity | Description |
 |------|--------|-------------|

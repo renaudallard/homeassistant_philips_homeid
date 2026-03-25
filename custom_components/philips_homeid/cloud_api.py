@@ -92,8 +92,9 @@ _ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
 # Script executed in a subprocess to isolate Playwright from HA's process
 # management (signal handlers, child process reaping).
 _BROWSER_OAUTH_SCRIPT = """\
-import sys, os, secrets, urllib.parse
-os.environ["DEBUG"] = "pw:*"
+import sys, os, logging, secrets, urllib.parse
+if logging.getLogger("{logger_name}").isEnabledFor(logging.DEBUG):
+    os.environ["DEBUG"] = "pw:*"
 from playwright.sync_api import sync_playwright
 
 session_token = "{session_token}"
@@ -113,9 +114,7 @@ with sync_playwright() as p:
             "--disable-gpu-compositing",
             "--disable-gpu-sandbox",
             "--disable-seccomp-filter-sandbox",
-            "--single-process",
-            "--enable-logging=stderr",
-            "--v=1",
+            "--single-process",{chromium_debug_args}
         ],
     }}
     if executable_path:
@@ -291,7 +290,7 @@ class PhilipsCloudAPI:
         # Only uninstall after if we installed it ourselves
         uninstall = self._we_installed_playwright
         alpine = self._alpine_install
-        _LOGGER.warning("OAuth params: alpine=%s, we_installed=%s", alpine, uninstall)
+        _LOGGER.debug("OAuth params: alpine=%s, we_installed=%s", alpine, uninstall)
         loop = asyncio.get_running_loop()
         auth_code = await loop.run_in_executor(
             None,
@@ -371,13 +370,11 @@ class PhilipsCloudAPI:
         try:
             import playwright  # noqa: F401
 
-            _LOGGER.warning(
-                "Playwright already importable from %s", playwright.__file__
-            )
+            _LOGGER.debug("Playwright already importable from %s", playwright.__file__)
             # Detect Alpine even if playwright was pre-installed
             if not self._alpine_install and os.path.exists("/etc/alpine-release"):
                 self._alpine_install = True
-                _LOGGER.warning("Alpine detected, setting alpine flag")
+                _LOGGER.debug("Alpine detected, setting alpine flag")
             return True
         except ImportError:
             pass
@@ -389,7 +386,7 @@ class PhilipsCloudAPI:
             return False
 
         is_musl = self._is_musl()
-        _LOGGER.warning("musl detected: %s", is_musl)
+        _LOGGER.debug("musl detected: %s", is_musl)
         if is_musl:
             return self._install_playwright_alpine()
         return self._install_playwright_glibc()
@@ -581,38 +578,56 @@ class PhilipsCloudAPI:
         reaping) which can kill Playwright's internal Node.js driver.
         """
         executable = _ALPINE_CHROMIUM if alpine else ""
+        debug = _LOGGER.isEnabledFor(logging.DEBUG)
+        chromium_debug = (
+            '\n            "--enable-logging=stderr",\n            "--v=1",'
+            if debug
+            else ""
+        )
         script = _BROWSER_OAUTH_SCRIPT.format(
             session_token=session_token,
             auth_url=auth_url,
             gigya_api_key=GIGYA_API_KEY,
             executable_path=executable,
             pw_target=_ALPINE_PW_TARGET,
+            logger_name=__name__,
+            chromium_debug_args=chromium_debug,
         )
         auth_code = None
         try:
             env = os.environ.copy()
-            env["DEBUG"] = "pw:*"
             if _ALPINE_PW_TARGET not in (env.get("PYTHONPATH") or ""):
                 env["PYTHONPATH"] = _ALPINE_PW_TARGET + ":" + env.get("PYTHONPATH", "")
+            stderr_target: Any = subprocess.PIPE
             debug_log = "/tmp/playwright_debug.log"
-            with open(debug_log, "w") as dbg:
+            if debug:
+                stderr_target = open(debug_log, "w")  # noqa: SIM115
+            try:
                 result = subprocess.run(
                     [sys.executable, "-c", script],
                     stdout=subprocess.PIPE,
-                    stderr=dbg,
+                    stderr=stderr_target,
                     text=True,
                     timeout=60,
                     env=env,
                 )
+            finally:
+                if stderr_target is not subprocess.PIPE:
+                    stderr_target.close()
             if result.returncode == 0:
                 auth_code = result.stdout.strip() or None
                 if auth_code:
                     _LOGGER.info("Browser OAuth obtained auth code")
             else:
+                stderr_msg = ""
+                if debug:
+                    stderr_msg = f", debug log at {debug_log}"
+                elif result.stderr:
+                    stderr_msg = f": {result.stderr.strip()[:500]}"
                 _LOGGER.error(
-                    "Browser OAuth subprocess failed (exit %d), debug log at %s",
+                    "Browser OAuth subprocess failed (exit %d)%s",
                     result.returncode,
-                    debug_log,
+                    stderr_msg,
                 )
         except (subprocess.TimeoutExpired, FileNotFoundError):
             _LOGGER.exception("Browser OAuth subprocess error")

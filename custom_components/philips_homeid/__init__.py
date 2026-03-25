@@ -147,23 +147,25 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         loop=hass.loop,
     )
 
-    try:
-        await hass.async_add_executor_job(
-            mqtt_client.connect,
-            sig_data.get("accessToken", access_token),
-            sig_data.get("mqttSignature", ""),
-        )
-    except Exception as err:
-        raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
-
-    # Create coordinator in MQTT mode
+    # Create coordinator in MQTT mode (before connect so callback is ready)
     api = PhilipsLocalAPI()  # unused but required by coordinator signature
     coordinator = PhilipsHomeIDCoordinator(
         hass, api, device_info, entry, mqtt_client=mqtt_client
     )
 
-    # Wire MQTT push updates to coordinator
+    # Wire MQTT push updates to coordinator BEFORE connect
+    # to avoid missing the initial shadow response
     mqtt_client.set_state_callback(coordinator.update_from_mqtt)
+
+    # APK SignatureResponse has field "signature", not "mqttSignature"
+    try:
+        await hass.async_add_executor_job(
+            mqtt_client.connect,
+            sig_data.get("accessToken", access_token),
+            sig_data.get("signature", ""),
+        )
+    except Exception as err:
+        raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
 
     # Initial data fetch via shadow/get
     try:

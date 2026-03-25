@@ -10,6 +10,10 @@
 
 Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
 
+<p align="center">
+  <img src="images/screenshot.png" alt="Philips HomeID device in Home Assistant" width="500">
+</p>
+
 ---
 
 ## Supported Devices

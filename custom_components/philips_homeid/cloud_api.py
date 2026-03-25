@@ -323,7 +323,11 @@ class PhilipsCloudAPI:
             _LOGGER.info("Playwright and chromium installed successfully")
             self._we_installed_playwright = True
             return True
-        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
+        except subprocess.CalledProcessError as err:
+            stderr = (err.stderr or b"").decode(errors="replace").strip()
+            _LOGGER.error("Failed to install playwright: %s", stderr)
+            return False
+        except (FileNotFoundError, TimeoutError):
             _LOGGER.exception("Failed to install playwright")
             return False
 
@@ -359,10 +363,17 @@ class PhilipsCloudAPI:
 
             # Step 3: Force-install playwright wheel to temp dir
             # (manylinux wheel, --no-deps since we installed deps above)
+            # Alpine/musl needs --platform to download manylinux wheels.
+            # The wheel tag varies: manylinux1_x86_64 for x86,
+            # manylinux_2_17_aarch64 for arm. Try both.
             machine = platform.machine().lower()
-            plat_tag = f"manylinux_2_17_{machine}"
-            subprocess.run(
-                [
+            plat_tags = [
+                f"manylinux1_{machine}",
+                f"manylinux_2_17_{machine}",
+            ]
+            installed = False
+            for plat_tag in plat_tags:
+                pip_cmd = [
                     sys.executable,
                     "-m",
                     "pip",
@@ -375,11 +386,26 @@ class PhilipsCloudAPI:
                     "--target",
                     _ALPINE_PW_TARGET,
                     "playwright",
-                ],
-                capture_output=True,
-                check=True,
-                timeout=120,
-            )
+                ]
+                result = subprocess.run(
+                    pip_cmd,
+                    capture_output=True,
+                    timeout=120,
+                )
+                if result.returncode == 0:
+                    installed = True
+                    break
+                _LOGGER.debug(
+                    "pip install playwright with %s failed: %s",
+                    plat_tag,
+                    result.stderr.decode(errors="replace").strip(),
+                )
+            if not installed:
+                _LOGGER.error(
+                    "pip install playwright failed for all platform tags: %s",
+                    ", ".join(plat_tags),
+                )
+                return False
             _LOGGER.debug("Playwright wheel installed to %s", _ALPINE_PW_TARGET)
 
             # Step 4: Replace bundled glibc node with system node
@@ -411,7 +437,11 @@ class PhilipsCloudAPI:
             self._we_installed_playwright = True
             self._alpine_install = True
             return True
-        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
+        except subprocess.CalledProcessError as err:
+            stderr = (err.stderr or b"").decode(errors="replace").strip()
+            _LOGGER.error("Failed to install playwright on Alpine: %s", stderr)
+            return False
+        except (FileNotFoundError, TimeoutError):
             _LOGGER.exception("Failed to install playwright on Alpine")
             return False
         except ImportError:

@@ -63,6 +63,7 @@ SCOPES = (
     "DI.Account.read DI.AccountProfile.read DI.AccountProfile.write "
     "DI.AccountGeneralConsent.read DI.AccountGeneralConsent.write "
     "DI.GeneralConsent.read DI.GeneralConsent.write "
+    "VoiceProvider.read VoiceProvider.write "
     "subscriptions consents profile_extended "
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )

@@ -59,7 +59,9 @@ HOMEID_API_BASE = "https://www.home.id/api"
 HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
 
 # Headers matching the Android app (DefaultRequestInterceptor)
-HOMEID_USER_AGENT = "HomeID/8.16.0 (com.philips.ka.oneka.app; build:1; Android 14)"
+HOMEID_USER_AGENT = (
+    "HomeID/8.16.0 (com.philips.ka.oneka.app; build:8160001; Android 14)"
+)
 HOMEID_X_USER_AGENT = "Android 14;8.16.0"
 
 # OAuth scopes (full set from APK)
@@ -68,6 +70,7 @@ OAUTH_SCOPES = (
     "DI.Account.read DI.AccountProfile.read DI.AccountProfile.write "
     "DI.AccountGeneralConsent.read DI.AccountGeneralConsent.write "
     "DI.GeneralConsent.read DI.GeneralConsent.write "
+    "VoiceProvider.read VoiceProvider.write "
     "subscriptions consents profile_extended "
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )

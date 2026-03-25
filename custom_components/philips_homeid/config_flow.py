@@ -155,8 +155,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm the discovered device."""
         if user_input is not None:
-            # Try to pair with the device
-            return await self.async_step_pair()
+            return await self.async_step_cloud_email()
 
         device = self._discovered_device
         if not device:
@@ -169,58 +168,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "model": device.model_name or "Unknown",
             },
         )
-
-    async def async_step_pair(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Try auto-pairing, then fall back to cloud login."""
-        device = self._discovered_device
-        if not device:
-            return self.async_abort(reason="cannot_connect")
-
-        # Try auto-pairing silently
-        try:
-            self._local_api = PhilipsLocalAPI()
-
-            clear_success, clear_msg = await self._local_api.try_clear_pairing(device)
-            if clear_success:
-                _LOGGER.info("Cleared existing pairing: %s", clear_msg)
-
-            success, message = await self._local_api.pair_device(device)
-
-            if success:
-                if not device.use_https:
-                    await self._local_api.exchange_encryption_key(device)
-
-                entry_data = {
-                    CONF_HOST: device.ip_address,
-                    CONF_CPP_ID: device.cpp_id,
-                    CONF_MODEL: device.model_name,
-                    CONF_DEVICE_ID: device.cpp_id,
-                    CONF_CLIENT_ID: device.client_id,
-                    CONF_CLIENT_SECRET: device.client_secret,
-                    CONF_USE_HTTPS: device.use_https,
-                }
-                if device.encryption_key:
-                    entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
-                return self.async_create_entry(
-                    title=device.friendly_name
-                    or device.model_name
-                    or device.ip_address,
-                    data=entry_data,
-                )
-            else:
-                _LOGGER.info("Auto-pairing failed: %s, trying cloud login", message)
-
-        except Exception:
-            _LOGGER.exception("Unexpected exception during pairing")
-        finally:
-            if self._local_api:
-                await self._local_api.close()
-                self._local_api = None
-
-        # Pairing failed: go to cloud login as default
-        return await self.async_step_cloud_email()
 
     async def async_step_manual_credentials(
         self, user_input: dict[str, Any] | None = None
@@ -653,7 +600,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm zeroconf discovered device."""
         if user_input is not None:
-            return await self.async_step_pair()
+            return await self.async_step_cloud_email()
 
         device = self._discovered_device
         if not device:
@@ -709,7 +656,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm SSDP discovered device."""
         if user_input is not None:
-            return await self.async_step_pair()
+            return await self.async_step_cloud_email()
 
         device = self._discovered_device
         if not device:

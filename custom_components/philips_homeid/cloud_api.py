@@ -30,10 +30,12 @@ import asyncio
 import hashlib
 import json
 import logging
+import platform
 import re
 import secrets
 import shutil
 import subprocess
+import sys
 import time
 import urllib.parse
 from base64 import urlsafe_b64encode
@@ -89,6 +91,7 @@ class PhilipsCloudAPI:
     def __init__(self) -> None:
         """Initialize the cloud API client."""
         self._session: aiohttp.ClientSession | None = None
+        self._we_installed_playwright: bool = False
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -197,9 +200,12 @@ class PhilipsCloudAPI:
         auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(params)}"
 
         # Run headless browser OAuth in executor (Playwright is sync)
+        # Only uninstall after if we installed it ourselves
+        uninstall = self._we_installed_playwright
         loop = asyncio.get_running_loop()
         auth_code = await loop.run_in_executor(
-            None, self._browser_oauth, session_token, auth_url
+            None,
+            lambda: self._browser_oauth(session_token, auth_url, uninstall),
         )
 
         if not auth_code:
@@ -222,10 +228,35 @@ class PhilipsCloudAPI:
             return False
 
     @staticmethod
-    def install_playwright() -> bool:
+    def check_playwright_platform() -> str | None:
+        """Check if the current platform supports Playwright.
+
+        Returns None if supported, or an error message if not.
+        Playwright supports: Linux x86_64/aarch64, macOS x86_64/arm64,
+        Windows x86/amd64/arm64.
+        """
+        plat = sys.platform
+        machine = platform.machine().lower()
+
+        if plat == "linux":
+            if machine in ("x86_64", "aarch64"):
+                return None
+            return (
+                f"Playwright does not support Linux {machine}. "
+                "Cloud login requires Linux x86_64 or aarch64 (64-bit)."
+            )
+        if plat == "darwin":
+            return None  # macOS x86_64 and arm64 both supported
+        if plat == "win32":
+            return None  # Windows x86, amd64, arm64 all supported
+
+        return f"Playwright does not support platform {plat}/{machine}."
+
+    def install_playwright(self) -> bool:
         """Install Playwright and Chromium. Returns True on success.
 
         Safe to call if already installed (no-op).
+        Tracks whether we installed it so we only uninstall our own install.
         """
         try:
             import playwright  # noqa: F401
@@ -234,6 +265,12 @@ class PhilipsCloudAPI:
             return True
         except ImportError:
             pass
+
+        # Check platform before attempting install
+        platform_error = PhilipsCloudAPI.check_playwright_platform()
+        if platform_error:
+            _LOGGER.error(platform_error)
+            return False
 
         _LOGGER.info("Installing playwright for cloud authentication")
         try:
@@ -251,6 +288,7 @@ class PhilipsCloudAPI:
                 timeout=300,
             )
             _LOGGER.info("Playwright and chromium installed successfully")
+            self._we_installed_playwright = True
             return True
         except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
             _LOGGER.exception("Failed to install playwright")
@@ -277,7 +315,9 @@ class PhilipsCloudAPI:
             _LOGGER.debug("Playwright uninstall failed (non-critical)")
 
     @staticmethod
-    def _browser_oauth(session_token: str, auth_url: str) -> str | None:
+    def _browser_oauth(
+        session_token: str, auth_url: str, uninstall_after: bool = True
+    ) -> str | None:
         """Run headless browser OAuth flow (sync, runs in executor).
 
         Matches the exact flow from cloud_key_fetcher.py:
@@ -370,7 +410,8 @@ class PhilipsCloudAPI:
         except Exception:
             _LOGGER.exception("Browser OAuth flow failed")
         finally:
-            PhilipsCloudAPI._uninstall_playwright()
+            if uninstall_after:
+                PhilipsCloudAPI._uninstall_playwright()
 
         return auth_code
 

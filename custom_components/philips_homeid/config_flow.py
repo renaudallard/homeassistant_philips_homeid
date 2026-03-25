@@ -66,18 +66,6 @@ from .local_api import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Pairing instructions for different device types
-PAIRING_INSTRUCTIONS = {
-    "airfryer": (
-        "Device must be in pairing mode (factory reset or unpaired from HomeID app).\n\n"
-        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
-    ),
-    "default": (
-        "Device must be in pairing mode.\n\n"
-        "If pairing fails, check 'Enter credentials manually' or 'Log in with Philips account' below."
-    ),
-}
-
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -185,101 +173,54 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_pair(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Pair with the device to obtain credentials."""
-        errors: dict[str, str] = {}
+        """Try auto-pairing, then fall back to cloud login."""
         device = self._discovered_device
         if not device:
             return self.async_abort(reason="cannot_connect")
-        error_message = ""
 
-        if user_input is not None:
-            # Check if user wants to enter credentials manually
-            if user_input.get("manual_entry"):
-                return await self.async_step_manual_credentials()
-            # Check if user wants cloud login
-            if user_input.get("cloud_login"):
-                return await self.async_step_cloud_email()
+        # Try auto-pairing silently
+        try:
+            self._local_api = PhilipsLocalAPI()
 
-            # Try pairing
-            try:
-                self._local_api = PhilipsLocalAPI()
+            clear_success, clear_msg = await self._local_api.try_clear_pairing(device)
+            if clear_success:
+                _LOGGER.info("Cleared existing pairing: %s", clear_msg)
 
-                # First try to clear existing pairing
-                clear_success, clear_msg = await self._local_api.try_clear_pairing(
-                    device
-                )
-                if clear_success:
-                    _LOGGER.info("Cleared existing pairing: %s", clear_msg)
+            success, message = await self._local_api.pair_device(device)
 
-                # Now try to pair
-                success, message = await self._local_api.pair_device(device)
+            if success:
+                if not device.use_https:
+                    await self._local_api.exchange_encryption_key(device)
 
-                if success:
-                    # For HTTP devices, try to fetch the encryption key
-                    if not device.use_https:
-                        await self._local_api.exchange_encryption_key(device)
-                        if not device.encryption_key:
-                            _LOGGER.warning(
-                                "Failed to obtain encryption key for HTTP device %s after pairing",
-                                device.ip_address,
-                            )
-
-                    entry_data = {
-                        CONF_HOST: device.ip_address,
-                        CONF_CPP_ID: device.cpp_id,
-                        CONF_MODEL: device.model_name,
-                        CONF_DEVICE_ID: device.cpp_id,
-                        CONF_CLIENT_ID: device.client_id,
-                        CONF_CLIENT_SECRET: device.client_secret,
-                        CONF_USE_HTTPS: device.use_https,
-                    }
-                    if device.encryption_key:
-                        entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
-                    return self.async_create_entry(
-                        title=device.friendly_name
-                        or device.model_name
-                        or device.ip_address,
-                        data=entry_data,
-                    )
-                else:
-                    errors["base"] = "pairing_failed"
-                    error_message = f"\n\n**Error:** {message}"
-                    error_message += (
-                        "\n\n**Options:**\n"
-                        "- Remove device from HomeID app and try again\n"
-                        "- Factory reset the device and try again\n"
-                        "- Check 'Enter credentials manually' below if you have them"
-                    )
-
-            except Exception:
-                _LOGGER.exception("Unexpected exception during pairing")
-                errors["base"] = "unknown"
-            finally:
-                if self._local_api:
-                    await self._local_api.close()
-                    self._local_api = None
-
-        # Determine pairing instructions based on device type
-        model_lower = (device.model_name or "").lower()
-        if "airfryer" in model_lower:
-            instructions = PAIRING_INSTRUCTIONS["airfryer"]
-        else:
-            instructions = PAIRING_INSTRUCTIONS["default"]
-
-        return self.async_show_form(
-            step_id="pair",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("manual_entry", default=False): bool,
-                    vol.Optional("cloud_login", default=False): bool,
+                entry_data = {
+                    CONF_HOST: device.ip_address,
+                    CONF_CPP_ID: device.cpp_id,
+                    CONF_MODEL: device.model_name,
+                    CONF_DEVICE_ID: device.cpp_id,
+                    CONF_CLIENT_ID: device.client_id,
+                    CONF_CLIENT_SECRET: device.client_secret,
+                    CONF_USE_HTTPS: device.use_https,
                 }
-            ),
-            description_placeholders={
-                "name": device.friendly_name or device.model_name or "Unknown Device",
-                "instructions": instructions + error_message,
-            },
-            errors=errors,
-        )
+                if device.encryption_key:
+                    entry_data[CONF_ENCRYPTION_KEY] = device.encryption_key
+                return self.async_create_entry(
+                    title=device.friendly_name
+                    or device.model_name
+                    or device.ip_address,
+                    data=entry_data,
+                )
+            else:
+                _LOGGER.info("Auto-pairing failed: %s, trying cloud login", message)
+
+        except Exception:
+            _LOGGER.exception("Unexpected exception during pairing")
+        finally:
+            if self._local_api:
+                await self._local_api.close()
+                self._local_api = None
+
+        # Pairing failed: go to cloud login as default
+        return await self.async_step_cloud_email()
 
     async def async_step_manual_credentials(
         self, user_input: dict[str, Any] | None = None
@@ -367,10 +308,13 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_cloud_email(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle cloud login - email entry."""
+        """Handle cloud login - email entry (default auth method)."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            if user_input.get("manual_entry"):
+                return await self.async_step_manual_credentials()
+
             email = user_input.get("email", "").strip()
             if email:
                 self._cloud_email = email
@@ -381,7 +325,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="cloud_email",
-            data_schema=vol.Schema({vol.Required("email"): str}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("email"): str,
+                    vol.Optional("manual_entry", default=False): bool,
+                }
+            ),
             errors=errors,
         )
 
@@ -399,6 +348,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Install playwright and send OTP with progress indicator."""
         if self._install_task is None:
+            # Check platform before attempting install
+            platform_error = PhilipsCloudAPI.check_playwright_platform()
+            if platform_error:
+                _LOGGER.error(platform_error)
+                return self.async_abort(reason="playwright_unsupported")
+
             self._install_task = self.hass.async_create_task(
                 self._async_install_and_send_otp()
             )

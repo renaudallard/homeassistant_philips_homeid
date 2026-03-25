@@ -27,7 +27,7 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 
 > **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >
-> **Known limitation:** Some newer firmware versions (e.g., HD9280 firmware 4.0.0/0.6.8, HD9285 firmware 1.6.2/0.6.8) have the app communicate exclusively via cloud relay and never generate local credentials. The device still runs a local HTTP server, but the app does not store the credentials needed to access it. See [Cloud-only firmware](#cloud-only-firmware) in Troubleshooting.
+> **Note:** Some newer firmware versions (e.g., HD9280, HD9285) have the app communicate exclusively via cloud relay and never store local credentials on the phone. The built-in cloud login handles these devices automatically by retrieving credentials from the Philips cloud. See [Cloud-only firmware](#cloud-only-firmware) in Troubleshooting for details.
 
 ---
 
@@ -42,7 +42,7 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 | **Dynamic Entities** | Sensors created only when device reports data |
 | **Firmware Updates** | Shows installed and available firmware versions |
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
-| **Cloud Login** | Experimental fallback for credential retrieval |
+| **Cloud Login** | Retrieve credentials from Philips cloud via your account |
 
 ### Air Purifiers
 - Fan speed and preset modes (auto, manual, sleep, turbo, allergen, bacteria, night)
@@ -98,32 +98,35 @@ Control your Philips domestic appliances locally through Home Assistant. No clou
 
 ### Prerequisites
 
-Your device must first be paired with the **official Philips HomeID app** on Android. The app handles the initial device pairing (including WiFi setup) and generates the credentials needed for local API access. This integration cannot perform the initial pairing itself — it reuses the credentials created by the app.
-
-Once paired, you need to extract the `client_id`, `client_secret`, and (for some models) `encryption_key` from the app. See [Extracting Credentials](#extracting-credentials) below.
+Your device must first be paired with the **official Philips HomeID app** on Android or iOS. The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for local API access either automatically from the Philips cloud or manually from the app's local storage.
 
 ### Adding a Device
 
-1. Extract credentials from the HomeID app (see below)
-2. Go to **Settings** > **Devices & Services** > **Add Integration**
-3. Search for **Philips HomeID**
-4. Enter the device's IP address (or accept an auto-discovered device)
-5. When pairing fails (expected if the device is already paired with the app), check **Enter credentials manually**
-6. Enter your `client_id`, `client_secret`, and `encryption_key` (if applicable)
+1. Go to **Settings** > **Devices & Services** > **Add Integration**
+2. Search for **Philips HomeID**
+3. Enter the device's IP address (or accept an auto-discovered device)
+4. The integration tries auto-pairing first, then automatically offers cloud login
+5. Enter your Philips HomeID account email and the verification code sent to you
+6. Select your device from the list and credentials are retrieved automatically
 
-#### Cloud Login (Experimental Fallback)
+If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
-> **Note:** This feature is experimental and may not work with all accounts or devices.
+#### Cloud Login
 
-If you cannot extract credentials (e.g., cloud-only firmware), use the cloud login option during pairing:
+When auto-pairing fails (which is expected if the device is already paired with the HomeID app), the integration automatically offers cloud login. The cloud login flow:
 
-1. Enter the device IP and confirm
-2. When pairing fails, check **Log in with Philips account**
-3. Enter your Philips HomeID email
-4. Wait while required components are installed (a progress indicator is shown, this may take a few minutes on the first run)
-5. Enter the verification code sent to your email
-6. Select your device from the list
-7. Credentials are retrieved automatically from the cloud
+1. Authenticates with Philips via email OTP (one-time password)
+2. Temporarily installs a headless Chromium browser (Playwright) to complete OAuth authentication
+3. Queries the Philips Home ID backend API to retrieve your device's `client_id` and `client_secret`
+4. Uninstalls Playwright after use (only if it was not already installed)
+
+> **Platform requirements:** Cloud login uses Playwright (headless Chromium) for the OAuth step. Supported platforms:
+> - Linux x86_64 (Intel/AMD 64-bit)
+> - Linux aarch64 (ARM 64-bit, e.g., Raspberry Pi 4/5 with 64-bit OS)
+> - macOS (Intel and Apple Silicon)
+> - Windows (x86, x64, ARM64)
+>
+> **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS), Alpine Linux (musl libc). On unsupported platforms, the integration will show an error and you should use the credential extractor tool or enter credentials manually.
 
 To debug cloud login issues, enable debug logging:
 ```yaml
@@ -136,15 +139,15 @@ logger:
 
 ### Auto-Discovered Devices
 
-Devices discovered via Zeroconf or SSDP will appear automatically. You will still need to enter the credentials extracted from the HomeID app.
+Devices discovered via Zeroconf or SSDP will appear automatically as a notification. Clicking the notification starts the setup flow with cloud login.
 
 ---
 
-## Extracting Credentials
+## Extracting Credentials (Manual Alternative)
 
-To control your device locally, you need credentials generated by the official Philips HomeID app. The app package name is `com.philips.ka.oneka.app`.
+If cloud login is not available on your platform or does not work for your device, you can extract credentials manually from the official Philips HomeID app. The app package name is `com.philips.ka.oneka.app`.
 
-### Method 1: Credential Extractor Tool (Recommended)
+### Method 1: Credential Extractor Tool
 
 The included credential extractor tool automatically tries all known storage locations — SQLite database, EncryptedSharedPreferences, SecurePreferences, and AES-CBC fallback preferences. It works on all firmware versions and handles the Tink/Android Keystore decryption transparently.
 
@@ -194,9 +197,9 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 </details>
 
-### Method 2: Cloud Key Fetcher (Experimental)
+### Method 2: Cloud Key Fetcher (Standalone Tool)
 
-For devices with cloud-only firmware (e.g. HD9280 4.0.0/0.6.8) where the app never generates local credentials, you can try fetching credentials from the Philips cloud API. This requires a Philips HomeID account with the device registered via the official app.
+A standalone command-line version of the cloud login is available for debugging or use outside Home Assistant. This is the same authentication flow used by the built-in cloud login.
 
 <details>
 <summary><b>Step-by-step instructions</b></summary>
@@ -212,9 +215,7 @@ For devices with cloud-only firmware (e.g. HD9280 4.0.0/0.6.8) where the app nev
    python3 tools/cloud_key_fetcher.py your@email.com 123456    # verify OTP + fetch devices
    ```
 
-3. **Check results** - the tool will print any registered devices and their `localCredentials` if available.
-
-This is experimental. It authenticates via email OTP + headless browser OAuth, then queries both the Philips Home ID API (the app's primary backend) and the IoT API for registered devices and credentials.
+3. **Check results** - the tool will print any registered devices and their credentials if available.
 
 See [`tools/cloud_key_fetcher.py`](tools/cloud_key_fetcher.py) for details.
 
@@ -348,14 +349,12 @@ All air fryer entities above, plus:
 - Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration will automatically try both protocols when probing.
 
 ### Pairing Fails
-This is expected if the device is already paired with the Philips HomeID app. Devices can only be paired with one client at a time. You have two options:
-- Check **Enter credentials manually** and enter the credentials you extracted from the app (see [Extracting Credentials](#extracting-credentials))
-- Check **Log in with Philips account** to retrieve credentials from the cloud (experimental)
+This is expected if the device is already paired with the Philips HomeID app. The integration will automatically fall back to cloud login, which retrieves credentials from your Philips account. If cloud login is not available on your platform, check **Enter credentials manually instead** on the email form and enter credentials extracted from the app (see [Extracting Credentials](#extracting-credentials-manual-alternative)).
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.
 
-To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool-recommended).
+To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool).
 
 ### "Could not obtain encryption key" or "credentials invalid" with HTTP Toolkit credentials
 HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_id` and `client_secret`. When you enter credentials without an encryption key, the integration tries to fetch it from the device automatically. If that fails, the most common causes are:
@@ -382,10 +381,10 @@ Some newer firmware versions do not generate local credentials at all. The Phili
 
 **What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are generated or stored. The device is also already paired with the app via the cloud, so it rejects new pairing attempts from the integration.
 
-**Workaround:** Try the **Cloud Login** option during pairing. This retrieves credentials directly from the Philips cloud API using your account. See [Cloud Login](#cloud-login-experimental-fallback) above.
+**Workaround:** The built-in **Cloud Login** retrieves credentials directly from the Philips cloud API using your account. This is now the default authentication method and handles cloud-only firmwares automatically. See [Cloud Login](#cloud-login) above.
 
 ### Empty Database
-If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool-recommended), which automatically handles all storage locations including encrypted preferences.
+If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool) or the built-in cloud login, which handles all storage locations including encrypted preferences.
 
 ---
 

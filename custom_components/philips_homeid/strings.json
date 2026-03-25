@@ -26,7 +26,8 @@
         "title": "Philips Account Login",
         "description": "Enter your Philips HomeID account email. A verification code will be sent to this address.",
         "data": {
-          "email": "Email"
+          "email": "Email",
+          "manual_entry": "Enter credentials manually instead"
         }
       },
       "cloud_otp": {
@@ -91,7 +92,8 @@
     "abort": {
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
-      "cloud_setup_failed": "Cloud login setup failed. Check logs for details."
+      "cloud_setup_failed": "Cloud login setup failed. Check logs for details.",
+      "playwright_unsupported": "Cloud login is not supported on this platform. Playwright requires Linux x86_64/aarch64, macOS, or Windows. Enter credentials manually instead."
     }
   },
   "options": {

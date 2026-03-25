@@ -1,7 +1,7 @@
 {
   "domain": "philips_homeid",
   "name": "Philips HomeID",
-  "codeowners": [],
+  "codeowners": ["@renaudallard"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/renaudallard/homeassistant_philips_homeid",
@@ -10,6 +10,7 @@
     "aiohttp>=3.8.0",
     "cryptography>=41.0.0"
   ],
+  "homeassistant": "2024.1.0",
   "version": "2.0.2",
   "zeroconf": [
     {

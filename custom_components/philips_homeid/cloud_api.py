@@ -54,7 +54,8 @@ _LOGGER = logging.getLogger(__name__)
 # IoT API (production, from APK DomainConfig)
 IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
 
-# Home ID API (from APK BackendConfigKt)
+# Home ID backend (from APK BackendConfigKt)
+BACKEND_BASE = "https://www.backend.vbs.versuni.com"
 BACKEND_API_BASE = "https://www.backend.vbs.versuni.com/api"
 HOMEID_API_BASE = "https://www.home.id/api"
 HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
@@ -555,57 +556,67 @@ class PhilipsCloudAPI:
         }
 
         # Try with and without Bearer token, multiple paths
-        login_paths = [
-            "v2/authorization",
-            "v1/authorization",
-            "v2/consumer/login",
-            "v2/login",
-        ]
+        # Step 1: Get the login URL from discovery service
+        # In Retrofit, @GET("/.well-known/...") resolves to host root, not /api/
+        discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
+        _LOGGER.debug("Backend discovery: GET %s", discovery_url)
+        try:
+            async with session.get(discovery_url) as resp:
+                disc_text = await resp.text()
+                _LOGGER.debug(
+                    "Backend discovery response: HTTP %s, body: %s",
+                    resp.status,
+                    disc_text[:500],
+                )
+                if resp.status != 200:
+                    _LOGGER.error("Backend discovery failed: HTTP %s", resp.status)
+                    return None
+                discovery = json.loads(disc_text)
+        except Exception:
+            _LOGGER.exception("Backend discovery request failed")
+            return None
 
-        for path in login_paths:
-            url = f"{BACKEND_API_BASE}/{path}"
-            for token_type, token_val in [
-                ("access_token", access_token),
-                ("none", ""),
-            ]:
-                headers = dict(common_headers)
-                if token_val:
-                    headers["Authorization"] = f"Bearer {token_val}"
+        auth_url = discovery.get("authorizationUrl", "")
+        if not auth_url:
+            _LOGGER.error("Backend discovery has no authorizationUrl")
+            return None
 
-                _LOGGER.debug("Backend login: POST %s (auth=%s)", url, token_type)
-                try:
-                    async with session.post(
-                        url, headers=headers, json=login_body
-                    ) as resp:
-                        text = await resp.text()
-                        _LOGGER.debug(
-                            "Backend login response: HTTP %s, body: %s",
-                            resp.status,
-                            text[:500],
-                        )
-                        if resp.status == 200 or resp.status == 201:
-                            try:
-                                data = json.loads(text)
-                            except json.JSONDecodeError:
-                                continue
-                            # JSON:API response: data.attributes.token
-                            token = (
-                                data.get("data", {}).get("attributes", {}).get("token")
-                            )
-                            if not token:
-                                # Try flat response
-                                token = data.get("token")
-                            if token:
-                                _LOGGER.info("Backend login succeeded at %s", url)
-                                return token
-                            _LOGGER.debug(
-                                "Login 200 but no token in response: %s",
-                                list(data.keys()),
-                            )
-                except Exception:
-                    _LOGGER.debug("Backend login request failed for %s", url)
+        _LOGGER.debug("Backend login URL: %s", auth_url)
+        _LOGGER.debug("Backend profile URL: %s", discovery.get("profileUrl"))
 
-        _LOGGER.warning("Backend login failed on all paths")
+        # Step 2: Login with OIDC id_token
+        headers = dict(common_headers)
+        headers["Authorization"] = f"Bearer {access_token}"
+
+        _LOGGER.debug("Backend login: POST %s", auth_url)
+        try:
+            async with session.post(auth_url, headers=headers, json=login_body) as resp:
+                text = await resp.text()
+                _LOGGER.debug(
+                    "Backend login response: HTTP %s, body: %s",
+                    resp.status,
+                    text[:500],
+                )
+                if resp.status not in (200, 201):
+                    _LOGGER.error("Backend login failed: HTTP %s", resp.status)
+                    return None
+                data = json.loads(text)
+        except Exception:
+            _LOGGER.exception("Backend login request failed")
+            return None
+
+        # Extract token from response (try JSON:API and flat formats)
+        token = data.get("data", {}).get("attributes", {}).get("token")
+        if not token:
+            token = data.get("token")
+        if token:
+            _LOGGER.info("Backend login succeeded")
+            return token
+
+        _LOGGER.debug(
+            "Backend login response has no token, keys: %s",
+            list(data.keys()),
+        )
         return None
 
     async def get_appliances_via_homeid(
@@ -642,9 +653,9 @@ class PhilipsCloudAPI:
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
 
-        # Step 2: Discovery service (try both base URLs)
+        # Step 2: Discovery service (Retrofit resolves to host root, not /api/)
         discovery = None
-        for base in [BACKEND_API_BASE, HOMEID_API_BASE]:
+        for base in [BACKEND_BASE, "https://www.home.id"]:
             discovery_url = f"{base}/.well-known/tenant/oneka"
             _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
             try:

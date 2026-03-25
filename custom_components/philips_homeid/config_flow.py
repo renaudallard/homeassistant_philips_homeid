@@ -285,7 +285,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Install playwright and send OTP in one background task."""
         assert self._cloud_api is not None
         if not await self._cloud_api.async_install_playwright():
-            raise CloudAuthError("Failed to install playwright")
+            raise CloudAuthError(
+                "Failed to install Playwright browser. "
+                "This can happen in Docker containers or restricted environments "
+                "where pip install is not allowed. "
+                "Use manual credential entry instead"
+            )
         vtoken = await self._cloud_api.request_otp(self._cloud_email)
         self._cloud_vtoken = vtoken
         return True
@@ -298,8 +303,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Check platform before attempting install
             platform_error = PhilipsCloudAPI.check_playwright_platform()
             if platform_error:
-                _LOGGER.error(platform_error)
-                return self.async_abort(reason="playwright_unsupported")
+                _LOGGER.warning(
+                    "%s Falling back to manual credential entry",
+                    platform_error,
+                )
+                return await self.async_step_manual_credentials()
 
             self._install_task = self.hass.async_create_task(
                 self._async_install_and_send_otp()
@@ -315,12 +323,18 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             await self._install_task
         except CloudAuthError as err:
-            _LOGGER.error("Cloud setup failed: %s", err)
+            _LOGGER.error(
+                "Cloud login failed: %s. Falling back to manual credential entry",
+                err,
+            )
             self._install_task = None
             await self._close_cloud_api()
             return self.async_show_progress_done(next_step_id="cloud_install_failed")
         except Exception:
-            _LOGGER.exception("Unexpected error during cloud setup")
+            _LOGGER.exception(
+                "Unexpected error during cloud setup. "
+                "Falling back to manual credential entry"
+            )
             self._install_task = None
             await self._close_cloud_api()
             return self.async_show_progress_done(next_step_id="cloud_install_failed")
@@ -332,8 +346,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_cloud_install_failed(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle cloud install/OTP failure."""
-        return self.async_abort(reason="cloud_setup_failed")
+        """Handle cloud install/OTP failure - fall back to manual credentials."""
+        return await self.async_step_manual_credentials()
 
     async def async_step_cloud_otp(
         self, user_input: dict[str, Any] | None = None

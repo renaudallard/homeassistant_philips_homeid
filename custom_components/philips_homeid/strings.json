@@ -83,7 +83,7 @@
     "abort": {
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
-      "cloud_setup_failed": "Cloud login setup failed. Check logs for details.",
+      "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Enter credentials manually instead.",
       "playwright_unsupported": "Cloud login is not supported on this platform. Playwright requires Linux x86_64/aarch64, macOS, or Windows. Enter credentials manually instead."
     }
   },

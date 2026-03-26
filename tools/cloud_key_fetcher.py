@@ -93,6 +93,7 @@ SCOPES = (
 )
 
 STATE_FILE = "/tmp/philips_cloud_state.json"
+DEBUG = False
 
 
 def api_request(url, data=None, headers=None, method=None):
@@ -107,16 +108,40 @@ def api_request(url, data=None, headers=None, method=None):
         for k, v in headers.items():
             req.add_header(k, v)
 
+    if DEBUG:
+        m = method or ("POST" if data else "GET")
+        print(f"  [DEBUG] {m} {url}")
+        if headers:
+            for k, v in headers.items():
+                # Redact tokens
+                val = v
+                if "bearer" in k.lower() or "authorization" in k.lower():
+                    val = v[:30] + "..." if len(v) > 30 else v
+                print(f"  [DEBUG]   {k}: {val}")
+        if data:
+            body_str = data.decode() if isinstance(data, bytes) else str(data)
+            # Redact long values
+            if len(body_str) > 200:
+                print(f"  [DEBUG]   Body: {body_str[:200]}...")
+            else:
+                print(f"  [DEBUG]   Body: {body_str}")
+
     ctx = ssl.create_default_context()
     try:
         resp = urllib.request.urlopen(req, timeout=30, context=ctx)
         body = resp.read().decode()
+        if DEBUG:
+            print(f"  [DEBUG]   -> {resp.status} ({len(body)} bytes)")
+            if len(body) < 500:
+                print(f"  [DEBUG]   -> {body}")
         try:
             return resp.status, json.loads(body)
         except json.JSONDecodeError:
             return resp.status, body
     except urllib.error.HTTPError as e:
         body = e.read().decode()
+        if DEBUG:
+            print(f"  [DEBUG]   -> HTTP {e.code}: {body[:300]}")
         try:
             return e.code, json.loads(body)
         except (json.JSONDecodeError, AttributeError):
@@ -283,38 +308,71 @@ def headless_oauth(session_token):
                             hsdp_code = codes[0]
 
         print("  Navigating to HSDP authorize (SSO via Gigya cookies)...")
-        print(f"  URL: {hsdp_auth_url[:100]}...")
+        if DEBUG:
+            print(f"  [DEBUG] Full HSDP URL: {hsdp_auth_url}")
+            # Dump all cookies the browser has
+            cookies = context.cookies()
+            print(f"  [DEBUG] Browser has {len(cookies)} cookies:")
+            for c in cookies:
+                print(f"  [DEBUG]   {c['domain']} {c['name']}={c['value'][:20]}...")
         page2 = context.new_page()
 
         def handle_hsdp_all(response):
-            """Log all responses during HSDP flow for debugging."""
+            """Log all responses during HSDP flow."""
             url = response.url
             status_code = response.status
-            if status_code >= 300 and status_code < 400:
-                loc = ""
-                for h in response.headers_array():
-                    if h["name"].lower() == "location":
-                        loc = h["value"][:120]
-                print(f"    {status_code} {url[:80]} -> {loc}")
-            elif "iam" in url or "accounts" in url or "oauthredirect" in url:
-                print(f"    {status_code} {url[:100]}")
+            loc = ""
+            for h in response.headers_array():
+                if h["name"].lower() == "location":
+                    loc = h["value"]
+            if DEBUG:
+                # Log every single response
+                if loc:
+                    print(f"    [DEBUG] {status_code} {url[:100]}")
+                    print(f"    [DEBUG]   -> Location: {loc[:200]}")
+                else:
+                    print(f"    [DEBUG] {status_code} {url[:100]}")
+            elif status_code >= 300 and status_code < 400:
+                print(f"    {status_code} {url[:80]} -> {loc[:120]}")
 
         page2.on("response", handle_hsdp_all)
         page2.on("response", handle_hsdp_response)
+
+        if DEBUG:
+            # Also log navigation events
+            page2.on(
+                "framenavigated",
+                lambda frame: print(f"    [DEBUG] Frame navigated: {frame.url[:120]}")
+                if frame == page2.main_frame
+                else None,
+            )
+            page2.on(
+                "request",
+                lambda req: print(f"    [DEBUG] Request: {req.method} {req.url[:120]}"),
+            )
+
         try:
             page2.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
         except Exception as e:
-            print(f"  HSDP navigation error (expected for custom scheme): {e}")
+            print(f"  HSDP navigation ended: {type(e).__name__}: {str(e)[:200]}")
 
         final_url = page2.url
-        print(f"  Final page URL: {final_url[:120]}")
+        print(f"  Final page URL: {final_url[:200]}")
+        if DEBUG:
+            # Dump page content for debugging
+            try:
+                content = page2.content()
+                print(f"  [DEBUG] Page title: {page2.title()}")
+                print(f"  [DEBUG] Page content ({len(content)} chars):")
+                print(f"  [DEBUG]   {content[:500]}")
+            except Exception:
+                pass
 
         if not hsdp_code:
             for _ in range(10):
                 page2.wait_for_timeout(1000)
                 if hsdp_code:
                     break
-                # Also check if the page URL contains the code
                 cur = page2.url
                 if "code=" in cur:
                     parsed = urllib.parse.urlparse(cur)
@@ -858,7 +916,15 @@ def main():
         action="store_true",
         help="Skip Home ID API, only use IoT API",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Maximum debug output (all HTTP requests, full HSDP SSO trace)",
+    )
     args = parser.parse_args()
+
+    global DEBUG
+    DEBUG = args.debug
 
     print("Philips HomeID Cloud Key Fetcher")
     print("=" * 40)

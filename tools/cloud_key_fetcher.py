@@ -283,18 +283,47 @@ def headless_oauth(session_token):
                             hsdp_code = codes[0]
 
         print("  Navigating to HSDP authorize (SSO via Gigya cookies)...")
+        print(f"  URL: {hsdp_auth_url[:100]}...")
         page2 = context.new_page()
+
+        def handle_hsdp_all(response):
+            """Log all responses during HSDP flow for debugging."""
+            url = response.url
+            status_code = response.status
+            if status_code >= 300 and status_code < 400:
+                loc = ""
+                for h in response.headers_array():
+                    if h["name"].lower() == "location":
+                        loc = h["value"][:120]
+                print(f"    {status_code} {url[:80]} -> {loc}")
+            elif "iam" in url or "accounts" in url or "oauthredirect" in url:
+                print(f"    {status_code} {url[:100]}")
+
+        page2.on("response", handle_hsdp_all)
         page2.on("response", handle_hsdp_response)
         try:
             page2.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  HSDP navigation error (expected for custom scheme): {e}")
+
+        final_url = page2.url
+        print(f"  Final page URL: {final_url[:120]}")
 
         if not hsdp_code:
             for _ in range(10):
                 page2.wait_for_timeout(1000)
                 if hsdp_code:
                     break
+                # Also check if the page URL contains the code
+                cur = page2.url
+                if "code=" in cur:
+                    parsed = urllib.parse.urlparse(cur)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    codes = qs.get("code", [])
+                    if codes:
+                        hsdp_code = codes[0]
+                        print("  Got HSDP code from page URL")
+                        break
 
         browser.close()
 

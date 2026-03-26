@@ -72,6 +72,22 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+def _extract_jwt_sub(token: str) -> str | None:
+    """Extract the 'sub' claim from a JWT access token without validation."""
+    import base64
+    import json as _json
+
+    try:
+        # JWT is header.payload.signature; decode the payload (2nd part)
+        payload_b64 = token.split(".")[1]
+        # Add padding
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        payload = _json.loads(base64.urlsafe_b64decode(payload_b64))
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -109,6 +125,11 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_refresh}
             hass.config_entries.async_update_entry(entry, data=new_data)
 
+        # Extract user ID (sub claim) from JWT for MQTT client ID.
+        # APK uses {userId}_{UUID} where userId = sub claim from HSDP token.
+        user_id = _extract_jwt_sub(access_token)
+        _LOGGER.info("OIDC user_id (sub): %s", user_id or "not found")
+
         # Get MQTT signature
         sig_data = await cloud_api.get_mqtt_signature(
             access_token, platform_rest_url, tenant
@@ -132,6 +153,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         platform_rest_url=platform_rest_url,
         model_name=model,
         friendly_name=entry.title,
+        user_id=user_id or "",
     )
 
     # Create device info for entity compatibility
@@ -159,9 +181,8 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 sig = await api.get_mqtt_signature(
                     toks["access_token"], platform_rest_url, tenant
                 )
-                return sig.get("accessToken", toks["access_token"]), sig.get(
-                    "signature", ""
-                )
+                # APK always uses OIDC access_token, not sig response token
+                return toks["access_token"], sig.get("signature", "")
             finally:
                 await api.close()
 
@@ -185,11 +206,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # to avoid missing the initial shadow response
     mqtt_client.set_state_callback(coordinator.update_from_mqtt)
 
-    # APK SignatureResponse has field "signature", not "mqttSignature"
+    # APK always uses the OIDC access_token for MQTT, not a token from
+    # the signature response. SignatureResponse only has "signature" field.
     try:
         await hass.async_add_executor_job(
             mqtt_client.connect,
-            sig_data.get("accessToken", access_token),
+            access_token,
             sig_data.get("signature", ""),
         )
     except Exception as err:

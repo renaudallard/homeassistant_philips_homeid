@@ -66,6 +66,7 @@ class FusionDeviceInfo:
     model_number: str = ""
     friendly_name: str = ""
     mac_address: str = ""
+    user_id: str = ""
 
 
 class PhilipsMQTTClient:
@@ -153,8 +154,9 @@ class PhilipsMQTTClient:
         )
 
         # APK client ID format: {userId}_{UUID}
-        # We use device_id as prefix since we don't store the cloud user ID.
-        client_id = f"{device.device_id}_{uuid.uuid4()}"
+        # userId is the 'sub' claim from the OIDC/HSDP token.
+        prefix = device.user_id or device.device_id
+        client_id = f"{prefix}_{uuid.uuid4()}"
         _LOGGER.info("MQTT client_id: %s", client_id)
 
         client = mqtt.Client(

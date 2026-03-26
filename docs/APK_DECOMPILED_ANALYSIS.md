@@ -151,6 +151,7 @@ public class NetworkNode implements Parcelable {
     public static final String KEY_ENCRYPTION_KEY = "encryption_key"; // AES-128 key (hex string) for payload encryption
     public static final String KEY_HSDP_ID = "hsdpid";           // HSDP device ID for cloud relay
     public static final String KEY_HTTPS = "https";              // Whether device uses HTTPS (always true in schema)
+    public static final String KEY_ID = "_id";                   // SQLite row ID (primary key)
     public static final String KEY_IP_ADDRESS = "ip_address";    // LAN IP address
     public static final String KEY_IS_PAIRED = "is_paired";      // Pairing state ordinal
     public static final String KEY_LAST_KNOWN_NETWORK = "lastknown_network"; // WiFi SSID when last seen
@@ -158,6 +159,7 @@ public class NetworkNode implements Parcelable {
     public static final String KEY_MAC_ADDRESS = "mac_address";  // Device MAC
     public static final String KEY_MISMATCHED_PIN = "mismatched_pin"; // Certificate pin that didn't match stored pin
     public static final String KEY_MODEL_ID = "model_id";        // Model number from discovery
+    @Deprecated public static final String KEY_MODEL_NAME = "model_name"; // Deprecated: old model name column
     public static final String KEY_PIN = "pin";                  // SHA-256 hash of device's TLS public key (base64)
 
     // --- Instance fields ---
@@ -832,7 +834,9 @@ public class LanRequest extends Request {
         return "{}";
     }
 
-    // Reset OkHttp client timeouts to 30ms (actually 30s)
+    // Reset OkHttp client timeouts to 30ms
+    // (decompiled code literally says TimeUnit.MILLISECONDS with value 30;
+    //  likely a decompilation artifact or app bug - real intent probably 30s)
     private void resetClientTimeout(OkHttpClient client) {
         client.newBuilder()
             .readTimeout(30L, TimeUnit.MILLISECONDS)
@@ -958,8 +962,8 @@ public class Crypto {
         }
 
         try {
-            // Step 1: Trim whitespace from the data
-            String trimmed = data.trim();
+            // Step 1: Strip leading/trailing whitespace (char-by-char loop, not String.trim())
+            // Scans from both ends, skipping chars where compareTo(' ') <= 0
 
             // Step 2: Base64 decode
             byte[] decoded = ByteUtil.decodeFromBase64(trimmed);
@@ -1002,7 +1006,7 @@ public class Crypto {
 **Decryption pipeline:**
 ```
 Encrypted response body (string)
-    -> trim whitespace
+    -> strip leading/trailing whitespace (char-by-char)
     -> base64 decode -> byte[]
     -> AES-128-CBC/PKCS7 decrypt (key=hex_to_bytes(encryption_key), IV=all_zeros)
     -> remove first 2 bytes (random nonce)
@@ -2082,6 +2086,7 @@ Response types: `"accepted"` (ACK), `"rejected"` (error), `"notification"` (data
 
 | Column | Type | Purpose |
 |--------|------|---------|
+| _id | INTEGER NOT NULL UNIQUE | SQLite row ID (primary key) |
 | cppid | TEXT UNIQUE | Device identifier |
 | client_id | TEXT | Base64 128-bit random key (locally generated) |
 | client_secret | TEXT | Device-issued secret (from pairing) |

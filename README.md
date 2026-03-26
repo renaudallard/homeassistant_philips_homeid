@@ -103,7 +103,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 ### Prerequisites
 
-Your device must first be paired with the **official Philips HomeID app** on Android or iOS. The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for local API access either automatically from the Philips cloud or manually from the app's local storage.
+Your device must first be paired with the **official Philips HomeID app** on Android or iOS. The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for device communication either automatically from the Philips cloud (local credentials for HSDP devices, MQTT relay for FUSION devices) or manually from the app's local storage.
 
 ### Adding a Device
 
@@ -133,7 +133,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 2. Installs a headless Chromium browser (Playwright) to complete OAuth authentication
    - On glibc systems: standard pip install
    - On Alpine/Docker: uses system Chromium and Node.js via apk
-3. Queries the Philips Home ID backend API to retrieve your device's `client_id` and `client_secret`
+3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret` for HSDP devices, or MQTT relay configuration for FUSION devices)
 4. Cleans up Playwright after use (only if it was not already installed)
 
 > **Platform requirements:** Cloud login uses Playwright (headless Chromium) for the OAuth step. Supported platforms:
@@ -408,7 +408,7 @@ HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_i
 
 ### Cloud-only Firmware
 
-Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via `backend.vbs.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
+Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via AWS IoT at `ats.prod.eu-da.iot.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
 
 **Known affected firmwares:**
 - HD9280 firmware 4.0.0/0.6.8

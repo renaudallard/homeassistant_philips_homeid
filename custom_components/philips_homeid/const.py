@@ -47,6 +47,7 @@ CONF_CLIENT_ID = "client_id"
 CONF_CLIENT_SECRET = "client_secret"
 CONF_USE_HTTPS = "use_https"
 CONF_ENCRYPTION_KEY = "encryption_key"
+CONF_AIRFRYER_PORT = "airfryer_port"
 CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
 
 # FUSION (cloud MQTT relay) configuration keys

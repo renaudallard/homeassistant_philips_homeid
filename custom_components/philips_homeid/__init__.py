@@ -35,6 +35,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
+    CONF_AIRFRYER_PORT,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_CLOUD_REFRESH_TOKEN,
@@ -267,6 +268,7 @@ async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> b
     client_secret = entry.data.get(CONF_CLIENT_SECRET)
     use_https = entry.data.get(CONF_USE_HTTPS, True)
     encryption_key = entry.data.get(CONF_ENCRYPTION_KEY)
+    airfryer_port = entry.data.get(CONF_AIRFRYER_PORT)
 
     if not host:
         _LOGGER.error("No host configured for device")
@@ -281,6 +283,7 @@ async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> b
         client_id=client_id,
         client_secret=client_secret,
         encryption_key=encryption_key,
+        airfryer_port=airfryer_port,
     )
 
     # Create local API client
@@ -332,6 +335,19 @@ async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> b
     except Exception:
         await api.close()
         raise
+
+    # Persist discovered airfryer port so it survives reloads
+    if (
+        isinstance(device_info.airfryer_port, str)
+        and entry.data.get(CONF_AIRFRYER_PORT) != device_info.airfryer_port
+    ):
+        new_data = {**entry.data, CONF_AIRFRYER_PORT: device_info.airfryer_port}
+        hass.config_entries.async_update_entry(entry, data=new_data)
+        _LOGGER.info(
+            "Persisted airfryer port '%s' for %s",
+            device_info.airfryer_port,
+            host,
+        )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

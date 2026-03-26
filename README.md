@@ -453,6 +453,10 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt) |
 
+For in-depth protocol documentation based on decompiled APK analysis, see:
+- [APK Decompiled Analysis](docs/APK_DECOMPILED_ANALYSIS.md) - Complete annotated code analysis of the Philips HomeID APK
+- [Authentication Flow](docs/AUTHENTICATION_FLOW.md) - OAuth/OIDC cloud authentication details
+
 ---
 
 ## Support This Project

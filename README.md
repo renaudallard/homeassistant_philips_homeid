@@ -445,6 +445,14 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 
 ---
 
+## Support This Project
+
+If you find this integration useful, you can support its development:
+
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-blue.svg?logo=paypal)](https://www.paypal.me/RenaudAllard)
+
+---
+
 ## Disclaimer
 
 This is an unofficial integration and is not affiliated with Philips or Versuni. Use at your own risk.

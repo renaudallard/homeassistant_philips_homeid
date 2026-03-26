@@ -33,6 +33,17 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 21. [Database Schema Evolution](#21-database-schema-evolution)
 22. [Crypto Utilities (ByteUtil)](#22-crypto-utilities-byteutil)
 23. [Request/Response Framework](#23-requestresponse-framework)
+24. [Appliance Model](#24-appliance-model)
+25. [Appliance Manager](#25-appliance-manager)
+26. [ApplianceFactory Interface](#26-appliancefactory-interface)
+27. [Condor Entry Point (SDK Initialization)](#27-condor-entry-point-sdk-initialization)
+28. [CondorPort (Port Abstraction Layer)](#28-condorport-port-abstraction-layer)
+29. [SecurityPortProperties](#29-securityportproperties)
+30. [DeviceCloudPairingPort](#30-devicecloudpairingport)
+31. [HSDP Authentication](#31-hsdp-authentication)
+32. [HSDP Configuration](#32-hsdp-configuration)
+33. [HSDP Command Queue](#33-hsdp-command-queue)
+34. [Error Codes (Complete List)](#34-error-codes-complete-list)
 
 ---
 
@@ -2036,3 +2047,615 @@ Response types: `"accepted"` (ACK), `"rejected"` (error), `"notification"` (data
 | hsdpid | TEXT | HSDP cloud device ID |
 | pin | TEXT | SHA-256 of TLS public key (base64) |
 | is_paired | SMALLINT | 0=PAIRED, 1=NOT_PAIRED, 2=UNPAIRED, 3=PAIRING |
+
+---
+
+## 24. Appliance Model
+
+**File:** `connectivity/condor/core/appliance/Appliance.java`
+
+Abstract base class representing a Philips device.
+
+```java
+public abstract class Appliance implements Availability<Appliance> {
+    protected final CommunicationStrategy communicationStrategy; // LAN, HSDP, or Combined
+    private final DevicePort devicePort;                         // Default "device" port
+    protected final NetworkNode networkNode;                     // Device identity + credentials
+    private final Set<CondorPort> ports = new HashSet();         // All registered ports
+
+    public Appliance(NetworkNode networkNode, CommunicationStrategy... strategies) {
+        this.networkNode = networkNode;
+        // If multiple strategies provided, wrap in CombinedCommunicationStrategy
+        if (strategies.length == 1) {
+            this.communicationStrategy = strategies[0];
+        } else {
+            this.communicationStrategy = new CombinedCommunicationStrategy(strategies);
+        }
+        // Every appliance automatically gets a DevicePort
+        DevicePort devicePort = new DevicePort(this.communicationStrategy);
+        this.devicePort = devicePort;
+        addPort(devicePort);
+    }
+
+    // Register a port (sets the NetworkNode reference on it)
+    public void addPort(CondorPort port) {
+        port.setNetworkNode(this.networkNode);
+        this.ports.add(port);
+    }
+
+    // Find a port by class type
+    public <P extends CondorPort> P getPort(Class<P> cls) {
+        for (CondorPort port : getAllPorts()) {
+            if (port.getClass().isAssignableFrom(cls)) return (P) port;
+        }
+        return null;
+    }
+
+    // Availability delegates to communication strategy
+    public boolean isAvailable() { return communicationStrategy.isAvailable(); }
+
+    // Equality is based on NetworkNode (which uses cppId)
+    public boolean equals(Object obj) {
+        if (obj instanceof Appliance) return networkNode.equals(((Appliance) obj).getNetworkNode());
+        return false;
+    }
+
+    public abstract String getDeviceType(); // Subclasses define this
+}
+```
+
+---
+
+## 25. Appliance Manager
+
+**File:** `connectivity/condor/core/appliance/ApplianceManager.java`
+
+Manages the lifecycle of appliances: discovery, persistence, and event notification.
+
+```java
+public class ApplianceManager {
+    private final ApplianceDatabase applianceDatabase;
+    private final ApplianceFactory applianceFactory;
+    private final NetworkNodeDatabase networkNodeDatabase;
+    private final Set<ApplianceListener> applianceListeners = new CopyOnWriteArraySet();
+    private final Map<String, Appliance> knownAppliances = new ConcurrentHashMap();      // All ever-seen
+    private final Map<String, Appliance> discoveredAppliances = new ConcurrentHashMap(); // Currently visible
+
+    public interface ApplianceListener {
+        void onApplianceFound(Appliance appliance);
+        void onApplianceLost(Appliance appliance);
+        void onApplianceUpdated(Appliance appliance);
+    }
+
+    public ApplianceManager(Set<DiscoveryStrategy> strategies, ApplianceFactory factory,
+                           NetworkNodeDatabase db, ApplianceDatabase appDb) {
+        // Register as listener on all discovery strategies
+        for (DiscoveryStrategy strategy : strategies) {
+            strategy.addDiscoveryListener(discoveryListener);
+        }
+        this.applianceFactory = factory;
+        // Load previously-paired appliances from SQLite
+        loadAllAddedAppliancesFromDatabase();
+    }
+
+    // Core logic: when a NetworkNode is discovered or loaded from DB
+    private Appliance processDiscoveredOrLoadedNetworkNode(NetworkNode node) {
+        String cppId = node.getCppId();
+
+        // Already discovered? Just update it
+        if (discoveredAppliances.containsKey(cppId)) {
+            updateAppliance(node);
+            return discoveredAppliances.get(cppId);
+        }
+
+        // Known from DB but not yet discovered? Mark as discovered
+        if (knownAppliances.containsKey(cppId)) {
+            Appliance appliance = knownAppliances.get(cppId);
+            discoveredAppliances.put(cppId, appliance);
+            notifyApplianceFound(appliance);
+            return appliance;
+        }
+
+        // Brand new: ask factory to create if it can
+        if (applianceFactory.canCreateApplianceForNode(node)) {
+            Appliance appliance = applianceFactory.createApplianceForNode(node);
+            knownAppliances.put(cppId, appliance);
+            discoveredAppliances.put(cppId, appliance);
+            notifyApplianceFound(appliance);
+            return appliance;
+        }
+        return null;
+    }
+
+    // Persist appliance to SQLite
+    public boolean storeAppliance(Appliance appliance) {
+        long id = networkNodeDatabase.save(appliance.getNetworkNode());
+        applianceDatabase.save(appliance);
+        return id != -1;
+    }
+
+    // Remove appliance from SQLite
+    public boolean forgetStoredAppliance(Appliance appliance) {
+        int deleted = networkNodeDatabase.delete(appliance.getNetworkNode());
+        if (deleted > 0) applianceDatabase.delete(appliance);
+        return deleted > 0;
+    }
+
+    // Load all from DB, create Appliance objects, register property change listeners
+    private void loadAllAddedAppliancesFromDatabase() {
+        for (NetworkNode node : networkNodeDatabase.getAll()) {
+            Appliance appliance = processDiscoveredOrLoadedNetworkNode(node);
+            if (appliance != null) {
+                applianceDatabase.loadDataForAppliance(appliance);
+                // Auto-save to DB when any property changes
+                node.addPropertyChangeListener(event -> networkNodeDatabase.save(node));
+            }
+        }
+    }
+}
+```
+
+---
+
+## 26. ApplianceFactory Interface
+
+**File:** `connectivity/condor/core/appliance/ApplianceFactory.java`
+
+```java
+public interface ApplianceFactory {
+    boolean canCreateApplianceForNode(NetworkNode networkNode);
+    Appliance createApplianceForNode(NetworkNode networkNode);
+}
+```
+
+---
+
+## 27. Condor Entry Point (SDK Initialization)
+
+**File:** `connectivity/condor/core/CondorEntryPoint.java`
+
+The main entry point for the Condor SDK. Singleton pattern.
+
+```java
+public final class CondorEntryPoint {
+    // Weak reference to enforce singleton
+    public static WeakReference<CondorEntryPoint> instanceWeakReference = new WeakReference<>(null);
+    private static final AppIdProvider APP_ID_PROVIDER = new AppIdProvider();
+
+    private final ApplianceManager applianceManager;
+    private final Set<DiscoveryStrategy> discoveryStrategies;
+    private TransportContext[] transportContexts;
+
+    public CondorEntryPoint(ApplianceFactory factory, RuntimeConfiguration config,
+                           ApplianceDatabase appDb, TransportContext... transports) {
+        if (instanceWeakReference.get() != null) {
+            throw new UnsupportedOperationException("Only one instance allowed.");
+        }
+        instanceWeakReference = new WeakReference<>(this);
+
+        this.transportContexts = transports;
+        // Collect discovery strategies from each transport
+        for (TransportContext tc : transports) {
+            DiscoveryStrategy ds = tc.getDiscoveryStrategy();
+            if (ds != null) discoveryStrategies.add(ds);
+        }
+        // Create the appliance manager with all strategies
+        this.applianceManager = new ApplianceManager(
+            discoveryStrategies, factory,
+            new NetworkNodeDatabaseFetcher().getNetworkNodeDatabase(config), appDb);
+    }
+
+    public void startDiscovery() { startDiscovery(Collections.EMPTY_SET); }
+    public void startDiscovery(Set<String> modelIds) {
+        for (DiscoveryStrategy ds : discoveryStrategies) ds.start(modelIds);
+    }
+    public void stopDiscovery() {
+        for (DiscoveryStrategy ds : discoveryStrategies) ds.stop();
+    }
+
+    // Get a specific transport context by class
+    public <T extends TransportContext> T getTransportContext(Class<T> cls) throws TransportUnavailableException {
+        for (TransportContext tc : transportContexts) {
+            if (tc.getClass().equals(cls)) return cls.cast(tc);
+        }
+        throw new TransportUnavailableException("Requested transport context is not available");
+    }
+}
+```
+
+---
+
+## 28. CondorPort (Port Abstraction Layer)
+
+**File:** `connectivity/condor/core/port/CondorPort.java`
+
+This is the central abstraction for device communication. Every device "port" (air, security, firmware, pairing, etc.) extends this class.
+
+```java
+public abstract class CondorPort<P extends CondorPortProperties> implements CondorPortApi<P> {
+
+    protected CommunicationStrategy communicationStrategy;
+    protected Gson gson;
+    private P mCachedProperties;                    // Last-known state
+    private boolean mIsApplyingChanges;             // True while putProperties is in flight
+    private final Type propertiesType;              // Reflection-resolved type parameter P
+    private AtomicBoolean isRequestInProgress;      // Serializes requests
+    private boolean isSubscribed;                   // Subscription state
+
+    // Queues for pending operations (serialized execution)
+    private final List<Consumer<Result<P>>> getPropertiesCallbacks;
+    private final List<Consumer<Result<P>>> subscribeCallbacks;
+    private final List<Consumer<Result<P>>> unsubscribeCallbacks;
+    private final Queue<ExecMethodInfo> execMethodInfoQueue;
+    private final Queue<PutPropertiesInfo> putPropertiesQueue;
+
+    // Subscription listeners + auto-resubscription
+    private final Set<PortSubscriptionListener<P>> mPortSubscriptionListeners;
+    private final Runnable resubscriptionRunnable;  // Periodic resubscription
+    private final SubscriptionEventListener subscriptionEventListener; // UDP/MQTT event handler
+
+    // Must be implemented by subclasses:
+    public abstract String getCondorPortName();  // e.g., "air", "security", "pairing"
+    public abstract int getCondorProductId();    // 0 or 1
+
+    // Request serialization: only one request at a time
+    private void tryToPerformNextRequest() {
+        synchronized (this) {
+            if (isRequestInProgress.get()) return;
+            isRequestInProgress.set(true);
+            // Priority order: putProperties > subscribe > unsubscribe > getProperties > execMethod
+            if (isPutPropertiesRequested())      performPutProperties();
+            else if (isSubscribeRequested())      performSubscribe();
+            else if (isUnsubscribeRequested())    performUnsubscribe();
+            else if (isGetPropertiesRequested())  performGetProperties();
+            else if (isExecMethodRequested())     performExecMethod();
+            else isRequestInProgress.set(false);
+        }
+    }
+
+    // GET device state
+    private void performGetProperties() {
+        communicationStrategy.getProperties(getCondorPortName(), getCondorProductId(),
+            new ResponseHandler() {
+                void onSuccess(byte[] data) {
+                    processResponse(data);                    // Parse + cache
+                    flushGetPropertiesCallbacks(new Result.SuccessResult(getCachedProperties()));
+                    requestCompleted();
+                }
+                void onError(Error error, String msg) {
+                    flushGetPropertiesCallbacks(new Result.FailureResult(error, msg));
+                    requestCompleted();
+                }
+            });
+    }
+
+    // PUT device state
+    private void performPutProperties() {
+        setIsApplyingChanges(true);
+        PutPropertiesInfo info = putPropertiesQueue.remove();
+        communicationStrategy.putProperties(info.properties, getCondorPortName(), getCondorProductId(),
+            new ResponseHandler() {
+                void onSuccess(byte[] data) {
+                    if (!isPutPropertiesRequested()) setIsApplyingChanges(false);
+                    processResponse(data);
+                    info.callback.accept(new Result.SuccessResult(getCachedProperties()));
+                    requestCompleted();
+                }
+                void onError(Error error, String msg) {
+                    if (!isPutPropertiesRequested()) setIsApplyingChanges(false);
+                    info.callback.accept(new Result.FailureResult(error, msg));
+                    requestCompleted();
+                }
+            });
+    }
+
+    // SUBSCRIBE for push events
+    private void performSubscribe() {
+        communicationStrategy.subscribe(getCondorPortName(), getCondorProductId(),
+            communicationStrategy.getSubscriptionTtl(), responseHandler);
+        // On success: starts auto-resubscription timer (TTL seconds)
+    }
+
+    // Process response bytes -> parse JSON -> merge into cached properties
+    public boolean processResponse(byte[] data) {
+        if (data == null || data.length == 0) return false;
+        String json = communicationStrategy.processByteArrayToJsonString(data);
+        P properties = propertiesFromJsonString(json);
+        if (properties == null) return false;
+        setPortProperties(properties); // Update cache
+        return true;
+    }
+
+    // Parse JSON and MERGE with cached properties (not replace)
+    public P propertiesFromJsonString(String json) {
+        JsonObject incoming = gson.fromJson(json, JsonObject.class);
+        JsonObject existing = gson.toJsonTree(mCachedProperties, propertiesType);
+        // Merge: add all incoming keys to existing
+        for (String key : incoming.keySet()) {
+            existing.add(key, incoming.get(key));
+        }
+        return gson.fromJson(existing, propertiesType);
+    }
+
+    // Subscription event handler: decrypts + processes incoming push data
+    // subscriptionEventListener.onSubscriptionEventReceived(portName, data):
+    //   -> processResponse(data)
+    //   -> notify PortSubscriptionListeners
+    //
+    // subscriptionEventListener.onSubscriptionEventDecryptionFailed(portName):
+    //   -> fall back to getProperties() (full reload)
+}
+```
+
+**Key behavior:** Properties are MERGED, not replaced. When a subscription event arrives with partial data, it's merged into the cached state.
+
+---
+
+## 29. SecurityPortProperties
+
+**File:** `connectivity/condor/core/port/common/SecurityPortProperties.java`
+
+```java
+public final class SecurityPortProperties implements CondorPortProperties {
+    @SerializedName("key")     private final String key;     // Encryption key (hex string)
+    @SerializedName("nextkey") private final String nextKey;  // Next key (for key rotation)
+}
+// Response from GET /di/v1/products/0/security:
+// {"key": "abcdef0123456789...", "nextkey": null}
+```
+
+---
+
+## 30. DeviceCloudPairingPort
+
+**File:** `connectivity/condor/core/port/common/DeviceCloudPairingPort.java`
+
+Handles cloud-based pairing via HSDP (remote method invocation).
+
+```java
+public class DeviceCloudPairingPort extends CondorPort<DeviceCloudPairingPortProperties> {
+    static final String METHOD_PAIR = "Pair";
+    static final String METHOD_UNPAIR = "Unpair";
+    private static final String PAIRINGPORT_NAME = "pairing";  // Port name
+    private static final int PAIRINGPORT_PRODUCTID = 0;        // Product ID
+
+    // Pair a device via cloud (sends RPC to device via HSDP MQTT)
+    // Parameters: clientId, clientSecret, ???
+    public void pair(String p1, String p2, String p3, PairingCallback callback) {
+        performRemoteMethodInvocation("Pair", createParams(p1, p2, p3), callback);
+    }
+
+    // Extended pair with more parameters
+    public void pair(String p1, String p2, String p3, String p4, String p5,
+                    String[] p6, PairingCallback callback) {
+        performRemoteMethodInvocation("Pair", createParams(p1, p2, p3, p4, p5, p6), callback);
+    }
+
+    // Unpair a device via cloud
+    public void unpair(String p1, String p2, String p3, String p4, PairingCallback callback) {
+        performRemoteMethodInvocation("Unpair", createParams(p1, p2, p3, p4), callback);
+    }
+
+    // Uses execMethod on the communication strategy
+    // This translates to an ExecMethod Condor operation over MQTT
+    private void performRemoteMethodInvocation(String method, List<Object> params,
+                                               PairingCallback callback) {
+        execMethod(method, params, result -> {
+            if (result instanceof FailureResult) { callback.onPairingResult(-3); return; }
+            double value = ((Double) ((List) result.getValue()).get(0)).doubleValue();
+            if (value == 0.0 || value == 1.0) callback.onPairingResult(0); // Success
+            else callback.onPairingResult(-1); // Error
+        });
+    }
+}
+```
+
+---
+
+## 31. HSDP Authentication
+
+**File:** `connectivity/condor/hsdp/HSDPAuthentication.java`
+
+Full HSDP authentication flow: bootstrap -> provision -> sign on.
+
+```java
+public class HSDPAuthentication {
+    private static final long ACCESS_TOKEN_CACHE_THRESHOLD_SECONDS = 120;
+    private static final long ACCESS_TOKEN_INVALIDATION_WINDOW_SECONDS = 30;
+
+    private final HSDPConfiguration configuration;
+    private final IdentityAccessManagementServiceV2 iamService;
+    private IdentityAccessManagementModel.TokenResponse provisionedTokenResponse;
+    private Timer tokenExpirationTimer;
+    Long provisionedTokenResponseExpiresOn = 0L;
+
+    // Main sign-on flow:
+    public void signOn(Callback callback) {
+        if (configuration.getTokenSet() != null) {
+            // Have cached tokens: apply refresh policy and discover services
+            PassiveRefreshPolicy policy = new PassiveRefreshPolicy();
+            HSDPTokenSet tokenSet = configuration.getTokenSet();
+            policy.setAccessToken(tokenSet.getAccessToken());
+            policy.setRefreshToken(tokenSet.getRefreshToken());
+            policy.setSignedToken(tokenSet.getSignedToken());
+            serviceFactory.applyRefreshPolicy(policy, true);
+            discoverServices(callback);
+        } else if (isProvisioningRequired()) {
+            // No identity: bootstrap -> discover services -> provision -> sign on
+            bootstrapSignOn(err -> {
+                if (err == null) discoverServices(err2 -> {
+                    if (err2 == null) provision(err3 -> {
+                        if (err3 == null) signOn(callback); // Recursive: now has identity
+                        else callback.complete(err3);
+                    });
+                    else callback.complete(err2);
+                });
+                else callback.complete(err);
+            });
+        } else {
+            // Have identity but no tokens: provisioned sign-on
+            provisionedSignOn(callback);
+        }
+    }
+
+    // Bootstrap: get initial access token using bootstrap credentials
+    private void bootstrapSignOn(Callback callback) {
+        HSDPBootstrapCredentials creds = configuration.getBootstrapCredentials();
+        iamService.getAccessToken(creds.getClientId(), creds.getClientSecret(), callback);
+    }
+
+    // Provisioned sign-on: use stored identity to get access + refresh tokens
+    private void provisionedSignOn(Callback callback) {
+        HSDPIdentity identity = configuration.getProvisionedIdentity();
+        // Check if cached token is still valid (120s threshold)
+        long remaining = provisionedTokenResponseExpiresOn - (System.currentTimeMillis() / 1000);
+        if (provisionedTokenResponse != null && remaining > 120) {
+            callback.complete(null); // Use cached
+        } else {
+            // Fetch new tokens using identity credentials
+            iamService.getAccessToken(identity.getClientId(), identity.getClientSecret(),
+                identity.getUsername(), identity.getPassword(), (tokenResponse, error) -> {
+                    provisionedTokenResponse = tokenResponse;
+                    // Compute absolute expiry time
+                    provisionedTokenResponseExpiresOn = tokenResponse.getExpiresIn()
+                        + (System.currentTimeMillis() / 1000);
+                    persistAccessTokens(tokenResponse);
+                    discoverServices(callback);
+                });
+        }
+    }
+
+    // Token expiration: schedule timer to refresh before expiry
+    private void restartExpiryTimer(long expiresInSeconds) {
+        if (expiresInSeconds - 30 < 0) {
+            // Not enough time: report error
+            return;
+        }
+        tokenExpirationTimer.cancel();
+        tokenExpirationTimer = new Timer();
+        tokenExpirationTimer.schedule(new TimerTask() {
+            public void run() {
+                if (!isTokenSetAvailable()) {
+                    provisionedSignOn(callback); // Re-authenticate
+                } else {
+                    configuration.refreshAccessTokens(); // Use refresh token
+                }
+            }
+        }, expiresInSeconds * 1000);
+    }
+
+    public String getAccessToken() { /* from tokenSet or provisionedTokenResponse */ }
+    public String getSignedToken() { /* from tokenSet or provisionedTokenResponse */ }
+}
+```
+
+---
+
+## 32. HSDP Configuration
+
+**File:** `connectivity/condor/hsdp/HSDPConfiguration.java`
+
+Interface defining HSDP configuration with three data classes.
+
+```java
+public interface HSDPConfiguration {
+    // Service endpoints
+    String getBasePathForIAMService();        // IAM token endpoint
+    String getBasePathForDiscoveryService();  // Service discovery endpoint
+
+    // Bootstrap (app-level credentials for initial provisioning)
+    HSDPBootstrapCredentials getBootstrapCredentials();
+    // Returns: clientId + clientSecret for bootstrap sign-on
+
+    // Provisioned identity (device-specific, stored after provisioning)
+    HSDPIdentity getProvisionedIdentity();
+    // Returns: clientId, clientSecret, username, password, hsdpIdentifier, identitySignature
+
+    // Cached tokens
+    HSDPTokenSet getTokenSet();
+    // Returns: accessToken, refreshToken, signedToken, accessTokenExpiresIn
+
+    // Persistence
+    void persistIdentity(HSDPIdentity identity);
+    void persistTokenSet(HSDPTokenSet tokenSet);
+    void refreshAccessTokens();
+
+    // Provisioning evidence (for first-time setup)
+    Map<String, Object> getProvisioningEvidence();
+
+    // Data classes:
+    class HSDPBootstrapCredentials { String clientId, clientSecret; }
+    class HSDPIdentity { String clientId, clientSecret, username, password, hsdpIdentifier, identitySignature; }
+    class HSDPTokenSet { String accessToken, refreshToken, signedToken; long accessTokenExpiresIn; }
+}
+```
+
+---
+
+## 33. HSDP Command Queue
+
+**File:** `connectivity/condor/hsdp/HSDPCommandQueue.java`
+
+Wraps HSDPController to serialize MQTT commands via a semaphore.
+
+```java
+public class HSDPCommandQueue implements HSDPMessenger {
+    private final HSDPMessenger hsdpMessenger; // The actual HSDPController
+    private final ExecutorService queue;        // Single-thread executor
+    private final Semaphore semaphore;          // Ensures one command at a time
+
+    public void sendCommand(String hsdpId, ControlModel.Command command, Completable completable) {
+        queue.submit(() -> {
+            semaphore.acquire(); // Block until previous command completes
+            hsdpMessenger.sendCommand(hsdpId, command, error -> {
+                completable.onCompleted(error);
+                semaphore.release(); // Allow next command
+            });
+        });
+    }
+
+    // connect, disconnect, register/unregister listeners: delegate directly
+}
+```
+
+---
+
+## 34. Error Codes (Complete List)
+
+**File:** `connectivity/condor/core/request/Error.java`
+
+```java
+public enum Error {
+    NO_ERROR("No Error", 0),
+    NOT_UNDERSTOOD("Request not understood.", 1),
+    REQUEST_FAILED("Failed to perform request."),        // no code
+    INVALID_PARAMETER("Invalid parameter.", 12),
+    NO_SUCH_METHOD("No such method.", 10),
+    NO_SUCH_OPERATION("No such operation.", 7),
+    NO_SUCH_PORT("No such port.", 3),
+    NO_SUCH_PRODUCT("No such product.", 8),
+    NO_SUCH_PROPERTY("No such property.", 6),
+    NOT_IMPLEMENTED("Not implemented.", 4),
+    NOT_SUBSCRIBED("Not subscribed.", 13),
+    OUT_OF_MEMORY("Out of memory.", 2),
+    PROPERTY_ALREADY_EXISTS("Property already exists.", 9),
+    PROTOCOL_VIOLATION("Protocol violation.", 14),
+    UNKNOWN("Unknown error.", 255),
+    VERSION_NOT_SUPPORTED("Version not supported.", 5),
+    WRONG_PARAMETERS("Wrong parameters.", 11),
+    BUSY("Busy."),                                       // HTTP 429
+    CANNOT_CONNECT("Cannot connect to appliance."),      // HTTP 502
+    UNRECOVERABLE_CONNECTION("Unrecoverable connection."),
+    SEND_FAILED("Command not sent."),                    // MQTT publish failed
+    IOEXCEPTION("I/O exception occurred."),
+    NO_REQUEST_DATA("Request cannot be performed with null or empty data."),
+    NO_TRANSPORT_AVAILABLE("Request cannot be performed - No transport available."),
+    NOT_CONNECTED("Request cannot be performed - Not connected to an appliance."),
+    TIMED_OUT("Request timed out", 15),
+    NOT_AVAILABLE("Communication not available."),
+    INSECURE_CONNECTION("Connection is not secure."),    // SSL failure
+    REQUEST_UNAUTHORIZED("Request is unauthorized."),    // HTTP 401
+    REJECTED("HSDP rejected message."),                  // MQTT command rejected
+    EMPTY_RESPONSE("Empty response body.");              // HTTP 200 but empty
+}
+```

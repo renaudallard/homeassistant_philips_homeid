@@ -18,9 +18,14 @@ build/
 # APK analysis (decompiled app files)
 *.xapk
 *.apk
+*.zip
 decompiled/
 extracted/
 jadx_output/
+
+# Logs and temp files
+log.txt
+).replace(
 
 # OS
 .DS_Store

@@ -1763,40 +1763,44 @@ public class HSDPTransportContext implements TransportContext {
 
 **File:** `cl/daconnect/authentication/DaAuthenticationService.java`
 
-The cloud authentication layer wraps credential providers.
+The cloud authentication layer wraps credential providers and manages the transition between OIDC (Gigya) and HSDP (Philips HealthSuite) identities. For FUSION devices, this service orchestrates a two-stage token exchange:
 
-```java
-// Provides:
-// - getMqttConnectionInfo(): Fetches MQTT credentials (access token + signature + WSS URL)
-// - getUserId() / federatedUserId(): Gets user identity
-// - clearUserData(): Invalidates all cached tokens
-// - invalidateMqttConnectionInfo(): Forces MQTT credential refresh
-
-// All methods return RxJava Single/Completable types
-// tokenProviderRef holds the current ClientAuthenticationProvider (Gigya/HSDP tokens)
-```
+1. **OIDC Authentication:** The user logs in via Gigya, receiving OIDC `id_token` and `access_token`.
+2. **SAS Token Exchange:** The OIDC tokens are exchanged for HSDP tokens via the **SAS API** (`https://sas.eu-da.iot.versuni.com/api/user/self/hsdp-token`).
+   - **Request:** POST with `Authorization: Bearer {OIDC_access_token}` and JSON body `{"idToken": "{OIDC_id_token}", "exchangeFor": "HSDP"}`.
+   - **Headers:** Must include `Accept: application/vnd.oneka.v2.0+json` and `Content-Type: application/vnd.oneka.v2.0+json`.
+   - **Response:** `SasHsdpTokensResponse` containing `accessToken`, `refreshToken`, and **`signedToken`**.
+3. **HSDP Identity:** The resulting `accessToken` is a Philips-specific HSDP IAM token, and the `signedToken` is a required cryptographic proof for AWS IoT Custom Authorizers.
 
 ---
 
 ## 19. MQTT Connection Info
 
 **File:** `cl/daconnect/authentication/models/MqttConnectionInfo.java`
+**File:** `decompiled/smali_classes7/com/philips/cl/daconnect/device_control/mqtt/DaMqttClientImpl.smali`
+
+MQTT authentication for FUSION devices uses AWS IoT Core with a **Custom Authorizer**.
 
 ```java
 // Data class holding MQTT connection details
 public final class MqttConnectionInfo {
-    private final String accessToken;       // HSDP access token (value type: AccessToken)
-    private final String mqttSignature;     // MQTT auth signature (value type: MqttSignature)
-    private final String tenant;            // HSDP tenant (value type: Tenant)
-    private final WebSocketUrl webSocketUrl; // WSS endpoint URL
-
-    // These are the credentials needed to connect to AWS IoT via WSS:
-    // - accessToken: used as Custom Authorizer token
-    // - mqttSignature: used as Custom Authorizer signature
-    // - webSocketUrl: the wss:// URL to connect to
-    // - tenant: identifies the Philips HSDP environment
+    private final String accessToken;       // HSDP access token from SAS exchange
+    private final String mqttSignature;     // Signature from /user/self/signature
+    private final String tenant;            // e.g., "da"
+    private final WebSocketUrl webSocketUrl; // wss:// endpoint URL
 }
 ```
+
+**MQTT WebSocket Headers:**
+When connecting to the WSS endpoint, the following headers are required:
+- `x-amz-customauthorizer-name`: Always `"CustomAuthorizer"`
+- `x-amz-customauthorizer-signature`: The `mqttSignature` obtained from the signature endpoint.
+- `token-header`: `Bearer {accessToken}` (The HSDP access token).
+
+**The Role of `signedToken`:**
+While the `token-header` uses the `accessToken`, the `signedToken` (obtained from the SAS exchange) is often required as the *underlying token* passed to the `ControlServiceV1.connect(accessToken, signedToken)` method. For some firmware versions of FUSION devices, failing to provide the `signedToken` or using a token without the correct `aud` claim (which the SAS exchange provides) results in connection termination.
+
+---
 
 ---
 
@@ -3014,7 +3018,8 @@ public class BinaryCondorPort extends CondorPort<BinaryCondorPortProperties> {
         setPortProperties(new BinaryCondorPortProperties(data));
         return true;
     }
-    // propertiesToMap returns {"data": byte[]}
+    // propertiesToMap returns {"binary_condor_port_properties_key": byte[]}
+    // BinaryCondorPortProperties.KEY = "binary_condor_port_properties_key"
     // execMethod is NOT_IMPLEMENTED
 }
 ```
@@ -3595,18 +3600,18 @@ Complete list of all Condor port types defined in the APK:
 | `SecurityPort` | `"security"` | 0 | Encryption key exchange |
 | `DeviceCloudPairingPort` | `"pairing"` | 0 | Cloud pairing via HSDP |
 | `HsdpPairingPort` | `"pairing"` | 0 | HSDP pairing (simplified) |
-| `FirmwarePort` | `"firmware"` | ? | Firmware version info + update |
-| `WifiPort` | `"wifi"` | ? | WiFi configuration |
-| `WifiNetworksPort` | `"wifinetworks"` | ? | Available WiFi networks scan |
-| `WifiUiPort` | `"wifiui"` | ? | WiFi UI state |
-| `TimePort` | `"time"` | ? | Device time |
-| `LocalePort` | `"locale"` | ? | Device locale settings |
-| `LogPort` | `"log"` | ? | Device logs |
-| `LogSettingsPort` | `"logsettings"` | ? | Log configuration |
-| `BackendPort` | `"backend"` | ? | Backend connectivity settings |
-| `TransportPort` | `"transport"` | ? | Transport layer settings |
-| `FacPort` | `"fac"` | ? | Factory settings |
-| `BleParamsPort` | `"bleparams"` | ? | Bluetooth parameters |
+| `FirmwarePort` | `"firmware"` | 0 | Firmware version info + update |
+| `WifiPort` | `"wifi"` | 0 | WiFi configuration |
+| `WifiNetworksPort` | `"wifinetworks"` | 0 | Available WiFi networks scan |
+| `WifiUiPort` | `"wifiui"` | 0 | WiFi UI state |
+| `TimePort` | `"time"` | 0 | Device time |
+| `LocalePort` | `"locale"` | 0 | Device locale settings |
+| `LogPort` | `"log"` | 0 | Device logs |
+| `LogSettingsPort` | `"logsettings"` | 0 | Log configuration |
+| `BackendPort` | `"backend"` | 0 | Backend connectivity settings |
+| `TransportPort` | `"transport"` | 0 | Transport layer settings |
+| `FacPort` | `"fac"` | 0 | Factory settings |
+| `BleParamsPort` | `"bleparams"` | 0 | Bluetooth parameters |
 | `BinaryCondorPort` | `*.b` | variable | Raw binary data (non-JSON) |
 
 Each port extends `CondorPort<P>` with a specific `CondorPortProperties` subclass that defines the JSON field mappings for that port's data.
@@ -3872,3 +3877,393 @@ The Android app UI layer. Contains no protocol implementation. Uses Condor SDK a
 | `communication/` | 81 | Communication abstractions |
 | `database/` | 78 | Room DB (DAOs, entities, migrations) |
 | Other | 2,525 | UI, analytics, messaging, billing, etc. |
+
+---
+
+## Appendix B: Verification Corrections
+
+The following corrections were made after line-by-line re-reading of all 120 condor files:
+
+### B.1 CommunicationStrategy Interface (Complete)
+
+**File:** `connectivity/condor/core/communication/CommunicationStrategy.java`
+
+```java
+public interface CommunicationStrategy extends Availability<CommunicationStrategy> {
+    void getProperties(String portName, int productId, ResponseHandler handler);
+    void putProperties(Map<String, Object> data, String portName, int productId, ResponseHandler handler);
+    void addProperties(Map<String, Object> data, String portName, int productId, ResponseHandler handler);
+    void deleteProperties(String portName, int productId, ResponseHandler handler);
+    void subscribe(String portName, int productId, int ttl, ResponseHandler handler);
+    void unsubscribe(String portName, int productId, ResponseHandler handler);
+    void execMethod(String portName, int productId, String methodName, List<Object> params, ResponseHandler handler);
+    int getSubscriptionTtl();
+    String processByteArrayToJsonString(byte[] data);
+    void addSubscriptionEventListener(SubscriptionEventListener listener);
+    void removeSubscriptionEventListener(SubscriptionEventListener listener);
+    void enableCommunication();
+    void disableCommunication();
+}
+```
+
+### B.2 CombinedCommunicationStrategy (Expanded)
+
+The doc was too brief. Full behavior from decompiled code:
+
+```java
+public class CombinedCommunicationStrategy extends ObservableCommunicationStrategy {
+    static final int TRANSPORT_SWITCH_COOL_DOWN_PERIOD_IN_MILLIS = 1000;
+
+    private final LinkedHashSet<CommunicationStrategy> communicationStrategies; // Insertion-ordered
+    private CommunicationStrategy previousStrategy;        // Last active strategy
+    private final NullCommunicationStrategy nullStrategy;  // Fallback
+    private final Set<Subscription> subscriptions;         // Active subscriptions
+    private final Handler availabilityHandler;             // Main thread
+    private final Runnable strategyChangeRunnable;         // Cool-down delayed callback
+
+    // Inner class: tracks active subscriptions for re-subscription on transport switch
+    static class Subscription {
+        final String portname;
+        final int productId;
+        final int ttl;
+        // equals/hashCode based on portname + productId (not ttl)
+        void subscribe(CommunicationStrategy cs, ResponseHandler handler) { ... }
+        void unsubscribe(CommunicationStrategy cs, ResponseHandler handler) { ... }
+    }
+
+    // On availability change from any sub-strategy:
+    // 1. Remove any pending cool-down callback
+    // 2. Schedule new callback after 1000ms (cool-down)
+    // 3. After cool-down: check if best strategy changed
+    // 4. If changed: unsubscribe all from old, resubscribe all on new
+    // 5. Update previousStrategy
+
+    // subscribe(): on success, adds Subscription to subscriptions set
+    // unsubscribe(): removes Subscription from set, then calls unsubscribe on active strategy
+    // All other ops (get/put/add/delete/exec): delegate to findStrategy()
+    // addSubscriptionEventListener: registers on ALL strategies (not just active)
+    // enableCommunication/disableCommunication: calls on ALL strategies
+    // processByteArrayToJsonString: delegates to findStrategy()
+}
+```
+
+### B.3 CondorPortProperties Interface
+
+```java
+// Marker interface - no methods. All port property classes implement this.
+@Keep // Prevents ProGuard from removing
+public interface CondorPortProperties {}
+```
+
+### B.4 SecurityPort
+
+```java
+public class SecurityPort extends CondorPort<SecurityPortProperties> {
+    private static final String SECURITYPORT_NAME = "security";
+    private static final int SECURITYPORT_PRODUCTID = 0;
+    public String getCondorPortName() { return "security"; }
+    public int getCondorProductId() { return 0; }
+}
+```
+
+### B.5 FirmwareUpdateListener Interface (Complete)
+
+```java
+public interface FirmwareUpdateListener {
+    default void onFirmwareAvailable(String version) {}  // New version available
+    default void onDownloadProgress(int bytesUploaded, int totalSize) {} // Upload progress
+    default void onDownloadFinished() {}                 // Upload complete
+    default void onDownloadFailed(FirmwareUpdateException e) {} // Upload failed
+    default void onCheckingProgress(int progress, int size) {}  // Device checking firmware
+    default void onDeployFinished() {}                   // Install complete (device rebooted to IDLE)
+    default void onDeployFailed(FirmwareUpdateException e) {}  // Install failed
+    default void onCancelFinished() {}                   // Cancel complete (device in ERROR state)
+    default void onCancelFailed() {}                     // Cancel timed out
+}
+```
+
+### B.6 FirmwareUpdateOperation Interface
+
+```java
+public interface FirmwareUpdateOperation {
+    void start(long timeoutMs);
+    void deploy(long timeoutMs);
+    void cancel(long timeoutMs);
+    void finish();
+}
+```
+
+### B.7 FirmwareUpdatePushLocal (Full State Machine)
+
+```java
+// State machine for local firmware upload:
+//
+//   start(timeout)
+//     |
+//     v
+//   obtainApplianceState() -- get current firmware port state
+//     |
+//     +-- state == IDLE --> startWaitingForDownloadingState()
+//     |                       |
+//     |                       v
+//     |                     transitionToState(DOWNLOADING) -- PUT {"state":"downloading","size":N}
+//     |                       |
+//     |                       v
+//     |                     poll until state == DOWNLOADING (10s timeout)
+//     |                       |
+//     |                       v
+//     |                     uploader.startAt(0) -- start chunked upload
+//     |
+//     +-- state == DOWNLOADING && isResuming --> uploader.startAt(progress) -- resume
+//     |
+//     +-- other state --> transitionToState(CANCELING) --> transitionToState(IDLE) --> retry
+//
+//   Chunk upload loop (FirmwareUploader):
+//     1. Read maxChunkSize from device
+//     2. Copy chunk: firmwareData[progress .. progress+chunkSize]
+//     3. PUT {"data": <base64_chunk>} to firmware port
+//     4. On OUT_OF_MEMORY: reduce chunk size by 50, retry
+//     5. Check progress from cachedProperties
+//     6. If progress >= totalSize: waitForReadyState()
+//     7. Else: uploadChunk(progress) -- loop
+//
+//   waitForReadyState():
+//     - Subscribe to firmware port
+//     - Poll until state == READY (firmware verified by device)
+//     - On READY: listener.onSuccess() -> onDownloadFinished()
+//     - On ERROR: listener.onError() -> onDownloadFailed()
+//
+//   deploy(timeout):
+//     - transitionToState(PROGRAMMING) -- PUT {"state":"go"}
+//     - Poll until state == IDLE (device rebooted) -> onDeployFinished()
+//     - On ERROR -> onDeployFailed()
+//     - On timeout -> onDeployFailed("Timed out waiting for appliance")
+//
+//   cancel(timeout):
+//     - Stop uploader + all pollers
+//     - transitionToState(CANCELING) -- PUT {"state":"cancel"}
+//     - Poll until state == ERROR (device acknowledges cancel) -> onCancelFinished()
+//     - On timeout -> onCancelFailed()
+
+// Constants:
+static final long DOWNLOADING_STATE_TRANSITION_TIMEOUT_MILLIS = 10000; // 10s
+static final long POLLING_INTERVAL = 1000;                              // 1s
+```
+
+### B.8 FirmwareUploader (Chunked Upload)
+
+```java
+public class FirmwareUploader {
+    static final int CHUNK_SIZE_REDUCTION = 50; // Bytes to reduce on OUT_OF_MEMORY
+
+    // Upload flow:
+    // 1. Read maxChunkSize from cached FirmwarePortProperties
+    // 2. If maxChunkSize <= 0: error
+    // 3. Calculate effective chunk size: maxChunkSize - (reductionCount * 50)
+    // 4. Copy chunk from firmwareData[offset .. offset+chunkSize]
+    // 5. Create FirmwarePortProperties with data = chunk bytes
+    // 6. PUT to firmware port
+    // 7. On success: check progress, continue or waitForReady
+    // 8. On OUT_OF_MEMORY: increment reductionCount, retry same offset
+    // 9. On other error: abort
+
+    // waitForReadyState():
+    //   - If already READY: success
+    //   - Else: subscribe + poll, wait for READY or ERROR
+}
+```
+
+### B.9 WiFiNode
+
+**File:** `connectivity/condor/core/port/common/WiFiNode.java`
+
+Missing from original doc. Represents a WiFi network in scan results.
+
+```java
+public class WiFiNode {
+    @SerializedName("channel")  String channel;   // WiFi channel
+    @SerializedName("quality")  Integer quality;   // Signal quality
+    @SerializedName("security") String security;   // "WPA2", "OPEN", etc.
+    @SerializedName("ssid")     String ssid;       // Network name
+}
+```
+
+### B.10 WifiNetworkPortResponseDeserializer
+
+**File:** `connectivity/condor/core/port/common/WifiNetworkPortResponseDeserializer.java`
+
+Custom Gson deserializer that handles the WiFi networks response format.
+
+```java
+// The device returns WiFi networks as a JSON object where each key is the SSID
+// and the value is the network details. This deserializer converts it to a list.
+// Example response: {"MyNetwork": {"channel":"6","quality":80,"security":"WPA2"}, ...}
+// Deserialized to: WifiNetworksPortProperties with List<WiFiNode>
+```
+
+### B.11 IntegerPreservingMapDeserializer (Detailed)
+
+Recursively deserializes JSON preserving integers (Gson defaults to Double for all numbers).
+
+```java
+// readElement() dispatches on JSON type:
+//   - JsonArray: recursively read each element, return ArrayList
+//   - JsonObject: recursively read each value, return LinkedHashMap<String, Object>
+//   - JsonPrimitive: readPrimitive()
+//
+// readPrimitive():
+//   - Boolean -> Boolean
+//   - String -> String
+//   - Number: if toString() contains '.': Double, else: Integer
+//     (This preserves {"value": 42} as Integer(42) instead of Double(42.0))
+```
+
+### B.12 VerboseExecutor (Detailed)
+
+Not just a debug wrapper. Tracks executing task count for idle detection.
+
+```java
+public class VerboseExecutor extends ThreadPoolExecutor {
+    // Single thread (corePoolSize=1, maxPoolSize=1)
+    // Increments counter in beforeExecute(), decrements in afterExecute()
+    // isIdle(): true when counter==0 AND queue is empty
+    // Used by LanCommunicationStrategy to know when request queue is drained
+}
+```
+
+### B.13 DatabaseFetcher
+
+```java
+public interface DatabaseFetcher {
+    NetworkNodeDatabase getNetworkNodeDatabase(RuntimeConfiguration config);
+}
+// Note: DatabaseFetcher is in core/ root, not core/store/
+// NetworkNodeDatabaseFactory is in core/store/ and implements the actual creation
+```
+
+### B.14 Availability Interface
+
+```java
+public interface Availability<T> {
+    boolean isAvailable();
+    void addAvailabilityListener(AvailabilityListener<T> listener);
+    void removeAvailabilityListener(AvailabilityListener<T> listener);
+
+    interface AvailabilityListener<T> {
+        void onAvailabilityChanged(T source);
+    }
+}
+```
+
+### B.15 RemoteRequestType Enum
+
+```java
+public enum RemoteRequestType {
+    ADD_PROPS,       // POST equivalent
+    DEL_PROPS,       // DELETE equivalent
+    EXEC_METHOD,     // RPC method invocation
+    GET_PORTS,       // List available ports
+    GET_PRODS,       // List available products
+    GET_PROPS,       // GET equivalent
+    PUT_PROPS,       // PUT equivalent
+    SUBSCRIBE,       // Subscribe for events
+    UNSUBSCRIBE      // Unsubscribe
+}
+```
+
+### B.16 SubscribeRequest
+
+**File:** `connectivity/condor/lan/communication/SubscribeRequest.java`
+
+LAN subscription request adds the UDP port to the subscription payload.
+
+```java
+public class SubscribeRequest extends LanRequest {
+    private final int udpPort; // The local UDP port for push events
+
+    // Overrides getSubscriptionData() to add "changeudp" key:
+    // {"subscriber": "<appId>", "ttl": 300, "changeudp": <udpPort>}
+
+    @Override
+    public Response handleHttpOk(Headers headers, String body) {
+        // Check for "X-Condor-Features: changeindication-port" header
+        // This confirms the device supports UDP push events
+        String features = headers.get("X-Condor-Features");
+        if (features != null && features.contains("changeindication-port")) {
+            // Device supports UDP change indication
+        }
+        return super.handleHttpOk(headers, body);
+    }
+}
+```
+
+### B.17 FasterFirmwareUploadRequest
+
+**File:** `connectivity/condor/lan/communication/FasterFirmwareUploadRequest.java`
+
+Firmware data upload via HTTP PUT to `https://{ip}/firmwaredata`.
+
+```java
+public class FasterFirmwareUploadRequest extends LanRequest {
+    // URL: https://{ip}/firmwaredata (not /di/v1/products/...)
+    // Method: PUT with binary body (application/octet-stream)
+    // Used for faster bulk firmware transfer (bypasses JSON encoding)
+}
+```
+
+### B.18 IOUtil
+
+```java
+public class IOUtil {
+    public static long copyStream(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[65536]; // 64KB buffer
+        long total = 0;
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+            total += read;
+        }
+        return total;
+    }
+}
+```
+
+### B.19 IPProvider
+
+```java
+public class IPProvider {
+    public String getLocalIpAddress(Context context) {
+        WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService("wifi");
+        int ip = wm.getConnectionInfo().getIpAddress();
+        // Convert int to dotted-decimal: ip & 0xff, (ip >> 8) & 0xff, ...
+        return String.format(Locale.US, "%d.%d.%d.%d",
+            ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
+    }
+}
+```
+
+### B.20 MulticastLockControlPoint
+
+```java
+public class MulticastLockControlPoint {
+    private WifiManager.MulticastLock multicastLock;
+
+    public boolean acquireMulticastLock() {
+        if (multicastLock == null) {
+            WifiManager wm = (WifiManager) context.getSystemService("wifi");
+            multicastLock = wm.createMulticastLock("CondorMulticastLock");
+            multicastLock.setReferenceCounted(true);
+        }
+        if (!multicastLock.isHeld()) {
+            multicastLock.acquire();
+        }
+        return multicastLock.isHeld();
+    }
+
+    public void releaseMulticastLock() {
+        if (multicastLock != null && multicastLock.isHeld()) {
+            multicastLock.release();
+        }
+    }
+}
+```

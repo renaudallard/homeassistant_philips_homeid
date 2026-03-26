@@ -8,7 +8,7 @@
 [![Release](https://img.shields.io/github/v/release/renaudallard/homeassistant_philips_homeid)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
-Control your Philips domestic appliances locally through Home Assistant. No cloud dependency after initial setup.
+Control your Philips domestic appliances through Home Assistant. Local control for most devices, cloud relay for FUSION devices.
 
 <p align="center">
   <img src="images/screenshot.png" alt="Philips HomeID device in Home Assistant" width="500">

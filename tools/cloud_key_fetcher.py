@@ -536,6 +536,7 @@ def test_mqtt_connection(access_token, thing_name=None):
     sock = ctx.wrap_socket(sock, server_hostname=host)
 
     ws_key = base64.b64encode(os.urandom(16)).decode()
+    # Match iOS app capture exactly (every header, same order)
     upgrade = (
         f"GET /mqtt HTTP/1.1\r\n"
         f"Host: {host}:443\r\n"
@@ -547,8 +548,11 @@ def test_mqtt_connection(access_token, thing_name=None):
         f"tenant: da\r\n"
         f"Sec-WebSocket-Protocol: mqtt\r\n"
         f"token-header: Bearer {access_token}\r\n"
+        f"Accept-Language: en-US,en;q=0.9\r\n"
         f"x-amz-customauthorizer-name: CustomAuthorizer\r\n"
         f"Connection: Upgrade\r\n"
+        f"Accept-Encoding: gzip, deflate, br\r\n"
+        f"User-Agent: NutriU/5 CFNetwork/3860.300.31 Darwin/25.2.0\r\n"
         f"Content-Type: application/json\r\n"
         f"\r\n"
     )

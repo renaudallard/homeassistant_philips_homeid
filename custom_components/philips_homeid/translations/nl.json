@@ -1,0 +1,211 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "Tijdelijke installatie van Playwright-browser voor cloudauthenticatie. Dit kan enkele minuten duren..."
+    },
+    "step": {
+      "user": {
+        "title": "IP-adres van apparaat",
+        "description": "Voer het IP-adres in van uw Philips-apparaat dat verbonden is met uw netwerk.",
+        "data": {
+          "host": "IP-adres",
+          "model": "Apparaatmodel"
+        }
+      },
+      "manual_host": {
+        "title": "IP-adres van apparaat",
+        "description": "Voer het IP-adres in van uw Philips-apparaat dat verbonden is met uw netwerk.",
+        "data": {
+          "host": "IP-adres",
+          "model": "Apparaatmodel"
+        }
+      },
+      "cloud_install": {
+        "title": "Cloudverbinding voorbereiden",
+        "description": "Playwright-browser installeren en verificatiecode verzenden..."
+      },
+      "cloud_email": {
+        "title": "Philips-account inloggen",
+        "description": "Voer het e-mailadres van uw Philips HomeID-account in. Er wordt een verificatiecode naar dit adres gestuurd.",
+        "data": {
+          "email": "E-mail",
+          "manual_entry": "Inloggegevens handmatig invoeren"
+        }
+      },
+      "cloud_otp": {
+        "title": "Verificatiecode invoeren",
+        "description": "Er is een verificatiecode gestuurd naar {email}. Voer deze hieronder in.",
+        "data": {
+          "code": "Verificatiecode"
+        }
+      },
+      "cloud_devices": {
+        "title": "Apparaat selecteren",
+        "description": "Selecteer het apparaat dat u wilt toevoegen aan Home Assistant.",
+        "data": {
+          "device": "Apparaat"
+        }
+      },
+      "confirm": {
+        "title": "Apparaat bevestigen",
+        "description": "Wilt u {name} op {host} toevoegen?\n\nModel: {model}\n\n**Opmerking:** Het kan enkele minuten duren voordat alle entiteiten verschijnen terwijl de integratie de authenticatie met het apparaat opzet."
+      },
+      "zeroconf_confirm": {
+        "title": "Philips-apparaat gevonden",
+        "description": "Er is een Philips-apparaat gevonden op uw netwerk:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nWilt u dit apparaat toevoegen?\n\n**Opmerking:** Het kan enkele minuten duren voordat alle entiteiten verschijnen terwijl de integratie de authenticatie met het apparaat opzet."
+      },
+      "ssdp_confirm": {
+        "title": "Philips-apparaat gevonden",
+        "description": "Er is een Philips-apparaat gevonden op uw netwerk:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nWilt u dit apparaat toevoegen?\n\n**Opmerking:** Het kan enkele minuten duren voordat alle entiteiten verschijnen terwijl de integratie de authenticatie met het apparaat opzet."
+      },
+      "manual_credentials": {
+        "title": "Inloggegevens voor {name}",
+        "description": "Voer de inloggegevens in die uit de HomeID-app zijn gehaald.",
+        "data": {
+          "client_id": "Client-ID",
+          "client_secret": "Client-secret",
+          "encryption_key": "Encryptiesleutel (vereist voor HTTP-apparaten zoals HD9285)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen verbinding maken met het apparaat",
+      "missing_credentials": "Zowel Client-ID als Client-secret zijn vereist",
+      "invalid_credentials": "De inloggegevens zijn ongeldig of het apparaat heeft ze geweigerd",
+      "encryption_key_failed": "Kan de encryptiesleutel niet ophalen van het apparaat. De inloggegevens zijn mogelijk cloudinloggegevens (niet lokaal), of het apparaat vereist een handmatige sleutel. Gebruik de credential-extractor of voer de sleutel handmatig in.",
+      "unknown": "Er is een onverwachte fout opgetreden",
+      "missing_email": "Voer uw e-mailadres in",
+      "missing_code": "Voer de verificatiecode in",
+      "otp_send_failed": "Verzenden van verificatiecode mislukt. Controleer uw e-mail en probeer het opnieuw.",
+      "otp_failed": "Ongeldige verificatiecode. Probeer het opnieuw.",
+      "cloud_browser_failed": "Cloudauthenticatie mislukt: de browser kon de aanmelding niet voltooien. Controleer de Home Assistant-logs voor details. U kunt ook de cloud_key_fetcher.py-tool gebruiken of de inloggegevens handmatig invoeren.",
+      "no_cloud_devices": "Geen apparaten gevonden in uw Philips-account.",
+      "cloud_credentials_not_found": "Kan de inloggegevens niet ophalen uit de cloud. Probeer ze handmatig in te voeren.",
+      "cloud_no_ip": "IP-adres van apparaat niet beschikbaar via de cloud. Probeer het IP-adres handmatig in te voeren."
+    },
+    "abort": {
+      "already_configured": "Apparaat is al geconfigureerd",
+      "cannot_connect": "Kan geen verbinding maken met het apparaat",
+      "cloud_setup_failed": "Cloudverbinding mislukt: kan Playwright-browser niet installeren. Dit kan voorkomen in Docker-containers of beperkte omgevingen. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in.",
+      "playwright_unsupported": "Cloudverbinding wordt niet ondersteund op dit platform. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Pollinterval (seconden)",
+          "active_scan_interval": "Actief pollinterval tijdens het koken (seconden)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": { "name": "PM2.5" },
+      "pm1": { "name": "PM1.0" },
+      "pm10": { "name": "PM10" },
+      "air_quality_index": { "name": "Luchtkwaliteitsindex" },
+      "tvoc": { "name": "Totaal VOS" },
+      "gas": { "name": "Gasniveau" },
+      "allergen_index": { "name": "Allergeenindex" },
+      "humidity": { "name": "Luchtvochtigheid" },
+      "temperature": { "name": "Temperatuur" },
+      "filter_pre": { "name": "Voorfilter" },
+      "filter_hepa": { "name": "HEPA-filter" },
+      "filter_carbon": { "name": "Koolstoffilter" },
+      "filter_wick": { "name": "Bevochtigerlont" },
+      "water_level": { "name": "Waterniveau" },
+      "display_brightness": { "name": "Schermhelderheid" },
+      "runtime": { "name": "Totale gebruiksduur" },
+      "mode": { "name": "Modus" },
+      "fan_speed": { "name": "Ventilatorsnelheid" },
+      "error_code": { "name": "Foutcode" },
+      "airfryer_status": { "name": "Kookstatus" },
+      "airfryer_temperature": { "name": "Doeltemperatuur" },
+      "airfryer_current_temperature": { "name": "Huidige temperatuur" },
+      "airfryer_time_total": { "name": "Totale kooktijd" },
+      "airfryer_time_remaining": { "name": "Resterende tijd" },
+      "airfryer_preset": { "name": "Programma" },
+      "airfryer_recipe_name": { "name": "Recept" },
+      "airfryer_error": { "name": "Foutcode" },
+      "airfryer_preheat_status": { "name": "Voorverwarmstatus" },
+      "airfryer_keep_warm": { "name": "Warmhouden" },
+      "muji_filter0_lifetime": { "name": "Levensduur filter 0" },
+      "muji_filter1_lifetime": { "name": "Levensduur filter 1" },
+      "muji_filter0_remaining": { "name": "Filter 0 resterend" },
+      "muji_filter1_remaining": { "name": "Filter 1 resterend" },
+      "airfryer_recipe_id": { "name": "Recept-ID" },
+      "airfryer_step_id": { "name": "Stap-ID" },
+      "airfryer_airspeed": { "name": "Luchtsnelheid" },
+      "airfryer_probe_temperature": { "name": "Sondetemperatuur" },
+      "airfryer_current_probe_temperature": { "name": "Huidige sondetemperatuur" },
+      "airfryer_dialog": { "name": "Melding" },
+      "airfryer_previous_status": { "name": "Vorige status" },
+      "airfryer_cooking_id": { "name": "Kook-ID" },
+      "airfryer_current_stage": { "name": "Huidige fase" },
+      "airfryer_voltage": { "name": "Spanning" },
+      "airfryer_left_status": { "name": "Status linkermand" },
+      "airfryer_left_temperature": { "name": "Temperatuur linkermand" },
+      "airfryer_left_time": { "name": "Tijd linkermand" },
+      "airfryer_right_status": { "name": "Status rechtermand" },
+      "airfryer_right_temperature": { "name": "Temperatuur rechtermand" },
+      "airfryer_right_time": { "name": "Tijd rechtermand" },
+      "multicooker_humidity": { "name": "Luchtvochtigheid" },
+      "multicooker_ingredient": { "name": "Ingrediënt" },
+      "autocook_uuid": { "name": "AutoCook-programma" },
+      "autocook_doneness": { "name": "AutoCook gaarheid" },
+      "autocook_amount": { "name": "AutoCook hoeveelheid" },
+      "autocook_weight": { "name": "AutoCook gewicht" },
+      "autocook_thickness": { "name": "AutoCook dikte" },
+      "recipe_current_stage": { "name": "Huidige receptfase" },
+      "firmware_version": { "name": "Firmwareversie" },
+      "firmware_available": { "name": "Firmware beschikbaar" }
+    },
+    "binary_sensor": {
+      "filter_replace_required": { "name": "Filtervervanging vereist" },
+      "water_tank_empty": { "name": "Waterreservoir leeg" },
+      "airfryer_drawer_open": { "name": "Lade" },
+      "airfryer_shake_reminder": { "name": "Schudherinnering" },
+      "airfryer_flip_reminder": { "name": "Draaiherinnering" },
+      "airfryer_preheat_active": { "name": "Voorverwarmen actief" },
+      "airfryer_probe_unplugged": { "name": "Sonde losgekoppeld" },
+      "airfryer_probe_required": { "name": "Sonde vereist" },
+      "airfryer_resting": { "name": "Rusten" },
+      "multicooker_lid_open": { "name": "Deksel" },
+      "multicooker_no_water": { "name": "Geen water" },
+      "airfryer_left_drawer_open": { "name": "Lade linkermand" },
+      "airfryer_right_drawer_open": { "name": "Lade rechtermand" }
+    },
+    "button": {
+      "airfryer_start": { "name": "Koken starten" },
+      "airfryer_pause": { "name": "Pauzeren" },
+      "airfryer_stop": { "name": "Stoppen" },
+      "airfryer_keep_warm": { "name": "Warmhouden" }
+    },
+    "number": {
+      "airfryer_set_temperature": { "name": "Temperatuur instellen" },
+      "airfryer_set_time": { "name": "Kooktijd instellen" },
+      "airfryer_set_airspeed": { "name": "Luchtsnelheid instellen" },
+      "airfryer_set_probe_temperature": { "name": "Sondetemperatuur instellen" },
+      "set_beep_volume": { "name": "Piepvolume" },
+      "set_air_quality_threshold": { "name": "Luchtkwaliteitsdrempel" },
+      "set_keep_warm_time": { "name": "Warmhoudduur" },
+      "set_keep_warm_temp": { "name": "Warmhoudtemperatuur" }
+    },
+    "select": {
+      "cooking_method": { "name": "Kookmethode" }
+    },
+    "switch": {
+      "child_lock": { "name": "Kinderslot" },
+      "preheat": { "name": "Voorverwarmen" },
+      "sensor_monitor_standby": { "name": "Sensoren actief in stand-by" }
+    },
+    "update": {
+      "firmware": { "name": "Firmware" }
+    },
+    "fan": {
+      "air_purifier": { "name": "Luchtreiniger" }
+    }
+  }
+}

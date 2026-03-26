@@ -1,0 +1,211 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "Installation temporaire du navigateur Playwright pour l'authentification cloud. Cela peut prendre quelques minutes..."
+    },
+    "step": {
+      "user": {
+        "title": "Adresse IP de l'appareil",
+        "description": "Entrez l'adresse IP de votre appareil Philips connecté à votre réseau.",
+        "data": {
+          "host": "Adresse IP",
+          "model": "Modèle de l'appareil"
+        }
+      },
+      "manual_host": {
+        "title": "Adresse IP de l'appareil",
+        "description": "Entrez l'adresse IP de votre appareil Philips connecté à votre réseau.",
+        "data": {
+          "host": "Adresse IP",
+          "model": "Modèle de l'appareil"
+        }
+      },
+      "cloud_install": {
+        "title": "Préparation de la connexion cloud",
+        "description": "Installation du navigateur Playwright et envoi du code de vérification..."
+      },
+      "cloud_email": {
+        "title": "Connexion au compte Philips",
+        "description": "Entrez l'adresse email de votre compte Philips HomeID. Un code de vérification sera envoyé à cette adresse.",
+        "data": {
+          "email": "Email",
+          "manual_entry": "Saisir les identifiants manuellement"
+        }
+      },
+      "cloud_otp": {
+        "title": "Code de vérification",
+        "description": "Un code de vérification a été envoyé à {email}. Entrez-le ci-dessous.",
+        "data": {
+          "code": "Code de vérification"
+        }
+      },
+      "cloud_devices": {
+        "title": "Sélectionner l'appareil",
+        "description": "Sélectionnez l'appareil que vous souhaitez ajouter a Home Assistant.",
+        "data": {
+          "device": "Appareil"
+        }
+      },
+      "confirm": {
+        "title": "Confirmer l'appareil",
+        "description": "Voulez-vous ajouter {name} a l'adresse {host} ?\n\nModèle : {model}\n\n**Remarque :** Toutes les entités peuvent prendre quelques minutes avant d'apparaître pendant que l'intégration établit l'authentification avec l'appareil."
+      },
+      "zeroconf_confirm": {
+        "title": "Appareil Philips détecté",
+        "description": "Un appareil Philips a été détecté sur votre réseau :\n\n**{name}**\nIP : {host}\nModèle : {model}\n\nVoulez-vous ajouter cet appareil ?\n\n**Remarque :** Toutes les entités peuvent prendre quelques minutes avant d'apparaître pendant que l'intégration établit l'authentification avec l'appareil."
+      },
+      "ssdp_confirm": {
+        "title": "Appareil Philips détecté",
+        "description": "Un appareil Philips a été détecté sur votre réseau :\n\n**{name}**\nIP : {host}\nModèle : {model}\n\nVoulez-vous ajouter cet appareil ?\n\n**Remarque :** Toutes les entités peuvent prendre quelques minutes avant d'apparaître pendant que l'intégration établit l'authentification avec l'appareil."
+      },
+      "manual_credentials": {
+        "title": "Identifiants pour {name}",
+        "description": "Entrez les identifiants extraits de l'application HomeID.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "Clé de chiffrement (obligatoire pour les appareils HTTP comme le HD9285)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à l'appareil",
+      "missing_credentials": "Le Client ID et le Client Secret sont tous les deux requis",
+      "invalid_credentials": "Les identifiants sont invalides ou l'appareil les a refusés",
+      "encryption_key_failed": "Impossible d'obtenir la clé de chiffrement de l'appareil. Les identifiants sont peut-être des identifiants cloud (et non locaux), ou l'appareil nécessite une clé manuelle. Utilisez l'extracteur d'identifiants ou fournissez la clé manuellement.",
+      "unknown": "Une erreur inattendue s'est produite",
+      "missing_email": "Veuillez entrer votre adresse email",
+      "missing_code": "Veuillez entrer le code de vérification",
+      "otp_send_failed": "Échec de l'envoi du code de vérification. Vérifiez votre email et réessayez.",
+      "otp_failed": "Code de vérification invalide. Veuillez réessayer.",
+      "cloud_browser_failed": "L'authentification cloud a échoué : le navigateur n'a pas pu terminer la connexion. Consultez les logs de Home Assistant pour plus de détails. Vous pouvez aussi utiliser l'outil cloud_key_fetcher.py ou saisir les identifiants manuellement.",
+      "no_cloud_devices": "Aucun appareil trouvé dans votre compte Philips.",
+      "cloud_credentials_not_found": "Impossible de récupérer les identifiants depuis le cloud. Essayez de les saisir manuellement.",
+      "cloud_no_ip": "Adresse IP de l'appareil non disponible depuis le cloud. Essayez de saisir l'adresse IP manuellement."
+    },
+    "abort": {
+      "already_configured": "Appareil déjà configuré",
+      "cannot_connect": "Impossible de se connecter à l'appareil",
+      "cloud_setup_failed": "La connexion cloud a échoué : impossible d'installer le navigateur Playwright. Cela peut se produire dans des conteneurs Docker ou des environnements restreints. Exécutez l'outil cloud_key_fetcher.py sur un système compatible (Debian, Ubuntu, Fedora, macOS ou Windows) pour obtenir les identifiants, puis saisissez-les manuellement.",
+      "playwright_unsupported": "La connexion cloud n'est pas supportée sur cette plateforme. Exécutez l'outil cloud_key_fetcher.py sur un système compatible (Debian, Ubuntu, Fedora, macOS ou Windows) pour obtenir les identifiants, puis saisissez-les manuellement."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Intervalle de scrutation (secondes)",
+          "active_scan_interval": "Intervalle de scrutation active pendant la cuisson (secondes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": { "name": "PM2.5" },
+      "pm1": { "name": "PM1.0" },
+      "pm10": { "name": "PM10" },
+      "air_quality_index": { "name": "Indice de qualité de l'air" },
+      "tvoc": { "name": "COV totaux" },
+      "gas": { "name": "Niveau de gaz" },
+      "allergen_index": { "name": "Indice d'allergènes" },
+      "humidity": { "name": "Humidité" },
+      "temperature": { "name": "Température" },
+      "filter_pre": { "name": "Pré-filtre" },
+      "filter_hepa": { "name": "Filtre HEPA" },
+      "filter_carbon": { "name": "Filtre à charbon" },
+      "filter_wick": { "name": "Mèche humidificateur" },
+      "water_level": { "name": "Niveau d'eau" },
+      "display_brightness": { "name": "Luminosité de l'écran" },
+      "runtime": { "name": "Durée totale de fonctionnement" },
+      "mode": { "name": "Mode" },
+      "fan_speed": { "name": "Vitesse du ventilateur" },
+      "error_code": { "name": "Code d'erreur" },
+      "airfryer_status": { "name": "État de cuisson" },
+      "airfryer_temperature": { "name": "Température cible" },
+      "airfryer_current_temperature": { "name": "Température actuelle" },
+      "airfryer_time_total": { "name": "Durée totale de cuisson" },
+      "airfryer_time_remaining": { "name": "Temps restant" },
+      "airfryer_preset": { "name": "Programme" },
+      "airfryer_recipe_name": { "name": "Recette" },
+      "airfryer_error": { "name": "Code d'erreur" },
+      "airfryer_preheat_status": { "name": "État du préchauffage" },
+      "airfryer_keep_warm": { "name": "Maintien au chaud" },
+      "muji_filter0_lifetime": { "name": "Durée de vie filtre 0" },
+      "muji_filter1_lifetime": { "name": "Durée de vie filtre 1" },
+      "muji_filter0_remaining": { "name": "Filtre 0 restant" },
+      "muji_filter1_remaining": { "name": "Filtre 1 restant" },
+      "airfryer_recipe_id": { "name": "ID de recette" },
+      "airfryer_step_id": { "name": "ID d'étape" },
+      "airfryer_airspeed": { "name": "Vitesse de l'air" },
+      "airfryer_probe_temperature": { "name": "Température de la sonde" },
+      "airfryer_current_probe_temperature": { "name": "Température actuelle de la sonde" },
+      "airfryer_dialog": { "name": "Notification" },
+      "airfryer_previous_status": { "name": "État précédent" },
+      "airfryer_cooking_id": { "name": "ID de cuisson" },
+      "airfryer_current_stage": { "name": "Étape en cours" },
+      "airfryer_voltage": { "name": "Tension" },
+      "airfryer_left_status": { "name": "État panier gauche" },
+      "airfryer_left_temperature": { "name": "Température panier gauche" },
+      "airfryer_left_time": { "name": "Temps panier gauche" },
+      "airfryer_right_status": { "name": "État panier droit" },
+      "airfryer_right_temperature": { "name": "Température panier droit" },
+      "airfryer_right_time": { "name": "Temps panier droit" },
+      "multicooker_humidity": { "name": "Humidité" },
+      "multicooker_ingredient": { "name": "Ingrédient" },
+      "autocook_uuid": { "name": "Programme AutoCook" },
+      "autocook_doneness": { "name": "Niveau de cuisson AutoCook" },
+      "autocook_amount": { "name": "Quantité AutoCook" },
+      "autocook_weight": { "name": "Poids AutoCook" },
+      "autocook_thickness": { "name": "Épaisseur AutoCook" },
+      "recipe_current_stage": { "name": "Étape actuelle de la recette" },
+      "firmware_version": { "name": "Version du firmware" },
+      "firmware_available": { "name": "Firmware disponible" }
+    },
+    "binary_sensor": {
+      "filter_replace_required": { "name": "Remplacement de filtre requis" },
+      "water_tank_empty": { "name": "Réservoir d'eau vide" },
+      "airfryer_drawer_open": { "name": "Tiroir" },
+      "airfryer_shake_reminder": { "name": "Rappel de secousse" },
+      "airfryer_flip_reminder": { "name": "Rappel de retournement" },
+      "airfryer_preheat_active": { "name": "Préchauffage actif" },
+      "airfryer_probe_unplugged": { "name": "Sonde débranchée" },
+      "airfryer_probe_required": { "name": "Sonde requise" },
+      "airfryer_resting": { "name": "Repos" },
+      "multicooker_lid_open": { "name": "Couvercle" },
+      "multicooker_no_water": { "name": "Pas d'eau" },
+      "airfryer_left_drawer_open": { "name": "Tiroir panier gauche" },
+      "airfryer_right_drawer_open": { "name": "Tiroir panier droit" }
+    },
+    "button": {
+      "airfryer_start": { "name": "Démarrer la cuisson" },
+      "airfryer_pause": { "name": "Pause" },
+      "airfryer_stop": { "name": "Arrêter" },
+      "airfryer_keep_warm": { "name": "Maintien au chaud" }
+    },
+    "number": {
+      "airfryer_set_temperature": { "name": "Régler la température" },
+      "airfryer_set_time": { "name": "Régler la durée de cuisson" },
+      "airfryer_set_airspeed": { "name": "Régler la vitesse de l'air" },
+      "airfryer_set_probe_temperature": { "name": "Régler la température de la sonde" },
+      "set_beep_volume": { "name": "Volume du bip" },
+      "set_air_quality_threshold": { "name": "Seuil de qualité de l'air" },
+      "set_keep_warm_time": { "name": "Durée de maintien au chaud" },
+      "set_keep_warm_temp": { "name": "Température de maintien au chaud" }
+    },
+    "select": {
+      "cooking_method": { "name": "Méthode de cuisson" }
+    },
+    "switch": {
+      "child_lock": { "name": "Sécurité enfant" },
+      "preheat": { "name": "Préchauffage" },
+      "sensor_monitor_standby": { "name": "Capteurs actifs en veille" }
+    },
+    "update": {
+      "firmware": { "name": "Firmware" }
+    },
+    "fan": {
+      "air_purifier": { "name": "Purificateur d'air" }
+    }
+  }
+}

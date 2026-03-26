@@ -1275,10 +1275,11 @@ class PhilipsLocalAPI:
         got_data = False
 
         # Try airfryer endpoint (skip if device is known to be non-airfryer)
-        # Wait until auth is established before probing: unauthenticated
-        # requests hang and overwhelm the device's limited web server.
+        # Skip probing if we have no auth material at all (no client_id/secret),
+        # since unauthenticated requests hang on some devices.
         airfryer = None
-        if device.airfryer_port is not False and device.credentials:
+        has_auth = device.credentials or (device.client_id and device.client_secret)
+        if device.airfryer_port is not False and has_auth:
             airfryer = await self.get_airfryer_status(device)
             if airfryer:
                 got_data = True
@@ -1308,10 +1309,11 @@ class PhilipsLocalAPI:
                     recipe = await self.get_recipe_status(device)
                     if recipe:
                         state.properties["recipe"] = recipe
-            elif device.airfryer_port is None and device.credentials:
+            elif device.airfryer_port is None and has_auth:
                 # No port responded after successful auth; not an airfryer.
-                # Only cache this if auth is established (credentials set),
-                # otherwise timeouts could be from pre-auth state.
+                # Only cache this if we have auth material (credentials or
+                # client_id/secret), otherwise timeouts could be from
+                # pre-auth state.
                 device.airfryer_port = False
 
         # Get status (for air purifiers and other devices)

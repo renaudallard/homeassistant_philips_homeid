@@ -193,9 +193,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             sig_data.get("signature", ""),
         )
     except Exception as err:
-        raise ConfigEntryNotReady(
-            f"MQTT connection failed (tried WSS:443 and MQTTS:8883): {err}"
-        ) from err
+        raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
 
     # Initial data fetch via shadow/get
     try:

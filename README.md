@@ -367,8 +367,7 @@ The integration automatically detects FUSION devices during setup. When a device
 
 **How it works:**
 - Uses your Philips account OIDC tokens (from cloud login) to authenticate with AWS IoT
-- Tries MQTT over WebSocket Secure (port 443) first, matching the official app
-- Falls back to MQTT over TLS (port 8883) if WSS fails
+- Connects via MQTT over WebSocket Secure (port 443), matching the official app
 - Receives device state updates in real-time via push notifications
 - Sends control commands via MQTT pub/sub
 
@@ -378,7 +377,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Token refresh happens automatically but requires a valid refresh token
 
 **Debugging MQTT connection issues:**
-Enable debug logging to see detailed MQTT protocol diagnostics (credential info, paho-mqtt protocol trace, connection attempts on both ports):
+Enable debug logging to see detailed MQTT protocol diagnostics (credential info, paho-mqtt protocol trace):
 ```yaml
 logger:
   default: warning
@@ -452,7 +451,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
-| Cloud Relay | FUSION devices via MQTT (AWS IoT, paho-mqtt). Tries WSS port 443, falls back to MQTT/TLS port 8883 |
+| Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt) |
 
 ---
 

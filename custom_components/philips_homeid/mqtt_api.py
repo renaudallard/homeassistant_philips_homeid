@@ -32,11 +32,11 @@ import secrets
 import ssl
 import threading
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import quote
 
 import paho.mqtt.client as mqtt
 
@@ -133,12 +133,15 @@ class PhilipsMQTTClient:
         access_token: str,
         mqtt_signature: str,
     ) -> None:
-        """Connect to the AWS IoT MQTT broker.
+        """Connect to the AWS IoT MQTT broker via WSS on port 443.
 
-        Tries WSS on port 443 first (matching APK), then falls back to
-        MQTT/TLS on port 8883 with Custom Authorizer via username field.
+        Uses Custom Authorizer headers for authentication.
+        Port 8883 requires mutual TLS (client certificates) which we
+        don't have, so only WSS is supported.
         Must be called from an executor thread (blocking).
         """
+        device = self._device
+
         _LOGGER.info(
             "MQTT credentials: token=%s...%s (%d chars), signature=%s...%s (%d chars)",
             access_token[:8] if access_token else "EMPTY",
@@ -149,35 +152,23 @@ class PhilipsMQTTClient:
             len(mqtt_signature),
         )
 
-        # Try WSS on port 443 first (APK default)
-        try:
-            self._connect_wss(access_token, mqtt_signature)
-            return
-        except Exception as err:
-            _LOGGER.warning("WSS connection on port 443 failed: %s", err)
-
-        # Fall back to MQTT/TLS on port 8883
-        _LOGGER.info("Trying MQTT/TLS on port 8883 as fallback")
-        self._connect_mqtts(access_token, mqtt_signature)
-
-    def _connect_wss(
-        self,
-        access_token: str,
-        mqtt_signature: str,
-    ) -> None:
-        """Connect via MQTT over WebSocket Secure (port 443)."""
-        device = self._device
+        # APK client ID format: {userId}_{UUID}
+        # We use device_id as prefix since we don't store the cloud user ID.
+        client_id = f"{device.device_id}_{uuid.uuid4()}"
+        _LOGGER.info("MQTT client_id: %s", client_id)
 
         client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-            client_id=f"ha-philips-{secrets.token_hex(8)}",
+            client_id=client_id,
             transport="websockets",
+            # APK uses cleanSession=false (persistent session)
+            clean_session=False,
         )
 
         # TLS for WSS
         client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
 
-        # AWS IoT Custom Authorizer headers via WebSocket
+        # AWS IoT Custom Authorizer headers via WebSocket upgrade
         client.ws_set_options(
             path="/mqtt",
             headers={
@@ -188,6 +179,9 @@ class PhilipsMQTTClient:
                 "content-type": "application/json",
             },
         )
+
+        # APK enables Paho's built-in auto-reconnect
+        client.reconnect_delay_set(min_delay=1, max_delay=60)
 
         self._setup_callbacks(client)
 
@@ -205,59 +199,7 @@ class PhilipsMQTTClient:
         client.loop_start()
         self._client = client
 
-        self._wait_for_connection(client, "WSS")
-
-    def _connect_mqtts(
-        self,
-        access_token: str,
-        mqtt_signature: str,
-    ) -> None:
-        """Connect via MQTT over TLS (port 8883).
-
-        AWS IoT Custom Authorizer params are passed in the MQTT username
-        field as query-string parameters.
-        """
-        device = self._device
-
-        client = mqtt.Client(
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-            client_id=f"ha-philips-{secrets.token_hex(8)}",
-        )
-
-        # TLS for MQTT/TLS
-        client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
-
-        # AWS IoT Custom Authorizer via MQTT username/password fields.
-        # Format: token-key-name=token-value&x-amz-customauthorizer-name=...
-        # &x-amz-customauthorizer-signature=...
-        # Additional params (tenant) appended for the Lambda.
-        sig_encoded = quote(mqtt_signature, safe="")
-        token_encoded = quote(f"Bearer {access_token}", safe="")
-        username = (
-            f"token-header={token_encoded}"
-            f"&x-amz-customauthorizer-name=CustomAuthorizer"
-            f"&x-amz-customauthorizer-signature={sig_encoded}"
-            f"&tenant={device.tenant}"
-        )
-        client.username_pw_set(username)
-
-        self._setup_callbacks(client)
-
-        _LOGGER.info(
-            "MQTTS connecting to %s:8883 for %s",
-            device.mqtt_host,
-            device.thing_name,
-        )
-
-        client.connect(
-            device.mqtt_host,
-            port=8883,
-            keepalive=MQTT_KEEPALIVE,
-        )
-        client.loop_start()
-        self._client = client
-
-        self._wait_for_connection(client, "MQTTS")
+        self._wait_for_connection(client)
 
     def _setup_callbacks(self, client: mqtt.Client) -> None:
         """Wire up MQTT callbacks and debug logging."""
@@ -276,7 +218,7 @@ class PhilipsMQTTClient:
 
         client.on_log = _on_log
 
-    def _wait_for_connection(self, client: mqtt.Client, label: str) -> None:
+    def _wait_for_connection(self, client: mqtt.Client) -> None:
         """Wait for MQTT CONNACK or raise on timeout."""
         deadline = time.monotonic() + MQTT_CONNECT_TIMEOUT
         while not self._connected and time.monotonic() < deadline:
@@ -285,7 +227,7 @@ class PhilipsMQTTClient:
         if not self._connected:
             client.loop_stop()
             raise ConnectionError(
-                f"{label} connection to {self._device.mqtt_host} timed out"
+                f"MQTT connection to {self._device.mqtt_host} timed out"
             )
 
     def disconnect(self) -> None:

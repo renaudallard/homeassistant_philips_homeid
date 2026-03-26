@@ -62,6 +62,13 @@ OIDC_ISSUER = f"{GIGYA_API_URL}/oidc/op/v1.0/{GIGYA_API_KEY}"
 OAUTH_CLIENT_ID = "-u6aTznrxp9_9e_0a57CpvEG"
 REDIRECT_URI = "com.philips.ka.oneka.app.prod://oauthredirect"
 
+# HSDP IAM (from APK DomainBuilderKt / BackendConfigKt)
+HSDP_IAM_URL = "https://iam-service.eu-west.philips-healthsuite.com"
+HSDP_CLIENT_ID = "21e431131cb04a0eb56"
+HSDP_CLIENT_SECRET = "@@3f2.6lo21_2F61"
+HSDP_REDIRECT_URI = "com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect"
+HSDP_REDIRECT_PREFIX = HSDP_REDIRECT_URI.split("://")[0] + "://"
+
 # IoT API (production, from APK DomainConfig)
 IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
 
@@ -245,12 +252,56 @@ def headless_oauth(session_token):
                 if auth_code:
                     break
 
+        if not auth_code:
+            browser.close()
+            return None
+
+        print("  Gigya auth code obtained")
+
+        # Phase 2: HSDP token bridge (same browser, Gigya cookies active)
+        hsdp_code = None
+        hsdp_auth_url = (
+            f"{HSDP_IAM_URL}/authorize/oidc/login?"
+            f"api-version=1&provider=myphilipsonprod"
+            f"&client_id={HSDP_CLIENT_ID}"
+            f"&redirect_uri={HSDP_REDIRECT_URI}"
+            f"&response_type=code"
+        )
+
+        def handle_hsdp_response(response):
+            nonlocal hsdp_code
+            if hsdp_code:
+                return
+            for header in response.headers_array():
+                if header["name"].lower() == "location":
+                    location = header["value"]
+                    if HSDP_REDIRECT_PREFIX in location and "code=" in location:
+                        parsed = urllib.parse.urlparse(location)
+                        qs = urllib.parse.parse_qs(parsed.query)
+                        codes = qs.get("code", [])
+                        if codes:
+                            hsdp_code = codes[0]
+
+        print("  Navigating to HSDP authorize (SSO via Gigya cookies)...")
+        page2 = context.new_page()
+        page2.on("response", handle_hsdp_response)
+        try:
+            page2.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
+        except Exception:
+            pass
+
+        if not hsdp_code:
+            for _ in range(10):
+                page2.wait_for_timeout(1000)
+                if hsdp_code:
+                    break
+
         browser.close()
 
     if not auth_code:
         return None
 
-    # Exchange code for tokens
+    # Exchange Gigya code for OIDC tokens
     status, body = api_request(
         f"{OIDC_ISSUER}/token",
         data={
@@ -264,10 +315,107 @@ def headless_oauth(session_token):
     )
 
     if status != 200 or not isinstance(body, dict):
-        print(f"  Token exchange failed: {body}")
+        print(f"  Gigya token exchange failed: {body}")
         return None
 
+    print("  Gigya OIDC tokens obtained")
+
+    # Exchange HSDP code for HSDP tokens
+    if hsdp_code:
+        print("  HSDP auth code obtained, exchanging for HSDP tokens...")
+        hsdp_tokens = exchange_hsdp_code(hsdp_code)
+        if hsdp_tokens:
+            body["hsdp_access_token"] = hsdp_tokens.get("access_token", "")
+            body["hsdp_refresh_token"] = hsdp_tokens.get("refresh_token", "")
+            body["hsdp_id_token"] = hsdp_tokens.get("id_token", "")
+            print("  HSDP tokens obtained!")
+        else:
+            print("  HSDP token exchange failed")
+    else:
+        print("  No HSDP auth code (SSO may not have worked)")
+
     return body
+
+
+def exchange_hsdp_code(code):
+    """Exchange HSDP authorization code for HSDP tokens."""
+    # APK: raw concatenation, no URL encoding
+    data = f"code={code}&grant_type=authorization_code&redirect_uri={HSDP_REDIRECT_URI}"
+    # HSDP IAM requires HTTP Basic auth
+    creds = base64.b64encode(f"{HSDP_CLIENT_ID}:{HSDP_CLIENT_SECRET}".encode()).decode()
+    status, body = api_request(
+        f"{HSDP_IAM_URL}/authorize/oauth2/token",
+        data=data,
+        headers={
+            "Api-version": "2",
+            "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+            "Authorization": f"Basic {creds}",
+        },
+    )
+    if status != 200 or not isinstance(body, dict):
+        print(f"    HSDP token exchange failed: HTTP {status}, {body}")
+        return None
+    if "access_token" not in body:
+        print(f"    HSDP response has no access_token: {body}")
+        return None
+    print(f"    HSDP token type: {body.get('token_type', '?')}")
+    print(f"    HSDP expires_in: {body.get('expires_in', '?')}")
+    # Decode sub claim from HSDP access token
+    parts = body.get("access_token", "").split(".")
+    if len(parts) >= 2:
+        try:
+            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded))
+            print(f"    HSDP sub (userId): {payload.get('sub', '?')}")
+        except Exception:
+            print("    HSDP access_token is not a JWT (opaque token)")
+    return body
+
+
+def refresh_hsdp_tokens(refresh_token):
+    """Refresh HSDP tokens."""
+    data = f"grant_type=refresh_token&refresh_token={refresh_token}"
+    creds = base64.b64encode(f"{HSDP_CLIENT_ID}:{HSDP_CLIENT_SECRET}".encode()).decode()
+    status, body = api_request(
+        f"{HSDP_IAM_URL}/authorize/oauth2/token",
+        data=data,
+        headers={
+            "Api-version": "2",
+            "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+            "Authorization": f"Basic {creds}",
+        },
+    )
+    if status != 200 or not isinstance(body, dict):
+        print(f"    HSDP refresh failed: HTTP {status}, {body}")
+        return None
+    if "access_token" not in body:
+        print(f"    HSDP refresh has no access_token: {body}")
+        return None
+    return body
+
+
+def test_mqtt_signature(access_token):
+    """Test the MQTT signature endpoint with an access token."""
+    status, body = api_request(
+        f"{IOT_BASE}/user/self/signature",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        },
+    )
+    print(f"    Signature endpoint: HTTP {status}")
+    if status == 200 and isinstance(body, dict):
+        print(f"    Response keys: {list(body.keys())}")
+        sig = body.get("signature", "")
+        print(
+            f"    Signature: {sig[:20]}...{sig[-10:]}"
+            if len(sig) > 30
+            else f"    Signature: {sig}"
+        )
+        return body
+    else:
+        print(f"    Response: {body}")
+        return None
 
 
 # Home ID backend API (primary method)
@@ -599,6 +747,30 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     )
     if status == 200 and isinstance(homes, list) and homes:
         print(f"  Homes: {json.dumps(homes, indent=2)[:500]}")
+
+    # Test HSDP token chain for FUSION MQTT
+    hsdp_at = oidc_tokens.get("hsdp_access_token", "") if oidc_tokens else ""
+    hsdp_rt = oidc_tokens.get("hsdp_refresh_token", "") if oidc_tokens else ""
+    if hsdp_at:
+        print("\n--- HSDP Token Tests ---")
+        print("\n  Testing MQTT signature with HSDP token...")
+        test_mqtt_signature(hsdp_at)
+
+        print("\n  Testing MQTT signature with Gigya token (comparison)...")
+        test_mqtt_signature(access_token)
+
+        if hsdp_rt:
+            print("\n  Testing HSDP token refresh...")
+            refreshed = refresh_hsdp_tokens(hsdp_rt)
+            if refreshed:
+                print("    HSDP token refresh succeeded!")
+                print(f"    New expires_in: {refreshed.get('expires_in', '?')}")
+    else:
+        print("\n--- HSDP Token Tests ---")
+        print("  No HSDP tokens available (SSO did not produce HSDP code)")
+        print("  FUSION MQTT will fall back to Gigya tokens")
+        print("\n  Testing MQTT signature with Gigya token...")
+        test_mqtt_signature(access_token)
 
     print_summary(homeid_appliances, iot_devices)
 

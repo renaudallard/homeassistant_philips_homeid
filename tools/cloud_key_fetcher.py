@@ -520,11 +520,12 @@ def test_mqtt_connection(access_token, thing_name=None, custom_sig=None):
             return False
         sig = body.get("signature", "")
 
-    # Decode sub for client ID
+    # Decode sub for client ID (strip @fed-... suffix if present)
     parts = access_token.split(".")
     if len(parts) >= 2:
         padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
         sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
+        sub = sub.split("@")[0]
     else:
         sub = "test"
 

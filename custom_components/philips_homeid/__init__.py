@@ -141,10 +141,37 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         friendly_name=entry.title,
     )
 
+    # Credential refresh callable for MQTT reconnection
+    def _refresh_mqtt_credentials() -> tuple[str, str]:
+        """Synchronous credential refresh for MQTT reconnection thread."""
+        import asyncio as _asyncio
+
+        async def _do_refresh() -> tuple[str, str]:
+            api = PhilipsCloudAPI()
+            try:
+                rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+                toks = await api.refresh_tokens(rt)
+                new_rt = toks.get("refresh_token", rt)
+                if new_rt != rt:
+                    new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_rt}
+                    hass.config_entries.async_update_entry(entry, data=new_data)
+                sig = await api.get_mqtt_signature(
+                    toks["access_token"], platform_rest_url, tenant
+                )
+                return sig.get("accessToken", toks["access_token"]), sig.get(
+                    "signature", ""
+                )
+            finally:
+                await api.close()
+
+        future = _asyncio.run_coroutine_threadsafe(_do_refresh(), hass.loop)
+        return future.result(timeout=30)
+
     # Create and connect MQTT client
     mqtt_client = PhilipsMQTTClient(
         device=fusion_device,
         loop=hass.loop,
+        credential_refresh=_refresh_mqtt_credentials,
     )
 
     # Create coordinator in MQTT mode (before connect so callback is ready)

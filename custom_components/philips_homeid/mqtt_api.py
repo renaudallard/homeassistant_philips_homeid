@@ -79,12 +79,22 @@ class PhilipsMQTTClient:
         self,
         device: FusionDeviceInfo,
         loop: Any = None,
+        credential_refresh: Callable[[], tuple[str, str]] | None = None,
     ) -> None:
-        """Initialize the MQTT client."""
+        """Initialize the MQTT client.
+
+        Args:
+            device: FUSION device information.
+            loop: asyncio event loop for thread-safe callbacks.
+            credential_refresh: Callable that returns (access_token, signature)
+                for reconnection after token expiry. Called from background thread.
+        """
         self._device = device
         self._loop = loop
+        self._credential_refresh = credential_refresh
         self._client: mqtt.Client | None = None
         self._connected = False
+        self._reconnecting = False
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
         self._lock = threading.Lock()
@@ -298,12 +308,47 @@ class PhilipsMQTTClient:
         reason_code: Any,
         properties: Any = None,
     ) -> None:
-        """Handle MQTT disconnection."""
+        """Handle MQTT disconnection with reconnection."""
         self._connected = False
-        if reason_code != 0:
-            _LOGGER.warning("MQTT disconnected unexpectedly: %s", reason_code)
-        else:
-            _LOGGER.info("MQTT disconnected")
+        if reason_code == 0:
+            _LOGGER.info("MQTT disconnected gracefully")
+            return
+
+        _LOGGER.warning("MQTT disconnected unexpectedly: %s", reason_code)
+
+        if self._reconnecting or not self._credential_refresh:
+            return
+
+        # Reconnect with fresh credentials in a background thread
+        # (matching APK's reactive reconnect pattern)
+        self._reconnecting = True
+        thread = threading.Thread(target=self._reconnect_with_backoff, daemon=True)
+        thread.start()
+
+    def _reconnect_with_backoff(self) -> None:
+        """Reconnect with exponential backoff and fresh credentials."""
+        delay = 1.0
+        max_retries = 5
+        for attempt in range(max_retries):
+            time.sleep(delay)
+            _LOGGER.info("MQTT reconnect attempt %d/%d", attempt + 1, max_retries)
+            try:
+                assert self._credential_refresh is not None
+                access_token, signature = self._credential_refresh()
+                # Disconnect old client
+                if self._client:
+                    self._client.loop_stop()
+                # Connect with fresh credentials
+                self.connect(access_token, signature)
+                _LOGGER.info("MQTT reconnected successfully")
+                self._reconnecting = False
+                return
+            except Exception:
+                _LOGGER.warning("MQTT reconnect attempt %d failed", attempt + 1)
+                delay = min(delay * 1.5, 60.0)
+
+        _LOGGER.error("MQTT reconnection failed after %d attempts", max_retries)
+        self._reconnecting = False
 
     def _on_message(
         self,

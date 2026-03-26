@@ -724,6 +724,37 @@ class PhilipsCloudAPI:
                 )
             return json.loads(text)
 
+    async def get_thing_name(
+        self,
+        access_token: str,
+        device_id: str = "",
+        mac_address: str = "",
+    ) -> str | None:
+        """Get the AWS IoT thingName for a device.
+
+        The IoT API's user/self/device endpoint returns a thingName field
+        per device which is separate from externalDeviceId. The thingName
+        is needed for MQTT topic construction.
+        """
+        devices = await self.get_devices(access_token)
+        for dev in devices:
+            if device_id and dev.get("id") == device_id:
+                thing = dev.get("thingName", "")
+                if thing:
+                    _LOGGER.debug(
+                        "Found thingName=%s for device id=%s", thing, device_id
+                    )
+                    return thing
+            if mac_address and dev.get("macAddress") == mac_address:
+                thing = dev.get("thingName", "")
+                if thing:
+                    _LOGGER.debug("Found thingName=%s for mac=%s", thing, mac_address)
+                    return thing
+        _LOGGER.warning(
+            "No thingName found for device_id=%s, mac=%s", device_id, mac_address
+        )
+        return None
+
     async def get_user_profile(self, access_token: str) -> dict[str, Any]:
         """Get the cloud user profile to verify the token works."""
         session = await self._get_session()
@@ -785,11 +816,12 @@ class PhilipsCloudAPI:
         _LOGGER.debug("Found %d device(s)", len(devices))
         for dev in devices:
             _LOGGER.debug(
-                "  Device: id=%s, ctn=%s, name=%s, mac=%s",
+                "  Device: id=%s, ctn=%s, name=%s, mac=%s, thingName=%s",
                 dev.get("id", "?"),
                 dev.get("ctn", "?"),
                 dev.get("friendlyName", "?"),
                 dev.get("macAddress", "?"),
+                dev.get("thingName", "?"),
             )
         return devices
 

@@ -655,6 +655,25 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 
+        # thingName != externalDeviceId: they are separate fields in the
+        # IoT API. thingName is the AWS IoT thing name for MQTT topics.
+        thing_name = None
+        access_token = self._cloud_tokens.get("access_token", "")
+        if access_token and self._cloud_api:
+            thing_name = await self._cloud_api.get_thing_name(
+                access_token,
+                device_id=external_id,
+                mac_address=mac,
+            )
+        if not thing_name:
+            _LOGGER.error(
+                "Could not resolve thingName for device %s (mac=%s)",
+                external_id,
+                mac,
+            )
+            errors["base"] = "cloud_credentials_not_found"
+            return None
+
         # Use discovered device model if available
         model = ""
         if self._discovered_device:
@@ -676,7 +695,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_MODEL: model,
             CONF_DEVICE_ID: external_id,
             CONF_IS_FUSION: True,
-            CONF_THING_NAME: external_id,
+            CONF_THING_NAME: thing_name,
             CONF_TENANT: FUSION_TENANT,
             CONF_MQTT_HOST: FUSION_MQTT_HOST,
             CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
@@ -686,7 +705,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.info(
             "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s",
             name,
-            external_id,
+            thing_name,
             mac,
             fw,
         )

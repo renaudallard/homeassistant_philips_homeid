@@ -44,6 +44,37 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 32. [HSDP Configuration](#32-hsdp-configuration)
 33. [HSDP Command Queue](#33-hsdp-command-queue)
 34. [Error Codes (Complete List)](#34-error-codes-complete-list)
+35. [ObservableCommunicationStrategy](#35-observablecommunicationstrategy)
+36. [NullCommunicationStrategy](#36-nullcommunicationstrategy)
+37. [TransportContext Interface](#37-transportcontext-interface)
+38. [RuntimeConfiguration](#38-runtimeconfiguration)
+39. [DeviceCache and CacheData](#39-devicecache-and-cachedata)
+40. [Request Queue (Threading Model)](#40-request-queue-threading-model)
+41. [Result Type (Success/Failure)](#41-result-type-successfailure)
+42. [CondorPortApi Interface](#42-condorportapi-interface)
+43. [PortSubscriptionListener](#43-portsubscriptionlistener)
+44. [DevicePort and DevicePortProperties](#44-deviceport-and-deviceportproperties)
+45. [HsdpPairingPort](#45-hsdppairingport)
+46. [BinaryCondorPort](#46-binarycondorport)
+47. [ConnectivityMonitor](#47-connectivitymonitor)
+48. [Poller (Periodic Polling)](#48-poller-periodic-polling)
+49. [AppIdProvider](#49-appidprovider)
+50. [GsonProvider](#50-gsonprovider)
+51. [SubscriptionEventListener and SubscriptionHandler](#51-subscriptioneventlistener-and-subscriptionhandler)
+52. [DiscoveryStrategy Interface](#52-discoverystrategy-interface)
+53. [ObservableDiscoveryStrategy](#53-observablediscoverystrategy)
+54. [DiscoveredLanDevice](#54-discoveredlandevice)
+55. [DiscoveredDeviceListener and DiscoveryMechanism](#55-discovereddevicelistener-and-discoverymechanism)
+56. [UDP Event Receiver (Singleton)](#56-udp-event-receiver-singleton)
+57. [UDP Receiving Thread](#57-udp-receiving-thread)
+58. [SsidProvider](#58-ssidprovider)
+59. [DatabaseHelper Interface](#59-databasehelper-interface)
+60. [HSDP Error Enums](#60-hsdp-error-enums)
+61. [HSDP Remote Subscription Handler](#61-hsdp-remote-subscription-handler)
+62. [Condor Message Keys](#62-condor-message-keys)
+63. [DaConnect Authentication Interfaces](#63-daconnect-authentication-interfaces)
+64. [DaConnect Authentication Models](#64-daconnect-authentication-models)
+65. [All Port Types Reference](#65-all-port-types-reference)
 
 ---
 
@@ -2658,4 +2689,918 @@ public enum Error {
     REJECTED("HSDP rejected message."),                  // MQTT command rejected
     EMPTY_RESPONSE("Empty response body.");              // HTTP 200 but empty
 }
+
+---
+
+## 35. ObservableCommunicationStrategy
+
+**File:** `connectivity/condor/core/communication/ObservableCommunicationStrategy.java`
+
+Base class for LAN and HSDP strategies. Manages availability listeners and subscription events.
+
+```java
+public abstract class ObservableCommunicationStrategy implements CommunicationStrategy {
+    private final Set<AvailabilityListener<CommunicationStrategy>> availabilityListeners = new CopyOnWriteArraySet();
+    protected final Set<SubscriptionEventListener> subscriptionEventListeners = new CopyOnWriteArraySet();
+
+    // Convert response bytes to JSON string (default: UTF-8 decode)
+    // LanCommunicationStrategy overrides this to add AES decryption
+    public String processByteArrayToJsonString(byte[] data) {
+        return data == null ? null : new String(data, StandardCharsets.UTF_8);
+    }
+
+    // Build unsubscription payload: {"subscriber": "<appId>"}
+    public Map<String, Object> getUnsubscriptionData() {
+        HashMap map = new HashMap();
+        map.put("subscriber", CondorEntryPoint.getAppIdProvider().getAppId());
+        return map;
+    }
+
+    // Build subscription payload: {"subscriber": "<appId>", "ttl": <ttl>}
+    public Map<String, Object> getSubscriptionData(int ttl) {
+        Map<String, Object> map = getUnsubscriptionData();
+        map.put("ttl", ttl);
+        return map;
+    }
+}
+```
+
+---
+
+## 36. NullCommunicationStrategy
+
+**File:** `connectivity/condor/core/communication/NullCommunicationStrategy.java`
+
+Fallback when no transport is available. All operations return `Error.NOT_CONNECTED`.
+
+```java
+public class NullCommunicationStrategy extends ObservableCommunicationStrategy {
+    // isAvailable() returns true (so CombinedStrategy doesn't reject it)
+    // but all operations (get/put/subscribe/etc.) immediately return NOT_CONNECTED error
+    // processByteArrayToJsonString returns null
+    // TTL is 300 seconds (5 minutes)
+}
+```
+
+---
+
+## 37. TransportContext Interface
+
+**File:** `connectivity/condor/core/context/TransportContext.java`
+
+```java
+public interface TransportContext {
+    CommunicationStrategy createCommunicationStrategyFor(NetworkNode networkNode);
+    DiscoveryStrategy getDiscoveryStrategy();
+    void registerTagger(GenericTagger tagger);   // @Deprecated
+    void unregisterTagger(GenericTagger tagger); // @Deprecated
+}
+```
+
+Implemented by `LanTransportContext` and `HSDPTransportContext`.
+
+---
+
+## 38. RuntimeConfiguration
+
+**File:** `connectivity/condor/core/configuration/RuntimeConfiguration.java`
+
+Simple holder for Android Context and optional secure DatabaseHelper.
+
+```java
+public class RuntimeConfiguration {
+    private final Context context;
+    private final DatabaseHelper secureDatabaseHelper;
+    public RuntimeConfiguration(Context context, DatabaseHelper databaseHelper) { ... }
+}
+```
+
+---
+
+## 39. DeviceCache and CacheData
+
+**Files:** `connectivity/condor/core/devicecache/DeviceCache.java`, `CacheData.java`
+
+TTL-based device cache used by discovery strategies.
+
+```java
+// DeviceCache: ConcurrentHashMap<cppId, CacheData> with expiration callbacks
+public class DeviceCache {
+    private final Map<String, CacheData> data = new ConcurrentHashMap();
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+
+    // Add device with TTL - fires ExpirationCallback when TTL expires
+    public void add(NetworkNode node, ExpirationCallback callback, long ttlMillis) {
+        add(new CacheData(executor, callback, ttlMillis, node));
+    }
+
+    // Get cached data by cppId
+    public CacheData getCacheData(String cppId) { return data.get(cppId); }
+
+    // Remove and stop timer
+    public CacheData remove(String cppId) { ... }
+
+    // Clear all - returns removed entries (so caller can fire "lost" events)
+    public synchronized Collection<CacheData> clear() { ... }
+
+    interface ExpirationCallback { void onCacheExpired(NetworkNode node); }
+}
+
+// CacheData: wraps NetworkNode with a ScheduledFuture timer
+public class CacheData {
+    private final NetworkNode networkNode;
+    private final long expirationPeriodMillis;
+    private ScheduledFuture<Void> future;
+
+    // On construction, starts a timer that fires ExpirationCallback after TTL
+    public CacheData(ScheduledExecutorService executor, ExpirationCallback callback,
+                    long ttlMillis, NetworkNode node) {
+        startTimer(); // schedule(expirationTask, ttlMillis, MILLISECONDS)
+    }
+
+    public void resetTimer() { stopTimer(); startTimer(); } // Re-discovered: reset TTL
+    public void stopTimer() { future.cancel(true); }        // Removed from cache
+}
+```
+
+---
+
+## 40. Request Queue (Threading Model)
+
+**File:** `connectivity/condor/core/request/RequestQueue.java`
+
+Serial request execution on a dedicated HandlerThread.
+
+```java
+public class RequestQueue {
+    private Handler mRequestHandler;              // Background thread handler
+    private final Handler responseHandler;        // Main thread handler for callbacks
+    private final ArrayList<Request> threadNotYetStartedQueue; // Queued before thread starts
+
+    public RequestQueue() {
+        // Creates a HandlerThread, waits for looper, then initializes mRequestHandler
+        initializeRequestThread();
+        this.responseHandler = HandlerProvider.createHandler(); // Main thread
+    }
+
+    // Add request to end of queue
+    public synchronized void addRequest(Request request) {
+        if (mRequestHandler == null) {
+            threadNotYetStartedQueue.add(request); // Thread not ready yet
+        } else {
+            postRequestOnBackgroundThread(request);
+        }
+    }
+
+    // Priority insert (key exchange goes first)
+    public synchronized void addRequestInFrontOfQueue(Request request) {
+        mRequestHandler.postAtFrontOfQueue(() -> {
+            Response response = request.execute();
+            postResponseOnUiThread(request, response);
+        });
+    }
+
+    // Execute on background thread, deliver response on main thread
+    private void postRequestOnBackgroundThread(Request request) {
+        mRequestHandler.post(() -> {
+            Response response = request.execute(); // Blocking HTTP/MQTT call
+            postResponseOnUiThread(request, response);
+        });
+    }
+
+    private void postResponseOnUiThread(Request request, Response response) {
+        responseHandler.post(() -> request.notifyResponseHandler(response));
+    }
+}
+```
+
+---
+
+## 41. Result Type (Success/Failure)
+
+**File:** `connectivity/condor/core/port/Result.java`
+
+Sealed class for port operation results.
+
+```java
+public abstract class Result<T> {
+    public Error getError() { return null; }     // Override in FailureResult
+    public String getErrorData() { return null; } // Override in FailureResult
+    public T getValue() { return null; }          // Override in SuccessResult
+
+    public static final class SuccessResult<T> extends Result<T> {
+        private final T value;
+        public T getValue() { return value; }
+    }
+
+    public static final class FailureResult<T> extends Result<T> {
+        private final Error error;
+        private final String errorData;
+        public Error getError() { return error; }
+        public String getErrorData() { return errorData; }
+    }
+}
+```
+
+---
+
+## 42. CondorPortApi Interface
+
+**File:** `connectivity/condor/core/port/CondorPortApi.java`
+
+The public API for interacting with device ports.
+
+```java
+public interface CondorPortApi<P extends CondorPortProperties> {
+    void getProperties(Consumer<Result<P>> callback);
+    void putProperties(P properties, Consumer<Result<P>> callback);
+    void subscribe(Consumer<Result<P>> callback);
+    void unsubscribe(Consumer<Result<P>> callback);
+    void execMethod(String methodName, List<?> params, Consumer<Result<List<Object>>> callback);
+    void addSubscriptionListener(PortSubscriptionListener<P> listener);
+    void removeSubscriptionListener(PortSubscriptionListener<P> listener);
+    P getCachedProperties();
+}
+```
+
+---
+
+## 43. PortSubscriptionListener
+
+**File:** `connectivity/condor/core/port/PortSubscriptionListener.java`
+
+```java
+public interface PortSubscriptionListener<P extends CondorPortProperties> {
+    void onPortSubscriptionEvent(CondorPort<P> port);                  // New data received
+    void onPortSubscriptionEnded(CondorPort<P> port, Error error, String errorData); // Subscription lost
+}
+```
+
+---
+
+## 44. DevicePort and DevicePortProperties
+
+**Files:** `connectivity/condor/core/port/common/DevicePort.java`, `DevicePortProperties.java`
+
+Default port on every appliance: reads device info at `/di/v1/products/1/device`.
+
+```java
+public class DevicePort extends CondorPort<DevicePortProperties> {
+    public String getCondorPortName() { return "device"; }
+    public int getCondorProductId() { return 1; }
+    public void setDeviceName(String name) { /* PUT {"name": name} */ }
+}
+
+public class DevicePortProperties implements CondorPortProperties {
+    @SerializedName("name")           String name;           // Friendly name
+    @SerializedName("type")           String type;           // Device type
+    @SerializedName("modelid")        String modelid;        // Model ID
+    @SerializedName("modelname")      String modelName;      // Model name
+    @SerializedName("productname")    String productName;    // Product name
+    @SerializedName("productversion") String productVersion; // Product version
+    @SerializedName("serial")         String serial;         // Serial number
+    @SerializedName("ctn")            String ctn;            // Commercial type number
+    @SerializedName("udi")            String udi;            // Unique device identifier
+    @SerializedName("swversion")      String swVersion;      // Software version
+    @SerializedName("wificountry")    String wifiCountry;    // WiFi country code
+    @SerializedName("allowuploads")   Boolean mAllowUploads; // Allow firmware uploads
+    Boolean mAllowPairing;                                    // Allow pairing
+}
+```
+
+---
+
+## 45. HsdpPairingPort
+
+**File:** `connectivity/condor/core/port/common/HsdpPairingPort.java`
+
+Cloud pairing via HSDP MQTT RPC. Port name: `"pairing"`, product ID: `0`.
+
+```java
+public class HsdpPairingPort extends CondorPort<HsdpPairingPortProperties> {
+    // pair(hsdpId, secret) -> ExecMethod("Pair", [hsdpId, secret])
+    public void pair(String p1, String p2, PairingCallback callback) {
+        execMethod("Pair", [p1, p2], result -> {
+            // Success if first return value == 0.0
+            if (result.getValue().get(0) == 0.0) callback.onPairingResult(0);
+            else callback.onPairingResult(-1);
+        });
+    }
+
+    // unpair(hsdpId, secret) -> ExecMethod("Unpair", [hsdpId, secret])
+    public void unpair(String p1, String p2, PairingCallback callback) { ... }
+}
+```
+
+---
+
+## 46. BinaryCondorPort
+
+**File:** `connectivity/condor/core/port/BinaryCondorPort.java`
+
+Port for binary (non-JSON) data. Port name must end with `.b`.
+
+```java
+public class BinaryCondorPort extends CondorPort<BinaryCondorPortProperties> {
+    // Stores raw byte[] in BinaryCondorPortProperties instead of parsing JSON
+    public boolean processResponse(byte[] data) {
+        setPortProperties(new BinaryCondorPortProperties(data));
+        return true;
+    }
+    // propertiesToMap returns {"data": byte[]}
+    // execMethod is NOT_IMPLEMENTED
+}
+```
+
+---
+
+## 47. ConnectivityMonitor
+
+**File:** `connectivity/condor/core/util/ConnectivityMonitor.java`
+
+Android network monitoring with factory methods for different network types.
+
+```java
+public class ConnectivityMonitor implements Availability<ConnectivityMonitor> {
+    private boolean isConnected;
+    private final int[] allowedTransports;            // e.g., [WIFI, ETHERNET]
+    private final int[] requiredNetworkCapabilities;  // e.g., [NET_CAPABILITY_VALIDATED]
+
+    // Factory: LAN-only (WiFi + Ethernet transports)
+    public static ConnectivityMonitor forNetworkTransportLAN(Context context) {
+        return new ConnectivityMonitor(context, new int[0], new int[]{3/*ETHERNET*/, 1/*WIFI*/});
+    }
+
+    // Factory: Internet (any transport with NET_CAPABILITY_VALIDATED)
+    public static ConnectivityMonitor forNetworkCapabilityInternet(Context context) {
+        return new ConnectivityMonitor(context, new int[]{16/*VALIDATED*/}, new int[0]);
+    }
+
+    // Registers Android NetworkCallback that tracks:
+    // - onCapabilitiesChanged: check required capabilities + transports
+    // - onLosing/onLost/onUnavailable: mark disconnected
+    // Notifies all AvailabilityListeners on state change
+}
+```
+
+---
+
+## 48. Poller (Periodic Polling)
+
+**File:** `connectivity/condor/core/util/Poller.java`
+
+Periodic getProperties() polling with timeout.
+
+```java
+public class Poller<P extends CondorPortProperties> implements Runnable {
+    private final CondorPort<P> port;
+    private final long intervalMillis;   // Polling interval
+    private final long endTime;          // Absolute time when polling stops
+    private final Listener<P> listener;  // Callback for events + timeout
+    private final ScheduledExecutorService executor;
+    private boolean isPolling;
+
+    public interface Listener<P> {
+        void onEvent(P properties);  // Called with each poll result
+        void onTimedOut();           // Called when endTime is reached
+    }
+
+    public void start() {
+        future = executor.scheduleAtFixedRate(this, 0, intervalMillis, MILLISECONDS);
+        isPolling = true;
+    }
+
+    @Override
+    public void run() {
+        if (currentTimeMillis() > endTime) { timeOut(); return; }
+        CountDownLatch latch = new CountDownLatch(1);
+        port.getProperties(result -> {
+            if (isPolling) {
+                if (result instanceof SuccessResult) listener.onEvent(result.getValue());
+            }
+            latch.countDown();
+        });
+        latch.await(intervalMillis, MILLISECONDS); // Block until response or next poll
+    }
+
+    public void stop() {
+        executor.shutdownNow();
+        isPolling = false;
+    }
+}
+```
+
+---
+
+## 49. AppIdProvider
+
+**File:** `connectivity/condor/core/util/AppIdProvider.java`
+
+Generates a random app instance ID used in subscription requests.
+
+```java
+public class AppIdProvider {
+    // Format: "deadbeef" + 8 random hex digits
+    private String appId = String.format("deadbeef%08x", new SecureRandom().nextInt());
+
+    public String getAppId() { return appId; }
+    public void setAppId(String id) { appId = id; notifyListeners(); }
+}
+```
+
+---
+
+## 50. GsonProvider
+
+**File:** `connectivity/condor/core/util/GsonProvider.java`
+
+Singleton Gson instance configured to serialize nulls and disable HTML escaping.
+
+```java
+public final class GsonProvider {
+    public static final String EMPTY_JSON_OBJECT_STRING; // "{}"
+    private static final Gson INSTANCE = new GsonBuilder()
+        .serializeNulls()
+        .disableHtmlEscaping()
+        .create();
+
+    public static Gson get() { return INSTANCE; }
+}
+```
+
+---
+
+## 51. SubscriptionEventListener and SubscriptionHandler
+
+**Files:** `core/subscription/SubscriptionEventListener.java`, `SubscriptionHandler.java`
+
+```java
+public interface SubscriptionEventListener {
+    void onSubscriptionEventReceived(String portName, byte[] data);
+    void onSubscriptionEventDecryptionFailed(String portName);
+}
+
+public abstract class SubscriptionHandler {
+    // Posts events to UI thread
+    public abstract void enableSubscription(NetworkNode node, Set<SubscriptionEventListener> listeners);
+    public abstract void disableSubscription();
+
+    // Helper: post event to main thread
+    protected void postSubscriptionEventOnUiThread(String port, byte[] data,
+            Set<SubscriptionEventListener> listeners) {
+        handler.post(() -> {
+            for (SubscriptionEventListener l : listeners) l.onSubscriptionEventReceived(port, data);
+        });
+    }
+}
+```
+
+---
+
+## 52. DiscoveryStrategy Interface
+
+**File:** `connectivity/condor/core/discovery/DiscoveryStrategy.java`
+
+```java
+public interface DiscoveryStrategy {
+    void start();
+    void start(Set<String> modelIds); // Filter by model ID
+    void stop();
+    void clearDiscoveredNetworkNodes();
+    void addDiscoveryListener(DiscoveryListener listener);
+    void removeDiscoveryListener(DiscoveryListener listener);
+
+    interface DiscoveryListener {
+        default void onDiscoveryStarted() {}
+        default void onDiscoveryStopped() {}
+        default void onDiscoveryError(DiscoveryException e) {}
+        default void onNetworkNodeDiscovered(NetworkNode node) {}
+        default void onNetworkNodeLost(NetworkNode node) {}
+    }
+}
+```
+
+---
+
+## 53. ObservableDiscoveryStrategy
+
+**File:** `connectivity/condor/core/discovery/ObservableDiscoveryStrategy.java`
+
+Base class that posts discovery events to main thread via Handler.
+
+```java
+public abstract class ObservableDiscoveryStrategy implements DiscoveryStrategy {
+    private final Handler responseHandler = HandlerProvider.createHandler(); // Main thread
+    private final Set<DiscoveryListener> discoveryListeners = new CopyOnWriteArraySet();
+
+    // All notify methods post to main thread:
+    protected void notifyNetworkNodeDiscovered(NetworkNode node) {
+        for (DiscoveryListener l : discoveryListeners) {
+            responseHandler.post(() -> l.onNetworkNodeDiscovered(node));
+        }
+    }
+    // Same pattern for: notifyNetworkNodeLost, notifyDiscoveryStarted,
+    // notifyDiscoveryStopped, notifyDiscoveryError
+}
+```
+
+---
+
+## 54. DiscoveredLanDevice
+
+**File:** `connectivity/condor/lan/discovery/DiscoveredLanDevice.java`
+
+Abstract data class populated by SSDP or mDNS discovery.
+
+```java
+public abstract class DiscoveredLanDevice {
+    protected String bootId;          // Device boot counter
+    protected String cppId;           // Unique device ID
+    protected String deviceType;      // Device type string
+    protected long expirationPeriod;  // TTL in milliseconds
+    protected String friendlyName;    // Display name
+    protected String ipAddress;       // IP address
+    protected String manufacturer;    // "Philips"
+    protected String modelName;       // Model name (e.g., "AC2729")
+    protected String modelNumber;     // Model number
+    protected String serialNumber;    // Serial number
+    // + manufacturer URL, model URL, model description, presentation URL
+}
+```
+
+---
+
+## 55. DiscoveredDeviceListener and DiscoveryMechanism
+
+**Files:** `connectivity/condor/lan/discovery/`
+
+```java
+public interface DiscoveredDeviceListener {
+    void onDeviceAvailable(DiscoveredLanDevice device);
+    void onDeviceUnavailable(DiscoveredLanDevice device);
+}
+
+public interface DiscoveryMechanism {
+    void start() throws TransportUnavailableException;
+    void stop();
+    boolean isDiscovering();
+    void addDeviceListener(DiscoveredDeviceListener listener);
+    void removeDeviceListener(DiscoveredDeviceListener listener);
+}
+```
+
+---
+
+## 56. UDP Event Receiver (Singleton)
+
+**File:** `connectivity/condor/lan/subscription/UdpEventReceiver.java`
+
+Global singleton managing the UDP receiving thread. Multiple `LocalSubscriptionHandler` instances share it.
+
+```java
+public class UdpEventReceiver {
+    private static UdpEventReceiver INSTANCE = null; // Lazy singleton
+    private UdpReceivingThread udpReceivingThread;
+    private final Set<UdpEventListener> udpEventListeners = new CopyOnWriteArraySet();
+
+    // Start receiving: creates thread if needed, adds listener
+    public int startReceivingEvents(UdpEventListener listener) {
+        int port = startUdpThreadIfNecessary();
+        addUdpEventListener(listener);
+        return port; // Returns the bound UDP port number
+    }
+
+    // Stop receiving: removes listener, stops thread if no listeners left
+    public void stopReceivingEvents(UdpEventListener listener) {
+        removeUdpEventListener(listener);
+        if (udpEventListeners.isEmpty()) {
+            udpReceivingThread.stopThread();
+            udpReceivingThread = null;
+        }
+    }
+
+    // Create thread, wait for socket setup, return bound port
+    private synchronized int startUdpThreadIfNecessary() {
+        if (udpReceivingThread != null) return udpReceivingThread.getActualBoundUdpPort();
+        CountDownLatch latch = new CountDownLatch(1);
+        udpReceivingThread = new UdpReceivingThread(eventListener, latch);
+        udpReceivingThread.start();
+        latch.await(); // Wait for socket to bind
+        return udpReceivingThread.getActualBoundUdpPort();
+    }
+}
+```
+
+---
+
+## 57. UDP Receiving Thread
+
+**File:** `connectivity/condor/lan/subscription/UdpReceivingThread.java`
+
+Dedicated thread that listens for UDP datagrams from devices.
+
+```java
+public class UdpReceivingThread extends Thread {
+    private static final int UDP_PORT = 8080;    // Default port, fallback to OS-assigned
+    private int actualBoundUdpPort = -1;
+    private DatagramSocket socket;
+    private boolean stop;
+
+    public void run() {
+        acquireMulticastLock();
+        setupSocket();
+        while (!stop) {
+            receiveDatagram(socket);
+        }
+        // cleanup
+    }
+
+    public void setupSocket() {
+        socket = new DatagramSocket(null);
+        socket.setReuseAddress(true);
+        try {
+            socket.bind(new InetSocketAddress(8080)); // Try port 8080 first
+        } catch (SocketException e) {
+            socket.close();
+            socket = new DatagramSocket(null);
+            socket.bind(null); // Fallback: OS assigns random port
+        }
+        actualBoundUdpPort = socket.getLocalPort();
+        socketSetupLatch.countDown(); // Signal that socket is ready
+    }
+
+    public void receiveDatagram(DatagramSocket socket) {
+        DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+        socket.receive(packet); // Blocking
+
+        String data = new String(packet.getData()).trim();
+        String[] lines = data.split("\n");
+        // lines[0] = HTTP-style request line: "NOTIFY /di/v1/products/{id}/{port} HTTP/1.1"
+        // lines[last] = encrypted payload (base64 encoded AES ciphertext)
+
+        String senderIP = packet.getAddress().getHostAddress();
+        String portName = parseRequestHeaderLine(lines[0]); // Extract port path
+        String payload = lines[lines.length - 1];            // Last line = encrypted data
+
+        listener.onUDPEventReceived(payload, portName, senderIP);
+    }
+
+    // Parse "NOTIFY /di/v1/products/1/air HTTP/1.1" -> "air"
+    private String parseRequestHeaderLine(String line) {
+        String[] parts = line.split(" ")[1].split("/");
+        // Skip first 4 segments (/di/v1/products/1/), join the rest
+        StringBuilder sb = new StringBuilder();
+        for (int i = 4; i < parts.length; i++) {
+            sb.append(parts[i]);
+            if (i < parts.length - 1) sb.append("/");
+        }
+        return sb.toString();
+    }
+}
+```
+
+**UDP packet format (from device):**
+```
+NOTIFY /di/v1/products/{productId}/{portName} HTTP/1.1\n
+...\n
+<base64_aes_encrypted_json_payload>
+```
+
+---
+
+## 58. SsidProvider
+
+**File:** `connectivity/condor/lan/util/SsidProvider.java`
+
+Tracks the current WiFi SSID and notifies listeners on network changes.
+
+```java
+public class SsidProvider {
+    private String currentSsid;
+    private final WifiManager wifiManager;
+
+    public SsidProvider(Context context) {
+        wifiManager = (WifiManager) context.getApplicationContext().getSystemService("wifi");
+        currentSsid = getCurrentSsid();
+        // Register default network callback to detect SSID changes
+        connectivityManager.registerDefaultNetworkCallback(new NetworkCallback() {
+            public void onAvailable(Network network) {
+                String newSsid = getCurrentSsid();
+                if (!Objects.equals(newSsid, currentSsid)) {
+                    currentSsid = newSsid;
+                    notifyListeners();
+                }
+            }
+        });
+    }
+
+    public String getCurrentSsid() {
+        WifiInfo info = wifiManager.getConnectionInfo();
+        if (info == null || info.getSupplicantState() != SupplicantState.COMPLETED) return null;
+        return info.getSSID();
+    }
+}
+```
+
+---
+
+## 59. DatabaseHelper Interface
+
+**File:** `connectivity/condor/core/store/DatabaseHelper.java`
+
+```java
+public interface DatabaseHelper {
+    long insertRow(ContentValues values) throws SQLException;
+    Cursor query(String selection, String[] selectionArgs) throws SQLException;
+    int delete(String cppId) throws SQLException;
+    void close();
+}
+```
+
+---
+
+## 60. HSDP Error Enums
+
+**Files:** `connectivity/condor/hsdp/HSDPControlConnectionError.java`, `HSDPAuthenticationError.java`
+
+```java
+// Connection-level errors (MQTT)
+public enum HSDPControlConnectionError {
+    AUTHENTICATION_FAILED,            // Auth error (wraps HSDPAuthenticationError)
+    INTERRUPTED,                      // Thread interrupted
+    NO_CONTROL_SERVICE_AVAILABLE,     // Control service not found via discovery
+    MISSING_ACCESS_TOKEN,             // No access token
+    MISSING_SIGNED_TOKEN,             // No signed token
+    CONNECT_FAILED,                   // MQTT connect failed
+    SEND_FAILED;                      // MQTT publish failed
+
+    HSDPAuthenticationError authenticationError; // Wrapped auth error
+    ClientError underlyingError;                 // Wrapped HSDP client error
+}
+
+// Authentication-level errors
+public enum HSDPAuthenticationError {
+    MISSING_BOOTSTRAP_IDENTITY,       // No bootstrap credentials
+    BOOTSTRAP_SIGN_ON_FAILED,         // Bootstrap auth failed
+    SERVICE_DISCOVERY_FAILED,         // Cannot discover HSDP services
+    MISSING_PROVISIONING_URL,         // PRV service URL not found
+    MISSING_PROVISIONING_EVIDENCE,    // No provisioning evidence
+    PROVISIONING_FAILED,              // Provisioning API failed
+    INSUFFICIENT_IDENTITY_INFORMATION,// Missing required identity fields
+    PROVISIONED_SIGN_ON_FAILED,       // Token fetch with identity failed
+    MISSING_TOKEN_RESPONSE,           // Null token response
+    TOKEN_EXPIRY_TOO_SHORT;           // Token expires in <30s
+
+    ClientError underlyingError;
+}
+```
+
+---
+
+## 61. HSDP Remote Subscription Handler
+
+**File:** `connectivity/condor/hsdp/HSDPRemoteSubscriptionHandler.java`
+
+Handles push notifications from HSDP MQTT (equivalent of UDP for cloud).
+
+```java
+public class HSDPRemoteSubscriptionHandler extends SubscriptionHandler implements HSDPMessageListener {
+    String hsdpId;
+    HSDPMessenger messenger;
+
+    public void enableSubscription(NetworkNode node, Set<SubscriptionEventListener> listeners) {
+        this.hsdpId = node.getHsdpId();
+        this.subscriptionEventListeners = listeners;
+        messenger.registerMessageListener(this); // Listen for MQTT messages
+    }
+
+    public void disableSubscription() {
+        messenger.unregisterMessageListener(this);
+    }
+
+    // When MQTT "notification" with CondorOperation.CHANGE_INDICATION arrives:
+    public void messageReceived(ControlModel.Received received) {
+        if (!"notification".equalsIgnoreCase(received.getType())) return;
+        ControlModel.Command cmd = received.getCommand();
+        if (cmd != null && cmd.getStatusDetail() != null) {
+            String op = cmd.getStatusDetail().get("op");
+            if (CondorOperation.CHANGE_INDICATION.equals(CondorOperation.fromString(op))) {
+                CondorControlMessage msg = Gson.fromJson(cmd.getStatusDetailAsJsonString(), CondorControlMessage.class);
+                // Forward to subscription listeners
+                postSubscriptionEventOnUiThread(msg.path, Gson.toJson(msg.values).getBytes(UTF_8), listeners);
+            }
+        }
+    }
+}
+```
+
+---
+
+## 62. Condor Message Keys
+
+**File:** `connectivity/condor/hsdp/messages/CondorKey.java`
+
+```java
+public enum CondorKey {
+    VERSION("condorVersion"),  // Protocol version (always "1")
+    OPERATION("op"),           // Operation name (GetProps, PutProps, etc.)
+    PATH("path"),              // Target path ("{productId}/{portName}")
+    VALUES("values"),          // Request/response data
+    TIME_TO_LIVE("ttl"),       // Subscription TTL in seconds
+    UNKNOWN("unknown");
+}
+```
+
+---
+
+## 63. DaConnect Authentication Interfaces
+
+**Files:** `cl/daconnect/authentication/`
+
+```java
+// Provides access tokens (Gigya/HSDP) - async via RxJava Single
+public interface ClientAuthenticationProvider {
+    Single<AccessToken> getAccessToken();
+    Single<IdToken> getIdToken();
+}
+
+// Synchronous token access
+public interface TokenProvider {
+    String getAccessToken(); // Returns raw token string
+    String getIdToken();     // Returns raw ID token string
+}
+
+// Cloud auth service - federated user identity
+public interface DaIoTAuthenticationService {
+    Single<UserId> federatedUserId(); // Get user's federated ID
+    Completable clearUserData();       // Logout
+}
+
+// MQTT credential provider
+public interface DaIoTCredentialsProvider {
+    Single<UserId> getUserId();
+    Single<MqttConnectionInfo> getMqttConnectionInfo(); // Get MQTT credentials
+    void invalidateMqttConnectionInfo();                 // Force credential refresh
+}
+
+// User auth states
+public enum UserAuthenticationState {
+    SIGNED_IN,
+    SIGNED_OUT,
+    SIGNED_OUT_FEDERATED_TOKEN_INVALID,
+    UNKNOWN
+}
+```
+
+---
+
+## 64. DaConnect Authentication Models
+
+**Files:** `cl/daconnect/authentication/models/`
+
+```java
+// AccessToken: inline class wrapping a String value
+public final class AccessToken { private final String value; }
+
+// MqttSignature: inline class wrapping a String value
+public final class MqttSignature { private final String value; }
+
+// IdToken: inline class wrapping a String value (not shown, same pattern)
+
+// MqttConnectionInfo: data class with all MQTT connection parameters
+public final class MqttConnectionInfo {
+    private final String accessToken;       // HSDP access token
+    private final String mqttSignature;     // Auth signature for Custom Authorizer
+    private final String tenant;            // HSDP tenant identifier
+    private final WebSocketUrl webSocketUrl; // wss:// endpoint URL
+}
+```
+
+---
+
+## 65. All Port Types Reference
+
+Complete list of all Condor port types defined in the APK:
+
+| Port Class | Port Name | Product ID | Purpose |
+|------------|-----------|-----------|---------|
+| `DevicePort` | `"device"` | 1 | Device info (name, model, firmware version) |
+| `SecurityPort` | `"security"` | 0 | Encryption key exchange |
+| `DeviceCloudPairingPort` | `"pairing"` | 0 | Cloud pairing via HSDP |
+| `HsdpPairingPort` | `"pairing"` | 0 | HSDP pairing (simplified) |
+| `FirmwarePort` | `"firmware"` | ? | Firmware version info + update |
+| `WifiPort` | `"wifi"` | ? | WiFi configuration |
+| `WifiNetworksPort` | `"wifinetworks"` | ? | Available WiFi networks scan |
+| `WifiUiPort` | `"wifiui"` | ? | WiFi UI state |
+| `TimePort` | `"time"` | ? | Device time |
+| `LocalePort` | `"locale"` | ? | Device locale settings |
+| `LogPort` | `"log"` | ? | Device logs |
+| `LogSettingsPort` | `"logsettings"` | ? | Log configuration |
+| `BackendPort` | `"backend"` | ? | Backend connectivity settings |
+| `TransportPort` | `"transport"` | ? | Transport layer settings |
+| `FacPort` | `"fac"` | ? | Factory settings |
+| `BleParamsPort` | `"bleparams"` | ? | Bluetooth parameters |
+| `BinaryCondorPort` | `*.b` | variable | Raw binary data (non-JSON) |
+
+Each port extends `CondorPort<P>` with a specific `CondorPortProperties` subclass that defines the JSON field mappings for that port's data.
 ```

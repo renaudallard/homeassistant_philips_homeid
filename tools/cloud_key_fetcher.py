@@ -499,6 +499,134 @@ def refresh_hsdp_tokens(refresh_token):
     return body
 
 
+def test_mqtt_connection(access_token, thing_name=None):
+    """Test actual MQTT connection to AWS IoT."""
+    import socket as _socket
+    import struct as _struct
+
+    # Get signature
+    status, body = api_request(
+        f"{IOT_BASE}/user/self/signature",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        },
+    )
+    if status != 200 or not isinstance(body, dict):
+        print(f"    Signature failed: HTTP {status}")
+        return False
+    sig = body.get("signature", "")
+
+    # Decode sub for client ID
+    parts = access_token.split(".")
+    if len(parts) >= 2:
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
+    else:
+        sub = "test"
+
+    import uuid as _uuid
+
+    client_id = f"{sub}_{_uuid.uuid4()}"
+
+    # Raw WebSocket + MQTT (matching iOS app headers exactly)
+    ctx = ssl.create_default_context()
+    host = "ats.prod.eu-da.iot.versuni.com"
+    sock = _socket.create_connection((host, 443), timeout=15)
+    sock = ctx.wrap_socket(sock, server_hostname=host)
+
+    ws_key = base64.b64encode(os.urandom(16)).decode()
+    upgrade = (
+        f"GET /mqtt HTTP/1.1\r\n"
+        f"Host: {host}:443\r\n"
+        f"Upgrade: websocket\r\n"
+        f"x-amz-customauthorizer-signature: {sig}\r\n"
+        f"Accept: */*\r\n"
+        f"Sec-WebSocket-Key: {ws_key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"tenant: da\r\n"
+        f"Sec-WebSocket-Protocol: mqtt\r\n"
+        f"token-header: Bearer {access_token}\r\n"
+        f"x-amz-customauthorizer-name: CustomAuthorizer\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Content-Type: application/json\r\n"
+        f"\r\n"
+    )
+    sock.send(upgrade.encode())
+
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        resp += sock.recv(1)
+
+    if b"101" not in resp:
+        print(f"    WebSocket upgrade failed: {resp.decode()[:100]}")
+        sock.close()
+        return False
+
+    # MQTT CONNECT
+    proto = b"\x00\x04MQTT\x04\x00\x00\x1e"
+    cid = client_id.encode()
+    payload = _struct.pack("!H", len(cid)) + cid
+    remaining = proto + payload
+    rl = len(remaining)
+    rem_enc = b""
+    while True:
+        byte = rl & 0x7F
+        rl >>= 7
+        if rl > 0:
+            byte |= 0x80
+        rem_enc += bytes([byte])
+        if rl == 0:
+            break
+    mqtt_pkt = b"\x10" + rem_enc + remaining
+    mask = os.urandom(4)
+    masked = bytes(b ^ mask[i % 4] for i, b in enumerate(mqtt_pkt))
+    if len(mqtt_pkt) < 126:
+        frame = bytes([0x82, 0x80 | len(mqtt_pkt)]) + mask + masked
+    else:
+        frame = (
+            bytes([0x82, 0x80 | 126])
+            + _struct.pack("!H", len(mqtt_pkt))
+            + mask
+            + masked
+        )
+    sock.send(frame)
+    print(f"    MQTT CONNECT sent, client_id={client_id[:40]}...")
+
+    try:
+        sock.settimeout(10)
+        data = sock.recv(1024)
+        if data and len(data) >= 2:
+            if data[0] == 0x82 or data[0] == 0x02:
+                plen = data[1] & 0x7F
+                pstart = 2
+                if plen == 126:
+                    plen = _struct.unpack("!H", data[2:4])[0]
+                    pstart = 4
+                mqtt_resp = data[pstart : pstart + plen]
+                if mqtt_resp and mqtt_resp[0] == 0x20:
+                    rc = mqtt_resp[3]
+                    if rc == 0:
+                        print("    *** MQTT CONNECTED SUCCESSFULLY! ***")
+                        sock.close()
+                        return True
+                    else:
+                        print(f"    CONNACK rejected: return_code={rc}")
+                else:
+                    print(
+                        f"    Unexpected MQTT packet: type={mqtt_resp[0] >> 4 if mqtt_resp else '?'}"
+                    )
+            elif data[0] == 0x88:
+                code = _struct.unpack("!H", data[2:4])[0] if len(data) >= 4 else 0
+                print(f"    WebSocket CLOSE (code={code}) - Custom Authorizer denied")
+        else:
+            print("    Connection closed")
+    except _socket.timeout:
+        print("    No response in 10s")
+    sock.close()
+    return False
+
+
 def test_mqtt_signature(access_token):
     """Test the MQTT signature endpoint with an access token."""
     status, body = api_request(
@@ -876,6 +1004,12 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         print("  FUSION MQTT will fall back to Gigya tokens")
         print("\n  Testing MQTT signature with Gigya token...")
         test_mqtt_signature(access_token)
+
+    # Test MQTT connection directly
+    print("\n--- MQTT Connection Test ---")
+    thing_names = [d.get("thingName") for d in iot_devices if d.get("thingName")]
+    print(f"  Testing with Gigya token (devices: {len(iot_devices)})...")
+    test_mqtt_connection(access_token, thing_names[0] if thing_names else None)
 
     print_summary(homeid_appliances, iot_devices)
 

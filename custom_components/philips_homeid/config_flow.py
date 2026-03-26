@@ -51,6 +51,7 @@ from .const import (
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_HSDP_REFRESH_TOKEN,
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
@@ -700,14 +701,16 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_MQTT_HOST: FUSION_MQTT_HOST,
             CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
             CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+            CONF_HSDP_REFRESH_TOKEN: self._cloud_tokens.get("hsdp_refresh_token", ""),
         }
 
         _LOGGER.info(
-            "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s",
+            "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s, hsdp=%s",
             name,
             thing_name,
             mac,
             fw,
+            bool(self._cloud_tokens.get("hsdp_refresh_token")),
         )
 
         await self._close_cloud_api()

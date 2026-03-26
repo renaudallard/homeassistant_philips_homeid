@@ -47,6 +47,9 @@ import aiohttp
 from .const import (
     GIGYA_API_KEY,
     GIGYA_API_URL,
+    HSDP_CLIENT_ID,
+    HSDP_IAM_URL,
+    HSDP_REDIRECT_URI,
     MOBILE_APP_REDIRECT_URI,
     OAUTH_CLIENT_ID,
     OIDC_AUTH_ENDPOINT,
@@ -165,12 +168,54 @@ with sync_playwright() as p:
             if auth_code:
                 break
 
+    if not auth_code:
+        browser.close()
+        sys.exit(1)
+
+    # Phase 2: HSDP token bridge (same browser, Gigya cookies still active).
+    # Navigate to HSDP IAM authorize with provider=myphilipsonprod (federated
+    # SSO via Gigya CDC). Completes automatically without user interaction.
+    hsdp_code = None
+    hsdp_auth_url = (
+        "{hsdp_iam_url}/authorize/oidc/login?"
+        "api-version=1&provider=myphilipsonprod"
+        "&client_id={hsdp_client_id}"
+        "&redirect_uri={hsdp_redirect_uri}"
+        "&response_type=code"
+    )
+
+    def handle_hsdp_response(response):
+        global hsdp_code
+        if hsdp_code:
+            return
+        for header in response.headers_array():
+            if header["name"].lower() == "location":
+                location = header["value"]
+                if "{hsdp_redirect_uri_prefix}" in location and "code=" in location:
+                    parsed = urllib.parse.urlparse(location)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    codes = qs.get("code", [])
+                    if codes:
+                        hsdp_code = codes[0]
+
+    page2 = browser.new_page()
+    page2.on("response", handle_hsdp_response)
+    try:
+        page2.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
+    except Exception:
+        pass
+
+    if not hsdp_code:
+        for _ in range(10):
+            page2.wait_for_timeout(1000)
+            if hsdp_code:
+                break
+
     browser.close()
 
-if auth_code:
-    print(auth_code)
-else:
-    sys.exit(1)
+# Print both codes, newline-separated. HSDP code may be empty.
+print(auth_code)
+print(hsdp_code or "")
 """
 
 
@@ -307,7 +352,28 @@ class PhilipsCloudAPI:
                 "with this account at least once."
             )
 
-        return await self._exchange_code(auth_code, code_verifier)
+        # auth_code may be a tuple (gigya_code, hsdp_code) or just a string
+        hsdp_code = None
+        if isinstance(auth_code, tuple):
+            gigya_code, hsdp_code = auth_code
+        else:
+            gigya_code = auth_code
+
+        tokens = await self._exchange_code(gigya_code, code_verifier)
+
+        # Exchange HSDP code for HSDP tokens (needed for FUSION MQTT)
+        if hsdp_code:
+            try:
+                hsdp_tokens = await self._exchange_hsdp_code(hsdp_code)
+                tokens["hsdp_access_token"] = hsdp_tokens.get("access_token", "")
+                tokens["hsdp_refresh_token"] = hsdp_tokens.get("refresh_token", "")
+                _LOGGER.info("HSDP token bridge: obtained HSDP tokens")
+            except Exception:
+                _LOGGER.warning("HSDP token exchange failed, FUSION MQTT may not work")
+        else:
+            _LOGGER.info("No HSDP auth code obtained (HSDP SSO may not be available)")
+
+        return tokens
 
     @staticmethod
     def _playwright_available() -> bool:
@@ -573,12 +639,14 @@ class PhilipsCloudAPI:
         auth_url: str,
         uninstall_after: bool = True,
         alpine: bool = False,
-    ) -> str | None:
+    ) -> str | tuple[str, str] | None:
         """Run headless browser OAuth flow in a subprocess.
 
         Runs Playwright in a separate Python process to isolate it from
         Home Assistant's process management (signal handlers, child process
         reaping) which can kill Playwright's internal Node.js driver.
+
+        Returns a string (Gigya code only) or tuple (Gigya, HSDP codes).
         """
         executable = _ALPINE_CHROMIUM if alpine else ""
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
@@ -587,16 +655,21 @@ class PhilipsCloudAPI:
             if debug
             else ""
         )
+        hsdp_redirect_prefix = HSDP_REDIRECT_URI.split("://")[0] + "://"
         script = _BROWSER_OAUTH_SCRIPT.format(
             session_token=session_token,
             auth_url=auth_url,
             gigya_api_key=GIGYA_API_KEY,
             executable_path=executable,
-            pw_target=_ALPINE_PW_TARGET,
             logger_name=__name__,
             chromium_debug_args=chromium_debug,
+            hsdp_iam_url=HSDP_IAM_URL,
+            hsdp_client_id=HSDP_CLIENT_ID,
+            # APK does NOT URL-encode redirect_uri in authorize URL
+            hsdp_redirect_uri=HSDP_REDIRECT_URI,
+            hsdp_redirect_uri_prefix=hsdp_redirect_prefix,
         )
-        auth_code = None
+        auth_code: str | tuple[str, str] | None = None
         try:
             env = os.environ.copy()
             if _ALPINE_PW_TARGET not in (env.get("PYTHONPATH") or ""):
@@ -611,16 +684,21 @@ class PhilipsCloudAPI:
                     stdout=subprocess.PIPE,
                     stderr=stderr_target,
                     text=True,
-                    timeout=60,
+                    timeout=90,
                     env=env,
                 )
             finally:
                 if stderr_target is not subprocess.PIPE:
                     stderr_target.close()
             if result.returncode == 0:
-                auth_code = result.stdout.strip() or None
+                lines = result.stdout.strip().splitlines()
+                auth_code = lines[0] if lines else None
                 if auth_code:
-                    _LOGGER.info("Browser OAuth obtained auth code")
+                    _LOGGER.info("Browser OAuth obtained Gigya auth code")
+                if len(lines) > 1 and lines[1]:
+                    # Return tuple (gigya_code, hsdp_code)
+                    auth_code = (lines[0], lines[1])
+                    _LOGGER.info("Browser OAuth also obtained HSDP auth code")
             else:
                 stderr_msg = ""
                 if debug:
@@ -672,6 +750,81 @@ class PhilipsCloudAPI:
         )
         return result
 
+    async def _exchange_hsdp_code(self, code: str) -> dict[str, Any]:
+        """Exchange HSDP authorization code for HSDP tokens.
+
+        The APK exchanges the HSDP auth code at the HSDP IAM /token endpoint
+        to get HSDP-scoped tokens (access_token, refresh_token, id_token,
+        signed_token). These are required for the FUSION MQTT Custom Authorizer.
+        """
+        session = await self._get_session()
+        # APK does NOT URL-encode values in the POST body (raw concatenation
+        # in HsdpBackendBridgeImpl.n()). HSDP IAM compares redirect_uri literally.
+        data = (
+            f"code={code}"
+            f"&grant_type=authorization_code"
+            f"&redirect_uri={HSDP_REDIRECT_URI}"
+        )
+        headers = {
+            "Api-version": "2",
+            "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+        }
+        # APK Retrofit base: {IAM_URL}/authorize/oauth2/ + @POST("token")
+        token_url = f"{HSDP_IAM_URL}/authorize/oauth2/token"
+
+        _LOGGER.debug("HSDP token exchange at %s", token_url)
+        async with session.post(token_url, data=data, headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "HSDP token response: HTTP %s, body: %s", resp.status, text[:500]
+            )
+            if resp.status != 200:
+                raise CloudAuthError(f"HSDP token exchange failed: HTTP {resp.status}")
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                raise CloudAuthError(f"HSDP token response not JSON: {text[:200]}")
+
+        if "access_token" not in result:
+            error = result.get("error_description", result.get("error", "Unknown"))
+            raise CloudAuthError(f"HSDP token exchange failed: {error}")
+
+        _LOGGER.debug(
+            "HSDP tokens obtained (expires_in: %s)",
+            result.get("expires_in", "?"),
+        )
+        return result
+
+    async def refresh_hsdp_tokens(self, refresh_token: str) -> dict[str, Any]:
+        """Refresh HSDP tokens using the HSDP refresh token."""
+        session = await self._get_session()
+        # APK does NOT URL-encode the refresh token (raw concatenation
+        # in HsdpBackendBridgeImpl.o())
+        data = f"grant_type=refresh_token&refresh_token={refresh_token}"
+        headers = {
+            "Api-version": "2",
+            "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+        }
+        # APK Retrofit base: {IAM_URL}/authorize/oauth2/ + @POST("token")
+        token_url = f"{HSDP_IAM_URL}/authorize/oauth2/token"
+
+        _LOGGER.debug("HSDP token refresh at %s", token_url)
+        async with session.post(token_url, data=data, headers=headers) as resp:
+            text = await resp.text()
+            _LOGGER.debug("HSDP refresh response: HTTP %s", resp.status)
+            if resp.status != 200:
+                raise CloudAuthError(f"HSDP token refresh failed: HTTP {resp.status}")
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                raise CloudAuthError(f"HSDP refresh response not JSON: {text[:200]}")
+
+        if "access_token" not in result:
+            error = result.get("error_description", result.get("error", "Unknown"))
+            raise CloudAuthError(f"HSDP token refresh failed: {error}")
+
+        return result
+
     async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
         """Refresh OIDC tokens using the refresh token."""
         session = await self._get_session()
@@ -701,7 +854,7 @@ class PhilipsCloudAPI:
         Calls the DaConnect signature endpoint to obtain the accessToken and
         mqttSignature needed for AWS IoT Custom Authorizer authentication.
 
-        Returns dict with 'accessToken' and 'mqttSignature' keys.
+        Returns dict with 'signature' key (APK SignatureResponse has only this field).
         """
         session = await self._get_session()
         url = f"https://{platform_rest_url}/api/{tenant}/user/self/signature"

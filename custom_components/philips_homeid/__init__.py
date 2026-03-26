@@ -40,6 +40,7 @@ from .const import (
     CONF_CLOUD_REFRESH_TOKEN,
     CONF_CPP_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_HSDP_REFRESH_TOKEN,
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
@@ -109,28 +110,45 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     model = entry.data.get(CONF_MODEL, "")
     cpp_id = entry.data.get(CONF_CPP_ID, "")
 
+    hsdp_refresh = entry.data.get(CONF_HSDP_REFRESH_TOKEN, "")
+
     if not thing_name or not refresh_token:
         _LOGGER.error("FUSION device missing thing_name or refresh_token")
         return False
 
-    # Refresh OIDC tokens
+    # Refresh tokens and get MQTT signature.
+    # The APK uses HSDP tokens (not Gigya CDC) for DaConnect MQTT.
+    # If we have an HSDP refresh token, use it. Otherwise fall back to Gigya.
     cloud_api = PhilipsCloudAPI()
     try:
-        tokens = await cloud_api.refresh_tokens(refresh_token)
-        access_token = tokens["access_token"]
-        new_refresh = tokens.get("refresh_token", refresh_token)
-
-        # Update stored refresh token if rotated
-        if new_refresh != refresh_token:
-            new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_refresh}
-            hass.config_entries.async_update_entry(entry, data=new_data)
+        if hsdp_refresh:
+            # HSDP token path (matches APK exactly)
+            _LOGGER.info("Using HSDP tokens for FUSION MQTT")
+            hsdp_tokens = await cloud_api.refresh_hsdp_tokens(hsdp_refresh)
+            access_token = hsdp_tokens["access_token"]
+            new_hsdp_refresh = hsdp_tokens.get("refresh_token", hsdp_refresh)
+            if new_hsdp_refresh != hsdp_refresh:
+                new_data = {**entry.data, CONF_HSDP_REFRESH_TOKEN: new_hsdp_refresh}
+                hass.config_entries.async_update_entry(entry, data=new_data)
+        else:
+            # Gigya CDC fallback (may not work for Custom Authorizer)
+            _LOGGER.warning(
+                "No HSDP refresh token, falling back to Gigya CDC tokens. "
+                "Re-add the device to obtain HSDP tokens."
+            )
+            tokens = await cloud_api.refresh_tokens(refresh_token)
+            access_token = tokens["access_token"]
+            new_refresh = tokens.get("refresh_token", refresh_token)
+            if new_refresh != refresh_token:
+                new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_refresh}
+                hass.config_entries.async_update_entry(entry, data=new_data)
 
         # Extract user ID (sub claim) from JWT for MQTT client ID.
         # APK uses {userId}_{UUID} where userId = sub claim from HSDP token.
         user_id = _extract_jwt_sub(access_token)
-        _LOGGER.info("OIDC user_id (sub): %s", user_id or "not found")
+        _LOGGER.info("MQTT user_id (sub): %s", user_id or "not found")
 
-        # Get MQTT signature
+        # Get MQTT signature using the (HSDP or Gigya) access token
         sig_data = await cloud_api.get_mqtt_signature(
             access_token, platform_rest_url, tenant
         )
@@ -172,17 +190,24 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         async def _do_refresh() -> tuple[str, str]:
             api = PhilipsCloudAPI()
             try:
-                rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
-                toks = await api.refresh_tokens(rt)
-                new_rt = toks.get("refresh_token", rt)
-                if new_rt != rt:
-                    new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_rt}
-                    hass.config_entries.async_update_entry(entry, data=new_data)
-                sig = await api.get_mqtt_signature(
-                    toks["access_token"], platform_rest_url, tenant
-                )
-                # APK always uses OIDC access_token, not sig response token
-                return toks["access_token"], sig.get("signature", "")
+                # Use HSDP tokens if available, else fall back to Gigya
+                hrt = entry.data.get(CONF_HSDP_REFRESH_TOKEN, "")
+                if hrt:
+                    toks = await api.refresh_hsdp_tokens(hrt)
+                    new_hrt = toks.get("refresh_token", hrt)
+                    if new_hrt != hrt:
+                        new_data = {**entry.data, CONF_HSDP_REFRESH_TOKEN: new_hrt}
+                        hass.config_entries.async_update_entry(entry, data=new_data)
+                else:
+                    rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+                    toks = await api.refresh_tokens(rt)
+                    new_rt = toks.get("refresh_token", rt)
+                    if new_rt != rt:
+                        new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_rt}
+                        hass.config_entries.async_update_entry(entry, data=new_data)
+                at = toks["access_token"]
+                sig = await api.get_mqtt_signature(at, platform_rest_url, tenant)
+                return at, sig.get("signature", "")
             finally:
                 await api.close()
 

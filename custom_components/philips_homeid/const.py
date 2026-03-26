@@ -73,3 +73,11 @@ FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
 FUSION_PLATFORM_REST_URL = "prod.eu-da.iot.versuni.com"
 FUSION_TENANT = "da"
 FUSION_MQTT_HOST = "ats.prod.eu-da.iot.versuni.com"
+
+# HSDP IAM (from APK DomainBuilderKt / BackendConfigKt)
+# The APK exchanges Gigya CDC tokens for HSDP tokens via a federated
+# OAuth flow. FUSION MQTT Custom Authorizer requires HSDP tokens.
+HSDP_IAM_URL = "https://iam-service.eu-west.philips-healthsuite.com"
+HSDP_CLIENT_ID = "21e431131cb04a0eb56"
+HSDP_REDIRECT_URI = "com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect"
+CONF_HSDP_REFRESH_TOKEN = "hsdp_refresh_token"

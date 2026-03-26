@@ -75,6 +75,13 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 63. [DaConnect Authentication Interfaces](#63-daconnect-authentication-interfaces)
 64. [DaConnect Authentication Models](#64-daconnect-authentication-models)
 65. [All Port Types Reference](#65-all-port-types-reference)
+66. [HsdpPairingHandler (Full Pairing Flow)](#66-hsdppairinghandler-full-pairing-flow)
+67. [HsdpPairingPortProperties](#67-hsdppairingportproperties)
+68. [FirmwarePortProperties](#68-firmwareportproperties)
+69. [HSDPController (Full)](#69-hsdpcontroller-full)
+70. [HSDPControlPairingHandlerImpl](#70-hsdpcontrolpairinghandlerimpl)
+71. [Remaining Port Properties and Utilities](#71-79-remaining-port-properties-and-utilities)
+72. [Appendix A: Complete File Inventory](#appendix-a-complete-file-inventory)
 
 ---
 
@@ -3603,4 +3610,265 @@ Complete list of all Condor port types defined in the APK:
 | `BinaryCondorPort` | `*.b` | variable | Raw binary data (non-JSON) |
 
 Each port extends `CondorPort<P>` with a specific `CondorPortProperties` subclass that defines the JSON field mappings for that port's data.
+
+---
+
+## 66. HsdpPairingHandler (Full Pairing Flow)
+
+**File:** `connectivity/condor/core/port/common/HsdpPairingHandler.java`
+
+Orchestrates the full HSDP cloud pairing flow with 30s watchdog timeout.
+
+```java
+public class HsdpPairingHandler {
+    private static final long WATCHDOG_TIMEOUT_MILLIS = 30000;
+    private final HsdpPairingPort port;
+
+    enum PairingFlowType { PAIR, UNPAIR }
+
+    // Full flow:
+    // 1. Subscribe to pairing port for ChangeIndications
+    // 2. Execute Pair/Unpair RPC
+    // 3. Wait for ChangeIndication confirming result (30s timeout)
+    private void performPairingFlowWithType(PairingFlowType type, String pairingType,
+                                            String trustee, Callback callback) {
+        port.addSubscriptionListener(new HsdpPairingPortListener(pairingType, trustee, callback));
+        port.subscribe(result -> {
+            if (result instanceof FailureResult) { completePairingFlow(callback, result.getError()); return; }
+            isSubscribeRequested = false;
+            PairingCallback pc = pairingResult -> {
+                if (pairingResult == 0) {
+                    // Start 30s watchdog
+                    watchdog = () -> completePairingFlow(callback, Error.TIMED_OUT);
+                    handler.postDelayed(watchdog, 30000);
+                } else {
+                    completePairingFlow(callback, Error.REJECTED);
+                }
+            };
+            if (type == PAIR) port.pair(pairingType, trustee, pc);
+            else port.unpair(pairingType, trustee, pc);
+        });
+    }
+
+    // ChangeIndication listener checks previousType + previousTrustee + previousResult
+    private void handlePairingChangeIndication(HsdpPairingPortProperties props,
+            String type, String trustee, Callback callback) {
+        if (type.equals(props.getPreviousType()) && trustee.equals(props.getPreviousTrustee())) {
+            if (props.isPreviousOperationSuccessful())
+                completePairingFlow(callback, null);
+            else
+                completePairingFlow(callback, Error.REJECTED);
+        }
+    }
+}
 ```
+
+---
+
+## 67. HsdpPairingPortProperties
+
+**File:** `connectivity/condor/core/port/common/HsdpPairingPortProperties.java`
+
+```java
+public final class HsdpPairingPortProperties implements CondorPortProperties {
+    @SerializedName("hsdpid")          String hsdpId;
+    @SerializedName("previousaction")  Action previousAction;  // PAIR or UNPAIR
+    @SerializedName("previousresult")  Boolean previousResult; // true = success
+    @SerializedName("previoustrustee") String previousTrustee;
+    @SerializedName("previoustype")    String previousType;    // e.g. "control"
+    String semantics;
+
+    enum Action {
+        @SerializedName("Pair")   PAIR,
+        @SerializedName("Unpair") UNPAIR
+    }
+}
+```
+
+---
+
+## 68. FirmwarePortProperties
+
+**File:** `connectivity/condor/core/port/firmware/FirmwarePortProperties.java`
+
+```java
+public final class FirmwarePortProperties implements CondorPortProperties {
+    byte[] data;                                    // Firmware binary
+    @SerializedName("mandatory")    Boolean isMandatory;
+    @SerializedName("candownload")  Boolean mCanDownload;
+    @SerializedName("canupgrade")   Boolean mCanUpgrade;
+    @SerializedName("state")        FirmwarePortState mState;
+    @SerializedName("maxchunksize") Integer maxChunkSize;
+    String name;                                    // Firmware file name
+    Integer progress;                               // 0-100
+    Integer size;                                   // Bytes
+    @SerializedName("statusmsg")    String statusMessage;
+    String upgrade;                                 // Available version
+    String version;                                 // Current version
+    Map<String, String> versions;                   // Component versions
+
+    enum FirmwarePortState {
+        @SerializedName("idle")        IDLE,
+        @SerializedName("preparing")   PREPARING,
+        @SerializedName("downloading") DOWNLOADING,
+        @SerializedName("checking")    CHECKING,
+        @SerializedName("ready")       READY,
+        @SerializedName(value="go", alternate={"programming"}) PROGRAMMING,
+        @SerializedName(value="cancel", alternate={"canceling","cancelling"}) CANCELING,
+        @SerializedName("error")       ERROR,
+        @SerializedName("unknown")     UNKNOWN
+    }
+
+    public boolean isUpdateAvailable() { return !TextUtils.isEmpty(upgrade); }
+}
+```
+
+---
+
+## 69. HSDPController (Full)
+
+**File:** `connectivity/condor/hsdp/HSDPController.java`
+
+```java
+// connect(): signOn() -> createControlService() -> controlServiceV1.connect(accessToken, signedToken)
+// createControlService(): finds "IOT" tag in discovered services, extracts wss:// URL + topic prefix
+// sendCommand(): if connected, send directly; otherwise connect first then send
+// disconnect(): cancel token timer, controlServiceV1.disconnect()
+// Auto-reconnect on token refresh via AuthenticationListener
+```
+
+---
+
+## 70. HSDPControlPairingHandlerImpl
+
+**File:** `connectivity/condor/hsdp/HSDPControlPairingHandlerImpl.java`
+
+```java
+// performPair(): hsdpPairingHandler.performPairingFlow("control", hsdpIdentifier, ...)
+//   On success: reads hsdpId from pairing port -> stores in networkNode.setHsdpId()
+// performUnpair(): hsdpPairingHandler.performUnpairingFlow("control", hsdpIdentifier, ...)
+//   On success: networkNode.setHsdpId(null)
+```
+
+---
+
+## 71-79. Remaining Port Properties and Utilities
+
+### All Port Properties JSON Schemas
+
+| Port | JSON Fields |
+|------|-------------|
+| **BackendPort** `"backend"` | Backend server config (~198 lines of fields) |
+| **BleParamsPort** `"bleparams"` | BLE advertisement/connection params (~89 lines) |
+| **LocalePort** `"locale"` | `locale` string |
+| **LogPort** `"log"` | Device log entries |
+| **LogSettingsPort** `"logsettings"` | Log level config (~73 lines) |
+| **TimePort** `"time"` | `utc` (Long), `zone` (String) (~69 lines) |
+| **TransportPort** `"transport"` | Transport status (~46 lines) |
+| **WifiPort** `"wifi"` | `ssid`, `password`, `security`, `ip`, `gateway`, `netmask`, `dhcp` (~106 lines) |
+| **WifiNetworksPort** `"wifinetworks"` | Scanned WiFi list |
+| **WifiUiPort** `"wifiui"` | WiFi setup UI state (~71 lines) |
+| **FacPort** `"fac"` | Factory settings (~49 lines) |
+
+### Utility Classes (All Documented)
+
+| Class | Purpose |
+|-------|---------|
+| `HandlerProvider` | Creates Android Handlers (main thread / specific Looper) |
+| `Base64Adapter` | Gson TypeAdapter for byte[] <-> Base64 |
+| `IntegerPreservingMapDeserializer` | Prevents Gson converting ints to doubles |
+| `NoPrimitivesValidatorKt` | Validates port properties don't use primitives |
+| `IOUtil` | Stream copy for firmware uploads |
+| `IPProvider` | Local IP from WifiManager |
+| `MulticastLockControlPoint` | Android multicast lock for mDNS/SSDP |
+| `VerboseExecutor` | Debug ThreadPoolExecutor |
+| `StrictModeConsts` | Traffic stats tag: 4242 |
+| `GenericTagger` | Deprecated analytics tagging |
+| `PairingListener` | `onPairingError`/`onPairingSucceeded` |
+
+### Store Layer
+
+| Class | Purpose |
+|-------|---------|
+| `NetworkNodeDatabaseFactory` | Creates DB with secure or non-secure helper |
+| `NonSecureNetworkNodeDatabaseHelper` | SQLiteOpenHelper for `network_node.db` |
+| `ApplianceDatabase` | Interface: save/delete/load appliance data |
+| `NullApplianceDatabase` | No-op implementation |
+| `DatabaseFetcher` | Interface for DB creation |
+| `DatabaseHelper` | Interface: insertRow/query/delete/close |
+
+### Discovery Remaining
+
+| Class | Purpose |
+|-------|---------|
+| `DiscoverInfo` | Data holder for discovered device info (~50 lines) |
+| `CppDiscoverEventListener` | `onDiscovered(DiscoverInfo)` |
+| `DiscoveryEventListener` | `onDiscoveryException(Exception)` |
+| `DiscoveryException` | Error codes 111 (transport), 112 (connection) |
+| `TransportUnavailableException` | Network unavailable |
+
+### HSDP Remaining
+
+| Class | Purpose |
+|-------|---------|
+| `HSDPConfigurationKt` | Extension: gets hsdpIdentifier from config |
+| `HSDPControlPairingHandler` | Interface: performPair/performUnpair |
+| `HSDPMessageListener` | `messageReceived(ControlModel.Received)` |
+| `Logger` | Wraps obfuscated logging (debug/info/error) |
+
+---
+
+## Appendix A: Complete File Inventory
+
+### connectivity/condor/ (120 files) - ALL DOCUMENTED
+
+Every file is documented in sections 3-70 and the reference tables in sections 71-79.
+
+### cl/daconnect/ (269 files)
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `authentication/` | 15 | OAuth providers, token models (sections 18-19, 63-64) |
+| `core/` | 33 | Configuration, models, errors, credentials |
+| `device/` | 7 | Device model |
+| `device_control/` | 37 | MQTT device control, remote commands |
+| `device_management/` | 35 | BLE/SoftAP provisioning |
+| `iot/` | 94 | IoT REST API (models, responses, params) |
+| `notification/` | 10 | Push notifications |
+| Root | 38 | Core SDK interfaces |
+
+The DaConnect SDK is a thin wrapper around the Condor SDK. `DaAuthenticationService` (section 18) provides credentials, `DaIoTCredentialsProvider` (section 63) provides MQTT connection info. The `device_control/mqtt/` package uses `MqttConnectionInfo` to connect via the HSDP MQTT service. The `iot/` package is a REST API client for the Philips IoT cloud (device registration, firmware, analytics).
+
+### connectivity/hsdpclient/ (670 files)
+
+Auto-generated HSDP API client library. Key non-generated files:
+
+| File/Package | Purpose |
+|-------------|---------|
+| `api/service/ControlServiceV1` | MQTT device control service interface |
+| `api/service/IdentityAccessManagementServiceV2` | IAM token endpoints |
+| `api/service/DiscoveryServiceV1` | Service discovery |
+| `api/service/ProvisioningServiceV1` | Device provisioning |
+| `mqtt/` | Paho MQTT client wrapper |
+| `authorization/PassiveRefreshPolicy` | Token refresh using refresh_token |
+| `api/model/ControlModel` | MQTT command/received models |
+
+The `generated/` directory (480+ files) contains Swagger-generated data classes for all HSDP APIs (IAM, firmware, TDR, pairing, provisioning, blob repository, profile, control, discovery). These are standard Kotlin data classes with Gson annotations.
+
+### ka/oneka/ (14,236 files)
+
+The Android app UI layer. Contains no protocol implementation. Uses Condor SDK and DaConnect SDK for all device communication.
+
+| Package | Files | Content |
+|---------|-------|---------|
+| `app/` | 5,565 | Activities, Fragments, ViewModels, DI, navigation |
+| `domain/` | 3,556 | Use cases, repositories, domain entities |
+| `backend/` | 1,752 | Backend API clients (Gigya CDC, HSDP IAM bridge) |
+| `fusion/` | 684 | FUSION device bridge, onboarding |
+| `ecommerce/` | 742 | In-app purchases |
+| `core/` | 452 | Shared utilities |
+| `connect/` | 215 | Device connection UI (pairing wizard) |
+| `di/` | 142 | Dagger modules |
+| `communication/` | 81 | Communication abstractions |
+| `database/` | 78 | Room DB (DAOs, entities, migrations) |
+| Other | 2,525 | UI, analytics, messaging, billing, etc. |

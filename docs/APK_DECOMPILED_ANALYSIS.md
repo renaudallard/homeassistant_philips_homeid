@@ -4272,3 +4272,721 @@ public class MulticastLockControlPoint {
     }
 }
 ```
+
+---
+
+## Appendix C: End-to-End Flows
+
+These flow diagrams show how the documented classes chain together to implement complete operations. Every arrow references a method from the class documentation above.
+
+### C.1 Device Lifecycle (Discovery to Polling)
+
+```
+1. STARTUP
+   CondorEntryPoint(applianceFactory, runtimeConfig, lanTransportContext, hsdpTransportContext)
+     |
+     +-> Creates ApplianceManager with all DiscoveryStrategies
+     +-> Loads all NetworkNodes from SQLite (NetworkNodeDatabase.getAll())
+     +-> For each loaded node: ApplianceFactory.createApplianceForNode()
+     |     Creates Appliance with CombinedCommunicationStrategy(lanStrategy, hsdpStrategy)
+     +-> Registers PropertyChangeListener on each node (auto-saves to DB on change)
+
+2. DISCOVERY
+   CondorEntryPoint.startDiscovery()
+     |
+     +-> BaseLanDiscoveryStrategy.start()
+           +-> MulticastLockControlPoint.acquireMulticastLock()
+           +-> ssdpControlPoint.start()   // SSDP multicast
+           +-> mMDNSControlPoint.start()  // mDNS browse
+           |
+           |  [Device found via SSDP or mDNS]
+           |
+           +-> BaseLanDiscoveryStrategy.onDeviceDiscovered(DiscoveredLanDevice)
+                 +-> createNetworkNode() // cppId, IP, name, model, SSID, bootId
+                 +-> nodePassesFilter()  // check modelId filter
+                 +-> DeviceCache.add(node, expirationCallback, ttlMillis)
+                 +-> ObservableDiscoveryStrategy.notifyNetworkNodeDiscovered(node)
+                       |
+                       +-> [on main thread]
+                           ApplianceManager.onNetworkNodeDiscovered(node)
+                             +-> processDiscoveredOrLoadedNetworkNode(node)
+                                   |
+                                   +-> Already discovered? -> updateAppliance() -> notify updated
+                                   +-> Known from DB? -> move to discovered map -> notify found
+                                   +-> New? -> ApplianceFactory.createApplianceForNode(node)
+                                         +-> knownAppliances.put(cppId, appliance)
+                                         +-> discoveredAppliances.put(cppId, appliance)
+                                         +-> notify ApplianceListener.onApplianceFound()
+
+3. CACHE EXPIRATION
+   DeviceCache timer fires after TTL (default 15s if no re-discovery)
+     +-> ExpirationCallback.onCacheExpired(node)
+           +-> DeviceCache.remove(cppId)
+           +-> If not persisted in DB: remove from discoveredAppliances
+           +-> ApplianceListener.onApplianceLost(appliance)
+```
+
+### C.2 LAN Request Execution (Single GET)
+
+```
+App calls: condorPort.getProperties(callback)
+  |
+  v
+CondorPort.tryToPerformNextRequest()        [synchronized]
+  +-> isRequestInProgress? return           [serialize requests]
+  +-> Priority: put > subscribe > unsubscribe > get > execMethod
+  +-> isRequestInProgress = true
+  +-> performGetProperties()
+        |
+        v
+      communicationStrategy.getProperties("air", 1, responseHandler)
+        |
+        v [CombinedCommunicationStrategy]
+      findStrategy()
+        +-> iterate LinkedHashSet in insertion order (LAN first, HSDP second)
+        +-> return first where isAvailable() == true
+        +-> if none: return NullCommunicationStrategy (all ops return NOT_CONNECTED)
+        |
+        v [LanCommunicationStrategy]
+      exchangeKeyIfNecessary(networkNode)
+        +-> if encryptionKey == null && !isKeyExchangeOngoing:
+              doKeyExchange() -> GetKeyRequest to /di/v1/products/0/security
+              -> addRequestInFrontOfQueue (priority)
+      createUnauthorizedHandlingRequest("air", 1, GET, null, handler)
+        +-> wraps handler to auto-retry on REQUEST_UNAUTHORIZED
+      requestQueue.addRequest(lanRequest)
+        |
+        v [RequestQueue - background HandlerThread]
+      LanRequest.execute()
+        |
+        +-> createURL: "https://{ip}/di/v1/products/1/air"
+        +-> createRequestBuilder: URL + "Connection: keep-alive"
+        +-> Add "Authorization" header if credentials cached
+        +-> For GET: no body. For PUT/POST/DELETE: JSON body
+        +-> lanTransportContext.createOrGetOkHttpClient(networkNode)
+        |     +-> Check cache by cppId
+        |     +-> If miss: createOkHttpClient()
+        |           +-> createLANOnlyNetwork() (wait 3s for WiFi/Ethernet)
+        |           +-> TLSv1.2 + SslPinTrustManager (TOFU cert pinning)
+        |           +-> hostnameVerifier: accept all (IP addresses)
+        |           +-> cipher suites: ECDHE_RSA_AES128_GCM, ECDHE_ECDSA_AES128_GCM, RSA_AES128_CBC_SHA256
+        +-> resetClientTimeout(30ms) [see note in B.7]
+        +-> client.newCall(request).execute()  [BLOCKING]
+        |
+        v [HTTP Response]
+      switch(statusCode):
+        200 -> handleHttpOk(headers, body)
+               +-> if empty: return EMPTY_RESPONSE error
+               +-> return Response(body, null)  // SUCCESS
+        400 -> return Response(body, NOT_UNDERSTOOD)
+        401 -> handleUnauthorized(headers, body)
+               +-> networkNode.setCredentials(null)  // clear cache
+               +-> challenge = headers.get("WWW-Authenticate")
+               +-> newCreds = createCredentialsFrom(challenge)  // see C.3
+               +-> networkNode.setCredentials(newCreds)
+               +-> return Response(body, REQUEST_UNAUTHORIZED)
+               +-> [createUnauthorizedHandlingRequest retries with new creds]
+        429 -> return Response(null, BUSY)
+        502 -> return Response(null, CANNOT_CONNECT)
+        other -> findErrorInResponseBody(body) or REQUEST_FAILED
+        SSLHandshakeException -> INSECURE_CONNECTION
+        IOException -> IOEXCEPTION
+        |
+        v [Back on main thread via responseHandler.post()]
+      Request.notifyResponseHandler(response)
+        +-> if error: mResponseHandler.onError(error, data)
+        +-> if success: mResponseHandler.onSuccess(data.getBytes(UTF_8))
+              |
+              v [Back in CondorPort]
+            processResponse(bytes)
+              +-> communicationStrategy.processByteArrayToJsonString(bytes)
+              |     [LanCommunicationStrategy: just UTF-8 decode]
+              |     [For encrypted devices: Crypto.decryptData() - see C.4]
+              +-> propertiesFromJsonString(json)
+              |     +-> parse incoming JSON
+              |     +-> MERGE with cached properties (not replace)
+              |     +-> deserialize merged JSON to P (CondorPortProperties subclass)
+              +-> setPortProperties(merged)  // update cache
+            flushGetPropertiesCallbacks(SuccessResult(cachedProperties))
+            requestCompleted()
+              +-> isRequestInProgress = false
+              +-> tryToPerformNextRequest()  // process next queued request
+```
+
+### C.3 PhilipsCondor Challenge-Response
+
+```
+Server sends:  HTTP 401
+               WWW-Authenticate: PHILIPS-Condor <base64_challenge>
+
+Client computes (LanRequest.createCredentialsFrom):
+
+  1. raw_challenge = base64_decode(strip_scheme_prefix(header_value))
+     // Regex: (?i)PHILIPS-Condor  (case-insensitive strip)
+
+  2. Validate: raw_challenge.length == 16 bytes
+
+  3. Validate: clientId and clientSecret both non-null and non-empty
+
+  4. clientId_bytes  = base64_decode(networkNode.getClientId())
+     clientSecret_bytes = base64_decode(networkNode.getClientSecret())
+
+  5. to_hash = concatenate(raw_challenge, clientId_bytes, clientSecret_bytes)
+     // = 16 + 16 + 16 = 48 bytes
+
+  6. hash = SHA-256(to_hash)
+     // = 32 bytes
+
+  7. response_bytes = concatenate(clientId_bytes, hash)
+     // = 16 + 32 = 48 bytes
+
+  8. header_value = "PHILIPS-Condor " + base64_encode(response_bytes)
+
+Client retries: same request with Authorization: <header_value>
+Server responds: HTTP 200 (if credentials valid)
+
+Credentials are cached in networkNode.credentials for subsequent requests.
+Cache is cleared on next 401.
+```
+
+### C.4 AES Decryption Pipeline (Encrypted Devices)
+
+```
+For devices where https=0 in the APK database (HTTP devices with payload encryption):
+
+LanCommunicationStrategy overrides processByteArrayToJsonString():
+  -> delegates to Crypto.decryptData(utf8String)
+
+Crypto.decryptData(data):
+  |
+  +-> if data.isEmpty(): return null
+  +-> encryptionKey = networkNode.getEncryptionKey()
+  +-> if encryptionKey is null/empty:
+  |     notifyDecryptionFailedListener()  // triggers key re-exchange
+  |     return null
+  |
+  +-> Step 1: Strip whitespace (char-by-char, compareTo(' ') <= 0)
+  +-> Step 2: base64_decode(trimmed_data) -> byte[] ciphertext
+  +-> Step 3: AES decrypt
+  |     cipher = Cipher.getInstance("AES/CBC/PKCS7Padding")
+  |     key_bytes = BigInteger(encryptionKey, 16).toByteArray()
+  |     if key_bytes[0] == 0: key = key_bytes[1..17]  // strip sign byte
+  |     else: key = key_bytes[0..16]
+  |     iv = 16 zero bytes
+  |     cipher.init(DECRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(iv))
+  |     plaintext_bytes = cipher.doFinal(ciphertext)
+  +-> Step 4: removeRandomBytes(plaintext_bytes)
+  |     strip first 2 bytes (random nonce prepended before encryption)
+  +-> Step 5: new String(stripped_bytes, defaultCharset) -> JSON string
+  +-> Step 6: Validate JSON: GsonProvider.get().fromJson(json, Map.class)
+  |     if JsonSyntaxException: return null
+  +-> return json
+  |
+  +-> On any GeneralSecurityException or IllegalArgumentException:
+        notifyDecryptionFailedListener()
+          -> LanCommunicationStrategy.triggerKeyExchange(networkNode)
+               -> networkNode.setEncryptionKey(null)
+               -> exchangeKeyIfNecessary(networkNode)
+                    -> GetKeyRequest to GET /di/v1/products/0/security
+                    -> response: {"key": "abcdef...", "nextkey": null}
+                    -> networkNode.setEncryptionKey(hexKey)
+```
+
+### C.5 LAN Subscription Lifecycle
+
+```
+1. SUBSCRIBE
+   CondorPort.subscribe(callback)
+     +-> communicationStrategy.addSubscriptionEventListener(subscriptionEventListener)
+     +-> isSubscribed = true
+     +-> Schedule resubscriptionRunnable after TTL seconds
+     +-> tryToPerformNextRequest() -> performSubscribe()
+           |
+           v [LanCommunicationStrategy]
+         localSubscriptionHandler.enableSubscription(networkNode, listeners)
+           +-> UdpEventReceiver.getInstance().startReceivingEvents(this)
+           |     +-> Create UdpReceivingThread if not running
+           |     +-> Bind DatagramSocket to port 8080 (or random port on failure)
+           |     +-> socketSetupLatch.countDown() // signal ready
+           |     +-> Return bound port number
+           +-> boundSubscriptionUdpPort = returnedPort
+         exchangeKeyIfNecessary(networkNode)
+         createSubscribeRequest(portName, productId, ttl, udpPort, handler)
+           +-> POST /di/v1/products/{id}/{port}
+           +-> Body: {"subscriber": "deadbeef{random}", "ttl": 300, "changeudp": {udpPort}}
+           +-> On success: check X-Condor-Features header contains "changeindication-port"
+           +-> If missing: return NOT_SUBSCRIBED error
+
+2. RECEIVE EVENT
+   UdpReceivingThread.receiveDatagram()
+     +-> socket.receive(packet)  // BLOCKING, 1024 byte buffer
+     +-> Parse packet:
+     |     Line 0: "NOTIFY /di/v1/products/{id}/{port} HTTP/1.1"
+     |     Lines 1..N-1: HTTP-style headers
+     |     Line N (last): encrypted payload (base64)
+     +-> Extract: portName from line 0 path, senderIP from packet address
+     +-> UdpEventListener.onUDPEventReceived(payload, portName, senderIP)
+           |
+           v [LocalSubscriptionHandler]
+         +-> Check senderIP matches networkNode.getIpAddress()
+         +-> Crypto.decryptData(payload) // same AES pipeline as HTTP responses
+         +-> if null: postSubscriptionEventDecryptionFailureOnUiThread()
+         |     -> CondorPort.subscriptionEventListener.onSubscriptionEventDecryptionFailed()
+         |          -> fallback: getProperties() to reload full state
+         +-> else: postSubscriptionEventOnUiThread(portName, decryptedBytes, listeners)
+               -> CondorPort.subscriptionEventListener.onSubscriptionEventReceived()
+                    +-> pathMatchesMyPort(portName)?
+                    +-> processResponse(bytes) // MERGE into cached properties
+                    +-> notify all PortSubscriptionListeners.onPortSubscriptionEvent()
+
+3. AUTO-RESUBSCRIBE
+   After TTL seconds, resubscriptionRunnable fires:
+     +-> refreshSubscriptionIfNecessary()
+           +-> if isSubscribed: subscribe(callback) // re-sends POST with same TTL
+           +-> Reschedule resubscriptionRunnable for another TTL seconds
+   Also triggers on NetworkNode bootId change (device rebooted):
+     +-> networkNodeListener detects KEY_BOOT_ID PropertyChangeEvent
+     +-> refreshSubscriptionIfNecessary()
+
+4. UNSUBSCRIBE
+   CondorPort.unsubscribe(callback)
+     +-> communicationStrategy.removeSubscriptionEventListener(listener)
+     +-> stopResubscribe(): isSubscribed=false, cancel resubscriptionRunnable
+     +-> performUnsubscribe()
+           +-> DELETE /di/v1/products/{id}/{port}
+           +-> Body: {"subscriber": "deadbeef{random}"}
+     +-> localSubscriptionHandler.disableSubscription()
+           +-> UdpEventReceiver.stopReceivingEvents(listener)
+                 +-> Remove listener from set
+                 +-> If no listeners left: udpReceivingThread.stopThread()
+                       +-> close socket, release multicast lock
+```
+
+### C.6 Transport Switching (LAN <-> HSDP)
+
+```
+CombinedCommunicationStrategy monitors all sub-strategies via AvailabilityListeners.
+
+When ANY sub-strategy availability changes:
+  |
+  +-> lambda$new$0(strategy)
+        +-> Remove pending strategyChangeRunnable from availabilityHandler
+        +-> Post new strategyChangeRunnable with 1000ms delay (cool-down)
+              |
+              +-> [After 1000ms cool-down]
+                  lambda$new$1()
+                    +-> newStrategy = firstAvailableStrategy()
+                    |     iterate LinkedHashSet: return first isAvailable()
+                    +-> if newStrategy == previousStrategy: return (no change)
+                    +-> if either is null: notifyAvailabilityChanged()
+                    |
+                    +-> For each active Subscription in subscriptions set:
+                    |     subscription.unsubscribe(previousStrategy, logHandler)
+                    |     subscription.subscribe(newStrategy, logHandler)
+                    |
+                    +-> previousStrategy = newStrategy
+
+LAN availability (LanCommunicationStrategy.isAvailable):
+  networkNode.ipAddress != null
+  AND connectivityMonitor.isAvailable() (WiFi/Ethernet connected)
+  AND isOnSameNetwork() (current SSID matches stored SSID, or SSID unknown)
+
+HSDP availability (HSDPCommunicationStrategy.isAvailable):
+  connectivityMonitor.isAvailable() (internet connected)
+  AND networkNode.hsdpId != null
+```
+
+### C.7 HSDP Authentication State Machine
+
+```
+HSDPController.connect(completable)
+  |
+  +-> authentication.signOn(callback)
+        |
+        +-> Has cached tokenSet?
+        |     YES: applyRefreshPolicy(tokens) -> discoverServices() -> DONE
+        |     NO:
+        |       +-> isProvisioningRequired() (no provisionedIdentity)?
+        |             YES: Full bootstrap flow:
+        |               1. bootstrapSignOn(callback)
+        |                    iamService.getAccessToken(bootstrapClientId, bootstrapClientSecret)
+        |               2. discoverServices(callback)
+        |                    discoveryService.getServices() -> store service URLs
+        |               3. provision(callback)
+        |                    Find "PRV" service URL from discovered services
+        |                    provisioningService.createIdentity(evidence)
+        |                    -> returns: clientId, clientSecret, loginId, password, hsdpId, signature
+        |                    -> persistIdentity(HSDPIdentity)
+        |               4. signOn(callback) // RECURSIVE: now has identity
+        |
+        |             NO: provisionedSignOn(callback)
+        |               +-> identity = configuration.getProvisionedIdentity()
+        |               +-> Check cached token expiry (120s threshold)
+        |               +-> If valid: use cached -> DONE
+        |               +-> If expired:
+        |                     iamService.getAccessToken(identity.clientId, identity.clientSecret,
+        |                                               identity.username, identity.password)
+        |                     -> store provisionedTokenResponse
+        |                     -> compute expiry: expiresIn + (currentTime / 1000)
+        |                     -> persistAccessTokens(tokenResponse)
+        |                     -> discoverServices(callback)
+        |                     -> restartExpiryTimer(expiresIn)
+        |
+        v [signOn complete]
+      lambda$connect$5(completable, authError)
+        +-> if authError: completable.onCompleted(AUTHENTICATION_FAILED)
+        +-> createControlService()
+        |     +-> authentication.findServiceForTag("IOT")
+        |     +-> Find URL starting with "wss://"
+        |     +-> Parse: "wss://host/path?topic-prefix=prefix"
+        |     +-> serviceFactory.createControlServiceV1(hsdpId, wssUrl, topicPrefix)
+        +-> if null: completable.onCompleted(NO_CONTROL_SERVICE_AVAILABLE)
+        +-> if accessToken null: completable.onCompleted(MISSING_ACCESS_TOKEN)
+        +-> if signedToken null: completable.onCompleted(MISSING_SIGNED_TOKEN)
+        +-> controlServiceV1.addListener(controlServiceListener)
+        +-> controlServiceV1.connect(accessToken, signedToken, callback)
+              +-> on error: completable.onCompleted(CONNECT_FAILED)
+              +-> on success: completable.onCompleted(null)  // CONNECTED
+
+TOKEN REFRESH (automatic):
+  restartExpiryTimer(expiresInSeconds):
+    +-> if expiresIn - 30 < 0: report TOKEN_EXPIRY_TOO_SHORT
+    +-> Schedule timer at (expiresIn * 1000) ms
+    +-> On fire:
+          if tokenSet available: configuration.refreshAccessTokens()
+          else: provisionedSignOn()
+    +-> AuthenticationListener.onAccessTokensRefreshed()
+          -> HSDPController disconnects + reconnects with new tokens
+```
+
+### C.8 HSDP Command Execution (Remote Request)
+
+```
+App calls: condorPort.getProperties(callback)
+  -> CombinedCommunicationStrategy selects HSDP (LAN unavailable)
+  -> HSDPCommunicationStrategy.getProperties("air", 1, handler)
+       |
+       v
+     requestQueue.addRequest(new HSDPRemoteRequest(
+       operation=GET_PROPS, hsdpId, productId=1, portName="air",
+       data=null, handler, messenger))
+       |
+       v [RequestQueue background thread]
+     HSDPRemoteRequest.execute()
+       |
+       +-> identifier = UUID.randomUUID()
+       +-> sendCommandLatch = CountDownLatch(1)
+       +-> responseLatch = CountDownLatch(1)
+       +-> messenger.registerMessageListener(this)
+       |
+       +-> Create command detail JSON:
+       |     {
+       |       "condorVersion": "1",
+       |       "op": "GetProps",
+       |       "path": "1/air",
+       |       "values": null
+       |     }
+       |
+       +-> messenger.sendCommand(hsdpId, command, sendCommandCompletion)
+       |     |
+       |     v [HSDPCommandQueue]
+       |   queue.submit(() -> {
+       |     semaphore.acquire()  // Wait for previous command to finish
+       |     hsdpMessenger.sendCommand(...)
+       |       |
+       |       v [HSDPController]
+       |     if connected: controlServiceV1.sendCommand(hsdpId, command, callback)
+       |     else: connect() first, then sendCommand()
+       |       -> callback: semaphore.release()
+       |   })
+       |
+       +-> sendCommandLatch.await(30000ms)  // Wait for MQTT publish ACK
+       |     On timeout: return SEND_FAILED
+       |     sendCommandCompletion fires: sendCommandLatch.countDown()
+       |
+       +-> responseLatch.await(30000ms)  // Wait for device response
+       |
+       |   [Meanwhile, MQTT messages arrive via controlServiceListener]:
+       |
+       |   ControlServiceV1.Listener.onCommandReceived(received)
+       |     -> HSDPController.notifyMessageListeners(received)
+       |       -> HSDPRemoteRequest.messageReceived(received)
+       |            |
+       |            +-> type == "accepted": ignore (just an ACK)
+       |            +-> type == "rejected":
+       |            |     commandRejected = true
+       |            |     responseLatch.countDown()
+       |            +-> type == "notification":
+       |                  if command.cmdName == this.identifier:  // UUID match
+       |                    responseString = command.statusDetailAsJsonString
+       |                    responseLatch.countDown()
+       |
+       +-> [responseLatch released]
+       |
+       +-> messenger.unregisterMessageListener(this)
+       +-> if commandRejected: return REJECTED
+       +-> if responseString null: return REQUEST_FAILED
+       +-> Parse Condor response:
+       |     status = extractStatus(responseString)  // CondorControlMessage.status
+       |     if status != 0: return Error.getErrorForCode(status)
+       |     data = extractData(responseString)      // JSON-serialize .values field
+       +-> return Response(data, null)  // SUCCESS
+```
+
+### C.9 Firmware Update State Machine
+
+```
+FirmwareUpdatePushLocal.start(timeoutMs)
+  |
+  +-> Set watchdog timer (timeoutMs) -> completeFirmwareUpdate(false, "Timed out")
+  +-> Create FirmwarePortProperties with size = firmwareData.length
+  +-> obtainApplianceState() -> getProperties from firmware port
+        |
+        v
+      Check current state:
+        |
+        +-> state == IDLE:
+        |     startWaitingForDownloadingState()
+        |
+        +-> state == DOWNLOADING && isResuming && size matches:
+        |     uploader.startAt(progress)  // Resume interrupted upload
+        |
+        +-> other state (e.g., ERROR, CHECKING):
+              transitionToState(CANCELING)
+                PUT {"state": "cancel"} to firmware port
+              -> transitionToState(IDLE)
+                   PUT {"state": "idle"} to firmware port
+              -> startWaitingForDownloadingState()
+
+startWaitingForDownloadingState():
+  +-> transitionToState(DOWNLOADING)
+  |     PUT {"state": "downloading", "size": N} to firmware port
+  +-> Start downloadingStatePoller (1s interval, 10s timeout)
+  |     Poll firmware port every 1s:
+  |       state == DOWNLOADING: stop poller, uploader.startAt(0)
+  |       state == ERROR: stop poller, fail
+  |       timeout: fail("Timed out while waiting for downloading state")
+
+FirmwareUploader.startAt(offset):
+  +-> Read maxChunkSize from cached FirmwarePortProperties
+  +-> chunkSizeReductionCount = 0
+  +-> uploadChunk(offset):
+        |
+        +-> effectiveChunkSize = maxChunkSize - (reductionCount * 50)
+        +-> chunk = firmwareData[offset .. offset + effectiveChunkSize]
+        +-> PUT {"data": base64(chunk)} to firmware port
+        +-> On success:
+        |     progress = cachedProperties.getProgress()
+        |     listener.onProgress(progress, totalSize)
+        |     if progress >= totalSize: waitForReadyState()
+        |     elif state == ERROR: fail
+        |     elif state != DOWNLOADING: fail("No longer in Downloading state")
+        |     else: uploadChunk(progress)  // LOOP: next chunk
+        +-> On OUT_OF_MEMORY error:
+        |     chunkSizeReductionCount++  // reduce chunk by 50 bytes
+        |     uploadChunk(offset)        // retry same offset with smaller chunk
+        +-> On other error: fail
+
+waitForReadyState():
+  +-> if already READY: success
+  +-> else: subscribe to firmware port + poll
+  |     On state == READY: listener.onSuccess() -> onDownloadFinished()
+  |     On state == ERROR: fail(statusMessage)
+
+FirmwareUpdatePushLocal.deploy(timeoutMs):
+  +-> transitionToState(PROGRAMMING)
+  |     PUT {"state": "go"} to firmware port
+  +-> Start deployPoller (1s interval, timeoutMs timeout)
+        On state == IDLE: stop poller -> onDeployFinished()  // Device rebooted
+        On state == ERROR: stop poller -> onDeployFailed()
+        On timeout: onDeployFailed("Timed out waiting for appliance")
+
+FirmwareUpdatePushLocal.cancel(timeoutMs):
+  +-> Stop uploader + all pollers
+  +-> transitionToState(CANCELING)
+  |     PUT {"state": "cancel"} to firmware port
+  +-> Start errorOnCancelStatePoller (1s interval, timeoutMs timeout)
+        On state == ERROR: stop poller -> onCancelFinished()
+        On timeout: onCancelFailed()
+
+COMPLETE STATE DIAGRAM:
+  IDLE -> PUT "downloading" -> DOWNLOADING -> [upload chunks] -> READY
+  READY -> PUT "go" -> PROGRAMMING -> [device reboots] -> IDLE
+  Any state -> PUT "cancel" -> CANCELING -> ERROR
+  CANCELING -> PUT "idle" -> IDLE (for retry)
+```
+
+### C.10 Cloud Pairing Flow (HSDP Control)
+
+```
+HSDPControlPairingHandlerImpl.performPair(callback)
+  |
+  +-> hsdpPairingHandler.performPairingFlow("control", hsdpIdentifier, innerCallback)
+        |
+        v [HsdpPairingHandler.performPairingFlowWithType(PAIR, ...)]
+      1. Register HsdpPairingPortListener on pairing port
+      2. port.subscribe(subscribeCallback)  // Subscribe for ChangeIndications
+           |
+           v [On subscribe success]
+         3. isSubscribeRequested = false
+         4. port.pair(type="control", trustee=hsdpIdentifier, pairingCallback)
+              |
+              v [HsdpPairingPort.pair()]
+            execMethod("Pair", ["control", hsdpIdentifier], callback)
+              |
+              v [CondorPort.execMethod -> CommunicationStrategy.execMethod]
+            For HSDP: creates HSDPRemoteRequest with operation=EXEC_METHOD
+              Command: {"condorVersion":"1", "op":"ExecMethod", "path":"0/pairing",
+                        "values": {"Pair": ["control", "hsdpIdentifier"]}}
+              |
+              v [Device processes pairing request]
+            Response type "notification":
+              result.getValue().get(0) == 0.0: pairingCallback.onPairingResult(0) // accepted
+              result.getValue().get(0) != 0.0: pairingCallback.onPairingResult(-1) // rejected
+              |
+              v [pairingResult == 0: RPC accepted]
+            5. Start 30s watchdog timer -> completePairingFlow(TIMED_OUT)
+            6. Wait for ChangeIndication on pairing port...
+              |
+              v [ChangeIndication arrives via MQTT]
+            HSDPRemoteSubscriptionHandler.messageReceived(received)
+              +-> type == "notification"
+              +-> operation == "ChangeIndication"
+              +-> Extract path and values from CondorControlMessage
+              +-> postSubscriptionEventOnUiThread(path, values, listeners)
+                    |
+                    v [CondorPort.subscriptionEventListener.onSubscriptionEventReceived]
+                  processResponse(bytes) // merge into cachedProperties
+                  HsdpPairingPortListener.onPortSubscriptionEvent(port)
+                    +-> cachedProperties = port.getCachedProperties()
+                    +-> Check: previousType == "control" && previousTrustee == hsdpIdentifier
+                    +-> Check: previousResult == true
+                    +-> completePairingFlow(callback, null)  // SUCCESS
+                    |   OR
+                    +-> completePairingFlow(callback, REJECTED)  // FAILED
+
+      7. completePairingFlow():
+           +-> port.unsubscribe()
+           +-> port.removeSubscriptionListener(portListener)
+           +-> Cancel watchdog timer
+           +-> innerCallback.onPairingFlowCompleted(error)
+                 |
+                 v [Back in HSDPControlPairingHandlerImpl]
+               if error == null:
+                 completePairingFlow()
+                   +-> pairingPort.getProperties()  // Read hsdpId from device
+                   +-> hsdpId = properties.getHsdpId()
+                   +-> networkNode.setHsdpId(hsdpId)  // Store for future HSDP communication
+                   +-> callback.onPairingFlowCompleted(null)  // DONE
+               else:
+                 callback.onPairingFlowCompleted(error)
+
+UNPAIR follows same flow but:
+  - Uses ExecMethod("Unpair", [...]) instead of "Pair"
+  - On success: networkNode.setHsdpId(null)  // Remove HSDP association
+```
+
+### C.11 LAN Pairing Flow (Local Authentication)
+
+```
+LanTransportContext.authenticate(appliance, evidence, callback)
+  |
+  +-> authentication.authenticate(networkNode, evidence, callback)
+        |
+        v [Background HandlerThread]
+      authenticate$lambda$2(networkNode, this, evidence, callback)
+        |
+        +-> Check WiFi available via connectivityMonitor
+        +-> Generate or get clientId:
+        |     initNetworkNodeClientID(networkNode)
+        |       if clientId null/empty: clientId = ByteUtil.create128bitBase64EncodedKey()
+        |       networkNode.setClientId(clientId)
+        |
+        +-> Build request body:
+        |     {"id": "<base64_clientId>"}
+        |     If evidence map provided: merge all evidence keys into body
+        |     (e.g., {"id": "...", "key": "<SHA256_evidence>"} for seed challenge)
+        |
+        +-> PUT https://{ip}/auth/v{version}/
+        |     Content-Type: application/json
+        |     OkHttp client from lanTransportContext (TLS, cert pinning)
+        |
+        v [Response]
+      switch(statusCode):
+        200:
+          Parse JSON response as HashMap
+          |
+          +-> Extract "authenticated" boolean (default false if missing)
+          +-> Extract "secret" string
+          +-> Remove both from response map
+          +-> If authenticated && secret != null:
+          |     networkNode.setClientSecret(secret)  // STORE PAIRING SECRET
+          +-> callback.response(authenticated, remainingFields, null)
+          |
+          |   remainingFields may contain "seed" for challenge flow:
+          |   CALLER checks: if !authenticated && "seed" in remainingFields:
+          |     evidence = SHA256(seed + clientId)
+          |     RETRY: authenticate(networkNode, {"key": evidence}, callback)
+          |
+        400: callback.response(false, null, AuthenticationError("error_bad_request"))
+        502: callback.response(false, null, AuthenticationError("error_bad_gateway"))
+        SocketTimeout: callback.response(false, null, AuthenticationError("error_timeout"))
+        SSLHandshakeException: callback.response(false, null, AuthenticationError(message))
+        IOException: callback.response(false, null, AuthenticationError(message))
+        TransportUnavailable: callback.response(false, null, AuthenticationError("no wifi"))
+
+PAIRING PATTERNS:
+  Pattern 1 - New device (never paired):
+    PUT {"id": "abc123..."} -> {"authenticated": true, "secret": "xyz789..."}
+    -> Store secret, done.
+
+  Pattern 2 - Already-paired device (seed challenge):
+    PUT {"id": "abc123..."} -> {"authenticated": false, "seed": "qrs456..."}
+    Compute: evidence = SHA256(seed + clientId)
+    PUT {"id": "abc123...", "key": "<evidence>"} -> {"authenticated": true, "secret": "xyz789..."}
+    -> Store new secret, done.
+
+  Pattern 3 - Already-paired, no existing secret:
+    PUT {"id": "abc123..."} -> {"authenticated": false, "seed": "qrs456..."}
+    Cannot compute evidence without clientSecret -> PAIRING FAILS
+    User must factory reset device or use Android app to re-pair.
+```
+
+### C.12 HSDP Subscription (Cloud Push Events)
+
+```
+HSDPCommunicationStrategy.subscribe("air", 1, ttl, handler)
+  |
+  +-> subscriptionHandler.enableSubscription(networkNode, listeners)
+  |     +-> hsdpId = networkNode.getHsdpId()
+  |     +-> messenger.registerMessageListener(this)  // Listen for ALL MQTT messages
+  |
+  +-> requestQueue.addRequest(new HSDPRemoteRequest(
+        operation=SUBSCRIBE, hsdpId, productId=1, portName="air",
+        data=null, handler, messenger, ttl=300))
+        |
+        v [HSDPRemoteRequest.execute()]
+      Command: {"condorVersion":"1", "op":"Subscribe", "path":"1/air", "ttl":300}
+      -> Send via MQTT, wait for acceptance + notification (same as C.8)
+
+[Device state changes - device publishes to MQTT]:
+  ControlServiceV1.Listener.onCommandReceived(received)
+    -> HSDPController.notifyMessageListeners(received)
+      -> HSDPRemoteSubscriptionHandler.messageReceived(received)
+           |
+           +-> type != "notification": ignore
+           +-> command.statusDetail["op"] != "ChangeIndication": ignore
+           +-> Parse CondorControlMessage from statusDetailAsJsonString
+           +-> postSubscriptionEventOnUiThread(
+                 condorMessage.path,          // e.g., "1/air"
+                 Gson.toJson(condorMessage.values).getBytes(UTF_8),
+                 subscriptionEventListeners)
+                   |
+                   v [Same flow as LAN subscription events]
+                 CondorPort processes and merges data
+
+HSDPCommunicationStrategy.unsubscribe("air", 1, handler)
+  +-> subscriptionHandler.disableSubscription()
+  |     messenger.unregisterMessageListener(this)
+  +-> Send UNSUBSCRIBE command via MQTT
+```

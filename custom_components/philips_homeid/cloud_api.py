@@ -48,6 +48,7 @@ from .const import (
     GIGYA_API_KEY,
     GIGYA_API_URL,
     HSDP_CLIENT_ID,
+    HSDP_CLIENT_SECRET,
     HSDP_IAM_URL,
     HSDP_REDIRECT_URI,
     MOBILE_APP_REDIRECT_URI,
@@ -771,9 +772,13 @@ class PhilipsCloudAPI:
         }
         # APK Retrofit base: {IAM_URL}/authorize/oauth2/ + @POST("token")
         token_url = f"{HSDP_IAM_URL}/authorize/oauth2/token"
+        # HSDP IAM requires HTTP Basic auth with client_id:client_secret
+        auth = aiohttp.BasicAuth(HSDP_CLIENT_ID, HSDP_CLIENT_SECRET)
 
         _LOGGER.debug("HSDP token exchange at %s", token_url)
-        async with session.post(token_url, data=data, headers=headers) as resp:
+        async with session.post(
+            token_url, data=data, headers=headers, auth=auth
+        ) as resp:
             text = await resp.text()
             _LOGGER.debug(
                 "HSDP token response: HTTP %s, body: %s", resp.status, text[:500]
@@ -808,8 +813,12 @@ class PhilipsCloudAPI:
         # APK Retrofit base: {IAM_URL}/authorize/oauth2/ + @POST("token")
         token_url = f"{HSDP_IAM_URL}/authorize/oauth2/token"
 
+        auth = aiohttp.BasicAuth(HSDP_CLIENT_ID, HSDP_CLIENT_SECRET)
+
         _LOGGER.debug("HSDP token refresh at %s", token_url)
-        async with session.post(token_url, data=data, headers=headers) as resp:
+        async with session.post(
+            token_url, data=data, headers=headers, auth=auth
+        ) as resp:
             text = await resp.text()
             _LOGGER.debug("HSDP refresh response: HTTP %s", resp.status)
             if resp.status != 200:

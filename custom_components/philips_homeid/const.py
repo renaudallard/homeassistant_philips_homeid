@@ -79,5 +79,6 @@ FUSION_MQTT_HOST = "ats.prod.eu-da.iot.versuni.com"
 # OAuth flow. FUSION MQTT Custom Authorizer requires HSDP tokens.
 HSDP_IAM_URL = "https://iam-service.eu-west.philips-healthsuite.com"
 HSDP_CLIENT_ID = "21e431131cb04a0eb56"
+HSDP_CLIENT_SECRET = "@@3f2.6lo21_2F61"
 HSDP_REDIRECT_URI = "com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect"
 CONF_HSDP_REFRESH_TOKEN = "hsdp_refresh_token"

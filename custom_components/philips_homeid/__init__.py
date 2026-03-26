@@ -113,6 +113,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         sig_data = await cloud_api.get_mqtt_signature(
             access_token, platform_rest_url, tenant
         )
+        _LOGGER.info("MQTT signature response keys: %s", list(sig_data.keys()))
     except CloudAuthError as err:
         raise ConfigEntryNotReady(
             f"FUSION auth failed: {err}. Re-authenticate via config flow."
@@ -192,7 +193,9 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             sig_data.get("signature", ""),
         )
     except Exception as err:
-        raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
+        raise ConfigEntryNotReady(
+            f"MQTT connection failed (tried WSS:443 and MQTTS:8883): {err}"
+        ) from err
 
     # Initial data fetch via shadow/get
     try:

@@ -363,11 +363,12 @@ All air fryer entities above (including target/current temperature and total coo
 
 Some newer Philips devices are registered as "FUSION" devices in the Philips cloud. These devices do not have local credentials available via the cloud API and communicate exclusively via MQTT cloud relay through AWS IoT.
 
-The integration automatically detects FUSION devices during setup. When a device has no local credentials but has an `externalDeviceId`, the integration creates a cloud relay entry that communicates via MQTT over WebSocket.
+The integration automatically detects FUSION devices during setup. When a device has no local credentials but has an `externalDeviceId`, the integration creates a cloud relay entry that communicates via MQTT.
 
 **How it works:**
 - Uses your Philips account OIDC tokens (from cloud login) to authenticate with AWS IoT
-- Connects via MQTT over WebSocket Secure to the Philips DaConnect platform
+- Tries MQTT over WebSocket Secure (port 443) first, matching the official app
+- Falls back to MQTT over TLS (port 8883) if WSS fails
 - Receives device state updates in real-time via push notifications
 - Sends control commands via MQTT pub/sub
 
@@ -375,6 +376,16 @@ The integration automatically detects FUSION devices during setup. When a device
 - Requires internet connectivity (cloud-dependent)
 - Entities may take a few minutes to appear after initial setup
 - Token refresh happens automatically but requires a valid refresh token
+
+**Debugging MQTT connection issues:**
+Enable debug logging to see detailed MQTT protocol diagnostics (credential info, paho-mqtt protocol trace, connection attempts on both ports):
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.philips_homeid.mqtt_api: debug
+    custom_components.philips_homeid: info
+```
 
 **Identification:** FUSION devices show as "(Cloud)" in their title in Home Assistant.
 
@@ -441,7 +452,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
-| Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt) |
+| Cloud Relay | FUSION devices via MQTT (AWS IoT, paho-mqtt). Tries WSS port 443, falls back to MQTT/TLS port 8883 |
 
 ---
 

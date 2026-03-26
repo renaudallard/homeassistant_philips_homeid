@@ -36,6 +36,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import quote
 
 import paho.mqtt.client as mqtt
 
@@ -45,7 +46,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # MQTT connection settings (from APK DaMqttClientImpl)
 MQTT_KEEPALIVE = 30
-MQTT_CONNECT_TIMEOUT = 10
+MQTT_CONNECT_TIMEOUT = 30
 
 # QoS levels (from APK fv/a enum)
 QOS_AT_MOST_ONCE = 0  # subscriptions
@@ -132,11 +133,39 @@ class PhilipsMQTTClient:
         access_token: str,
         mqtt_signature: str,
     ) -> None:
-        """Connect to the AWS IoT MQTT broker over WSS.
+        """Connect to the AWS IoT MQTT broker.
 
-        Uses Custom Authorizer headers for authentication.
+        Tries WSS on port 443 first (matching APK), then falls back to
+        MQTT/TLS on port 8883 with Custom Authorizer via username field.
         Must be called from an executor thread (blocking).
         """
+        _LOGGER.info(
+            "MQTT credentials: token=%s...%s (%d chars), signature=%s...%s (%d chars)",
+            access_token[:8] if access_token else "EMPTY",
+            access_token[-4:] if len(access_token) > 12 else "",
+            len(access_token),
+            mqtt_signature[:8] if mqtt_signature else "EMPTY",
+            mqtt_signature[-4:] if len(mqtt_signature) > 12 else "",
+            len(mqtt_signature),
+        )
+
+        # Try WSS on port 443 first (APK default)
+        try:
+            self._connect_wss(access_token, mqtt_signature)
+            return
+        except Exception as err:
+            _LOGGER.warning("WSS connection on port 443 failed: %s", err)
+
+        # Fall back to MQTT/TLS on port 8883
+        _LOGGER.info("Trying MQTT/TLS on port 8883 as fallback")
+        self._connect_mqtts(access_token, mqtt_signature)
+
+    def _connect_wss(
+        self,
+        access_token: str,
+        mqtt_signature: str,
+    ) -> None:
+        """Connect via MQTT over WebSocket Secure (port 443)."""
         device = self._device
 
         client = mqtt.Client(
@@ -160,12 +189,10 @@ class PhilipsMQTTClient:
             },
         )
 
-        client.on_connect = self._on_connect
-        client.on_disconnect = self._on_disconnect
-        client.on_message = self._on_message
+        self._setup_callbacks(client)
 
         _LOGGER.info(
-            "Connecting to MQTT broker %s for device %s",
+            "WSS connecting to %s:443 for %s",
             device.mqtt_host,
             device.thing_name,
         )
@@ -178,14 +205,88 @@ class PhilipsMQTTClient:
         client.loop_start()
         self._client = client
 
-        # Wait for connection
+        self._wait_for_connection(client, "WSS")
+
+    def _connect_mqtts(
+        self,
+        access_token: str,
+        mqtt_signature: str,
+    ) -> None:
+        """Connect via MQTT over TLS (port 8883).
+
+        AWS IoT Custom Authorizer params are passed in the MQTT username
+        field as query-string parameters.
+        """
+        device = self._device
+
+        client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+            client_id=f"ha-philips-{secrets.token_hex(8)}",
+        )
+
+        # TLS for MQTT/TLS
+        client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
+
+        # AWS IoT Custom Authorizer via MQTT username/password fields.
+        # Format: token-key-name=token-value&x-amz-customauthorizer-name=...
+        # &x-amz-customauthorizer-signature=...
+        # Additional params (tenant) appended for the Lambda.
+        sig_encoded = quote(mqtt_signature, safe="")
+        token_encoded = quote(f"Bearer {access_token}", safe="")
+        username = (
+            f"token-header={token_encoded}"
+            f"&x-amz-customauthorizer-name=CustomAuthorizer"
+            f"&x-amz-customauthorizer-signature={sig_encoded}"
+            f"&tenant={device.tenant}"
+        )
+        client.username_pw_set(username)
+
+        self._setup_callbacks(client)
+
+        _LOGGER.info(
+            "MQTTS connecting to %s:8883 for %s",
+            device.mqtt_host,
+            device.thing_name,
+        )
+
+        client.connect(
+            device.mqtt_host,
+            port=8883,
+            keepalive=MQTT_KEEPALIVE,
+        )
+        client.loop_start()
+        self._client = client
+
+        self._wait_for_connection(client, "MQTTS")
+
+    def _setup_callbacks(self, client: mqtt.Client) -> None:
+        """Wire up MQTT callbacks and debug logging."""
+        client.on_connect = self._on_connect
+        client.on_disconnect = self._on_disconnect
+        client.on_message = self._on_message
+
+        # Detailed protocol logging for debugging connection issues
+        def _on_log(
+            _client: mqtt.Client,
+            _userdata: Any,
+            level: int,
+            buf: str,
+        ) -> None:
+            _LOGGER.debug("paho: [%s] %s", level, buf)
+
+        client.on_log = _on_log
+
+    def _wait_for_connection(self, client: mqtt.Client, label: str) -> None:
+        """Wait for MQTT CONNACK or raise on timeout."""
         deadline = time.monotonic() + MQTT_CONNECT_TIMEOUT
         while not self._connected and time.monotonic() < deadline:
             time.sleep(0.1)
 
         if not self._connected:
             client.loop_stop()
-            raise ConnectionError(f"MQTT connection to {device.mqtt_host} timed out")
+            raise ConnectionError(
+                f"{label} connection to {self._device.mqtt_host} timed out"
+            )
 
     def disconnect(self) -> None:
         """Disconnect from the MQTT broker."""
@@ -276,6 +377,7 @@ class PhilipsMQTTClient:
         properties: Any = None,
     ) -> None:
         """Handle MQTT connection established."""
+        _LOGGER.info("MQTT on_connect: reason_code=%s, flags=%s", reason_code, flags)
         if reason_code == 0:
             self._connected = True
             _LOGGER.info(
@@ -298,7 +400,7 @@ class PhilipsMQTTClient:
             # Request initial state
             self.request_state()
         else:
-            _LOGGER.error("MQTT connection failed: %s", reason_code)
+            _LOGGER.error("MQTT CONNACK rejected: reason_code=%s", reason_code)
 
     def _on_disconnect(
         self,

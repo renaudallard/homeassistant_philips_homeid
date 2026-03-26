@@ -10,6 +10,7 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 
 ## Table of Contents
 
+0. [Protocol Quick Start: Talk to a Device in 5 Minutes](#0-protocol-quick-start-talk-to-a-device-in-5-minutes)
 1. [Architecture Overview](#1-architecture-overview)
 2. [Package Structure](#2-package-structure)
 3. [Core Data Model: NetworkNode](#3-core-data-model-networknode)
@@ -82,6 +83,381 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 70. [HSDPControlPairingHandlerImpl](#70-hsdpcontrolpairinghandlerimpl)
 71. [Remaining Port Properties and Utilities](#71-79-remaining-port-properties-and-utilities)
 72. [Appendix A: Complete File Inventory](#appendix-a-complete-file-inventory)
+73. [Appendix B: Verification Corrections](#appendix-b-verification-corrections)
+74. [Appendix C: End-to-End Flows](#appendix-c-end-to-end-flows)
+75. [Appendix D: JADX Obfuscation Rosetta Stone](#appendix-d-jadx-obfuscation-rosetta-stone)
+
+---
+
+## 0. Protocol Quick Start: Talk to a Device in 5 Minutes
+
+If you just want to talk to a Philips airfryer/air purifier on your LAN, here's everything you need. No SDK, no Android, no cloud. Just raw HTTPS requests.
+
+### Prerequisites
+
+You need:
+- Device IP address (find via mDNS `_philipscondor._tcp.local.` or SSDP `urn:philips-com:device:DiProduct:1`)
+- `client_id`: 16 random bytes, base64-encoded (you generate this once)
+- `client_secret`: base64 string (device gives you this during pairing)
+
+### Step 1: Generate a client_id
+
+```python
+import base64, os
+client_id = base64.b64encode(os.urandom(16)).decode()
+# Example: "fTJdQStrzUhafYGycn7Jtw=="
+```
+
+### Step 2: Pair with the device
+
+```
+PUT https://{ip}/auth/v1/
+Content-Type: application/json
+(TLS: accept any certificate)
+
+{"id": "fTJdQStrzUhafYGycn7Jtw=="}
+```
+
+**Response (new device):**
+```json
+{"authenticated": true, "secret": "abc123base64secret=="}
+```
+Save the `secret` - this is your `client_secret`. You only need to do this once.
+
+**Response (already paired to another client):**
+```json
+{"authenticated": false, "seed": "someSeedValue"}
+```
+You need the existing `client_secret` to solve this challenge. If you don't have it, factory reset the device.
+
+### Step 3: Make an authenticated request
+
+Every request after pairing uses the `PHILIPS-Condor` challenge-response scheme.
+
+**First request (no cached credentials):**
+```
+GET https://{ip}/di/v1/products/1/airfryer
+Connection: keep-alive
+(TLS: accept any certificate, or pin the public key SHA-256)
+```
+
+**Device responds with 401 + challenge:**
+```
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: PHILIPS-Condor tx7ShrFB7mlC26GQ/mSeIw==
+```
+
+### Step 4: Solve the challenge
+
+```python
+import base64, hashlib
+
+# The challenge from WWW-Authenticate header (strip "PHILIPS-Condor " prefix)
+challenge_b64 = "tx7ShrFB7mlC26GQ/mSeIw=="
+challenge = base64.b64decode(challenge_b64)        # 16 bytes
+
+client_id_bytes = base64.b64decode(client_id)       # 16 bytes
+client_secret_bytes = base64.b64decode(client_secret) # 16 bytes
+
+# SHA-256 of: challenge + client_id + client_secret
+hash_input = challenge + client_id_bytes + client_secret_bytes  # 48 bytes
+hash_output = hashlib.sha256(hash_input).digest()               # 32 bytes
+
+# Response = client_id + hash
+response = base64.b64encode(client_id_bytes + hash_output).decode()
+
+# Authorization header
+auth_header = f"PHILIPS-Condor {response}"
+```
+
+### Step 5: Retry with credentials
+
+```
+GET https://{ip}/di/v1/products/1/airfryer
+Connection: keep-alive
+Authorization: PHILIPS-Condor fTJdQStrzUhafYGycn7Jtxedal6/TLLSOsVgUFUo8HDf2UOZ4Bn82Wjw4XW2iELG
+```
+
+**Response (success):**
+```json
+{
+  "status": "standby",
+  "temp": 0,
+  "time": 0,
+  "cur_time": 0,
+  "drawer_open": false,
+  "preset": 0,
+  "error": 0,
+  "temp_unit": false,
+  "step_id": "",
+  "recipe_id": ""
+}
+```
+
+Cache the `Authorization` header value. Reuse it for all subsequent requests until you get another 401, then solve the new challenge.
+
+### Step 6: Control the device
+
+```
+PUT https://{ip}/di/v1/products/1/airfryer
+Content-Type: application/json
+Authorization: PHILIPS-Condor <cached_credentials>
+
+{"temp": 180, "time": 600, "status": "cooking"}
+```
+
+### Complete API Endpoint Reference
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/v1/` | PUT | Pair (body: `{"id":"..."}`) |
+| `/di/v1/products/1/airfryer` | GET | Read airfryer state |
+| `/di/v1/products/1/airfryer` | PUT | Set airfryer state |
+| `/di/v1/products/1/status` | GET | Read air purifier state |
+| `/di/v1/products/1/status` | PUT | Set air purifier state |
+| `/di/v1/products/1/air` | GET | Read air quality data |
+| `/di/v1/products/1/fltsts` | GET | Read filter status |
+| `/di/v1/products/1/device` | GET | Read device info (name, model, firmware) |
+| `/di/v1/products/0/security` | GET | Get AES encryption key |
+| `/di/v1/products/0/firmware` | GET | Read firmware version info |
+| `/di/v1/products/0/pairing` | ExecMethod | Cloud pairing RPC (via HSDP only) |
+
+Other port names for specific devices: `venusaf` (HD9880), `venus1af` (HD9875/76), `nutrimax` (NX0960), `hermesac` (NX0950).
+
+### TLS Configuration
+
+- Protocol: TLSv1.2
+- Certificate validation: Trust On First Use (TOFU). On first connect, store SHA-256 of server's public key. On subsequent connects, verify it matches.
+- Hostname verification: disabled (devices use IP addresses)
+- Cipher suites: `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`, `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256`, `TLS_RSA_WITH_AES_128_CBC_SHA256`
+- Or just: accept any certificate (the APK has a `createTLSTrustEverythingSSLContext` mode)
+
+### AES Payload Decryption (HTTP devices only)
+
+Some older devices (HTTP port 80, not HTTPS 443) encrypt their response bodies. Fetch the key first:
+
+```
+GET https://{ip}/di/v1/products/0/security
+-> {"key": "abcdef0123456789abcdef0123456789"}
+```
+
+Then decrypt responses:
+
+```python
+import base64
+from Crypto.Cipher import AES
+
+key_hex = "abcdef0123456789abcdef0123456789"  # 32 hex chars = 16 bytes
+key = bytes.fromhex(key_hex)
+iv = b'\x00' * 16  # 16 zero bytes
+
+def decrypt(encrypted_response: str) -> str:
+    ciphertext = base64.b64decode(encrypted_response.strip())
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = cipher.decrypt(ciphertext)
+    # Remove PKCS7 padding
+    pad_len = plaintext[-1]
+    plaintext = plaintext[:-pad_len]
+    # Remove 2-byte random prefix
+    plaintext = plaintext[2:]
+    return plaintext.decode('utf-8')
+```
+
+### Base64 Encoding Details
+
+All base64 in this protocol uses:
+- **Encoding**: Android `Base64.NO_WRAP` (flag=2) = standard base64, no line breaks
+- **Decoding**: Android `Base64.DEFAULT` (flag=0) = standard base64
+- Equivalent to Python's `base64.b64encode()` / `base64.b64decode()`
+
+### Wire Example: Complete Request/Response
+
+```
+--- REQUEST ---
+PUT /auth/v1/ HTTP/1.1
+Host: 192.168.1.100
+Content-Type: application/json
+Connection: keep-alive
+
+{"id":"fTJdQStrzUhafYGycn7Jtw=="}
+
+--- RESPONSE (new device) ---
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"authenticated":true,"secret":"Kx1eBqP8SvI6fYGycn7abc=="}
+
+--- REQUEST ---
+GET /di/v1/products/1/airfryer HTTP/1.1
+Host: 192.168.1.100
+Connection: keep-alive
+
+--- RESPONSE (first request, no credentials) ---
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: PHILIPS-Condor tx7ShrFB7mlC26GQ/mSeIw==
+
+--- REQUEST (retry with credentials) ---
+GET /di/v1/products/1/airfryer HTTP/1.1
+Host: 192.168.1.100
+Connection: keep-alive
+Authorization: PHILIPS-Condor fTJdQStrzUhafYGycn7Jtxedal6/TLLSOsVgUFUo8HDf2UOZ4Bn82Wjw4XW2iELG
+
+--- RESPONSE ---
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"status":"standby","temp":0,"time":0,"cur_time":0,"drawer_open":false,"preset":0,"error":0}
+```
+
+### Property Merge Behavior
+
+When the CondorPort receives new data (from polling or subscription), it **merges** with cached properties, not replaces.
+
+```
+Cached state:   {"temp": 180, "status": "cooking", "time": 600, "cur_time": 300}
+Incoming event: {"cur_time": 295}
+Merged result:  {"temp": 180, "status": "cooking", "time": 600, "cur_time": 295}
+```
+
+This means subscription push events can send partial updates containing only the changed fields.
+
+### UDP Subscription Push Format
+
+After subscribing (POST with `subscriber` + `ttl` + `changeudp`), the device sends UDP packets:
+
+```
+NOTIFY /di/v1/products/1/airfryer HTTP/1.1\r\n
+HOST: 192.168.1.50:8080\r\n
+\r\n
+<base64_aes_encrypted_json>
+```
+
+The last line is the encrypted payload. Decrypt with the same AES key used for HTTP responses. The decrypted JSON is a partial update (merge with cached state).
+
+---
+
+## Appendix D: JADX Obfuscation Rosetta Stone
+
+The decompiled code uses obfuscated names from ProGuard/R8. This table maps them to their real identities.
+
+### OkHttp3 (package `ix0`)
+
+| Obfuscated | Real Class | Purpose |
+|------------|-----------|---------|
+| `ix0.z` | `OkHttpClient` | HTTP client |
+| `ix0.z.a` | `OkHttpClient.Builder` | Client builder |
+| `ix0.b0` | `Request` | HTTP request |
+| `ix0.b0.a` | `Request.Builder` | Request builder |
+| `ix0.d0` | `Response` | HTTP response |
+| `ix0.e0` | `ResponseBody` | Response body |
+| `ix0.x` | `MediaType` | Content type |
+| `ix0.c0` | `RequestBody` | Request body |
+| `ix0.u` | `Headers` | Response headers |
+| `ix0.p` | `Dispatcher` | Request dispatcher |
+| `ix0.g0` | `ConnectionSpec` | TLS config |
+| `ix0.i` | `CipherSuite` | TLS cipher suites |
+| `ix0.l` | `ConnectionSpec.Builder` | TLS config builder |
+
+### OkHttp3 Method Mapping
+
+| Obfuscated Call | Real Method |
+|----------------|-------------|
+| `new b0.a().p(url)` | `new Request.Builder().url(url)` |
+| `.q(url)` | `.url(URL)` |
+| `.l(body)` | `.put(body)` (when used with `.i("PUT", body)`) |
+| `.i(method, body)` | `.method(method, body)` |
+| `.g(key, value)` | `.header(key, value)` |
+| `.a(key, value)` | `.addHeader(key, value)` |
+| `.b()` | `.build()` |
+| `client.a(request)` | `client.newCall(request)` |
+| `client.y()` | `client.newBuilder()` |
+| `builder.R(t, u)` | `.readTimeout(t, u)` |
+| `builder.g(t, u)` | `.connectTimeout(t, u)` |
+| `builder.U(t, u)` | `.writeTimeout(t, u)` |
+| `builder.e(t, u)` | `.callTimeout(t, u)` |
+| `builder.S(sf)` | `.socketFactory(sf)` |
+| `builder.T(sf, tm)` | `.sslSocketFactory(sf, tm)` |
+| `builder.O(hv)` | `.hostnameVerifier(hv)` |
+| `builder.i(specs)` | `.connectionSpecs(specs)` |
+| `builder.c()` | `.build()` |
+| `response.getCode()` | `.code()` |
+| `response.getHeaders()` | `.headers()` |
+| `response.getBody()` | `.body()` |
+| `headers.c(name)` | `.get(name)` |
+| `x.INSTANCE.a(type)` | `MediaType.parse(type)` |
+| `c0.INSTANCE.h(str, mt)` | `RequestBody.create(str, mt)` |
+| `dispatcher.a()` | `.cancelAll()` |
+
+### Kotlin Standard Library (package `kotlin.jvm.internal`)
+
+| Obfuscated | Purpose |
+|------------|---------|
+| `s.j(obj, name)` | `Intrinsics.checkNotNullParameter(obj, name)` - null check |
+| `s.i(obj, msg)` | `Intrinsics.checkNotNullExpressionValue(obj, msg)` |
+| `s.h(obj, msg)` | `Intrinsics.checkNotNull(obj, msg)` - cast check |
+| `s.g(obj)` | `Intrinsics.checkNotNull(obj)` |
+| `s.e(a, b)` | `Intrinsics.areEqual(a, b)` |
+| `s.l(a, b)` | `Intrinsics.compare(a, b)` |
+| `s.A(name)` | `Intrinsics.throwUninitializedPropertyAccessException(name)` |
+| `t0.f93555a` | `Unit.INSTANCE` |
+| `u0.d(map)` | `MapsKt.toMutableMap(map)` |
+
+### Logging (package `gw`)
+
+| Obfuscated | Purpose |
+|------------|---------|
+| `gw.c.INSTANCE` | Logger singleton |
+| `c.Companion.e(inst, lib, tag, msg, ...)` | `Logger.warn(tag, msg)` |
+| `c.b(lib, tag, msg)` | `Logger.verbose(tag, msg)` |
+| `c.c(lib, tag, msg)` | `Logger.error(tag, msg)` |
+| `c.e(lib, tag, msg)` | `Logger.debug(tag, msg)` |
+| `c.f(lib, tag, msg)` | `Logger.info(tag, msg)` |
+| `c.g(lib, tag, msg)` | `Logger.debug(tag, msg)` (alternate) |
+| `c.h(lib, tag, msg)` | `Logger.warn(tag, msg)` (alternate) |
+| `c.i(lib, tag, msg)` | `Logger.verbose(tag, msg)` (alternate) |
+| `c.k(lib, tag, msg)` | `Logger.warn(tag, msg)` (alternate) |
+
+### Regex (package `vv0`)
+
+| Obfuscated | Purpose |
+|------------|---------|
+| `new o(pattern)` | `new Regex(pattern)` |
+| `.j(input, replacement)` | `.replace(input, replacement)` |
+| `f0.c0(str, substr, ...)` | `StringsKt.contains(str, substr, ...)` |
+| `f0.b0(str, char, ...)` | `StringsKt.contains(str, char, ...)` |
+| `c0.G(str, suffix, ...)` | `StringsKt.endsWith(str, suffix, ...)` |
+
+### Collections (packages `hs0`, `gs0`, `ns0`)
+
+| Obfuscated | Purpose |
+|------------|---------|
+| `t0.i()` | `Collections.emptyMap()` |
+| `t0.l(pair1, pair2, ...)` | `mapOf(pair1, pair2, ...)` |
+| `s0.f(pair)` | `Collections.singletonMap(pair)` |
+| `a0.a(key, value)` | `Pair(key, value)` / `Map.entry(key, value)` |
+| `ns0.a` | `EnumEntries` |
+| `ns0.b.a(values)` | `EnumEntries.of(values)` |
+
+### Firebase Constants
+
+| Obfuscated | Real Value |
+|------------|-----------|
+| `Constants.IPC_BUNDLE_KEY_SEND_ERROR` | `"error"` |
+| `RemoteSettings.FORWARD_SLASH_STRING` | `"/"` |
+| `Headers.CONN_DIRECTIVE` | `"Connection"` |
+| `ClientCookie.PATH_ATTR` | `"path"` |
+| `ClientCookie.PORT_ATTR` | `"port"` |
+| `ClientCookie.VERSION_ATTR` | `"version"` |
+
+### Android Base64 Flags
+
+| Flag | Value | Meaning |
+|------|-------|---------|
+| `Base64.DEFAULT` | 0 | Standard base64 with line breaks (decode accepts any) |
+| `Base64.NO_WRAP` | 2 | No line breaks in output |
+| `Base64.NO_PADDING` | 1 | Omit trailing `=` padding |
+
+The APK uses flag 2 (NO_WRAP) for encoding and flag 0 (DEFAULT) for decoding. Python's `base64.b64encode()`/`base64.b64decode()` are equivalent.
 
 ---
 

@@ -520,18 +520,18 @@ def test_mqtt_connection(access_token, thing_name=None, custom_sig=None):
             return False
         sig = body.get("signature", "")
 
-    # Decode sub for client ID (strip @fed-... suffix if present)
+    # Decode sub for client ID. Keep FULL sub (including @fed-... suffix)
+    # because the Custom Authorizer validates client ID matches token sub.
+    # Use short hex suffix instead of UUID to stay under 128 char AWS IoT limit.
     parts = access_token.split(".")
     if len(parts) >= 2:
         padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
         sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
-        sub = sub.split("@")[0]
     else:
         sub = "test"
 
-    import uuid as _uuid
-
-    client_id = f"{sub}_{_uuid.uuid4()}"
+    client_id = f"{sub}_{secrets.token_hex(4)}"
+    print(f"    Client ID: {client_id[:60]}... ({len(client_id)} chars)")
 
     # Raw WebSocket + MQTT (matching iOS app headers exactly)
     ctx = ssl.create_default_context()

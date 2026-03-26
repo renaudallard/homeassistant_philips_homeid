@@ -199,16 +199,17 @@ with sync_playwright() as p:
                     if codes:
                         hsdp_code = codes[0]
 
-    page2 = browser.new_page()
-    page2.on("response", handle_hsdp_response)
+    # Reuse existing page (--single-process mode in HA containers
+    # does not support multiple pages)
+    page.on("response", handle_hsdp_response)
     try:
-        page2.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
+        page.goto(hsdp_auth_url, timeout=30000, wait_until="networkidle")
     except Exception:
         pass
 
     if not hsdp_code:
         for _ in range(10):
-            page2.wait_for_timeout(1000)
+            page.wait_for_timeout(1000)
             if hsdp_code:
                 break
 

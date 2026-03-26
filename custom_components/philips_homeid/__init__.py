@@ -368,7 +368,28 @@ def _cleanup_stale_entities(
     entry: ConfigEntry,
     coordinator: PhilipsHomeIDCoordinator,
 ) -> None:
-    """Remove entities whose properties are no longer reported by the device."""
+    """Remove entities whose properties are no longer reported by the device.
+
+    Only runs cleanup when we have a complete picture of the device state.
+    If the airfryer port is expected but data is missing (e.g. first poll
+    before auth is established), skip cleanup to avoid removing entities
+    that will reappear on the next poll.
+    """
+    # Don't clean up if the device has a known airfryer port but no airfryer
+    # data yet - the first poll may have missed it.
+    state = coordinator.device_state
+    device = coordinator.device_info
+    if (
+        state
+        and isinstance(device.airfryer_port, str)
+        and "airfryer" not in state.properties
+    ):
+        _LOGGER.debug(
+            "Skipping stale entity cleanup: airfryer port '%s' known but no data yet",
+            device.airfryer_port,
+        )
+        return
+
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
 

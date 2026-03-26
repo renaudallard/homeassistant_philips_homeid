@@ -499,23 +499,26 @@ def refresh_hsdp_tokens(refresh_token):
     return body
 
 
-def test_mqtt_connection(access_token, thing_name=None):
+def test_mqtt_connection(access_token, thing_name=None, custom_sig=None):
     """Test actual MQTT connection to AWS IoT."""
     import socket as _socket
     import struct as _struct
 
-    # Get signature
-    status, body = api_request(
-        f"{IOT_BASE}/user/self/signature",
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-        },
-    )
-    if status != 200 or not isinstance(body, dict):
-        print(f"    Signature failed: HTTP {status}")
-        return False
-    sig = body.get("signature", "")
+    if custom_sig:
+        sig = custom_sig
+    else:
+        # Get signature
+        status, body = api_request(
+            f"{IOT_BASE}/user/self/signature",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json",
+            },
+        )
+        if status != 200 or not isinstance(body, dict):
+            print(f"    Signature failed: HTTP {status}")
+            return False
+        sig = body.get("signature", "")
 
     # Decode sub for client ID
     parts = access_token.split(".")
@@ -1009,11 +1012,67 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         print("\n  Testing MQTT signature with Gigya token...")
         test_mqtt_signature(access_token)
 
-    # Test MQTT connection directly
-    print("\n--- MQTT Connection Test ---")
-    thing_names = [d.get("thingName") for d in iot_devices if d.get("thingName")]
-    print(f"  Testing with Gigya token (devices: {len(iot_devices)})...")
-    test_mqtt_connection(access_token, thing_names[0] if thing_names else None)
+    # Comprehensive MQTT connection tests
+    print("\n--- MQTT Connection Tests (all combinations) ---")
+
+    # Get Gigya-derived signature
+    sig_status, sig_body = api_request(
+        f"{IOT_BASE}/user/self/signature",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        },
+    )
+    gigya_sig = sig_body.get("signature", "") if isinstance(sig_body, dict) else ""
+    print(f"  Gigya signature: {len(gigya_sig)} chars")
+
+    # SAS token exchange
+    sas_at = ""
+    sas_signed = ""
+    sas_id = ""
+    if oidc_tokens and oidc_tokens.get("id_token"):
+        sas_body = json.dumps(
+            {
+                "idToken": oidc_tokens["id_token"],
+                "exchangeFor": "HSDP",
+            }
+        )
+        sas_status, sas_resp = api_request(
+            "https://www.backend.vbs.versuni.com/api/TokenExchange",
+            data=sas_body,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.oneka.v2.0+json",
+                "Content-Type": "application/vnd.oneka.v2.0+json",
+            },
+        )
+        if sas_status == 200 and isinstance(sas_resp, dict):
+            sas_at = sas_resp.get("accessToken", "")
+            sas_signed = sas_resp.get("signedToken", "")
+            sas_id = sas_resp.get("idToken", "")
+            print(f"  SAS accessToken: {sas_at[:20]}... ({len(sas_at)} chars)")
+            print(f"  SAS signedToken: {len(sas_signed)} chars")
+            print(f"  SAS idToken: {len(sas_id)} chars")
+        else:
+            print(f"  SAS exchange failed: HTTP {sas_status}")
+
+    tests = []
+    if gigya_sig:
+        tests.append(("Gigya token + Gigya sig", access_token, gigya_sig))
+    if sas_at and gigya_sig:
+        tests.append(("SAS accessToken + Gigya sig", sas_at, gigya_sig))
+    if sas_at and sas_signed:
+        tests.append(("SAS accessToken + signedToken", sas_at, sas_signed))
+    if gigya_sig and sas_signed:
+        tests.append(("Gigya token + signedToken", access_token, sas_signed))
+    if sas_id and gigya_sig:
+        tests.append(("SAS idToken + Gigya sig", sas_id, gigya_sig))
+    if sas_id and sas_signed:
+        tests.append(("SAS idToken + signedToken", sas_id, sas_signed))
+
+    for label, tok, sig in tests:
+        print(f"\n  [{label}]")
+        test_mqtt_connection(tok, custom_sig=sig)
 
     print_summary(homeid_appliances, iot_devices)
 

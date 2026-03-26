@@ -179,7 +179,7 @@ def verify_otp(email, code, vtoken):
     return body["sessionInfo"]["cookieValue"]
 
 
-def headless_oauth(session_token):
+def headless_oauth(session_token, email=None):
     """Run headless browser OAuth flow. Returns OIDC tokens dict."""
     try:
         from playwright.sync_api import sync_playwright
@@ -358,15 +358,33 @@ def headless_oauth(session_token):
 
         final_url = page2.url
         print(f"  Final page URL: {final_url[:200]}")
-        if DEBUG:
-            # Dump page content for debugging
-            try:
-                content = page2.content()
-                print(f"  [DEBUG] Page title: {page2.title()}")
-                print(f"  [DEBUG] Page content ({len(content)} chars):")
-                print(f"  [DEBUG]   {content[:500]}")
-            except Exception:
-                pass
+
+        # If we landed on accounts.philips.com login page, fill in credentials
+        if "accounts.philips.com" in final_url and not hsdp_code:
+            print("  Landed on accounts.philips.com login page")
+            email_field = page2.query_selector("#capture_signIn_signInEmailAddress")
+            pw_field = page2.query_selector("#capture_signIn_passwordSignIn")
+            if email_field and pw_field and email_field.is_visible():
+                import getpass
+
+                philips_pw = getpass.getpass(
+                    "  Enter your accounts.philips.com password: "
+                )
+                if philips_pw:
+                    email_field.click()
+                    page2.keyboard.type(email, delay=30)
+                    page2.wait_for_timeout(300)
+                    pw_field.click()
+                    page2.keyboard.type(philips_pw, delay=30)
+                    page2.wait_for_timeout(300)
+                    login_btn = page2.locator("button:visible:has-text('Log in')")
+                    login_btn.click()
+                    print("  Submitted login, waiting for redirect...")
+                    # Wait for the HSDP redirect chain to complete
+                    for _ in range(30):
+                        page2.wait_for_timeout(1000)
+                        if hsdp_code:
+                            break
 
         if not hsdp_code:
             for _ in range(10):
@@ -878,7 +896,7 @@ def authenticate(email):
     print("  Login successful.")
 
     print("\nRunning headless OAuth flow (this may take a moment)...")
-    oidc_tokens = headless_oauth(session_token)
+    oidc_tokens = headless_oauth(session_token, email=email)
     if not oidc_tokens:
         print("  Failed to obtain OIDC tokens.")
         return None, None
@@ -965,7 +983,7 @@ def main():
             print("  Login successful.")
 
             print("\nRunning headless OAuth flow...")
-            oidc_tokens = headless_oauth(session_token)
+            oidc_tokens = headless_oauth(session_token, email=email)
             if not oidc_tokens:
                 print("  Failed to obtain OIDC tokens.")
                 return

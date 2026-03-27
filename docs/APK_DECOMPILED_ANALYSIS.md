@@ -5986,16 +5986,87 @@ No Origin header in WebSocket upgrade
 Host header includes :443 port suffix
 ```
 
-#### C.14.14 Current Status and Remaining Blockers
+#### C.14.14 FUSION MQTT Connection (APK-Verified from DaMqttClientImpl)
 
-As of 2026-03-27, FUSION MQTT is NOT yet functional in the HA integration. The auth chain works (SAS idToken passes the Custom Authorizer), but there may be remaining issues with:
+**Source:** `cl/daconnect/device_control/mqtt/DaMqttClientImpl.java`
 
-1. **Custom Authorizer name** - using `CustomAuthorizer` but the exact name may differ
-2. **Client ID format** - stripped `@fed-...` but exact format may need `{sub}_{UUID}` vs just `{sub}`
-3. **Topic prefix / tenant** - the `{tenant}` in topic paths needs to match the device's registration
-4. **thingName resolution** - must be obtained from the IoT API, NOT the same as externalDeviceId
+All four blockers resolved:
 
-The ControlServiceV1Impl (inside `hsdpclient/impl/service/`) contains the exact MQTT connection code but is deeply obfuscated. Reading that file would reveal the precise header names and connection parameters.
+**1. Custom Authorizer name = `"CustomAuthorizer"`** (line 61, constant)
+
+**2. Client ID = `{userId}_{randomUUID}`** (line 968):
+```java
+String clientId = credentialsProvider.getUserId() + "_" + UUID.randomUUID();
+// userId from DaIoTCredentialsProvider (federated ID, @fed-... already stripped)
+```
+
+**3. WebSocket upgrade headers** (lines 752-758, `createMqttConnectOptions()`):
+```
+x-amz-customauthorizer-name: CustomAuthorizer
+x-amz-customauthorizer-signature: {mqttSignature}     // from /api/da/user/self/signature
+token-header: Bearer {SAS_accessToken}                 // from TokenExchange (27 chars)
+content-type: application/json
+tenant: {tenant}                                       // from MqttConnectionInfo
+```
+
+**CRITICAL**: `token-header` uses `"Bearer " + accessToken`, NOT idToken.
+
+**4. MQTT topics** (DaConnect FUSION path uses AWS IoT shadow topics):
+```
+Subscribe:
+  $aws/things/{thingName}/shadow/get/accepted
+  $aws/things/{thingName}/shadow/update/accepted
+  $aws/things/{thingName}/shadow/get/rejected
+  $aws/things/{thingName}/shadow/update/rejected
+  {tenant}_ctrl/{thingName}/from_ncp
+
+Publish:
+  $aws/things/{thingName}/shadow/get
+  $aws/things/{thingName}/shadow/update
+  {tenant}_ctrl/{thingName}/to_ncp
+```
+
+Note: the HSDP Condor path (ControlServiceV1Impl) uses different topics:
+`{topicBase}/crl/things/{hsdpId}/cmd[/{subTopic}]` with subTopics:
+`receive/notified`, `receive/accepted`, `receive/rejected`, no subTopic for send.
+
+**5. Connection parameters:**
+```
+connectionTimeout: 10 seconds
+keepAlive: 30 seconds
+cleanSession: false
+automaticReconnect: true
+timeToWait: 10000 ms
+quiesceTimeout: 200 ms (graceful disconnect)
+serverURIs: [wss://{host}:443/mqtt]  // set via connectOptions, not initial URI
+initialURI: "wss://localhost.com"     // placeholder, overridden by serverURIs
+```
+
+**6. Paho obfuscation mapping** (org.eclipse.paho.client.mqttv3):
+```
+h = MqttAsyncClient
+j = MqttConnectOptions
+f = MqttCallback
+m = MqttMessage
+c = IMqttDeliveryToken
+
+j.v(props)    = setCustomWebSocketHeaders(Properties)
+j.u(timeout)  = setConnectionTimeout(int)
+j.s(clean)    = setCleanSession(boolean)
+j.w(keepalive)= setKeepAliveInterval(int)
+j.t(reconnect)= setAutomaticReconnect(boolean)
+j.y(uris)     = setServerURIs(String[])
+h.a(opts)     = connect(MqttConnectOptions)
+h.e()         = disconnect()
+h.g(quiesce)  = disconnect(long)
+h.p()         = isConnected()
+h.r(topic,msg)= publish(String, MqttMessage)
+h.w(callback) = setCallback(MqttCallback)
+h.y(timeout)  = setTimeToWait(long)
+h.z(topic)    = subscribe(String)
+m.i(payload)  = setPayload(byte[])
+m.c()         = getPayload()
+```
 
 ### C.12 HSDP Subscription (Cloud Push Events)
 

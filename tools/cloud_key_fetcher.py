@@ -93,7 +93,7 @@ SCOPES = (
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 
-SCRIPT_VERSION = "13"
+SCRIPT_VERSION = "14"
 STATE_FILE = "/tmp/philips_cloud_state.json"
 DEBUG = False
 
@@ -363,6 +363,72 @@ def exchange_hsdp_code(code):
         except Exception:
             print("    HSDP access_token is not a JWT (opaque token)")
     return body
+
+
+def decode_jwt_claims(token):
+    """Decode a JWT's payload claims without verification."""
+    parts = token.split(".")
+    if len(parts) < 2:
+        return {}
+    try:
+        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+        return json.loads(base64.urlsafe_b64decode(padded))
+    except Exception:
+        return {}
+
+
+def refresh_gigya_token(oidc_tokens):
+    """Refresh Gigya OIDC tokens using the saved refresh_token.
+
+    Returns updated oidc_tokens dict with new access_token/id_token,
+    or None if refresh failed.
+    """
+    rt = oidc_tokens.get("refresh_token")
+    if not rt:
+        return None
+    status, body = api_request(
+        f"{OIDC_ISSUER}/token",
+        data={
+            "client_id": OAUTH_CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": rt,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    if status != 200 or not isinstance(body, dict) or "access_token" not in body:
+        print(f"  Gigya token refresh failed: HTTP {status}")
+        return None
+    # Merge new tokens into existing dict (preserve refresh_token if not rotated)
+    updated = dict(oidc_tokens)
+    updated["access_token"] = body["access_token"]
+    if body.get("id_token"):
+        updated["id_token"] = body["id_token"]
+    if body.get("refresh_token"):
+        updated["refresh_token"] = body["refresh_token"]
+    return updated
+
+
+def ensure_fresh_token(oidc_tokens):
+    """Return (oidc_tokens, access_token) with a freshly issued access_token.
+
+    Always refreshes to get a new token, even if the current one hasn't
+    expired yet. Tokens may be revoked or rate-limited server-side
+    regardless of their exp claim. Returns (None, None) if refresh fails
+    and the user needs to re-authenticate with a new OTP.
+    """
+    print("  Refreshing access token...")
+    refreshed = refresh_gigya_token(oidc_tokens)
+    if not refreshed:
+        print("  Refresh failed. Re-run without --resume to get a new OTP.")
+        return None, None
+    access_token = refreshed["access_token"]
+    claims = decode_jwt_claims(access_token)
+    remaining = int(claims.get("exp", 0) - time.time())
+    print(f"  Fresh token obtained ({remaining}s remaining)")
+    # Save refreshed tokens
+    with open(STATE_FILE, "w") as f:
+        json.dump(refreshed, f)
+    return refreshed, access_token
 
 
 def refresh_hsdp_tokens(refresh_token):
@@ -905,21 +971,22 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         print("\n  Testing MQTT signature with Gigya token...")
         test_mqtt_signature(access_token)
 
+    # Ensure token is fresh before MQTT tests
+    print("\n--- Pre-MQTT Token Check ---")
+    oidc_tokens, access_token = ensure_fresh_token(oidc_tokens)
+    if not access_token:
+        return
+
     # Token diagnostics
     print("\n--- Gigya OIDC Token Diagnostics ---")
-    at_parts = access_token.split(".")
-    if len(at_parts) >= 2:
-        at_pad = at_parts[1] + "=" * (4 - len(at_parts[1]) % 4)
-        at_claims = json.loads(base64.urlsafe_b64decode(at_pad))
-        gigya_sub = at_claims.get("sub", "unknown")
-        print(f"  sub: {gigya_sub}")
-        print(f"  aud: {at_claims.get('aud', 'NONE')}")
-        print(f"  iss: {str(at_claims.get('iss', ''))[:60]}")
-        print(f"  client_id: {at_claims.get('client_id', 'NONE')}")
-        print(f"  azp: {at_claims.get('azp', 'NONE')}")
-        print(f"  scope: {str(at_claims.get('scope', ''))[:80]}")
-    else:
-        gigya_sub = "unknown"
+    at_claims = decode_jwt_claims(access_token)
+    gigya_sub = at_claims.get("sub", "unknown")
+    print(f"  sub: {gigya_sub}")
+    print(f"  aud: {at_claims.get('aud', 'NONE')}")
+    print(f"  iss: {str(at_claims.get('iss', ''))[:60]}")
+    print(f"  client_id: {at_claims.get('client_id', 'NONE')}")
+    print(f"  azp: {at_claims.get('azp', 'NONE')}")
+    print(f"  scope: {str(at_claims.get('scope', ''))[:80]}")
 
     # Comprehensive MQTT connection tests
     print("\n--- MQTT Connection Tests (all combinations) ---")
@@ -1156,7 +1223,7 @@ def main():
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Reuse saved OIDC tokens (valid ~1 hour)",
+        help="Reuse saved OIDC tokens (auto-refreshes if expired)",
     )
     parser.add_argument(
         "--iot-only",
@@ -1180,13 +1247,15 @@ def main():
     oidc_tokens = None
     email = args.email
 
-    # Resume with saved tokens
+    # Resume with saved tokens (auto-refresh if expired)
     if args.resume and os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             oidc_tokens = json.load(f)
-        access_token = oidc_tokens.get("access_token")
-        if access_token:
+        if oidc_tokens.get("access_token"):
             print("Resuming with saved tokens.")
+            oidc_tokens, access_token = ensure_fresh_token(oidc_tokens)
+            if not access_token:
+                return
             if not email:
                 email = input("Email (needed for Home ID API): ").strip()
 

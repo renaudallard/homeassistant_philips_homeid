@@ -6508,6 +6508,61 @@ HSDP IAM token:        aud=21e431131cb... -> Custom Authorizer status UNKNOWN
 SAS idToken:           aud=21e431131cb... -> Custom Authorizer ACCEPTS (tested)
 ```
 
+**19. ClientAuthenticationInterceptor (Token Injection)**
+
+**Source:** `yu/b.java`, `rv/s.java`
+
+The OkHttp interceptor adds `Authorization: Bearer {Gigya_accessToken}` to
+all HTTP requests from the DaConnect SDK:
+
+```java
+// rv/s.java line 17 - adds auth header:
+requestBuilder.header("authorization", "Bearer " + accessToken);
+
+// rv/s.java line 26 - special check for get-id endpoint:
+request.getUrl().endsWith("/user/self/get-id")
+// If true: uses idToken in POST body instead of accessToken in header
+```
+
+Interceptor flow:
+```
+1. Normal requests (e.g. /user/self/signature):
+     Get accessToken from clientAuthenticationProvider.getAccessToken()
+     = Gigya OIDC access_token
+     Add header: Authorization: Bearer {gigyaAccessToken}
+     Execute request
+
+2. /user/self/get-id requests:
+     Get idToken from clientAuthenticationProvider.getIdToken()
+     = Gigya OIDC id_token
+     POST body: {"idToken": "{gigyaIdToken}"}
+     Response: {"userId": "..."}
+
+3. Token refresh during request:
+     Interceptor acquires mutex
+     Checks if accessToken changed (another thread refreshed it)
+     If changed: clears mqttSignatureStorage, uses new token
+     Releases mutex
+```
+
+This confirms:
+- Signature endpoint receives `Authorization: Bearer {Gigya_accessToken}`
+- The SAME Gigya accessToken goes into MqttConnectionInfo.accessToken
+- Which becomes `token-header: Bearer {Gigya_accessToken}` for MQTT
+- NO transformation between HTTP auth and MQTT auth
+- idToken only used for `/user/self/get-id`, NOT for MQTT
+
+**20. Why credential chain fetches accessToken twice**
+
+In `vu/a.java`, the chain calls `getAccessToken()` twice:
+1. First call: used for signature HTTP request (via interceptor)
+2. Second call (`vu/c.java`): used for MqttConnectionInfo
+
+Reason: the interceptor has transparent token refresh. If the first token
+expired during the signature request, the interceptor refreshes it. The
+second `getAccessToken()` ensures MqttConnectionInfo gets the freshest
+token (which may have been refreshed during step 1).
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

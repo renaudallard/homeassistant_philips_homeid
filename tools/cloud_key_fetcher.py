@@ -92,6 +92,7 @@ SCOPES = (
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 
+SCRIPT_VERSION = "12"
 STATE_FILE = "/tmp/philips_cloud_state.json"
 DEBUG = False
 
@@ -1172,7 +1173,7 @@ def main():
     global DEBUG
     DEBUG = args.debug
 
-    print("Philips HomeID Cloud Key Fetcher")
+    print(f"Philips HomeID Cloud Key Fetcher v{SCRIPT_VERSION}")
     print("=" * 40)
 
     access_token = None

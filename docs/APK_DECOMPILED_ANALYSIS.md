@@ -5871,6 +5871,132 @@ Neither alone is sufficient. Gigya token rejected by Custom Authorizer.
 SAS token rejected by signature endpoint.
 ```
 
+#### C.14.10 FUSION MQTT Connection Details (Verified via Live Testing)
+
+This section documents findings from live testing against real FUSION devices (2026-03-26). These details are NOT derivable from the decompiled APK alone - they were found through protocol analysis and trial and error.
+
+**MQTT Transport:**
+```
+Endpoint: wss://ats.prod.eu-da.iot.versuni.com:443/mqtt
+Protocol: MQTT over WebSocket Secure
+Port 8883: NOT usable (requires mTLS client certificates, APK has none)
+Port 443:  WebSocket upgrade succeeds WITHOUT auth (HTTP 101)
+           Auth happens at MQTT CONNECT phase via Custom Authorizer
+```
+
+**MQTT CONNECT Headers (WebSocket Upgrade):**
+```
+x-amz-customauthorizer-name: CustomAuthorizer
+token-header: Bearer {SAS_idToken}
+x-amz-customauthorizer-signature: {mqtt_signature}
+Host: ats.prod.eu-da.iot.versuni.com:443
+No Origin header (iOS app doesn't send one; paho-mqtt sends one by default
+  which must be suppressed)
+```
+
+**MQTT CONNECT Parameters:**
+```
+Client ID: {sub}_{UUID}
+  where sub = SAS idToken 'sub' claim with @fed-... suffix STRIPPED
+  UUID = random UUID for session uniqueness
+clean_session: false
+keepalive: 30 seconds
+```
+
+**MQTT Topics:**
+```
+Subscribe (QoS 0):
+  $aws/things/{thingName}/shadow/get/accepted
+  $aws/things/{thingName}/shadow/update/accepted
+  $aws/things/{thingName}/shadow/get/rejected
+  $aws/things/{thingName}/shadow/update/rejected
+  {tenant}_ctrl/{thingName}/from_ncp
+
+Publish (QoS 1):
+  $aws/things/{thingName}/shadow/get        (request current state)
+  $aws/things/{thingName}/shadow/update     (set device state)
+  {tenant}_ctrl/{thingName}/to_ncp          (control commands)
+```
+
+**SAS Token Details (from live response):**
+```
+SAS accessToken:   27 characters (opaque token)
+SAS signedToken:   344 characters
+SAS idToken:       1478 characters (JWT)
+  iss: https://iam-service.eu-west.philips-healthsuite.com/oauth2/access_token
+  aud: 21e431131cb04a0eb56
+  sub: {gigya_sub}@fed-digitalidentityonprod.{uuid}
+  federationFlow: "DI_HSDP"
+
+MQTT signature: 684 characters (base64)
+```
+
+#### C.14.11 FUSION MQTT Auth Combinations Tested
+
+These combinations were tested against a real FUSION device (HD9285). Results show which token combinations are accepted/rejected by the AWS IoT Custom Authorizer:
+
+```
+| token-header         | signature              | Result                        |
+|----------------------|------------------------|-------------------------------|
+| Gigya accessToken    | Gigya signature        | WebSocket CLOSE (denied)      |
+| SAS accessToken      | Gigya signature        | WebSocket CLOSE (denied)      |
+| SAS accessToken      | SAS signedToken        | WebSocket CLOSE (denied)      |
+| Gigya accessToken    | SAS signedToken        | WebSocket CLOSE (denied)      |
+| SAS idToken          | Gigya signature        | CONNACK rc=2 (auth OK, ID bad)|
+| SAS idToken          | SAS signedToken        | CONNACK rc=2 (auth OK, ID bad)|
+```
+
+**Conclusions from testing:**
+- Only the **SAS idToken** (HSDP-issued JWT from `/api/TokenExchange`) passes the Custom Authorizer
+- The Gigya token is ALWAYS rejected, even with valid signature
+- The SAS accessToken is also rejected (only idToken works)
+- Both the Gigya signature and SAS signedToken work as the signature component
+- CONNACK rc=2 means auth PASSED but client ID was rejected (the `@fed-...` suffix made it too long)
+- Fix: strip everything from `@` onwards in the sub claim for the client ID
+
+#### C.14.12 FUSION Service URLs
+
+```
+SAS Token Exchange:
+  Primary:   https://www.backend.vbs.versuni.com/api/TokenExchange
+  Alt:       https://www.home.id/api/sas/hsdp-token
+  Discovery: from Space config tokenExchange.hsdp.url
+
+MQTT Signature:
+  https://prod.eu-da.iot.versuni.com/api/da/user/self/signature
+
+MQTT Broker:
+  wss://ats.prod.eu-da.iot.versuni.com:443/mqtt
+
+IoT API:
+  https://prod.eu-da.iot.versuni.com/api/
+  (replaces air.acc.eu-da.iot.versuni.com for FUSION)
+
+Note: prod.eu-da.iot.versuni.com/api/da/user/self/hsdp-token also exists
+  but requires AWS SigV4 auth (not usable from HA integration)
+```
+
+#### C.14.13 iOS App Traffic Capture
+
+From a capture of the iOS NutriU app (Feb 2026):
+```
+User-Agent: NutriU/5 CFNetwork/3860.300.31 Darwin/25.2.0
+Token format: Gigya JWT (same format as produced by OIDC flow)
+No Origin header in WebSocket upgrade
+Host header includes :443 port suffix
+```
+
+#### C.14.14 Current Status and Remaining Blockers
+
+As of 2026-03-27, FUSION MQTT is NOT yet functional in the HA integration. The auth chain works (SAS idToken passes the Custom Authorizer), but there may be remaining issues with:
+
+1. **Custom Authorizer name** - using `CustomAuthorizer` but the exact name may differ
+2. **Client ID format** - stripped `@fed-...` but exact format may need `{sub}_{UUID}` vs just `{sub}`
+3. **Topic prefix / tenant** - the `{tenant}` in topic paths needs to match the device's registration
+4. **thingName resolution** - must be obtained from the IoT API, NOT the same as externalDeviceId
+
+The ControlServiceV1Impl (inside `hsdpclient/impl/service/`) contains the exact MQTT connection code but is deeply obfuscated. Reading that file would reveal the precise header names and connection parameters.
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

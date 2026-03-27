@@ -6434,6 +6434,80 @@ archPlatformBaseUrl:   "https://{platformRestApiBaseUrl}/api/{tenant}/"
 awsIotDeviceControlUrl: platformMqttControlUrl (WSS host)
 ```
 
+**18. HA Integration vs APK Token Path (Gap Analysis)**
+
+The HA integration (`__init__.py` lines 120-145) has TWO token paths:
+
+```
+Path A (HSDP - currently preferred):
+  if hsdp_refresh_token exists:
+    refresh_hsdp_tokens(hsdp_refresh) -> HSDP access_token
+    use HSDP access_token for MQTT token-header
+
+Path B (Gigya OIDC - treated as fallback):
+  else:
+    refresh_tokens(gigya_refresh) -> Gigya OIDC access_token
+    use Gigya OIDC access_token for MQTT token-header
+```
+
+**The APK uses Path B.** The DaConnect SDK credential chain (item 17)
+proves the app sends the raw Gigya OIDC access_token in `token-header`,
+not HSDP tokens. The SAS token exchange and HSDP token bridge are NOT
+part of the DaConnect MQTT flow.
+
+**Why Path B was never tested for MQTT:**
+- The config flow's browser OIDC flow (cloud_api.py lines 366-377)
+  attempts to capture an HSDP authorization code during the same
+  browser session
+- When successful, `hsdp_refresh_token` is stored in the config entry
+- At runtime, `__init__.py` line 125 checks `if hsdp_refresh:` and takes
+  Path A whenever an HSDP refresh token exists
+- Path B only runs when HSDP token capture failed during setup
+- All test users went through the full browser flow which captured HSDP
+  tokens, so Path B was never exercised
+
+**Why the Gigya OIDC token should work:**
+- `refresh_tokens()` uses `client_id=-u6aTznrxp9_9e_0a57CpvEG` and
+  `grant_type=refresh_token` against the Gigya OIDC token endpoint
+- This is the SAME client_id the APK uses
+- The refreshed access_token will have `aud=-u6aTznrxp9_9e_0a57CpvEG`
+  (proper audience, unlike OTP-derived tokens which have `aud=None`)
+- The Gigya OIDC refresh_token is always stored in
+  `CONF_CLOUD_REFRESH_TOKEN` for every FUSION entry
+
+**Why previous Gigya token testing failed (C.14.11):**
+- Those tests used Gigya tokens from OTP login + `accounts.getJWT`
+- OTP tokens have `aud=None` (documented in Appendix E.6)
+- The Custom Authorizer validates the audience claim
+- The browser OIDC flow tokens have `aud=-u6aTznrxp9_9e_0a57CpvEG`
+  which IS accepted by the Custom Authorizer
+- We never tested OIDC-flow Gigya tokens for MQTT
+
+**The fix:**
+Swap the priority: try Gigya OIDC tokens FIRST (matching APK behavior),
+use HSDP as fallback. Or better: always use the Gigya OIDC path since
+that's what the APK does.
+
+```python
+# Current code (WRONG priority):
+if hsdp_refresh:
+    access_token = refresh_hsdp(hsdp_refresh)  # HSDP path (not what APK does)
+else:
+    access_token = refresh_gigya(gigya_refresh)  # Gigya path (what APK does)
+
+# Correct priority (matching APK):
+tokens = refresh_gigya(gigya_refresh)  # Always use Gigya OIDC
+access_token = tokens["access_token"]  # Has aud=-u6aTznrxp9_9e_0a57CpvEG
+```
+
+**Token audience comparison:**
+```
+OTP + accounts.getJWT: aud=None           -> Custom Authorizer REJECTS
+Browser OIDC refresh:  aud=-u6aTznrxp9... -> Custom Authorizer should ACCEPT
+HSDP IAM token:        aud=21e431131cb... -> Custom Authorizer status UNKNOWN
+SAS idToken:           aud=21e431131cb... -> Custom Authorizer ACCEPTS (tested)
+```
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

@@ -93,7 +93,7 @@ SCOPES = (
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 
-SCRIPT_VERSION = "14"
+SCRIPT_VERSION = "15"
 STATE_FILE = "/tmp/philips_cloud_state.json"
 DEBUG = False
 
@@ -920,7 +920,9 @@ def print_summary(homeid_appliances, iot_devices):
         print("Devices must be registered via the HomeID app first.")
 
 
-def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
+def fetch_credentials(
+    email, oidc_tokens, access_token, iot_only=False, mqtt_mode="none"
+):
     """Fetch device credentials using Home ID and IoT APIs."""
     # Try Home ID API first (primary method)
     homeid_appliances = []
@@ -978,6 +980,10 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     )
     if status == 200 and isinstance(homes, list) and homes:
         print(f"  Homes: {json.dumps(homes, indent=2)[:500]}")
+
+    if mqtt_mode == "none":
+        print_summary(homeid_appliances, iot_devices)
+        return
 
     # Test HSDP token chain for FUSION MQTT
     hsdp_at = oidc_tokens.get("hsdp_access_token", "") if oidc_tokens else ""
@@ -1060,6 +1066,12 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         print(f"\n  [Comparison: Gigya token + Gigya sig, sub={gigya_sub[:20]}...]")
         test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
         time.sleep(3)
+
+    if mqtt_mode == "apk":
+        print_summary(homeid_appliances, iot_devices)
+        return
+
+    # --- Extra tests below (mqtt_mode == "all") ---
 
     # Test 2+3: Refresh with BOTH client_ids
     # Android HomeID uses client_id=-u6aTznrxp9_9e_0a57CpvEG
@@ -1283,6 +1295,12 @@ def main():
         help="Skip Home ID API, only use IoT API",
     )
     parser.add_argument(
+        "--mqtt",
+        choices=["apk", "all", "none"],
+        default="none",
+        help="MQTT connection tests: apk=APK-verified flow only, all=all combinations, none=skip (default: none)",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Maximum debug output (all HTTP requests, full HSDP SSO trace)",
@@ -1357,7 +1375,7 @@ def main():
             if not access_token:
                 return
 
-    fetch_credentials(email, oidc_tokens, access_token, args.iot_only)
+    fetch_credentials(email, oidc_tokens, access_token, args.iot_only, args.mqtt)
 
 
 if __name__ == "__main__":

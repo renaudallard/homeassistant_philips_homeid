@@ -5986,19 +5986,267 @@ No Origin header in WebSocket upgrade
 Host header includes :443 port suffix
 ```
 
-#### C.14.14 FUSION MQTT Connection (APK-Verified from DaMqttClientImpl)
+#### C.14.14 FUSION MQTT Connection (Complete APK-Verified Specification)
 
-**Source:** `cl/daconnect/device_control/mqtt/DaMqttClientImpl.java`
+This section consolidates all findings from deep APK analysis into a single
+clear specification. Earlier sections (C.14.10-C.14.13) document live testing
+results which used SAS tokens; this section supersedes those with the actual
+APK behavior which uses Gigya OIDC tokens directly.
 
-All four blockers resolved:
+---
 
-**1. Custom Authorizer name = `"CustomAuthorizer"`** (line 61, constant)
+**WHAT TOKEN DOES THE APK USE FOR MQTT?**
 
-**2. Client ID = `{userId}_{randomUUID}`** (line 968):
-```java
-String clientId = credentialsProvider.getUserId() + "_" + UUID.randomUUID();
-// userId from DaIoTCredentialsProvider (federated ID, @fed-... already stripped)
+The **Gigya OIDC access_token** from the browser login. NOT SAS tokens, NOT HSDP
+tokens. The complete deobfuscated chain:
+
 ```
+User logs in via browser OIDC (PKCE + client_id=-u6aTznrxp9_9e_0a57CpvEG)
+  -> AppAuth stores TokenResponse in AuthState
+  -> AuthState.f() = access_token (JWT, aud=-u6aTznrxp9_9e_0a57CpvEG)
+
+When MQTT connection is needed:
+  DaMqttClientImpl requests MqttConnectionInfo from credential provider
+    -> vu/a.java calls clientAuthenticationProvider.getAccessToken()
+      -> FusionAuthenticationInitUseCaseImpl calls philipsUser.l()
+        -> PhilipsUser.l() = "diAccessToken" (DI = Digital Identity = Gigya)
+          -> DiDaBridgeImpl.g() -> AuthStateManager -> AppAuth AuthState.f()
+            -> returns Gigya OIDC access_token
+
+  This token goes directly into:
+    MqttConnectionInfo.accessToken = Gigya OIDC access_token
+    -> createMqttConnectOptions():
+       "token-header": "Bearer " + gigyaAccessToken
+```
+
+No SAS exchange. No HSDP exchange. No token transformation.
+
+---
+
+**MQTT CONNECT SPECIFICATION**
+
+Source: `DaMqttClientImpl.java` lines 59-94 (constants), 751-766 (connect options),
+967-971 (client creation)
+
+**Client ID** (line 968):
+```
+{userId}_{UUID}
+  userId = credentialsProvider.getUserId() (Gigya sub, @fed-... stripped)
+  UUID   = random UUID per session
+```
+
+**WebSocket headers** (lines 752-758):
+```
+x-amz-customauthorizer-name:      CustomAuthorizer
+x-amz-customauthorizer-signature: {signature from GET /user/self/signature}
+token-header:                      Bearer {Gigya OIDC access_token}
+content-type:                      application/json
+tenant:                            {tenant from FusionConfiguration}
+```
+
+**Paho MQTT options**:
+```
+connectionTimeout:    10 seconds
+keepAliveInterval:    30 seconds
+cleanSession:         false
+automaticReconnect:   true
+serverURIs:           [wss://{mqttHost}:443/mqtt]
+timeToWait:           10000 ms
+```
+
+**Signature endpoint** (called with Gigya token via OkHttp interceptor):
+```
+GET https://{platformRestApiBaseUrl}/api/{tenant}/user/self/signature
+Authorization: Bearer {Gigya OIDC access_token}
+-> {"signature": "..."} (684 chars, base64)
+```
+
+---
+
+**MQTT TOPICS**
+
+Source: `fv/c.java` (subscribe), `fv/b.java` + `gv/a.java` (publish),
+`RemotePortCommand.java` (NCP)
+
+Subscribe (QoS 0, per device):
+```
+$aws/things/{thingName}/shadow/get/accepted
+$aws/things/{thingName}/shadow/update/accepted
+$aws/things/{thingName}/shadow/get/rejected
+$aws/things/{thingName}/shadow/update/rejected
+{tenant}_ctrl/{thingName}/from_ncp
+```
+
+Publish (QoS 1):
+```
+$aws/things/{thingName}/shadow/get          (request state, empty payload)
+$aws/things/{thingName}/shadow/update       (set state, {"state":{"desired":{...}}})
+{tenant}_ctrl/{thingName}/to_ncp            (port commands)
+```
+
+---
+
+**NCP PORT COMMAND FORMAT**
+
+Source: `RemotePortCommand.java`
+
+```json
+{
+  "cid": "{UUID}",
+  "time": {"utc": "2026-03-27 12:00:00.000"},
+  "type": "command",
+  "cn": "updatePort",
+  "ct": "mobile",
+  "data": {"portName": "airfryer", "properties": {"temp": 180}}
+}
+```
+
+Command names: `updatePort`, `getPort`, `setPort`, `getAllPorts`
+Message types: `command` (app->device), `response`, `event`, `error`
+
+---
+
+**FULL CONNECTION FLOW**
+
+```
+1. GET CREDENTIALS
+   credentialsProvider.getMqttConnectionInfo()
+     -> Get Gigya accessToken from AppAuth AuthState
+     -> Check signature cache (keyed by accessToken)
+     -> If miss: GET {platform}/api/{tenant}/user/self/signature
+     -> Get FRESH accessToken (may have been refreshed during HTTP call)
+     -> Build MqttConnectionInfo(accessToken, signature, tenant, wssUrl)
+
+2. CREATE CLIENT (lazy, once per session)
+   userId = credentialsProvider.getUserId().blockingGet()
+   clientId = userId + "_" + UUID.randomUUID()
+   client = new MqttAsyncClient("wss://localhost.com", clientId, MemoryPersistence)
+
+3. CONNECT
+   options = createMqttConnectOptions(mqttConnectionInfo)
+     -> 5 WebSocket headers + 5 Paho options (see above)
+   client.connect(options)
+
+4. SUBSCRIBE (per device)
+   topics = buildTopicMap(tenant, thingName)  // 5 topics
+   client.subscribe(topics, qosValues, listeners)
+
+5. REQUEST STATE
+   publish("$aws/things/{thingName}/shadow/get", empty, QoS 1)
+   -> response on shadow/get/accepted
+
+6. CONTROL DEVICE
+   publish("{tenant}_ctrl/{thingName}/to_ncp", ncpCommand, QoS 1)
+   -> response on {tenant}_ctrl/{thingName}/from_ncp
+```
+
+---
+
+**RECONNECTION**
+
+```
+Connection lost:     Paho auto-reconnect + re-subscribe all devices
+Token refresh:       disconnect -> invalidate credentials -> reconnect
+App background:      unsubscribe topics (keep connection)
+App foreground:      re-subscribe all devices
+Connectivity change: 800ms delay -> resume
+```
+
+---
+
+**TWO SEPARATE MQTT PATHS IN THE APK**
+
+| | HSDP Condor (older) | DaConnect FUSION (newer) |
+|--|---------------------|------------------------|
+| **Class** | `hsdpclient/mqtt/MqttClientImpl` | `daconnect/device_control/mqtt/DaMqttClientImpl` |
+| **Token source** | HSDP IAM (accessToken + signedToken) | Gigya OIDC (accessToken + signature) |
+| **Token header** | `AuthorizationToken: {accessToken}` | `token-header: Bearer {accessToken}` |
+| **Signature header** | `x-amz-customauthorizer-signature: {signedToken}` | `x-amz-customauthorizer-signature: {mqttSignature}` |
+| **Authorizer name** | Not set | `CustomAuthorizer` |
+| **Extra headers** | None | `content-type`, `tenant` |
+| **Topics** | `{topicBase}/crl/things/{hsdpId}/cmd/...` | `$aws/things/{thingName}/shadow/...` |
+| **Client ID** | `hsdpId` | `{userId}_{UUID}` |
+| **cleanSession** | default (true) | false |
+
+FUSION devices use the DaConnect path.
+
+---
+
+**CONSTANTS** (from DaMqttClientImpl lines 59-94)
+
+```
+CUSTOM_AUTHORIZER                  = "CustomAuthorizer"
+HEADER_CUSTOM_AUTHORIZER_NAME      = "x-amz-customauthorizer-name"
+HEADER_CUSTOM_AUTHORIZER_SIGNATURE = "x-amz-customauthorizer-signature"
+HEADER_TOKEN_HEADER                = "token-header"
+HEADER_TENANT                      = "tenant"
+HEADER_CONTENT_TYPE                = "content-type"
+APPLICATION_JSON                   = "application/json"
+BEARER                             = "Bearer"
+DEFAULT_TEMP_SERVER_URI            = "wss://localhost.com"
+MQTT_CONNECTION_TIMEOUT_SECONDS    = 10
+MQTT_CONNECTION_KEEP_ALIVE_SECONDS = 30
+MQTT_PUBLISH_COMMAND_TIMEOUT       = 10
+MQTT_QUIESCE_TIMEOUT               = 200  (ms)
+MQTT_TIME_TO_WAIT_MILLISECONDS     = 10000
+WAIT_TIME_ON_CONNECTIVITY_CHANGE   = 800  (ms)
+```
+
+---
+
+**PAHO MQTT OBFUSCATION** (org.eclipse.paho.client.mqttv3)
+
+```
+h = MqttAsyncClient         j = MqttConnectOptions
+f = MqttCallback             m = MqttMessage
+c = IMqttDeliveryToken
+
+j.v(props)     = setCustomWebSocketHeaders    j.u(n) = setConnectionTimeout
+j.s(bool)      = setCleanSession              j.w(n) = setKeepAliveInterval
+j.t(bool)      = setAutomaticReconnect        j.y(a) = setServerURIs
+h.a(opts)      = connect                      h.e()  = disconnect
+h.g(ms)        = disconnect(quiesce)           h.p()  = isConnected
+h.r(topic,msg) = publish                      h.w(cb)= setCallback
+h.y(ms)        = setTimeToWait                h.z(t) = subscribe
+h.B(t,q,l)     = subscribe(topics,qos,listeners)
+m.i(bytes)     = setPayload                   m.c()  = getPayload
+m.j(qos)       = setQos                       m.b()  = getId
+```
+
+---
+
+**DEOBFUSCATION: PhilipsUser -> AppAuth**
+
+```
+PhilipsUser.l()  = diAccessToken   = Gigya OIDC access_token
+PhilipsUser.u()  = identityToken   = Gigya OIDC id_token
+PhilipsUser.X()  = diAccessExpiresIn
+
+DiDaBridgeImpl.g() -> AuthStateManager.c() -> AppAuth AuthState
+  AuthState.f() = getAccessToken()
+  AuthState.g() = getAccessTokenExpirationTime()
+  AuthState.j() = getIdToken()
+
+ClientAuthenticationInterceptor (yu/b.java):
+  rv.s.a(builder, token) = builder.header("authorization", "Bearer " + token)
+  rv.s.c(request) = request.url.endsWith("/user/self/get-id")
+```
+
+---
+
+**WHY PREVIOUS LIVE TESTING FAILED**
+
+Live testing (C.14.11) used OTP-derived Gigya tokens (`aud=None`).
+The APK uses browser OIDC tokens (`aud=-u6aTznrxp9_9e_0a57CpvEG`).
+The Custom Authorizer validates the audience claim.
+
+```
+OTP tokens (aud=None):              REJECTED by Custom Authorizer
+Browser OIDC tokens (proper aud):   UNTESTED (should work per APK analysis)
+SAS idToken (aud=21e431131cb...):   ACCEPTED (tested, but not what APK uses)
+```
+
+The SAS exchange was a successful workaround but not the intended path.
 
 **3. WebSocket upgrade headers** (lines 752-758, `createMqttConnectOptions()`):
 ```

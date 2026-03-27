@@ -1166,12 +1166,6 @@ def fetch_credentials(
             print(f"  Thing name: {thing_name}")
             test_mqtt_full(access_token, gigya_sig, mqtt_sub, thing_name)
 
-    # Test 1b: Same but with sub claim (for comparison)
-    if mqtt_user_id and mqtt_user_id != gigya_sub:
-        print(f"\n  [Comparison: Gigya token + Gigya sig, sub={gigya_sub[:20]}...]")
-        test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
-        time.sleep(3)
-
     if mqtt_mode == "apk":
         print_summary(homeid_appliances, iot_devices)
         return

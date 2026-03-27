@@ -1095,7 +1095,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         else:
             print(f"  Gigya refresh failed: HTTP {ref_status}")
 
-    # SAS token exchange
+    # SAS token exchange - try multiple endpoints from doc
     sas_at = ""
     sas_signed = ""
     sas_id = ""
@@ -1106,24 +1106,37 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
                 "exchangeFor": "HSDP",
             }
         )
-        sas_status, sas_resp = api_request(
+        sas_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.oneka.v2.0+json",
+            "Content-Type": "application/vnd.oneka.v2.0+json",
+        }
+        sas_endpoints = [
             "https://www.backend.vbs.versuni.com/api/TokenExchange",
-            data=sas_body,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/vnd.oneka.v2.0+json",
-                "Content-Type": "application/vnd.oneka.v2.0+json",
-            },
-        )
-        if sas_status == 200 and isinstance(sas_resp, dict):
-            sas_at = sas_resp.get("accessToken", "")
-            sas_signed = sas_resp.get("signedToken", "")
-            sas_id = sas_resp.get("idToken", "")
-            print(f"\n  SAS accessToken: {sas_at[:20]}... ({len(sas_at)} chars)")
-            print(f"  SAS signedToken: {len(sas_signed)} chars")
-            print(f"  SAS idToken: {len(sas_id)} chars")
-        else:
-            print(f"\n  SAS exchange failed: HTTP {sas_status}")
+            "https://www.home.id/api/sas/hsdp-token",
+            "https://www.backend.vbs.versuni.com/api/sls/hsdp/token",
+        ]
+        for sas_url in sas_endpoints:
+            print(f"\n  SAS exchange: POST {sas_url}")
+            sas_status, sas_resp = api_request(
+                sas_url,
+                data=sas_body,
+                headers=sas_headers,
+            )
+            if sas_status == 200 and isinstance(sas_resp, dict):
+                sas_at = sas_resp.get("accessToken", "")
+                sas_signed = sas_resp.get("signedToken", "")
+                sas_id = sas_resp.get("idToken", "")
+                print(
+                    f"    OK! accessToken: {len(sas_at)}ch, signedToken: {len(sas_signed)}ch, idToken: {len(sas_id)}ch"
+                )
+                break
+            else:
+                print(f"    HTTP {sas_status}")
+                if isinstance(sas_resp, dict):
+                    print(f"    {json.dumps(sas_resp)[:150]}")
+                elif isinstance(sas_resp, str):
+                    print(f"    {sas_resp[:150]}")
 
     # Test remaining combinations
     extra_tests = []

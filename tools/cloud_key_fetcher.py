@@ -408,15 +408,24 @@ def refresh_gigya_token(oidc_tokens):
     return updated
 
 
-def ensure_fresh_token(oidc_tokens):
-    """Return (oidc_tokens, access_token) with a freshly issued access_token.
+def ensure_fresh_token(oidc_tokens, force=False):
+    """Return (oidc_tokens, access_token) with a valid access_token.
 
-    Always refreshes to get a new token, even if the current one hasn't
-    expired yet. Tokens may be revoked or rate-limited server-side
-    regardless of their exp claim. Returns (None, None) if refresh fails
-    and the user needs to re-authenticate with a new OTP.
+    Refreshes only if the token is expired or force=True. Gigya uses
+    rotating single-use refresh tokens, so unnecessary refreshes burn
+    the token and break --resume. Returns (None, None) if the token is
+    expired and refresh fails.
     """
-    print("  Refreshing access token...")
+    access_token = oidc_tokens.get("access_token", "")
+    claims = decode_jwt_claims(access_token)
+    exp = claims.get("exp", 0)
+    remaining = int(exp - time.time())
+
+    if access_token and remaining > 60 and not force:
+        print(f"  Token valid ({remaining}s remaining)")
+        return oidc_tokens, access_token
+
+    print(f"  Token {'forced refresh' if force else 'expired'}, refreshing...")
     refreshed = refresh_gigya_token(oidc_tokens)
     if not refreshed:
         print("  Refresh failed. Re-run without --resume to get a new OTP.")
@@ -425,7 +434,6 @@ def ensure_fresh_token(oidc_tokens):
     claims = decode_jwt_claims(access_token)
     remaining = int(claims.get("exp", 0) - time.time())
     print(f"  Fresh token obtained ({remaining}s remaining)")
-    # Save refreshed tokens
     with open(STATE_FILE, "w") as f:
         json.dump(refreshed, f)
     return refreshed, access_token
@@ -451,6 +459,28 @@ def refresh_hsdp_tokens(refresh_token):
         print(f"    HSDP refresh has no access_token: {body}")
         return None
     return body
+
+
+def fetch_mqtt_user_id(access_token, id_token):
+    """Fetch the MQTT userId from the IoT API.
+
+    APK calls POST /user/self/get-id with the OIDC id_token.
+    The returned userId is what the Custom Authorizer's IoT policy
+    expects as the client ID prefix, NOT the token's sub claim.
+    """
+    status, body = api_request(
+        f"{IOT_BASE}/user/self/get-id",
+        data=json.dumps({"idToken": id_token}),
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+    )
+    if status == 200 and isinstance(body, dict) and body.get("userId"):
+        return body["userId"]
+    print(f"    get-id failed: HTTP {status}, {body}")
+    return None
 
 
 def test_mqtt_connection(
@@ -584,7 +614,9 @@ def test_mqtt_connection(
                     )
             elif data[0] == 0x88:
                 code = _struct.unpack("!H", data[2:4])[0] if len(data) >= 4 else 0
-                print(f"    WebSocket CLOSE (code={code}) - Custom Authorizer denied")
+                print(
+                    f"    WebSocket CLOSE (code={code}) - IoT policy rejected connection"
+                )
         else:
             print("    Connection closed")
     except _socket.timeout:
@@ -1002,12 +1034,32 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     gigya_sig = sig_body.get("signature", "") if isinstance(sig_body, dict) else ""
     print(f"  Gigya signature: {len(gigya_sig)} chars")
 
-    # Test 1: APK-verified flow (Gigya OIDC token + Gigya signature)
-    # APK uses: token-header=Gigya access_token, signature from /user/self/signature
-    # Client ID: {gigya_sub}_{short_hex} (APK strips @fed-... via UserId value class)
-    print(f"\n  [APK flow: Gigya OIDC token + Gigya sig, sub={gigya_sub[:20]}...]")
-    test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
+    # Fetch MQTT userId from dedicated API (APK does this via POST /user/self/get-id)
+    # The Custom Authorizer's IoT policy expects THIS as the client ID prefix,
+    # not the token's sub claim.
+    gigya_id_token = oidc_tokens.get("id_token", "") if oidc_tokens else ""
+    mqtt_user_id = None
+    if gigya_id_token:
+        print("  Fetching MQTT userId (POST /user/self/get-id)...")
+        mqtt_user_id = fetch_mqtt_user_id(access_token, gigya_id_token)
+        if mqtt_user_id:
+            print(f"  MQTT userId: {mqtt_user_id}")
+        else:
+            print("  get-id failed, falling back to sub claim")
+
+    # Determine client ID prefix: prefer API userId, fall back to sub
+    mqtt_sub = mqtt_user_id or gigya_sub
+
+    # Test 1: APK-verified flow (Gigya OIDC token + Gigya signature + API userId)
+    print(f"\n  [APK flow: Gigya token + Gigya sig, userId={mqtt_sub[:30]}...]")
+    test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=mqtt_sub)
     time.sleep(3)
+
+    # Test 1b: Same but with sub claim (for comparison)
+    if mqtt_user_id and mqtt_user_id != gigya_sub:
+        print(f"\n  [Comparison: Gigya token + Gigya sig, sub={gigya_sub[:20]}...]")
+        test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
+        time.sleep(3)
 
     # Test 2+3: Refresh with BOTH client_ids
     # Android HomeID uses client_id=-u6aTznrxp9_9e_0a57CpvEG

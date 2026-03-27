@@ -144,10 +144,21 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_refresh}
                 hass.config_entries.async_update_entry(entry, data=new_data)
 
-        # Extract user ID (sub claim) from JWT for MQTT client ID.
-        # APK uses {userId}_{UUID} where userId = sub claim from HSDP token.
-        user_id = _extract_jwt_sub(access_token)
-        _LOGGER.info("MQTT user_id (sub): %s", user_id or "not found")
+        # APK gets MQTT userId from POST /user/self/get-id with the id_token.
+        # The Custom Authorizer IoT policy expects this as the client ID prefix.
+        if hsdp_refresh:
+            id_token = hsdp_tokens.get("id_token", "")
+        else:
+            id_token = tokens.get("id_token", "")
+        user_id = None
+        if id_token:
+            user_id = await cloud_api.get_mqtt_user_id(
+                access_token, id_token, platform_rest_url, tenant
+            )
+        if not user_id:
+            user_id = _extract_jwt_sub(access_token)
+            _LOGGER.warning("get-id failed, using sub claim: %s", user_id)
+        _LOGGER.info("MQTT user_id: %s", user_id or "not found")
 
         # Get MQTT signature using the (HSDP or Gigya) access token
         sig_data = await cloud_api.get_mqtt_signature(

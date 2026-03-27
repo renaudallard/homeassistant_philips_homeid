@@ -887,6 +887,42 @@ class PhilipsCloudAPI:
                 )
             return json.loads(text)
 
+    async def get_mqtt_user_id(
+        self,
+        access_token: str,
+        id_token: str,
+        platform_rest_url: str = "prod.eu-da.iot.versuni.com",
+        tenant: str = "da",
+    ) -> str | None:
+        """Get the MQTT userId from the IoT API.
+
+        APK calls POST /user/self/get-id with the OIDC id_token.
+        The returned userId is what the Custom Authorizer IoT policy
+        expects as the MQTT client ID prefix.
+        """
+        session = await self._get_session()
+        url = f"https://{platform_rest_url}/api/{tenant}/user/self/get-id"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        body = json.dumps({"idToken": id_token})
+
+        _LOGGER.debug("MQTT get-id: POST %s", url)
+        async with session.post(url, headers=headers, data=body) as resp:
+            text = await resp.text()
+            _LOGGER.debug(
+                "MQTT get-id response: HTTP %s, body: %s",
+                resp.status,
+                text[:500],
+            )
+            if resp.status != 200:
+                _LOGGER.warning("MQTT get-id failed: HTTP %s", resp.status)
+                return None
+            data = json.loads(text)
+            return data.get("userId")
+
     async def get_thing_name(
         self,
         access_token: str,

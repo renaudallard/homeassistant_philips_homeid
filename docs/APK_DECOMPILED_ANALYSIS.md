@@ -6234,6 +6234,51 @@ ClientAuthenticationInterceptor (yu/b.java):
 
 ---
 
+**CRITICAL: ANDROID APP USES NUTRIU CLIENT_ID FOR FUSION**
+
+**Source:** `DomainBuilderKt.java` line 51, `BackendConfigKt.java` line 22
+
+The Android HomeID app embeds TWO OAuth client_ids:
+
+```
+HomeID client:  -u6aTznrxp9_9e_0a57CpvEG   (main app login via AppAuth)
+Nutriu client:  21e431131cb04a0eb56          (HSDP/FUSION operations)
+                secret: @@3f2.6lo21_2F61
+```
+
+The DomainConfig passes the Nutriu credentials to the DaConnect SDK:
+```
+spectreHsdpIamAuthClientId:     21e431131cb04a0eb56
+spectreHsdpIamAuthClientSecret: @@3f2.6lo21_2F61
+spectreHsdpIamRedirectUri:      com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect
+```
+
+The HSDP SSO deep link (HsdpDeepLinkActivity line 60) also uses Nutriu:
+```
+https://iam-service.eu-west.philips-healthsuite.com/authorize/oidc/login
+  ?client_id=21e431131cb04a0eb56
+  &redirect_uri=com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect
+  &response_type=code
+  &provider=myphilipsonprod
+```
+
+The SAS idToken that passed the Custom Authorizer in live testing had
+`aud=21e431131cb04a0eb56` (Nutriu). This means the Custom Authorizer
+is configured to accept the Nutriu audience.
+
+**For the HA integration:**
+Use `client_id=21e431131cb04a0eb56` with `client_secret=@@3f2.6lo21_2F61`
+for the Gigya OIDC token refresh. This produces tokens with
+`aud=21e431131cb04a0eb56` which the Custom Authorizer accepts.
+The current code uses `-u6aTznrxp9_9e_0a57CpvEG` which may produce
+tokens with the wrong audience.
+
+Note: Gigya OIDC refresh_tokens are NOT bound to a specific client_id.
+A token obtained with one client_id can be refreshed with another.
+This is standard OAuth 2.0 behavior for public clients.
+
+---
+
 **WHY PREVIOUS LIVE TESTING FAILED**
 
 Live testing (C.14.11) used OTP-derived Gigya tokens (`aud=None`).

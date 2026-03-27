@@ -38,6 +38,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .local_api import _MODEL_PORT_MAP
+
 import paho.mqtt.client as mqtt
 
 from .local_api import LocalDeviceInfo, LocalDeviceState
@@ -270,12 +272,26 @@ class PhilipsMQTTClient:
         The shadow only has device-level state (powerOn, productState).
         Airfryer-specific properties (status, temperature, time) come
         from NCP port responses on the from_ncp topic.
+
+        APK sends getPort only for known ports (from device config).
+        We use the model-to-port mapping to determine the correct port.
         """
-        # Known airfryer port names across models
-        port_names = ["airfryer", "venusaf", "venus1af", "nutrimax", "hermesac"]
-        for port in port_names:
+        model = self._device.model_name or ""
+        # Extract model prefix (e.g., "HD9285" from "HD9285/96")
+        model_prefix = model.split("/")[0].upper()
+        port = _MODEL_PORT_MAP.get(model_prefix)
+        if port:
             self.send_port_command(port, command_name="getPort")
-        _LOGGER.debug("Requested port data for %s", self._device.thing_name)
+            _LOGGER.debug(
+                "Requested port '%s' for %s (%s)",
+                port,
+                self._device.thing_name,
+                model_prefix,
+            )
+        else:
+            _LOGGER.info(
+                "No known port for model %s, skipping NCP getPort", model_prefix
+            )
 
     def set_power(self, power_on: bool) -> None:
         """Set device power via shadow update (APK UpdatePowerState)."""

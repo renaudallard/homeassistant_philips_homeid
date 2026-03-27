@@ -626,8 +626,21 @@ def test_mqtt_connection(
     return False
 
 
-def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name):
-    """Full MQTT test: connect, subscribe, request shadow, print state."""
+MODEL_PORT_MAP = {
+    "HD9200": "airfryer",
+    "HD9255": "airfryer",
+    "HD9280": "airfryer",
+    "HD9285": "airfryer",
+    "HD9875": "venus1af",
+    "HD9876": "venus1af",
+    "HD9880": "venusaf",
+    "NX0950": "hermesac",
+    "NX0960": "nutrimax",
+}
+
+
+def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name, model=""):
+    """Full MQTT test: connect, subscribe, request shadow + port data."""
     try:
         import paho.mqtt.client as mqtt
     except ImportError:
@@ -681,10 +694,13 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name):
         # Request shadow state
         print(f"    Publishing shadow get to {shadow_get_topic}")
         client.publish(shadow_get_topic, payload=b"", qos=1)
-        # Request port data via NCP
-        for port in ["airfryer", "venusaf", "venus1af", "nutrimax", "hermesac"]:
+        # Request port data via NCP (use model mapping, not all ports)
+        port = MODEL_PORT_MAP.get(model.split("/")[0].upper(), "")
+        if port:
             _send_get_port(client, port)
-        print("    Sent getPort for all known airfryer ports")
+            print(f"    Sent getPort for port '{port}' (model {model})")
+        else:
+            print(f"    No known port for model '{model}', skipping getPort")
 
     def on_message(client, userdata, msg):
         print(f"    Received on {msg.topic} ({len(msg.payload)} bytes)")
@@ -1199,10 +1215,12 @@ def fetch_credentials(
     # If connect succeeded, do full subscribe + shadow get test
     if connected and iot_devices:
         thing_name = iot_devices[0].get("thingName", "")
+        dev_model = iot_devices[0].get("ctn", "")
         if thing_name:
-            print("\n--- Full MQTT Test (subscribe + shadow get) ---")
+            print("\n--- Full MQTT Test (subscribe + shadow get + NCP) ---")
             print(f"  Thing name: {thing_name}")
-            test_mqtt_full(access_token, gigya_sig, mqtt_sub, thing_name)
+            print(f"  Model: {dev_model}")
+            test_mqtt_full(access_token, gigya_sig, mqtt_sub, thing_name, dev_model)
 
     if mqtt_mode == "apk":
         print_summary(homeid_appliances, iot_devices)

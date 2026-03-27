@@ -6228,6 +6228,152 @@ The APK has TWO completely different MQTT implementations:
 | **Used for** | Legacy HSDP devices | FUSION devices |
 
 FUSION devices use the DaConnect path. The HSDP Condor path is for older devices registered in the HSDP cloud.
+
+**14. Complete FUSION MQTT Connection Flow**
+
+```
+Step 1: Fetch MQTT credentials (RxJava chain)
+  credentialsProvider.getMqttConnectionInfo()
+    -> DaAuthenticationService.getMqttConnectionInfo()
+      -> mqttSignatureProvider.fetch(tokenProviderRef.get())
+        -> SAS token exchange (/api/TokenExchange)
+        -> Signature fetch (/api/da/user/self/signature)
+      -> Returns MqttConnectionInfo {
+           accessToken:  SAS accessToken (27 chars)
+           mqttSignature: from /signature endpoint (684 chars)
+           tenant:       HSDP tenant string
+           webSocketUrl:  WebSocketUrl(host) -> "wss://{host}:443/mqtt"
+         }
+
+Step 2: Create MQTT client (lazy, once)
+  resettableLazyMqttClient:
+    userId = credentialsProvider.getUserId().blockingGet().unbox()
+    clientId = userId + "_" + UUID.randomUUID()
+    client = new MqttAsyncClient("wss://localhost.com", clientId, MemoryPersistence)
+    client.setTimeToWait(10000)
+
+Step 3: Connect
+  createMqttConnectOptions(mqttConnectionInfo):
+    Properties headers = {
+      "x-amz-customauthorizer-name":      "CustomAuthorizer"
+      "x-amz-customauthorizer-signature": mqttConnectionInfo.mqttSignature
+      "token-header":                     "Bearer " + mqttConnectionInfo.accessToken
+      "content-type":                     "application/json"
+      "tenant":                           mqttConnectionInfo.tenant
+    }
+    options.setCustomWebSocketHeaders(headers)
+    options.setConnectionTimeout(10)
+    options.setCleanSession(false)
+    options.setKeepAliveInterval(30)
+    options.setAutomaticReconnect(true)
+    options.setServerURIs(["wss://{host}:443/mqtt"])
+
+  client.connect(options)
+  -> connectionState = CONNECTED
+
+Step 4: Subscribe to device (per device)
+  bindSubjectToDeviceTopics(thingName, subject, client):
+    tenant = fusionConfiguration.getTenant()
+    topics = {
+      "$aws/things/{thingName}/shadow/get/accepted":    QoS 0
+      "$aws/things/{thingName}/shadow/update/accepted":  QoS 0
+      "$aws/things/{thingName}/shadow/get/rejected":     QoS 0
+      "$aws/things/{thingName}/shadow/update/rejected":  QoS 0
+      "{tenant}_ctrl/{thingName}/from_ncp":              QoS 0
+    }
+    client.subscribe(topics, qosValues, messageListeners)
+
+Step 5: Request device state
+  executeDeviceControlCommand(GetCurrentState(remoteControlInfo)):
+    shadowTopic = "$aws/things/{thingName}/shadow/get"
+    payload = ""  (empty for get)
+    client.publish(shadowTopic, MqttMessage(payload), QoS 1)
+    -> Response arrives on $aws/things/{thingName}/shadow/get/accepted
+
+Step 6: Update device state
+  executeDeviceControlCommand(UpdatePowerState(remoteControlInfo, powerOn, gson)):
+    shadowTopic = "$aws/things/{thingName}/shadow/update"
+    payload = gson.toJson({"state": {"desired": {"pwr": "1"}}})
+    client.publish(shadowTopic, MqttMessage(payload), QoS 1)
+    -> Response arrives on $aws/things/{thingName}/shadow/update/accepted
+
+Step 7: Send NCP port command
+  executeDevicePortCommand(RemotePortCommand(COMMAND, updatePort, data, info)):
+    topic = "{tenant}_ctrl/{thingName}/to_ncp"
+    payload = toJson():
+      {
+        "cid": "{correlationId}",       // UUID for response matching
+        "time": {"utc": "..."},         // UTC timestamp
+        "type": "command",              // MessageType.COMMAND lowercase
+        "cn": "updatePort",             // PortCommandName.value
+        "ct": "mobile",                 // client type constant
+        "data": { ... }                 // port-specific data
+      }
+    client.publish(topic, MqttMessage(payload), QoS 1)
+    -> Response arrives on {tenant}_ctrl/{thingName}/from_ncp
+```
+
+**15. NCP Message Format**
+
+```java
+// RemotePortCommand.toJson() builds this JSON structure:
+{
+  "cid": "550e8400-e29b-41d4-a716-446655440000",  // correlation ID (UUID)
+  "time": {"utc": "2026-03-27 12:00:00.000"},      // NcpRequestTime
+  "type": "command",                                // MessageType lowercase
+  "cn": "updatePort",                               // PortCommandName.value
+  "ct": "mobile",                                   // CLIENT_TYPE_VALUE constant
+  "data": {                                         // port-specific payload
+    "portName": "airfryer",
+    "properties": {"temp": 180, "time": 600}
+  }
+}
+
+// PortCommandName values:
+//   updatePort  -> PUT equivalent
+//   getPort     -> GET equivalent
+//   setPort     -> SET equivalent
+//   getAllPorts  -> list all ports
+//   undefined   -> fallback
+
+// MessageType values:
+//   COMMAND  -> from app to device
+//   RESPONSE -> from device to app (reply to command)
+//   EVENT    -> from device to app (push notification)
+//   ERROR    -> error response
+```
+
+**16. Reconnection behavior**
+
+```
+On connection lost:
+  MqttCallback.connectionLost(cause)
+    -> if automaticReconnect: Paho handles reconnect internally
+    -> DaMqttClientImpl also has manual reconnect:
+         handleReconnect():
+           if hasConnectivity:
+             mqttClientObservable.flatMap(reconnectAllDevices)
+               -> re-subscribes all devices from deviceSubjectMap
+           else:
+             wait for connectivity change
+
+On token refresh:
+  localEventManager receives DeviceChangedEvent or user token update
+    -> disconnect current client
+    -> invalidate MQTT credentials (credentialsProvider.invalidateMqttConnectionInfo())
+    -> resumeInternal() -> re-fetch credentials -> reconnect
+
+On app background:
+  pause():
+    -> unsubscribe from all device topics (but keep client connected)
+  resume():
+    -> re-subscribe to all devices from deviceSubjectMap
+
+On connectivity change:
+  handleOnConnectivityChange(connected):
+    -> if connected: resumeInternal() after 800ms delay
+    -> if disconnected: pauseInternal()
+```
 ```
 
 ### C.12 HSDP Subscription (Cloud Push Events)

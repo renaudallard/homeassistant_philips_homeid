@@ -52,6 +52,7 @@ import re
 import secrets
 import uuid
 import ssl
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -625,6 +626,100 @@ def test_mqtt_connection(
     return False
 
 
+def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name):
+    """Full MQTT test: connect, subscribe, request shadow, print state."""
+    try:
+        import paho.mqtt.client as mqtt
+    except ImportError:
+        print("    paho-mqtt not installed: pip install paho-mqtt")
+        return
+
+    host = "ats.prod.eu-da.iot.versuni.com"
+    tenant = "da"
+    client_id = f"{mqtt_user_id}_{uuid.uuid4()}"
+
+    topics = {
+        "shadow_get_accepted": f"$aws/things/{thing_name}/shadow/get/accepted",
+        "shadow_update_accepted": f"$aws/things/{thing_name}/shadow/update/accepted",
+        "shadow_get_rejected": f"$aws/things/{thing_name}/shadow/get/rejected",
+        "shadow_update_rejected": f"$aws/things/{thing_name}/shadow/update/rejected",
+        "from_ncp": f"{tenant}_ctrl/{thing_name}/from_ncp",
+    }
+    shadow_get_topic = f"$aws/things/{thing_name}/shadow/get"
+
+    received = {}
+    done = threading.Event()
+
+    def on_connect(client, userdata, flags, rc, properties=None):
+        if rc != 0:
+            print(f"    CONNACK rejected: rc={rc}")
+            done.set()
+            return
+        print(f"    Connected (client_id={client_id[:50]}...)")
+        for name, topic in topics.items():
+            client.subscribe(topic, qos=0)
+            print(f"    Subscribed: {name}")
+        print(f"    Publishing shadow get to {shadow_get_topic}")
+        client.publish(shadow_get_topic, payload=b"", qos=1)
+
+    def on_message(client, userdata, msg):
+        print(f"    Received on {msg.topic} ({len(msg.payload)} bytes)")
+        received[msg.topic] = msg.payload
+        if msg.topic == topics["shadow_get_accepted"]:
+            try:
+                shadow = json.loads(msg.payload)
+                print(json.dumps(shadow, indent=2)[:3000])
+            except Exception:
+                print(f"    Raw: {msg.payload[:500]}")
+            done.set()
+        elif msg.topic == topics["shadow_get_rejected"]:
+            print(f"    Shadow get rejected: {msg.payload[:500]}")
+            done.set()
+
+    def on_disconnect(client, userdata, flags, rc, properties=None):
+        if not done.is_set():
+            print(f"    Disconnected: rc={rc}")
+            done.set()
+
+    auth_headers = {
+        "x-amz-customauthorizer-name": "CustomAuthorizer",
+        "x-amz-customauthorizer-signature": mqtt_sig,
+        "token-header": f"Bearer {access_token}",
+        "tenant": tenant,
+        "content-type": "application/json",
+    }
+
+    def apply_ws_headers(default_headers):
+        default_headers.pop("Origin", None)
+        default_headers.update(auth_headers)
+        return default_headers
+
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=client_id,
+        transport="websockets",
+        clean_session=False,
+    )
+    client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
+    client.ws_set_options(path="/mqtt", headers=apply_ws_headers)
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.on_disconnect = on_disconnect
+
+    print(f"    Connecting to {host}:443...")
+    try:
+        client.connect(host, port=443, keepalive=30)
+        client.loop_start()
+        if not done.wait(timeout=15):
+            print("    Timeout waiting for shadow response (15s)")
+        client.loop_stop()
+        client.disconnect()
+    except Exception as e:
+        print(f"    Connection error: {e}")
+
+    return bool(received.get(topics["shadow_get_accepted"]))
+
+
 def test_mqtt_signature(access_token):
     """Test the MQTT signature endpoint with an access token."""
     status, body = api_request(
@@ -1058,8 +1153,18 @@ def fetch_credentials(
 
     # Test 1: APK-verified flow (Gigya OIDC token + Gigya signature + API userId)
     print(f"\n  [APK flow: Gigya token + Gigya sig, userId={mqtt_sub[:30]}...]")
-    test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=mqtt_sub)
+    connected = test_mqtt_connection(
+        access_token, custom_sig=gigya_sig, client_sub=mqtt_sub
+    )
     time.sleep(3)
+
+    # If connect succeeded, do full subscribe + shadow get test
+    if connected and iot_devices:
+        thing_name = iot_devices[0].get("thingName", "")
+        if thing_name:
+            print("\n--- Full MQTT Test (subscribe + shadow get) ---")
+            print(f"  Thing name: {thing_name}")
+            test_mqtt_full(access_token, gigya_sig, mqtt_sub, thing_name)
 
     # Test 1b: Same but with sub claim (for comparison)
     if mqtt_user_id and mqtt_user_id != gigya_sub:

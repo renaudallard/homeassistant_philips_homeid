@@ -6563,6 +6563,43 @@ expired during the signature request, the interceptor refreshes it. The
 second `getAccessToken()` ensures MqttConnectionInfo gets the freshest
 token (which may have been refreshed during step 1).
 
+**21. Fully Deobfuscated Credential Chain (Verified)**
+
+Every link verified against source:
+
+```
+FusionAuthenticationInitUseCaseImpl$invoke$1.getAccessToken()
+  |  philipsUser.l()
+  v
+PhilipsUser.l() = "diAccessToken" (DI = Digital Identity = Gigya CDC)
+  |  DiDaBridgeImpl -> DiDaAuthState
+  v
+DiDaBridgeImpl.g() -> authStateManager.c() -> AppAuth AuthState
+  |
+  v
+net.openid.appauth.a.f() = access_token from OIDC TokenResponse
+  = Gigya OIDC access_token (JWT, aud=-u6aTznrxp9_9e_0a57CpvEG)
+```
+
+**Deobfuscation table:**
+```
+PhilipsUser interface:
+  l() = diAccessToken      = Gigya OIDC access_token
+  u() = identityToken      = Gigya OIDC id_token
+  X() = diAccessExpiresIn  = token expiry (Long)
+  k() = profileId
+  getToken() = Gigya session token (NOT the OIDC token)
+
+DiDaBridgeImpl:
+  g() = returns DiDaAuthState(accessToken, expiresIn, idToken)
+      from authStateManager.c() (AppAuth AuthState)
+
+AppAuth AuthState (net.openid.appauth.a):
+  f() = getAccessToken()
+  g() = getAccessTokenExpirationTime()
+  j() = getIdToken()
+```
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

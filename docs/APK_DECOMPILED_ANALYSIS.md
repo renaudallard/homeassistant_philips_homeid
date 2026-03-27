@@ -6273,9 +6273,24 @@ for the Gigya OIDC token refresh. This produces tokens with
 The current code uses `-u6aTznrxp9_9e_0a57CpvEG` which may produce
 tokens with the wrong audience.
 
-Note: Gigya OIDC refresh_tokens are NOT bound to a specific client_id.
-A token obtained with one client_id can be refreshed with another.
-This is standard OAuth 2.0 behavior for public clients.
+**Clarification from deeper investigation:**
+The main AppAuth login uses HomeID `client_id=-u6aTznrxp9_9e_0a57CpvEG`.
+The tokens stored in AuthState (which `philipsUser.l()` returns) have
+`aud=-u6aTznrxp9_9e_0a57CpvEG`. The Nutriu client_id is used for the
+HSDP SSO deep link (separate flow, separate tokens, NOT stored in AuthState).
+
+So the MQTT `token-header` actually gets `aud=-u6aTznrxp9_9e_0a57CpvEG`
+(HomeID), not `aud=21e431131cb04a0eb56` (Nutriu). Whether the Custom
+Authorizer accepts this audience is UNTESTED.
+
+**Three untested options for HA integration:**
+1. Refresh with HomeID `client_id=-u6aTznrxp9_9e_0a57CpvEG`
+   -> `aud=-u6aTznrxp9_9e_0a57CpvEG` (what the APK sends)
+2. Refresh with Nutriu `client_id=21e431131cb04a0eb56`
+   -> `aud=21e431131cb04a0eb56` (same aud as SAS idToken that worked)
+3. SAS exchange to get HSDP token (current workaround, not what APK does)
+
+Try option 1 first (matching APK). If rejected, try option 2.
 
 ---
 

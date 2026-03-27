@@ -1013,6 +1013,22 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
         print("\n  Testing MQTT signature with Gigya token...")
         test_mqtt_signature(access_token)
 
+    # Token diagnostics
+    print("\n--- Gigya OIDC Token Diagnostics ---")
+    at_parts = access_token.split(".")
+    if len(at_parts) >= 2:
+        at_pad = at_parts[1] + "=" * (4 - len(at_parts[1]) % 4)
+        at_claims = json.loads(base64.urlsafe_b64decode(at_pad))
+        gigya_sub = at_claims.get("sub", "unknown")
+        print(f"  sub: {gigya_sub}")
+        print(f"  aud: {at_claims.get('aud', 'NONE')}")
+        print(f"  iss: {str(at_claims.get('iss', ''))[:60]}")
+        print(f"  client_id: {at_claims.get('client_id', 'NONE')}")
+        print(f"  azp: {at_claims.get('azp', 'NONE')}")
+        print(f"  scope: {str(at_claims.get('scope', ''))[:80]}")
+    else:
+        gigya_sub = "unknown"
+
     # Comprehensive MQTT connection tests
     print("\n--- MQTT Connection Tests (all combinations) ---")
 
@@ -1026,6 +1042,12 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     )
     gigya_sig = sig_body.get("signature", "") if isinstance(sig_body, dict) else ""
     print(f"  Gigya signature: {len(gigya_sig)} chars")
+
+    # Test 1: APK-verified flow (Gigya OIDC token + Gigya signature)
+    # APK uses: token-header=Gigya access_token, signature from /user/self/signature
+    # Client ID: {gigya_sub}_{UUID} (APK strips @fed-... via UserId value class)
+    print(f"\n  [APK flow: Gigya OIDC token + Gigya sig, sub={gigya_sub[:20]}...]")
+    test_mqtt_connection(access_token, custom_sig=gigya_sig)
 
     # SAS token exchange
     sas_at = ""
@@ -1051,27 +1073,24 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
             sas_at = sas_resp.get("accessToken", "")
             sas_signed = sas_resp.get("signedToken", "")
             sas_id = sas_resp.get("idToken", "")
-            print(f"  SAS accessToken: {sas_at[:20]}... ({len(sas_at)} chars)")
+            print(f"\n  SAS accessToken: {sas_at[:20]}... ({len(sas_at)} chars)")
             print(f"  SAS signedToken: {len(sas_signed)} chars")
             print(f"  SAS idToken: {len(sas_id)} chars")
         else:
-            print(f"  SAS exchange failed: HTTP {sas_status}")
+            print(f"\n  SAS exchange failed: HTTP {sas_status}")
 
-    tests = []
-    if gigya_sig:
-        tests.append(("Gigya token + Gigya sig", access_token, gigya_sig))
+    # Test remaining combinations
+    extra_tests = []
     if sas_at and gigya_sig:
-        tests.append(("SAS accessToken + Gigya sig", sas_at, gigya_sig))
+        extra_tests.append(("SAS accessToken + Gigya sig", sas_at, gigya_sig))
     if sas_at and sas_signed:
-        tests.append(("SAS accessToken + signedToken", sas_at, sas_signed))
-    if gigya_sig and sas_signed:
-        tests.append(("Gigya token + signedToken", access_token, sas_signed))
+        extra_tests.append(("SAS accessToken + signedToken", sas_at, sas_signed))
     if sas_id and gigya_sig:
-        tests.append(("SAS idToken + Gigya sig", sas_id, gigya_sig))
+        extra_tests.append(("SAS idToken + Gigya sig", sas_id, gigya_sig))
     if sas_id and sas_signed:
-        tests.append(("SAS idToken + signedToken", sas_id, sas_signed))
+        extra_tests.append(("SAS idToken + signedToken", sas_id, sas_signed))
 
-    for label, tok, sig in tests:
+    for label, tok, sig in extra_tests:
         print(f"\n  [{label}]")
         test_mqtt_connection(tok, custom_sig=sig)
 

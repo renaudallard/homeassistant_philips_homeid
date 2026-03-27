@@ -6374,6 +6374,64 @@ On connectivity change:
     -> if connected: resumeInternal() after 800ms delay
     -> if disconnected: pauseInternal()
 ```
+
+**17. FUSION Credential Chain (Complete Trace)**
+
+```
+DaAuthenticationService.getMqttConnectionInfo()
+  -> mqttSignatureProvider.fetch(tokenProviderRef.get())
+     |
+     v  [vu/a.java - CredentialsProvider<MqttConnectionInfo>]
+   fetch(clientAuthenticationProvider):
+     1. clientAuthenticationProvider.getAccessToken()
+          -> FusionAuthenticationInitUseCaseImpl
+               -> philipsUser.l() = Gigya OIDC access_token (JWT)
+     2. zipWith(fusionConfigurationRef) -> Pair(gigyaToken, config)
+     3. Check cache: if stored token matches, reuse cached signature
+        Else: GET https://{platformRestApiBaseUrl}/api/{tenant}/user/self/signature
+              Auth: via ClientAuthenticationInterceptor (Gigya token in header)
+              -> SignatureResponse { signature: "..." }
+     4. Get FRESH accessToken: clientAuthenticationProvider.getAccessToken()
+        -> Pair(signatureResponse, freshGigyaAccessToken)
+     5. Build MqttConnectionInfo:
+          accessToken   = freshGigyaAccessToken (Gigya OIDC access_token)
+          mqttSignature = signatureResponse.signature
+          tenant        = fusionConfiguration.getTenant()
+          webSocketUrl  = WebSocketUrl(fusionConfiguration.awsIotDeviceControlUrl)
+        Store Pair(accessToken, signature) in cache
+
+Then createMqttConnectOptions():
+  token-header = "Bearer " + Gigya OIDC access_token
+```
+
+**ClientAuthenticationProvider** (set by `FusionAuthenticationInitUseCaseImpl`):
+```java
+new ClientAuthenticationProvider() {
+    getAccessToken() { return philipsUser.l(); }  // Gigya OIDC access_token
+    getIdToken()     { return philipsUser.u(); }  // Gigya OIDC id_token
+}
+// These are the RAW Gigya tokens, no SAS exchange in this path
+```
+
+**ClientAuthenticationInterceptor** (`yu/b.java`):
+- OkHttp interceptor added to HTTP client
+- Adds Gigya auth to HTTP requests (signature endpoint, IoT API)
+- Does NOT affect MQTT connection (MQTT headers set separately)
+
+**Contradiction with live testing**: The APK uses Gigya accessToken in `token-header`, but testing showed Gigya tokens rejected by Custom Authorizer while SAS idToken worked. Possible causes:
+1. Custom Authorizer config changed after APK 8.16.0
+2. Gigya tokens from OTP login have different `aud` than browser OIDC flow
+3. App's OIDC client_id (`-u6aTznrxp9_9e_0a57CpvEG`) produces tokens with specific audience accepted by Custom Authorizer
+4. SAS exchange may be an additional backend layer not used by native SDK
+
+**FusionConfiguration:**
+```java
+region:                "eu-west-1" (default)
+platformRestApiBaseUrl: "prod.eu-da.iot.versuni.com"
+tenant:                HSDP tenant string
+platformMqttControlUrl: WSS host for MQTT broker
+archPlatformBaseUrl:   "https://{platformRestApiBaseUrl}/api/{tenant}/"
+awsIotDeviceControlUrl: platformMqttControlUrl (WSS host)
 ```
 
 ### C.12 HSDP Subscription (Cloud Push Events)

@@ -170,17 +170,26 @@ class PhilipsMQTTClient:
         # TLS for WSS
         client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
 
-        # AWS IoT Custom Authorizer headers via WebSocket upgrade
-        client.ws_set_options(
-            path="/mqtt",
-            headers={
-                "x-amz-customauthorizer-name": "CustomAuthorizer",
-                "x-amz-customauthorizer-signature": mqtt_signature,
-                "token-header": f"Bearer {access_token}",
-                "tenant": device.tenant,
-                "content-type": "application/json",
-            },
-        )
+        # AWS IoT Custom Authorizer headers via WebSocket upgrade.
+        # Use a callable to remove the Origin header that Python paho adds
+        # by default -- the APK's Java Paho does not send Origin and the
+        # Custom Authorizer may reject connections that include it.
+        auth_headers = {
+            "x-amz-customauthorizer-name": "CustomAuthorizer",
+            "x-amz-customauthorizer-signature": mqtt_signature,
+            "token-header": f"Bearer {access_token}",
+            "tenant": device.tenant,
+            "content-type": "application/json",
+        }
+
+        def _apply_ws_headers(
+            default_headers: dict[str, str],
+        ) -> dict[str, str]:
+            default_headers.pop("Origin", None)
+            default_headers.update(auth_headers)
+            return default_headers
+
+        client.ws_set_options(path="/mqtt", headers=_apply_ws_headers)
 
         # APK enables Paho's built-in auto-reconnect
         client.reconnect_delay_set(min_delay=1, max_delay=60)

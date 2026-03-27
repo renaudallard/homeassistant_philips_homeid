@@ -50,6 +50,7 @@ import json
 import os
 import re
 import secrets
+import uuid
 import ssl
 import time
 import urllib.parse
@@ -423,34 +424,32 @@ def test_mqtt_connection(
         # Strip @fed-... suffix when auto-decoded (APK's UserId does this)
         sub = sub.split("@")[0]
 
-    client_id = f"{sub}_{secrets.token_hex(4)}"
+    client_id = f"{sub}_{uuid.uuid4()}"
     print(f"    Client ID: {client_id[:60]}... ({len(client_id)} chars)")
 
-    # Raw WebSocket + MQTT (matching iOS app headers exactly)
+    # Raw WebSocket + MQTT (matching Android APK's Java Paho exactly)
     ctx = ssl.create_default_context()
     host = "ats.prod.eu-da.iot.versuni.com"
     sock = _socket.create_connection((host, 443), timeout=15)
     sock = ctx.wrap_socket(sock, server_hostname=host)
 
     ws_key = base64.b64encode(os.urandom(16)).decode()
-    # Match iOS app capture exactly (every header, same order)
+    # Match Android APK's Java Paho WebSocket handshake exactly:
+    # only standard WS headers + the 5 custom auth headers, no Origin,
+    # no User-Agent, no Accept-* headers.
     upgrade = (
         f"GET /mqtt HTTP/1.1\r\n"
         f"Host: {host}:443\r\n"
         f"Upgrade: websocket\r\n"
-        f"x-amz-customauthorizer-signature: {sig}\r\n"
-        f"Accept: */*\r\n"
-        f"Sec-WebSocket-Key: {ws_key}\r\n"
-        f"Sec-WebSocket-Version: 13\r\n"
-        f"tenant: da\r\n"
-        f"Sec-WebSocket-Protocol: mqtt\r\n"
-        f"token-header: Bearer {access_token}\r\n"
-        f"Accept-Language: en-US,en;q=0.9\r\n"
-        f"x-amz-customauthorizer-name: CustomAuthorizer\r\n"
         f"Connection: Upgrade\r\n"
-        f"Accept-Encoding: gzip, deflate, br\r\n"
-        f"User-Agent: NutriU/5 CFNetwork/3860.300.31 Darwin/25.2.0\r\n"
-        f"Content-Type: application/json\r\n"
+        f"Sec-WebSocket-Key: {ws_key}\r\n"
+        f"Sec-WebSocket-Protocol: mqtt\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"x-amz-customauthorizer-name: CustomAuthorizer\r\n"
+        f"x-amz-customauthorizer-signature: {sig}\r\n"
+        f"token-header: Bearer {access_token}\r\n"
+        f"content-type: application/json\r\n"
+        f"tenant: da\r\n"
         f"\r\n"
     )
     sock.send(upgrade.encode())

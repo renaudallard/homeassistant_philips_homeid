@@ -92,7 +92,7 @@ SCOPES = (
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 
-SCRIPT_VERSION = "12"
+SCRIPT_VERSION = "13"
 STATE_FILE = "/tmp/philips_cloud_state.json"
 DEBUG = False
 

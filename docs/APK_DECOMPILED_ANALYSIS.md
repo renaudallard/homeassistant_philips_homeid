@@ -6342,6 +6342,44 @@ The SAS exchange was a successful workaround but not the intended path.
 
 ---
 
+**MQTT CONNECTION CONFIRMED WORKING (2026-03-27, v15)**
+
+Test run v15 with LucaTomei's HD9285 FUSION device. MQTT CONNECT succeeded.
+
+**The fix:** MQTT client ID prefix must use the `userId` from
+`POST /api/da/user/self/get-id` (with `{"idToken": id_token}`),
+NOT the `sub` claim from the access_token.
+
+```
+get-id userId: d863ffb1-bbb8-48d7-bacc-85ee36cc35a6  (UUID format)
+JWT sub claim:  2631090b920d4b9ba5d77829dc5d89b6       (hex format)
+```
+
+Results with fresh Gigya OIDC token + signature from /user/self/signature:
+- Client ID `{get-id userId}_{UUID}` (73 chars): **MQTT CONNECTED SUCCESSFULLY**
+- Client ID `{sub}_{UUID}` (69 chars): WebSocket CLOSE (IoT policy rejected)
+
+The HTTP 101 WebSocket upgrade succeeded for BOTH, confirming the
+Custom Authorizer accepts both. The rejection was at the IoT policy
+level: the `iot:Connect` resource pattern matches the get-id userId,
+not the Gigya sub claim.
+
+**Full APK MQTT flow (all confirmed):**
+1. Token: Gigya OIDC access_token (from `cdc.accounts.home.id`, client_id `-u6aTznrxp9_9e_0a57CpvEG`)
+2. Signature: `GET /api/da/user/self/signature` with Bearer {access_token}
+3. User ID: `POST /api/da/user/self/get-id` with `{"idToken": id_token}` -> `{"userId": "..."}`
+4. Client ID: `{userId}_{UUID}`
+5. WebSocket headers: Host, Upgrade, Connection, Sec-WebSocket-*, plus 5 auth headers only (no Origin, no User-Agent, no Accept-*)
+6. MQTT 3.1.1, clean_session=false, keepalive=30, no username/password
+
+**Other fixes needed to reach this point:**
+- Remove `Origin` header (Python paho-mqtt adds it, APK Java Paho does not)
+- OAuth scope `consent` (singular, not `consents`)
+- Full UUID in client ID (not short hex)
+- Always refresh token before MQTT tests (Gigya tokens expire in ~1 hour)
+
+---
+
 **TOKEN REFRESH GATE (FusionAuthenticationInitUseCaseImpl.e())**
 
 Before returning the access_token, the APK refreshes it if expired:

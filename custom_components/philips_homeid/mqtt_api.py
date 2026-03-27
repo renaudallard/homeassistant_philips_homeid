@@ -154,7 +154,7 @@ class PhilipsMQTTClient:
         )
 
         # APK client ID format: {userId}_{UUID}
-        # userId is the 'sub' claim from the OIDC/HSDP token.
+        # userId from POST /api/da/user/self/get-id (NOT the JWT sub claim).
         prefix = device.user_id or device.device_id
         client_id = f"{prefix}_{uuid.uuid4()}"
         _LOGGER.info("MQTT client_id: %s", client_id)

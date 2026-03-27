@@ -5536,6 +5536,197 @@ Actual behavior:
 - If the device encrypts HTTP responses, the body is a base64 string that needs decryption **before** being passed to `processResponse()`. This happens in the `ResponseHandler.onSuccess()` chain, not in `processByteArrayToJsonString()`
 - The `Crypto.decryptData()` listener triggers key re-exchange on failure
 
+### C.13 HSDP Token System (Complete)
+
+This section documents every detail of the HSDP token lifecycle.
+
+#### C.13.1 Token Types
+
+| Token | Source | Purpose | Lifetime |
+|-------|--------|---------|----------|
+| **Bootstrap accessToken** | IAM `getAccessToken(bootstrapClientId, bootstrapClientSecret)` | Temporary for discovery + provisioning. Client credentials grant. | Short |
+| **Provisioned accessToken** | IAM `getAccessToken(clientId, clientSecret, username, password)` | Main API token. Resource owner password grant. | `expiresIn` seconds |
+| **refreshToken** | Returned with provisioned accessToken | Silent refresh without password | Longer than accessToken |
+| **signedToken** | Returned with provisioned accessToken | JWT for MQTT Custom Authorizer | Same as accessToken |
+
+#### C.13.2 Credential Data Structures
+
+```
+HSDPBootstrapCredentials (app-wide, hardcoded):
+  clientId:     app-level OAuth client ID
+  clientSecret: app-level OAuth client secret
+
+HSDPIdentity (device-specific, from provisioning):
+  clientId:           OAuth client ID for this identity
+  clientSecret:       OAuth client secret for this identity
+  username:           Login ID from provisioning (loginId)
+  password:           Password from provisioning
+  hsdpIdentifier:     HSDP device/identity ID
+  identitySignature:  Signature for identity verification
+
+HSDPTokenSet (cached, refreshable):
+  accessToken:          Bearer token for API calls
+  refreshToken:         For silent refresh (nullable)
+  signedToken:          JWT for MQTT auth
+  accessTokenExpiresIn: Seconds until expiry
+
+HSDPConfiguration interface provides:
+  basePathForIAMService:       "https://iam.{region}.philips-healthsuite.com"
+  basePathForDiscoveryService: "https://discovery.{region}.philips-healthsuite.com"
+  provisioningEvidence:        Map<String, Object> (app-provided proof)
+  customHsdpIdentifier:        Optional override for hsdpId
+```
+
+#### C.13.3 Full Sign-On Decision Tree
+
+```
+signOn(callback):
+  |
+  +-> Has cached tokenSet?
+  |     |
+  |     YES: [RETURNING USER]
+  |     |  Apply tokens to PassiveRefreshPolicy (overrideTokens=true)
+  |     |  -> discoverServices()
+  |     |  -> restartExpiryTimer(tokenSet.accessTokenExpiresIn)
+  |     |  -> callback.complete(null)
+  |     |
+  |     NO: Has provisionedIdentity?
+  |           |
+  |           YES: [HAS IDENTITY, NEEDS TOKENS]
+  |           |  provisionedSignOn():
+  |           |    Check cache: remaining > 120s? Use cached.
+  |           |    Else: iamService.getAccessToken(
+  |           |      identity.clientId, identity.clientSecret,
+  |           |      identity.username, identity.password)
+  |           |      // grant_type=password
+  |           |    -> store provisionedTokenResponse in memory
+  |           |    -> compute absolute expiry: expiresIn + (now / 1000)
+  |           |    -> persistAccessTokens() to HSDPTokenSet
+  |           |    -> discoverServices()
+  |           |    -> restartExpiryTimer(expiresIn)
+  |           |    -> callback.complete(null)
+  |           |
+  |           NO: [BRAND NEW - full bootstrap]
+  |              1. bootstrapSignOn():
+  |              |    iamService.getAccessToken(
+  |              |      bootstrapCredentials.clientId,
+  |              |      bootstrapCredentials.clientSecret)
+  |              |    // grant_type=client_credentials
+  |              |
+  |              2. discoverServices():
+  |              |    GET {discoveryBasePath}/services
+  |              |    -> List<Service> with tag + url pairs
+  |              |    -> find "PRV" tag for provisioning URL
+  |              |
+  |              3. provision():
+  |              |    provisioningService.createIdentity(null, evidence)
+  |              |    // POST {provisioningUrl}/identity
+  |              |    -> returns: oauthClientId, oauthClientSecret,
+  |              |       loginId, password, hsdpId, identitySignature
+  |              |    -> all 6 must be non-null
+  |              |    -> configuration.persistIdentity(HSDPIdentity(...))
+  |              |
+  |              4. signOn(callback) // RECURSIVE: now has identity
+```
+
+#### C.13.4 Token Expiry Timer
+
+```
+restartExpiryTimer(expiresInSeconds):
+  if expiresInSeconds - 30 < 0:
+    -> TOKEN_EXPIRY_TOO_SHORT error to all listeners
+    -> DO NOT schedule timer
+    return
+
+  Cancel existing timer.
+  Schedule at: expiresInSeconds * 1000 ms
+
+  When timer fires:
+    if tokenSet available (persisted):
+      configuration.refreshAccessTokens()
+        // iamService.refreshAccessToken(refreshToken, clientId, clientSecret)
+        // grant_type=refresh_token
+    else:
+      provisionedSignOn() // full re-auth with username/password
+
+    On success: listeners.onAccessTokensRefreshed()
+      -> HSDPController: disconnect() + connect() with new tokens
+    On error: listeners.onAccessTokensRefreshError(error)
+      -> HSDPController: connectionStateListener.onConnectionError(AUTHENTICATION_FAILED)
+
+Constants:
+  ACCESS_TOKEN_CACHE_THRESHOLD_SECONDS = 120
+    // Don't re-fetch if >120s remaining in provisionedSignOn
+  ACCESS_TOKEN_INVALIDATION_WINDOW_SECONDS = 30
+    // Minimum time needed for timer to fire before expiry
+```
+
+#### C.13.5 How Tokens Are Used for MQTT
+
+```
+HSDPController.connect():
+  1. authentication.signOn() -> get tokens
+  2. createControlService():
+       Find "IOT" service from discovered services
+       Find URL starting with "wss://"
+       Parse: "wss://host/path?topic-prefix=prefix" -> endpoint + topicPrefix
+       factory.createControlServiceV1(hsdpId, endpoint, topicPrefix)
+  3. accessToken = authentication.getAccessToken()
+       // Priority: persisted tokenSet > in-memory provisionedTokenResponse
+  4. signedToken = authentication.getSignedToken()
+       // Same priority
+  5. controlServiceV1.connect(accessToken, signedToken, callback)
+       // MQTT WSS connect with accessToken + signedToken as auth
+```
+
+#### C.13.6 IAM Service API
+
+```
+POST {basePath}/authorize/oauth2/token
+
+  grant_type=client_credentials:
+    client_id, client_secret
+    -> TokenResponse (accessToken only, no signedToken)
+
+  grant_type=password:
+    client_id, client_secret, username, password
+    -> TokenResponse (accessToken, refreshToken, signedToken, expiresIn)
+
+  grant_type=refresh_token:
+    refresh_token, client_id, client_secret, scope (optional)
+    -> TokenResponse (new accessToken, refreshToken, signedToken, expiresIn)
+```
+
+#### C.13.7 Discovery and Provisioning APIs
+
+```
+Discovery:
+  GET {basePath}/services
+  -> List<Service> { tag: String, url: String }
+  Known tags: "PRV" (provisioning), "IOT" (MQTT control)
+
+Provisioning:
+  POST {basePath}/identity
+  Body: evidence map
+  -> Parameters { oauthClientId, oauthClientSecret,
+     loginId, password, hsdpId, identitySignature }
+```
+
+#### C.13.8 PassiveRefreshPolicy
+
+```
+PassiveRefreshPolicy holds tokens but NEVER auto-refreshes.
+refreshToken() always returns NO_REFRESH_TOKEN.
+
+HSDPAuthentication manages refresh manually via its own Timer.
+Constructor calls disableAutomaticRefresh():
+  factory.applyRefreshPolicy(new PassiveRefreshPolicy(), false)
+
+When returning user signs on:
+  factory.applyRefreshPolicy(policyWithTokens, overrideTokens=true)
+  All subsequent HTTP requests include the accessToken.
+```
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

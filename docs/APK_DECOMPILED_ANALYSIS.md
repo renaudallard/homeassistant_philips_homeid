@@ -5727,6 +5727,148 @@ When returning user signs on:
   All subsequent HTTP requests include the accessToken.
 ```
 
+### C.14 FUSION/DaConnect Token Exchange (SAS Tickets)
+
+This is the **separate** auth path for FUSION devices (newer cloud-relay). It does NOT use the Condor HSDP auth (C.13). Uses the DaConnect SDK with SAS token exchange.
+
+#### C.14.1 Flow Overview
+
+```
+1. Gigya CDC Login (email + OTP) -> Gigya accessToken + idToken
+
+2. SAS Token Exchange
+   POST {sasBackendUrl}/api/TokenExchange
+   Headers: Accept: application/vnd.oneka.v2.0+json
+            Content-Type: application/vnd.oneka.v2.0+json
+   Body: {"idToken": "<gigya_idToken>", "exchangeFor": "HSDP"}
+   Response: SasHsdpTokensResponse {
+     accessToken, refreshToken, signedToken,
+     idToken (SAS-issued JWT - used for MQTT),
+     expiresIn, tokenType, federationFlow
+   }
+
+3. MQTT Signature (cross-token: uses Gigya token, not SAS)
+   GET {iotApiUrl}/api/da/user/self/signature
+   Authorization: Bearer <gigya_accessToken>
+   Response: {"signature": "<mqtt_signature>"}
+
+4. MQTT WSS Connect
+   URL: wss://{mqttHost}:443/mqtt
+   Custom Authorizer:
+     token-header: <SAS idToken from step 2>
+     signature-header: <mqtt_signature from step 3>
+   Client ID: <SAS idToken 'sub' claim with @fed-... suffix STRIPPED>
+```
+
+#### C.14.2 SAS API (Retrofit)
+
+```java
+// SasApiService.java
+@Headers({"Accept: application/vnd.oneka.v2.0+json",
+          "Content-Type: application/vnd.oneka.v2.0+json"})
+@POST
+Call<SasHsdpTokensResponse> getHsdpTokenData(
+    @Url String url,    // "{sasBackendUrl}/api/TokenExchange"
+    @Body GetSasHsdpTokenDataRequest body
+);
+
+// GetSasHsdpTokenDataRequest.java
+{
+    @Json("idToken")     String idToken;      // Gigya idToken (input)
+    @Json("exchangeFor") String exchangeFor;  // Default: "HSDP"
+}
+```
+
+#### C.14.3 SAS Token Response (7 fields)
+
+```java
+// SasHsdpTokensResponse.java
+{
+    @Json("accessToken")    String accessToken;    // HSDP access token
+    @Json("refreshToken")   String refreshToken;   // HSDP refresh token
+    @Json("signedToken")    String signedToken;    // HSDP signed token
+    @Json("idToken")        String idToken;        // SAS idToken (HSDP JWT) <-- FOR MQTT
+    @Json("expiresIn")      Integer expiresIn;     // Seconds until expiry
+    @Json("tokenType")      String tokenType;      // "Bearer"
+    @Json("federationFlow") String federationFlow; // Federation flow type
+}
+```
+
+**Critical**: `idToken` in the RESPONSE is the SAS-issued JWT, NOT the Gigya idToken sent in the request. This SAS idToken authenticates the MQTT connection.
+
+#### C.14.4 Token Exchange Configuration
+
+```java
+// TokenExchangeType - configures which exchanges to perform
+{
+    @Json("hsdp") TokenExchangeData hsdp;  // HSDP exchange
+    @Json("di")   TokenExchangeData di;    // DI exchange
+}
+
+// TokenExchangeData - per-exchange config
+{
+    @Json("channel")        String channel;        // "FRONT_CHANNEL" or "BACK_CHANNEL"
+    @Json("federationFlow") String federationFlow;
+    @Json("url")            String url;            // Exchange endpoint URL
+    @Json("resourceId")     String resourceId;
+}
+```
+
+#### C.14.5 Signature Response
+
+```java
+// GET /api/da/user/self/signature (with Gigya Bearer token)
+{ @SerializedName("signature") String signature; }
+```
+
+#### C.14.6 WebSocket URL Construction
+
+```java
+// WebSocketUrl.java
+// Input: host = "a3qn2avkfnous7-ats.iot.eu-west-1.amazonaws.com"
+// Output: "wss://a3qn2avkfnous7-ats.iot.eu-west-1.amazonaws.com:443/mqtt"
+// Always port 443, always /mqtt path
+```
+
+#### C.14.7 MqttConnectionInfo
+
+```java
+// Bundles all MQTT credentials:
+{
+    String accessToken;        // SAS HSDP access token
+    String mqttSignature;      // From /api/da/user/self/signature
+    String tenant;             // HSDP tenant
+    WebSocketUrl webSocketUrl; // WSS endpoint
+}
+```
+
+#### C.14.8 SAS idToken for MQTT Client ID
+
+```
+SAS idToken 'sub' claim: "user123@fed-myphilipsonprod"
+
+For MQTT client ID: strip "@fed-..." suffix -> "user123"
+  If suffix included: CONNACK rc=2 "Identifier rejected"
+
+For MQTT token-header: use FULL SAS idToken JWT (don't strip anything)
+```
+
+#### C.14.9 Cross-Token Pattern
+
+```
+FUSION MQTT requires tokens from TWO sources:
+
+  Gigya CDC token -> used for:
+    - MQTT signature (GET /api/da/user/self/signature)
+    - DaConnect IoT REST API
+
+  SAS HSDP idToken (from /api/TokenExchange) -> used for:
+    - MQTT connect (token-header)
+
+Neither alone is sufficient. Gigya token rejected by Custom Authorizer.
+SAS token rejected by signature endpoint.
+```
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

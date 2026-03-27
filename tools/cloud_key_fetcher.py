@@ -499,7 +499,9 @@ def refresh_hsdp_tokens(refresh_token):
     return body
 
 
-def test_mqtt_connection(access_token, thing_name=None, custom_sig=None):
+def test_mqtt_connection(
+    access_token, thing_name=None, custom_sig=None, client_sub=None
+):
     """Test actual MQTT connection to AWS IoT."""
     import socket as _socket
     import struct as _struct
@@ -520,15 +522,18 @@ def test_mqtt_connection(access_token, thing_name=None, custom_sig=None):
             return False
         sig = body.get("signature", "")
 
-    # Decode sub for client ID. Keep FULL sub (including @fed-... suffix)
-    # because the Custom Authorizer validates client ID matches token sub.
-    # Use short hex suffix instead of UUID to stay under 128 char AWS IoT limit.
-    parts = access_token.split(".")
-    if len(parts) >= 2:
-        padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
-        sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
+    # Use provided sub, or decode from token, or fall back to "test"
+    if client_sub:
+        sub = client_sub
     else:
-        sub = "test"
+        parts = access_token.split(".")
+        if len(parts) >= 2:
+            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+            sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
+        else:
+            sub = "test"
+    # Strip @fed-... suffix (APK's UserId value class does this)
+    sub = sub.split("@")[0]
 
     client_id = f"{sub}_{secrets.token_hex(4)}"
     print(f"    Client ID: {client_id[:60]}... ({len(client_id)} chars)")
@@ -1047,7 +1052,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     # APK uses: token-header=Gigya access_token, signature from /user/self/signature
     # Client ID: {gigya_sub}_{short_hex} (APK strips @fed-... via UserId value class)
     print(f"\n  [APK flow: Gigya OIDC token + Gigya sig, sub={gigya_sub[:20]}...]")
-    test_mqtt_connection(access_token, custom_sig=gigya_sig)
+    test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
 
     # Test 2: APK flow with REFRESHED Gigya token
     # The APK's AppAuth refreshes tokens via grant_type=refresh_token.
@@ -1089,7 +1094,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
             if ref_sig:
                 print(f"  Refreshed signature: {len(ref_sig)} chars")
                 print("\n  [APK flow REFRESHED: Gigya refreshed token + refreshed sig]")
-                test_mqtt_connection(ref_at, custom_sig=ref_sig)
+                test_mqtt_connection(ref_at, custom_sig=ref_sig, client_sub=gigya_sub)
             else:
                 print(f"  Refreshed signature failed: HTTP {ref_sig_status}")
         else:
@@ -1151,7 +1156,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
 
     for label, tok, sig in extra_tests:
         print(f"\n  [{label}]")
-        test_mqtt_connection(tok, custom_sig=sig)
+        test_mqtt_connection(tok, custom_sig=sig, client_sub=gigya_sub)
 
     print_summary(homeid_appliances, iot_devices)
 

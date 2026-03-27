@@ -87,6 +87,7 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 74. [Appendix C: End-to-End Flows](#appendix-c-end-to-end-flows) (C.1-C.12j)
 75. [Appendix D: JADX Obfuscation Rosetta Stone](#appendix-d-jadx-obfuscation-rosetta-stone)
 76. [Appendix E: Gigya OIDC Authentication Flow](#appendix-e-gigya-oidc-authentication-flow)
+77. [Appendix F: Remaining Undocumented Classes](#appendix-f-remaining-undocumented-classes) (F.1-F.28)
 
 ---
 
@@ -6094,3 +6095,459 @@ client_id=-u6aTznrxp9_9e_0a57CpvEG
 | PhilipsUser | `ka/oneka/domain/philips_user/PhilipsUserImpl.java:521-527` |
 | AuthState | `net/openid/appauth/a.java` |
 | IoT API Base | `ka/oneka/backend/di/module/OthersApiModule.java:76` |
+
+---
+
+## Appendix F: Remaining Undocumented Classes
+
+These classes were not individually documented in the main sections because they contain no protocol logic, but they exist in the codebase and are listed here for completeness.
+
+### F.1 Port Properties Classes (Data-Only)
+
+Each port has a `*PortProperties` class that defines JSON field mappings via `@SerializedName`. They are all simple data holders with getters/setters. The port names and product IDs are documented in section 65.
+
+```java
+// BackendPortProperties.java (198 lines)
+// JSON fields for "backend" port. Contains backend server URLs,
+// connection status, cloud configuration. ~30 fields.
+
+// BleParamsPortProperties.java (89 lines)
+// JSON fields for "bleparams" port. BLE advertisement interval,
+// connection parameters, scan settings.
+
+// FacPortProperties.java (49 lines)
+// JSON fields for "fac" port. Factory test settings.
+
+// LocalePortProperties.java (28 lines)
+@SerializedName("locale") String locale;  // e.g., "en_US"
+
+// LogPortProperties.java (15 lines)
+// JSON fields for "log" port. Device log entries.
+
+// LogSettingsPortProperties.java (73 lines)
+// JSON fields for "logsettings" port. Log level, log destination,
+// log upload settings.
+
+// TimePortProperties.java (69 lines)
+@SerializedName("utc")  Long utc;       // Unix timestamp (seconds)
+@SerializedName("zone") String zone;    // Timezone (e.g., "Europe/Amsterdam")
+
+// TransportPortProperties.java (46 lines)
+// JSON fields for "transport" port. Transport layer status, protocol version.
+
+// WifiPortProperties.java (106 lines)
+@SerializedName("ssid")     String ssid;
+@SerializedName("password") String password;
+@SerializedName("security") String security;    // "WPA2", "OPEN", etc.
+@SerializedName("ciphers")  String ciphers;
+@SerializedName("ip")       String ipAddress;
+@SerializedName("gateway")  String gateway;
+@SerializedName("netmask")  String netmask;
+@SerializedName("dhcp")     Boolean dhcp;
+
+// WifiNetworksPortProperties.java (19 lines)
+// Contains list of WiFiNode from network scan.
+
+// WifiUiPortProperties.java (71 lines)
+// JSON fields for "wifiui" port. WiFi setup wizard state, progress, errors.
+```
+
+### F.2 IntegerPreservingMapParserKt
+
+Bridge between CondorPort and IntegerPreservingMapDeserializer. Used by `CondorPort.propertiesToMap()` to convert port properties to `Map<String, Object>` for PUT requests, preserving integers and filtering null values.
+
+```java
+// IntegerPreservingMapParserKt.java (50 lines)
+public static Map<String, Object> propertiesToMap(P properties, Type type, Gson gson) {
+    // 1. Serialize properties to JsonElement via gson.toJsonTree()
+    // 2. Create new Gson with IntegerPreservingMapDeserializer registered
+    // 3. Deserialize JsonElement to Map<String, Object>
+    // 4. Filter out null values via filterNotNullValues()
+    // Result: Map where integers stay as Integer (not Double) and nulls removed
+}
+
+public static Map<K, V> filterNotNullValues(Map<K, V> map) {
+    // Returns new map with all null-value entries removed
+}
+```
+
+### F.3 VerboseRunnable
+
+Wraps a Runnable to catch and log exceptions before re-throwing.
+
+```java
+// VerboseRunnable.java (31 lines)
+public class VerboseRunnable implements Runnable {
+    private final Runnable wrappedRunnable;
+
+    public void run() {
+        try {
+            wrappedRunnable.run();
+        } catch (Exception e) {
+            Logger.error(wrappedRunnable.getClass().getSimpleName(), e.getMessage());
+            throw e;  // Re-throw after logging
+        }
+    }
+}
+```
+
+### F.4 VerboseLinkedBlockingQueue and Listener
+
+Custom LinkedBlockingQueue that notifies a listener before `take()`. Used by VerboseExecutor.
+
+```java
+// VerboseLinkedBlockingQueue.java (21 lines)
+public class VerboseLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
+    private VerboseLinkedBlockingQueueListener listener;
+
+    public E take() throws InterruptedException {
+        if (listener != null) listener.onBeforeTake();
+        return super.take();
+    }
+}
+
+// VerboseLinkedBlockingQueueListener.java (6 lines)
+public interface VerboseLinkedBlockingQueueListener {
+    void onBeforeTake();  // Called before blocking on queue.take()
+}
+```
+
+### F.5 StateWaitException
+
+Exception thrown during firmware update when waiting for a state transition times out.
+
+```java
+// StateWaitException.java (12 lines)
+public class StateWaitException extends Exception {
+    public StateWaitException(String message) { super(message); }
+    public StateWaitException(Exception cause) { super(cause); }
+}
+```
+
+### F.6 WiFiNode
+
+Represents a single WiFi network from a device scan (used in WifiNetworksPortProperties).
+
+```java
+// WiFiNode.java (32 lines)
+public class WiFiNode {
+    @SerializedName("ssid")     String ssid;      // Network name
+    @SerializedName("channel")  String channel;    // WiFi channel
+    @SerializedName("quality")  Integer quality;   // Signal quality (0-100)
+    @SerializedName("security") String security;   // "WPA2", "OPEN", etc.
+}
+```
+
+### F.7 WifiNetworkPortResponseDeserializer
+
+Custom Gson deserializer for the WiFi networks endpoint. The device returns networks as a JSON object keyed by SSID; this deserializer converts it to a list of WiFiNode objects.
+
+```java
+// WifiNetworkPortResponseDeserializer.java (41 lines)
+// Input JSON:  {"MyNetwork": {"channel":"6","quality":80,"security":"WPA2"}, ...}
+// Output: WifiNetworksPortProperties containing List<WiFiNode>
+```
+
+### F.8 DiscoverInfo
+
+Data holder for discovered device information, used by CppDiscoverEventListener.
+
+```java
+// DiscoverInfo.java (50 lines)
+public class DiscoverInfo {
+    String cppId;
+    String ipAddress;
+    String deviceType;
+    String modelId;
+    String name;
+    long bootId;
+    String hsdpId;
+}
+```
+
+### F.9 NonSecureNetworkNodeDatabaseHelper
+
+SQLiteOpenHelper for the unencrypted `network_node.db` database.
+
+```java
+// NonSecureNetworkNodeDatabaseHelper.java (68 lines)
+public class NonSecureNetworkNodeDatabaseHelper extends SQLiteOpenHelper implements DatabaseHelper {
+    private static final String DB_NAME = "network_node.db";
+
+    public void onCreate(SQLiteDatabase db) {
+        db.execSQL(NetworkNodeDatabaseSchema.CREATE_NETWORK_NODE_TABLE);
+    }
+
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        for (String query : NetworkNodeDatabaseSchema.getUpgradeQuery(oldVersion, newVersion)) {
+            db.execSQL(query);
+        }
+    }
+
+    // Implements DatabaseHelper: insertRow, query, delete, close
+    // Uses db.insertWithOnConflict(..., CONFLICT_REPLACE) for upserts
+}
+```
+
+### F.10 NetworkNodeDatabaseFactory
+
+Creates NetworkNodeDatabase with secure or non-secure helper.
+
+```java
+// NetworkNodeDatabaseFactory.java (48 lines)
+public class NetworkNodeDatabaseFactory {
+    public static NetworkNodeDatabase create(RuntimeConfiguration config) {
+        DatabaseHelper helper = config.getSecureDatabaseHelper();
+        if (helper == null) {
+            helper = new NonSecureNetworkNodeDatabaseHelper(
+                ContextProvider.INSTANCE.a()  // Application context
+            );
+        }
+        return new NetworkNodeDatabase(helper);
+    }
+}
+```
+
+### F.11 NullApplianceDatabase
+
+No-op implementation of ApplianceDatabase. All methods are empty.
+
+```java
+// NullApplianceDatabase.java (21 lines)
+public class NullApplianceDatabase implements ApplianceDatabase {
+    public void save(Appliance appliance) {}
+    public void delete(Appliance appliance) {}
+    public void loadDataForAppliance(Appliance appliance) {}
+}
+```
+
+### F.12 ApplianceDatabase Interface
+
+```java
+// ApplianceDatabase.java (13 lines)
+public interface ApplianceDatabase {
+    void save(Appliance appliance);
+    void delete(Appliance appliance);
+    void loadDataForAppliance(Appliance appliance);
+}
+```
+
+### F.13 ContextProvider
+
+Android Application context singleton, used throughout the SDK for system service access.
+
+```java
+// connectivity/android/common/ContextProvider.java (1 file in this package)
+// Singleton that stores Application context
+// ContextProvider.INSTANCE.a() -> returns Context
+// ContextProvider.c() -> returns Context (alternate accessor)
+```
+
+### F.14 HandlerProvider
+
+```java
+// HandlerProvider.java (26 lines)
+public class HandlerProvider {
+    public static Handler createHandler() {
+        return new Handler(Looper.getMainLooper());
+    }
+    public static Handler createHandler(Looper looper) {
+        return new Handler(looper);
+    }
+}
+```
+
+### F.15 StrictModeConsts
+
+```java
+// StrictModeConsts.java (6 lines)
+public class StrictModeConsts {
+    public static final int THREAD_STATS_TAG = 4242;
+}
+// Used by RequestQueue and UdpReceivingThread for Android TrafficStats tagging
+```
+
+### F.16 GenericTagger Interface
+
+```java
+// GenericTagger.java (9 lines)
+// Deprecated interface for tagging network traffic (analytics)
+public interface GenericTagger {
+    void startTagging();
+    void stopTagging();
+}
+```
+
+### F.17 Base64Adapter
+
+Gson TypeAdapter for byte[] serialization.
+
+```java
+// Base64Adapter.java (30 lines)
+public class Base64Adapter implements JsonSerializer<byte[]>, JsonDeserializer<byte[]> {
+    // serialize: byte[] -> Base64 string (ByteUtil.encodeToBase64, flag NO_WRAP=2)
+    // deserialize: Base64 string -> byte[] (ByteUtil.decodeFromBase64, flag DEFAULT=0)
+}
+// Registered on CondorPort's custom Gson instance for byte[] fields
+```
+
+### F.18 Poller.Listener Interface
+
+```java
+// Defined inside Poller.java
+public interface Listener<P> {
+    void onEvent(P properties);  // Called with each successful poll result
+    void onTimedOut();           // Called when endTime is reached
+}
+```
+
+### F.19 FirmwareUpdateListener Interface (Complete)
+
+```java
+// FirmwareUpdateListener.java (33 lines)
+public interface FirmwareUpdateListener {
+    default void onFirmwareAvailable(String version) {}
+    default void onDownloadProgress(int bytesUploaded, int totalSize) {}
+    default void onDownloadFinished() {}
+    default void onDownloadFailed(FirmwareUpdateException e) {}
+    default void onCheckingProgress(int progress, int size) {}
+    default void onDeployFinished() {}
+    default void onDeployFailed(FirmwareUpdateException e) {}
+    default void onCancelFinished() {}
+    default void onCancelFailed() {}
+}
+```
+
+### F.20 FirmwareUpdateOperation Interface
+
+```java
+// FirmwareUpdateOperation.java (14 lines)
+public interface FirmwareUpdateOperation {
+    void start(long timeoutMs);
+    void deploy(long timeoutMs);
+    void cancel(long timeoutMs);
+    void finish();
+}
+```
+
+### F.21 RemoteRequestType Enum
+
+```java
+// RemoteRequestType.java (21 lines)
+public enum RemoteRequestType {
+    PUT_PROPS("PUTPROPS"),
+    GET_PROPS("GETPROPS"),
+    ADD_PROPS("ADDPROPS"),
+    DEL_PROPS("DELPROPS"),
+    SUBSCRIBE("SUBSCRIBE"),
+    UNSUBSCRIBE("UNSUBSCRIBE");
+
+    public final String mMethod;
+}
+// Note: this is separate from CondorOperation (which uses "PutProps" format).
+// RemoteRequestType uses uppercase "PUTPROPS" format.
+```
+
+### F.22 HSDPConfigurationKt
+
+Kotlin extension function file.
+
+```java
+// HSDPConfigurationKt.java (22 lines)
+public static String getHsdpIdentifier(HSDPConfiguration configuration) {
+    String custom = configuration.getCustomHsdpIdentifier();
+    if (custom != null) return custom;
+    HSDPIdentity identity = configuration.getProvisionedIdentity();
+    if (identity != null) return identity.getHsdpIdentifier();
+    return null;
+}
+// Priority: customHsdpIdentifier > provisionedIdentity.hsdpIdentifier
+```
+
+### F.23 HSDPControlPairingHandler Interface
+
+```java
+// HSDPControlPairingHandler.java (11 lines)
+public interface HSDPControlPairingHandler {
+    void performPair(HsdpPairingHandler.Callback callback);
+    void performUnpair(HsdpPairingHandler.Callback callback);
+}
+// Implemented by HSDPControlPairingHandlerImpl (section 70)
+```
+
+### F.24 PairingListener Interface
+
+```java
+// PairingListener.java (10 lines)
+public interface PairingListener {
+    void onPairingError(Error error);
+    void onPairingSucceeded();
+}
+```
+
+### F.25 HSDP Logger
+
+```java
+// hsdp/util/Logger.java (36 lines)
+public class Logger {
+    public static void debug(String tag, String msg)  { gw.c.b(tag, msg); }
+    public static void info(String tag, String msg)   { gw.c.e(tag, msg); }
+    public static void error(String tag, String msg)  { gw.c.c(tag, msg); }
+}
+// Thin wrapper over the obfuscated logging framework
+```
+
+### F.26 IOUtil
+
+```java
+// IOUtil.java (26 lines)
+public class IOUtil {
+    public static long copyStream(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[65536];  // 64KB buffer
+        long total = 0;
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+            total += read;
+        }
+        return total;
+    }
+}
+```
+
+### F.27 IPProvider
+
+```java
+// IPProvider.java (34 lines)
+public class IPProvider {
+    public String getLocalIpAddress() {
+        WifiManager wm = (WifiManager) context.getSystemService("wifi");
+        int ip = wm.getConnectionInfo().getIpAddress();
+        return String.format(Locale.US, "%d.%d.%d.%d",
+            ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
+    }
+}
+```
+
+### F.28 MulticastLockControlPoint
+
+```java
+// MulticastLockControlPoint.java (35 lines)
+public class MulticastLockControlPoint {
+    private WifiManager.MulticastLock multicastLock;
+
+    public boolean acquireMulticastLock() {
+        if (multicastLock == null) {
+            WifiManager wm = (WifiManager) context.getSystemService("wifi");
+            multicastLock = wm.createMulticastLock("CondorMulticastLock");
+            multicastLock.setReferenceCounted(true);
+        }
+        if (!multicastLock.isHeld()) multicastLock.acquire();
+        return multicastLock.isHeld();
+    }
+
+    public void releaseMulticastLock() {
+        if (multicastLock != null && multicastLock.isHeld()) multicastLock.release();
+    }
+}
+```

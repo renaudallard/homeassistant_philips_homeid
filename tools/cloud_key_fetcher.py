@@ -1143,16 +1143,27 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
                 elif isinstance(sas_resp, str):
                     print(f"    {sas_resp[:150]}")
 
-    # Test remaining combinations
+    # Test ALL remaining token+signature combinations
+    gigya_id = oidc_tokens.get("id_token", "") if oidc_tokens else ""
     extra_tests = []
+    # SAS accessToken combinations
     if sas_at and gigya_sig:
         extra_tests.append(("SAS accessToken + Gigya sig", sas_at, gigya_sig))
     if sas_at and sas_signed:
         extra_tests.append(("SAS accessToken + signedToken", sas_at, sas_signed))
+    # SAS idToken combinations
     if sas_id and gigya_sig:
         extra_tests.append(("SAS idToken + Gigya sig", sas_id, gigya_sig))
     if sas_id and sas_signed:
         extra_tests.append(("SAS idToken + signedToken", sas_id, sas_signed))
+    # Gigya token + signedToken (cross-token)
+    if sas_signed and gigya_sig:
+        extra_tests.append(("Gigya token + signedToken", access_token, sas_signed))
+    # Gigya id_token as token-header (doc line 6450: "idToken -> MQTT")
+    if gigya_id and gigya_sig:
+        extra_tests.append(("Gigya id_token + Gigya sig", gigya_id, gigya_sig))
+    if gigya_id and sas_signed:
+        extra_tests.append(("Gigya id_token + signedToken", gigya_id, sas_signed))
 
     for label, tok, sig in extra_tests:
         print(f"\n  [{label}]")

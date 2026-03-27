@@ -940,51 +940,60 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     print(f"\n  [APK flow: Gigya OIDC token + Gigya sig, sub={gigya_sub[:20]}...]")
     test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
 
-    # Test 2: APK flow with REFRESHED Gigya token
-    # The APK's AppAuth refreshes tokens via grant_type=refresh_token.
-    # Refreshed tokens may have different aud claim than initial tokens.
+    # Test 2+3: Refresh with BOTH client_ids
+    # Android HomeID uses client_id=-u6aTznrxp9_9e_0a57CpvEG
+    # iOS NutriU uses client_id=21e431131cb04a0eb56 (also HSDP client)
+    # The Custom Authorizer may only accept tokens for one of these
+    refresh_client_ids = [
+        ("-u6aTznrxp9_9e_0a57CpvEG", "HomeID"),
+        ("21e431131cb04a0eb56", "NutriU"),
+    ]
     if oidc_tokens and oidc_tokens.get("refresh_token"):
-        print("\n  Refreshing Gigya OIDC token...")
-        ref_status, ref_body = api_request(
-            "https://cdc.accounts.home.id/oidc/op/v1.0/4_JGZWlP8eQHpEqkvQElolbA/token",
-            data={
-                "client_id": "-u6aTznrxp9_9e_0a57CpvEG",
-                "grant_type": "refresh_token",
-                "refresh_token": oidc_tokens["refresh_token"],
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        if ref_status == 200 and isinstance(ref_body, dict):
-            ref_at = ref_body.get("access_token", "")
-            # Decode and show refreshed token claims
-            ref_parts = ref_at.split(".")
-            if len(ref_parts) >= 2:
-                ref_pad = ref_parts[1] + "=" * (4 - len(ref_parts[1]) % 4)
-                ref_claims = json.loads(base64.urlsafe_b64decode(ref_pad))
-                print(f"  Refreshed aud: {ref_claims.get('aud', 'NONE')}")
-                print(f"  Refreshed sub: {ref_claims.get('sub', 'NONE')}")
-
-            # Get fresh signature with refreshed token
-            ref_sig_status, ref_sig_body = api_request(
-                f"{IOT_BASE}/user/self/signature",
-                headers={
-                    "Authorization": f"Bearer {ref_at}",
-                    "Accept": "application/json",
+        for ref_cid, ref_label in refresh_client_ids:
+            print(f"\n  Refreshing with {ref_label} client_id={ref_cid}...")
+            ref_status, ref_body = api_request(
+                "https://cdc.accounts.home.id/oidc/op/v1.0/4_JGZWlP8eQHpEqkvQElolbA/token",
+                data={
+                    "client_id": ref_cid,
+                    "grant_type": "refresh_token",
+                    "refresh_token": oidc_tokens["refresh_token"],
                 },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
-            ref_sig = (
-                ref_sig_body.get("signature", "")
-                if isinstance(ref_sig_body, dict)
-                else ""
-            )
-            if ref_sig:
-                print(f"  Refreshed signature: {len(ref_sig)} chars")
-                print("\n  [APK flow REFRESHED: Gigya refreshed token + refreshed sig]")
-                test_mqtt_connection(ref_at, custom_sig=ref_sig, client_sub=gigya_sub)
+            if ref_status == 200 and isinstance(ref_body, dict):
+                ref_at = ref_body.get("access_token", "")
+                ref_parts = ref_at.split(".")
+                if len(ref_parts) >= 2:
+                    ref_pad = ref_parts[1] + "=" * (4 - len(ref_parts[1]) % 4)
+                    ref_claims = json.loads(base64.urlsafe_b64decode(ref_pad))
+                    print(f"  aud: {ref_claims.get('aud', 'NONE')}")
+                    print(f"  client_id: {ref_claims.get('client_id', 'NONE')}")
+                    print(f"  azp: {ref_claims.get('azp', 'NONE')}")
+
+                ref_sig_status, ref_sig_body = api_request(
+                    f"{IOT_BASE}/user/self/signature",
+                    headers={
+                        "Authorization": f"Bearer {ref_at}",
+                        "Accept": "application/json",
+                    },
+                )
+                ref_sig = (
+                    ref_sig_body.get("signature", "")
+                    if isinstance(ref_sig_body, dict)
+                    else ""
+                )
+                if ref_sig:
+                    print(f"  Signature: {len(ref_sig)} chars")
+                    print(f"\n  [Refreshed {ref_label} token + sig]")
+                    test_mqtt_connection(
+                        ref_at, custom_sig=ref_sig, client_sub=gigya_sub
+                    )
+                else:
+                    print(f"  Signature failed: HTTP {ref_sig_status}")
             else:
-                print(f"  Refreshed signature failed: HTTP {ref_sig_status}")
-        else:
-            print(f"  Gigya refresh failed: HTTP {ref_status}")
+                print(f"  Refresh failed: HTTP {ref_status}")
+                if isinstance(ref_body, dict):
+                    print(f"  {json.dumps(ref_body)[:150]}")
 
     # SAS token exchange - try multiple endpoints from doc
     sas_at = ""

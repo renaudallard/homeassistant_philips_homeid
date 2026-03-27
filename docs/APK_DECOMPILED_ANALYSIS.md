@@ -6294,6 +6294,38 @@ Try option 1 first (matching APK). If rejected, try option 2.
 
 ---
 
+**LIVE TEST RESULTS (2026-03-27, LucaTomei HD9285)**
+
+Test run v13 of `cloud_key_fetcher.py` tested ALL combinations.
+
+**Key observations:**
+1. **ALL 11 combinations rejected** with "WebSocket CLOSE (code=0)"
+   including the SAS idToken that previously got CONNACK rc=2
+2. **`aud` is an array, not a string:**
+   `['6FrQfddqSE4-_teIbXQNihK3', 'cwbz2ncRQMBxzObB0g8_6UcL',
+     'DyUXxsatp6MbAmiYX561d-B6', '-u6aTznrxp9_9e_0a57CpvEG']`
+   The Gigya OIDC token has 4 audience values, not just the client_id
+3. **NutriU refresh FAILS:** `HTTP 403 "invalid_client"`
+   Gigya OIDC refresh_tokens ARE bound to their client_id
+   (contradicts the doc's claim they are portable)
+4. **HSDP SSO didn't produce an auth code** (browser flow blocked)
+5. **Signature endpoint works fine** (HTTP 200, 684 chars) with Gigya token
+6. **SAS exchange works fine** (27ch accessToken, 344ch signedToken, 1478ch idToken)
+
+**Server-side change:** The Custom Authorizer now rejects at the
+WebSocket level (code=0) before even processing the MQTT CONNECT.
+Previously (2026-03-26), SAS idToken passed auth but got CONNACK rc=2.
+This suggests the Custom Authorizer configuration was updated.
+
+**Corrections to doc:**
+1. Gigya OIDC refresh_tokens ARE bound to their client_id (cannot
+   refresh with Nutriu client_id if token was issued to HomeID client)
+2. `aud` claim is an array of 4 values, not a single string
+3. The Custom Authorizer may have been rotated/updated since initial
+   testing, invalidating previous test results
+
+---
+
 **WHY PREVIOUS LIVE TESTING FAILED**
 
 Live testing (C.14.11) used OTP-derived Gigya tokens (`aud=None`).

@@ -86,6 +86,7 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 73. [Appendix B: Verification Corrections](#appendix-b-verification-corrections)
 74. [Appendix C: End-to-End Flows](#appendix-c-end-to-end-flows) (C.1-C.12j)
 75. [Appendix D: JADX Obfuscation Rosetta Stone](#appendix-d-jadx-obfuscation-rosetta-stone)
+76. [Appendix E: Gigya OIDC Authentication Flow](#appendix-e-gigya-oidc-authentication-flow)
 
 ---
 
@@ -5907,3 +5908,189 @@ HSDPCommunicationStrategy.unsubscribe("air", 1, handler)
   |     messenger.unregisterMessageListener(this)
   +-> Send UNSUBSCRIBE command via MQTT
 ```
+
+---
+
+## Appendix E: Gigya OIDC Authentication Flow
+
+This appendix documents the complete browser-based OAuth/OIDC flow used by the app to authenticate users and obtain tokens for cloud API access. This is the entry point for the SAS token exchange documented in C.14.
+
+### E.1 OAuth/OIDC Configuration
+
+#### Gigya CDC OIDC Provider
+
+| Parameter | Value |
+|-----------|-------|
+| **OIDC Issuer** | `https://cdc.accounts.home.id/oidc/op/v1.0/4_JGZWlP8eQHpEqkvQElolbA` |
+| **Authorization Endpoint** | `{issuer}/authorize` |
+| **Token Endpoint** | `{issuer}/token` |
+| **Discovery** | `{issuer}/.well-known/openid-configuration` |
+| **Gigya API Key** | `4_JGZWlP8eQHpEqkvQElolbA` |
+
+#### OAuth Client Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Client ID** | `-u6aTznrxp9_9e_0a57CpvEG` |
+| **Redirect URI** | `com.philips.ka.oneka.app.prod://oauthredirect` |
+| **Response Type** | `code` |
+| **Code Challenge Method** | `S256` (SHA-256 for PKCE) |
+
+#### OAuth Scopes
+
+```
+openid profile email offline_access
+DI.Account.read DI.AccountProfile.read DI.AccountProfile.write
+DI.AccountGeneralConsent.read DI.AccountGeneralConsent.write
+DI.GeneralConsent.read DI.GeneralConsent.write
+VoiceProvider.read VoiceProvider.write
+subscriptions consents profile_extended
+DI.AccountSubscription.write DI.AccountSubscription.read
+```
+
+Minimum required for device access: `openid profile email offline_access`
+
+#### Alternative Client (Nutriu/Alexa Integration)
+
+| Parameter | Value |
+|-----------|-------|
+| **Client ID** | `21e431131cb04a0eb56` |
+| **Client Secret** | `@@3f2.6lo21_2F61` |
+| **Redirect URI** | `com.philips.apps.nutriu.21e431131cb04a0eb56://oauthredirect` |
+
+### E.2 Authentication Flow Sequence
+
+```
+Step 1: OIDC DISCOVERY
+  GET {issuer}/.well-known/openid-configuration
+  -> authorization_endpoint, token_endpoint, userinfo_endpoint
+
+Step 2: AUTHORIZATION REQUEST (Browser)
+  GET {authorization_endpoint}
+    ?client_id=-u6aTznrxp9_9e_0a57CpvEG
+    &response_type=code
+    &redirect_uri=com.philips.ka.oneka.app.prod://oauthredirect
+    &scope=openid profile email offline_access
+    &state={random_state}
+    &code_challenge={SHA256(code_verifier)}
+    &code_challenge_method=S256
+    &ui_locales={locale}
+
+  User logs in and consents -> Redirect to:
+    com.philips.ka.oneka.app.prod://oauthredirect?code={auth_code}&state={state}
+
+Step 3: TOKEN EXCHANGE (Authorization Code -> OIDC Tokens)
+  POST {token_endpoint}
+  Content-Type: application/x-www-form-urlencoded
+
+    client_id=-u6aTznrxp9_9e_0a57CpvEG
+    &grant_type=authorization_code
+    &code={auth_code}
+    &redirect_uri=com.philips.ka.oneka.app.prod://oauthredirect
+    &code_verifier={code_verifier}
+
+  Response:
+    {
+      "access_token": "{OIDC_access_token}",
+      "id_token": "{OIDC_id_token}",
+      "refresh_token": "{OIDC_refresh_token}",
+      "token_type": "Bearer",
+      "expires_in": 300
+    }
+
+Step 4: SAS TOKEN EXCHANGE (OIDC Tokens -> HSDP Tokens)
+  POST https://www.home.id/api/sas/hsdp-token
+    (or https://www.backend.vbs.versuni.com/api/sls/hsdp/token)
+
+  Headers:
+    Authorization: Bearer {OIDC_access_token}
+    Accept: application/vnd.oneka.v2.0+json
+    Content-Type: application/vnd.oneka.v2.0+json
+
+  Body:
+    {"idToken": "{OIDC_id_token}", "exchangeFor": "HSDP"}
+
+  Response: SasHsdpTokensResponse (see C.14.3)
+
+Step 5: IOT API ACCESS
+  GET https://air.acc.eu-da.iot.versuni.com/api/user/self/device
+  Authorization: Bearer {HSDP_access_token}
+  -> List of user's devices with credentials
+```
+
+### E.3 Token Chain
+
+```
+Gigya OIDC Provider
+      |
+      v
+OIDC Tokens:
+  access_token  -> SAS API Authorization header
+  id_token      -> SAS API body (for exchange)
+  refresh_token -> Token refresh at token_endpoint
+      |
+      v  (SAS Token Exchange)
+HSDP Tokens:
+  accessToken   -> IoT API Authorization header
+  idToken       -> MQTT Custom Authorizer (see C.14)
+  signedToken   -> Some API calls
+  refreshToken  -> Token refresh
+```
+
+### E.4 Backend Service URLs
+
+| Service | URL |
+|---------|-----|
+| Backend API | `https://www.backend.vbs.versuni.com/api/` |
+| Home.ID API | `https://www.home.id/api/` |
+| Home.ID Web | `https://www.home.id/` |
+| DiDa Auth UI | `www.accounts.home.id/authui` |
+| HSDP IAM | `https://iam-service.eu-west.philips-healthsuite.com` |
+| HSDP IAM Token | `https://iam-service.eu-west.philips-healthsuite.com/authorize/oauth2/token` |
+| HSDP Discovery | `https://discovery.eu01.iot.hsdp.io/core/discovery` |
+| IoT API | `https://air.acc.eu-da.iot.versuni.com/api/` |
+| SAS Token Exchange | `https://www.home.id/api/sas/hsdp-token` |
+| SAS Token Exchange (alt) | `https://www.backend.vbs.versuni.com/api/sls/hsdp/token` |
+
+### E.5 SAS Token Exchange Details
+
+**Critical Requirements:**
+1. Authorization header MUST use OIDC `access_token` (NOT `id_token`)
+2. Body MUST contain OIDC `id_token` with valid `aud` claim
+3. `id_token` `aud` claim MUST NOT be null (tokens from `accounts.getJWT` have `aud=None` and are rejected)
+
+### E.6 Why OTP Flow Fails for Device Access
+
+The email OTP flow uses Gigya's `accounts.auth.otp.email.login` which:
+1. Returns a session token (not OIDC tokens)
+2. Using `accounts.getJWT` with this session produces tokens with `aud=None`
+3. The SAS API validates the `aud` claim and rejects tokens with null audience
+
+The OTP flow bypasses OAuth consent, so it cannot produce valid OIDC tokens that work with the SAS API. However, the OTP flow CAN list devices in the cloud - it just cannot retrieve credentials via the SAS/HSDP API.
+
+### E.7 Token Refresh
+
+```
+POST {token_endpoint}
+Content-Type: application/x-www-form-urlencoded
+
+client_id=-u6aTznrxp9_9e_0a57CpvEG
+&grant_type=refresh_token
+&refresh_token={OIDC_refresh_token}
+```
+
+### E.8 Source Files Reference
+
+| Component | File Path |
+|-----------|-----------|
+| OAuth Configuration | `ka/oneka/di/da/repository/DiDaRepository.java:1153` |
+| Scopes | `ka/oneka/di/da/constants/DiDaConstants.java:18` |
+| Backend Config | `ka/oneka/app/multimodule/backend/BackendConfigKt.java:22` |
+| SAS API Service | `ka/oneka/backend/other/SasApiService.java:16-18` |
+| SAS Auth Interceptor | `ka/oneka/backend/other/SasAuthorizationInterceptor.java:24-30` |
+| Token Request | `ka/oneka/backend/data/response/GetSasHsdpTokenDataRequest.java` |
+| Token Response | `ka/oneka/backend/data/response/SasHsdpTokensResponse.java` |
+| DiDa Bridge | `ka/oneka/di/da/DiDaBridgeImpl.java:155-168` |
+| PhilipsUser | `ka/oneka/domain/philips_user/PhilipsUserImpl.java:521-527` |
+| AuthState | `net/openid/appauth/a.java` |
+| IoT API Base | `ka/oneka/backend/di/module/OthersApiModule.java:76` |

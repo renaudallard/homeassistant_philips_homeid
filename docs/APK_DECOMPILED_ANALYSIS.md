@@ -6380,6 +6380,72 @@ not the Gigya sub claim.
 
 ---
 
+**FULL MQTT SHADOW GET CONFIRMED (2026-03-27, v15)**
+
+After CONNECT, subscribed to all 5 topics and published shadow get.
+Device shadow received successfully (819 bytes).
+
+**Subscribe topics (QoS 0):**
+```
+$aws/things/{thingName}/shadow/get/accepted
+$aws/things/{thingName}/shadow/update/accepted
+$aws/things/{thingName}/shadow/get/rejected
+$aws/things/{thingName}/shadow/update/rejected
+{tenant}_ctrl/{thingName}/from_ncp
+```
+
+**Publish topics (QoS 1):**
+```
+$aws/things/{thingName}/shadow/get          (request current state)
+$aws/things/{thingName}/shadow/update       (update device state)
+{tenant}_ctrl/{thingName}/to_ncp            (NCP port commands)
+```
+
+**Device shadow format (HD9285 in standby):**
+```json
+{
+  "state": {
+    "desired": {
+      "sub": 1
+    },
+    "reported": {
+      "ncpFirmwareVersion": "1.1.8",
+      "hostFirmwareVersion": "0.5.6",
+      "productState": "standby",
+      "productError": "0",
+      "powerOn": false,
+      "connected": true,
+      "timezones": {
+        "posix": "CET-1CEST,M3.5.0,M10.5.0/3",
+        "iana": "Europe/Rome"
+      },
+      "locale": "it-IT",
+      "fcRst": false,
+      "sub": 1
+    }
+  },
+  "metadata": {
+    "desired": { ... },
+    "reported": {
+      "ncpFirmwareVersion": { "timestamp": 1774633582 },
+      ...
+    }
+  },
+  "version": 190,
+  "timestamp": 1774642127
+}
+```
+
+**Shadow state vs local API state format:**
+- Shadow uses flat `state.reported.{property}` (e.g. `reported.productState`)
+- Local API uses nested `state.properties.airfryer.{property}`
+- Shadow properties observed in standby: `productState`, `powerOn`,
+  `connected`, `productError`, `ncpFirmwareVersion`, `hostFirmwareVersion`,
+  `timezones`, `locale`, `fcRst`, `sub`
+- More properties likely appear when cooking (temperature, time, etc.)
+
+---
+
 **TOKEN REFRESH GATE (FusionAuthenticationInitUseCaseImpl.e())**
 
 Before returning the access_token, the APK refreshes it if expired:

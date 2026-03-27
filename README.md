@@ -369,8 +369,8 @@ The integration automatically detects FUSION devices during setup. When a device
 - Uses your Philips account OIDC tokens (from cloud login) to authenticate with AWS IoT
 - Fetches MQTT userId from the IoT API (`/user/self/get-id`), matching the APK's client ID format
 - Connects via MQTT over WebSocket Secure (port 443), matching the official app's Java Paho handshake (no Origin header)
-- Receives device state updates in real-time via push notifications
-- Sends control commands via MQTT pub/sub
+- Receives device state via AWS IoT device shadow (subscribe + shadow get)
+- Sends control commands via MQTT pub/sub (shadow update + NCP port commands)
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)

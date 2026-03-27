@@ -84,7 +84,7 @@ This document provides a line-by-line annotated analysis of every relevant subsy
 71. [Remaining Port Properties and Utilities](#71-79-remaining-port-properties-and-utilities)
 72. [Appendix A: Complete File Inventory](#appendix-a-complete-file-inventory)
 73. [Appendix B: Verification Corrections](#appendix-b-verification-corrections)
-74. [Appendix C: End-to-End Flows](#appendix-c-end-to-end-flows)
+74. [Appendix C: End-to-End Flows](#appendix-c-end-to-end-flows) (C.1-C.12j)
 75. [Appendix D: JADX Obfuscation Rosetta Stone](#appendix-d-jadx-obfuscation-rosetta-stone)
 
 ---
@@ -5327,6 +5327,214 @@ PAIRING PATTERNS:
     Cannot compute evidence without clientSecret -> PAIRING FAILS
     User must factory reset device or use Android app to re-pair.
 ```
+
+### C.12a ExecMethod Wire Format
+
+**LAN ExecMethod** (via LanCommunicationStrategy.execMethod):
+```
+PUT https://{ip}/di/v1/products/{productId}/{portName}
+Authorization: PHILIPS-Condor <credentials>
+Content-Type: application/json
+
+{"Pair": ["control", "hsdpIdentifier123"]}
+```
+The method name is the JSON key, the params list is the value.
+
+**Response:**
+```json
+{"return": [0.0]}
+```
+The key is always `"return"`. The value is a list of return values. CondorPort.ExecMethodInfo parses this with `EXEC_METHOD_RESPONSE_KEY = "return"`.
+
+**HSDP ExecMethod** (via HSDPRemoteRequest):
+```json
+{
+  "condorVersion": "1",
+  "op": "ExecMethod",
+  "path": "0/pairing",
+  "values": {"Pair": ["control", "hsdpIdentifier123"]}
+}
+```
+Response comes as a `"notification"` MQTT message with the same `{"return": [...]}` structure inside `statusDetail.values`.
+
+### C.12b Subscription Event Path Matching
+
+When a subscription event arrives (UDP or MQTT), CondorPort checks if it's for this port:
+
+```java
+// pathMatchesMyPort(incomingPath):
+//   Match 1: incomingPath == getCondorPortName()
+//            e.g., "airfryer" == "airfryer"
+//   Match 2: incomingPath == getCondorProductId() + "/" + getCondorPortName()
+//            e.g., "1/airfryer" == "1/airfryer"
+//   Either match: process the event
+```
+
+This dual matching is necessary because UDP events send just the port name in the NOTIFY path, while MQTT ChangeIndication events use `productId/portName` format.
+
+### C.12c CondorPort Gson Configuration
+
+Each CondorPort creates a custom Gson instance:
+
+```java
+this.gson = GsonProvider.get()       // base: serializeNulls + disableHtmlEscaping
+    .newBuilder()
+    .registerTypeHierarchyAdapter(byte[].class, new Base64Adapter())
+    // Base64Adapter: serializes byte[] to base64 string, deserializes back
+    .create();
+```
+
+Additionally, `IntegerPreservingMapDeserializer` is registered on the base GsonProvider to prevent Gson's default behavior of converting all JSON numbers to Double (preserves `42` as Integer, not `42.0`).
+
+### C.12d Property Merge Algorithm (Exact Code)
+
+```java
+// CondorPort.propertiesFromJsonString(json):
+public P propertiesFromJsonString(String json) {
+    // Parse incoming JSON to JsonObject
+    JsonObject incoming = gson.fromJson(json, JsonObject.class);
+
+    // Get current cached properties as JsonObject
+    JsonObject existing = gson.toJsonTree(mCachedProperties, propertiesType).getAsJsonObject();
+
+    // Merge: for each key in incoming, overwrite in existing
+    // JsonObject.add() replaces the value if key exists, adds if not
+    for (String key : incoming.keySet()) {
+        JsonElement value = incoming.get(key);
+        if (!(value instanceof JsonNull)) {  // skip null values
+            existing.add(key, value);
+        }
+    }
+
+    // Deserialize merged JsonObject back to P
+    return gson.fromJson(existing, propertiesType);
+}
+```
+
+Example:
+```
+Cached:   {"temp": 180, "status": "cooking", "time": 600}
+Incoming: {"temp": 200, "cur_time": 295}
+Merged:   {"temp": 200, "status": "cooking", "time": 600, "cur_time": 295}
+// "temp" overwritten, "status"/"time" preserved, "cur_time" added
+```
+
+### C.12e LAN Subscribe: UDP Port Wiring
+
+```
+LanCommunicationStrategy.subscribe(portName, productId, ttl, handler):
+  |
+  +-> localSubscriptionHandler.enableSubscription(networkNode, listeners)
+  |     +-> UdpEventReceiver.startReceivingEvents(this)
+  |     +-> returns boundSubscriptionUdpPort (e.g., 8080)
+  |
+  +-> if boundSubscriptionUdpPort == -1:
+  |     handler.onError(NO_TRANSPORT_AVAILABLE, "Could not register UDP port")
+  |     return
+  |
+  +-> exchangeKeyIfNecessary(networkNode)
+  +-> createSubscribeRequest(portName, productId, ttl, udpPort, handler)
+  |     // SubscribeRequest builds: {"subscriber":"deadbeef...","ttl":300,"changeudp":8080}
+  |     // Also wraps handler to auto-retry on 401 (same as other requests)
+  |
+  +-> On FailedToInitUDPSocketException:
+        handler.onError(IOEXCEPTION, exception.getMessage())
+```
+
+### C.12f LAN Unsubscribe: UDP Thread Lifecycle
+
+```
+LanCommunicationStrategy.unsubscribe(portName, productId, handler):
+  |
+  +-> if subscriptionEventListeners.isEmpty():
+  |     // This was the last port subscribed via this strategy
+  |     localSubscriptionHandler.disableSubscription()
+  |       +-> UdpEventReceiver.stopReceivingEvents(this)
+  |             +-> Remove listener
+  |             +-> If no listeners left: stop UdpReceivingThread
+  |
+  +-> exchangeKeyIfNecessary(networkNode)
+  +-> DELETE /di/v1/products/{id}/{port} with {"subscriber":"deadbeef..."}
+```
+
+Multiple CondorPorts sharing the same LanCommunicationStrategy share one UDP thread. The thread only stops when ALL ports have unsubscribed.
+
+### C.12g CondorPort Callback Batching
+
+```
+If getProperties() is called 3 times while a request is already in flight:
+
+  Call 1: getProperties(callback_A)
+    -> getPropertiesCallbacks = [callback_A]
+    -> tryToPerformNextRequest() -> isRequestInProgress=true -> performGetProperties()
+       (HTTP request in flight...)
+
+  Call 2: getProperties(callback_B)
+    -> getPropertiesCallbacks = [callback_A, callback_B]
+    -> tryToPerformNextRequest() -> isRequestInProgress=true -> return (skip)
+
+  Call 3: getProperties(callback_C)
+    -> getPropertiesCallbacks = [callback_A, callback_B, callback_C]
+    -> tryToPerformNextRequest() -> isRequestInProgress=true -> return (skip)
+
+  HTTP response arrives:
+    -> flushGetPropertiesCallbacks(SuccessResult(data))
+       -> callback_A.accept(result)
+       -> callback_B.accept(result)  // ALL get the same response
+       -> callback_C.accept(result)
+    -> requestCompleted() -> isRequestInProgress=false
+    -> tryToPerformNextRequest()  // process next queued op (if any)
+```
+
+putProperties works differently: each call is queued individually (ConcurrentLinkedQueue), executed one by one in order.
+
+### C.12h Decryption Failure During Subscription
+
+```
+LocalSubscriptionHandler.onUDPEventReceived(data, portName, senderIP):
+  +-> crypto.decryptData(data) returns null (decryption failed)
+  +-> postSubscriptionEventDecryptionFailureOnUiThread(portName, listeners)
+        |
+        v [on main thread]
+      CondorPort.AnonymousClass1.onSubscriptionEventDecryptionFailed(portName):
+        +-> if pathMatchesMyPort(portName):
+              1. notifyPortSubscriptionListenersOnError(IOEXCEPTION, "decryption failed")
+              2. getProperties(callback)  // FULL RELOAD as fallback
+                   -> on success: notifyPortSubscriptionListenersOnUpdate()
+                   // This recovers the correct state after a decryption failure
+```
+
+### C.12i CondorPort Type Resolution
+
+```java
+// CondorPort resolves its generic type P at construction time:
+private Type determineCondorPortPropertiesType() {
+    // Walk up the class hierarchy
+    for (Class<?> cls = getClass(); cls != null; cls = cls.getSuperclass()) {
+        Type superclass = cls.getGenericSuperclass();
+        if (superclass instanceof ParameterizedType) {
+            Type[] typeArgs = ((ParameterizedType) superclass).getActualTypeArguments();
+            if (typeArgs.length > 0) return typeArgs[0];
+        }
+    }
+    return null; // -> throws IllegalArgumentException
+}
+// Example: DevicePort extends CondorPort<DevicePortProperties>
+//   -> propertiesType = DevicePortProperties.class
+//   -> All JSON deserialization uses this type
+```
+
+### C.12j Correction: processByteArrayToJsonString Does NOT Decrypt
+
+The doc previously implied LanCommunicationStrategy overrides `processByteArrayToJsonString()` to add AES decryption. This is **wrong**.
+
+Actual behavior:
+- `ObservableCommunicationStrategy.processByteArrayToJsonString(bytes)` just does `new String(bytes, UTF_8)` (plain UTF-8)
+- LanCommunicationStrategy does **NOT** override this method
+- AES decryption happens ONLY in `LocalSubscriptionHandler.onUDPEventReceived()` for subscription events
+- For HTTP responses, `LanRequest.execute()` reads the body as `response.body().string()` which is already a string
+- If the device encrypts HTTP responses, the body is a base64 string that needs decryption **before** being passed to `processResponse()`. This happens in the `ResponseHandler.onSuccess()` chain, not in `processByteArrayToJsonString()`
+- The `Crypto.decryptData()` listener triggers key re-exchange on failure
 
 ### C.12 HSDP Subscription (Cloud Push Events)
 

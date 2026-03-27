@@ -939,6 +939,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     # Client ID: {gigya_sub}_{short_hex} (APK strips @fed-... via UserId value class)
     print(f"\n  [APK flow: Gigya OIDC token + Gigya sig, sub={gigya_sub[:20]}...]")
     test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=gigya_sub)
+    time.sleep(3)
 
     # Test 2+3: Refresh with BOTH client_ids
     # Android HomeID uses client_id=-u6aTznrxp9_9e_0a57CpvEG
@@ -991,6 +992,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
                     test_mqtt_connection(
                         ref_at, custom_sig=ref_sig, client_sub=gigya_sub
                     )
+                    time.sleep(3)
                 else:
                     print(f"  Signature failed: HTTP {ref_sig_status}")
             else:
@@ -1101,6 +1103,7 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     for label, tok, sig, csub in extra_tests:
         print(f"\n  [{label}]")
         test_mqtt_connection(tok, custom_sig=sig, client_sub=csub)
+        time.sleep(3)  # Avoid rate limiting
 
     print_summary(homeid_appliances, iot_devices)
 

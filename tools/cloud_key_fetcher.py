@@ -945,19 +945,22 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
     # iOS NutriU uses client_id=21e431131cb04a0eb56 (also HSDP client)
     # The Custom Authorizer may only accept tokens for one of these
     refresh_client_ids = [
-        ("-u6aTznrxp9_9e_0a57CpvEG", "HomeID"),
-        ("21e431131cb04a0eb56", "NutriU"),
+        ("-u6aTznrxp9_9e_0a57CpvEG", "HomeID", None),
+        ("21e431131cb04a0eb56", "NutriU", "@@3f2.6lo21_2F61"),
     ]
     if oidc_tokens and oidc_tokens.get("refresh_token"):
-        for ref_cid, ref_label in refresh_client_ids:
+        for ref_cid, ref_label, ref_secret in refresh_client_ids:
             print(f"\n  Refreshing with {ref_label} client_id={ref_cid}...")
+            ref_data = {
+                "client_id": ref_cid,
+                "grant_type": "refresh_token",
+                "refresh_token": oidc_tokens["refresh_token"],
+            }
+            if ref_secret:
+                ref_data["client_secret"] = ref_secret
             ref_status, ref_body = api_request(
                 "https://cdc.accounts.home.id/oidc/op/v1.0/4_JGZWlP8eQHpEqkvQElolbA/token",
-                data={
-                    "client_id": ref_cid,
-                    "grant_type": "refresh_token",
-                    "refresh_token": oidc_tokens["refresh_token"],
-                },
+                data=ref_data,
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             if ref_status == 200 and isinstance(ref_body, dict):

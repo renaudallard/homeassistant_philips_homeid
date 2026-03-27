@@ -264,6 +264,19 @@ class PhilipsMQTTClient:
         )
         _LOGGER.debug("Requested shadow state for %s", self._device.thing_name)
 
+    def _request_port_data(self) -> None:
+        """Request port data via NCP getPort after connecting.
+
+        The shadow only has device-level state (powerOn, productState).
+        Airfryer-specific properties (status, temperature, time) come
+        from NCP port responses on the from_ncp topic.
+        """
+        # Known airfryer port names across models
+        port_names = ["airfryer", "venusaf", "venus1af", "nutrimax", "hermesac"]
+        for port in port_names:
+            self.send_port_command(port, command_name="getPort")
+        _LOGGER.debug("Requested port data for %s", self._device.thing_name)
+
     def set_power(self, power_on: bool) -> None:
         """Set device power via shadow update (APK UpdatePowerState)."""
         if not self._client or not self._connected:
@@ -350,8 +363,9 @@ class PhilipsMQTTClient:
                     client.subscribe(topic, qos=QOS_AT_MOST_ONCE)
                     _LOGGER.debug("Subscribed to %s", topic)
 
-            # Request initial state
+            # Request initial state (shadow + port data)
             self.request_state()
+            self._request_port_data()
         else:
             _LOGGER.error("MQTT CONNACK rejected: reason_code=%s", reason_code)
 

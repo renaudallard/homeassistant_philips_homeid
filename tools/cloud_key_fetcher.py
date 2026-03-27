@@ -647,39 +647,72 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name):
     }
     shadow_get_topic = f"$aws/things/{thing_name}/shadow/get"
 
+    to_ncp_topic = f"{tenant}_ctrl/{thing_name}/to_ncp"
+
     received = {}
-    done = threading.Event()
+    shadow_done = threading.Event()
+    ncp_done = threading.Event()
+
+    def _send_get_port(client, port_name):
+        """Send NCP getPort command for a specific port."""
+        cid = secrets.token_bytes(4).hex()
+        payload = json.dumps(
+            {
+                "cid": cid,
+                "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "type": "command",
+                "cn": "getPort",
+                "ct": "mobile",
+                "data": {"portName": port_name},
+            }
+        )
+        client.publish(to_ncp_topic, payload=payload, qos=1)
 
     def on_connect(client, userdata, flags, rc, properties=None):
         if rc != 0:
             print(f"    CONNACK rejected: rc={rc}")
-            done.set()
+            shadow_done.set()
+            ncp_done.set()
             return
         print(f"    Connected (client_id={client_id[:50]}...)")
         for name, topic in topics.items():
             client.subscribe(topic, qos=0)
             print(f"    Subscribed: {name}")
+        # Request shadow state
         print(f"    Publishing shadow get to {shadow_get_topic}")
         client.publish(shadow_get_topic, payload=b"", qos=1)
+        # Request port data via NCP
+        for port in ["airfryer", "venusaf", "venus1af", "nutrimax", "hermesac"]:
+            _send_get_port(client, port)
+        print("    Sent getPort for all known airfryer ports")
 
     def on_message(client, userdata, msg):
         print(f"    Received on {msg.topic} ({len(msg.payload)} bytes)")
-        received[msg.topic] = msg.payload
+        received[msg.topic] = received.get(msg.topic, [])
+        received[msg.topic].append(msg.payload)
         if msg.topic == topics["shadow_get_accepted"]:
             try:
                 shadow = json.loads(msg.payload)
                 print(json.dumps(shadow, indent=2)[:3000])
             except Exception:
                 print(f"    Raw: {msg.payload[:500]}")
-            done.set()
+            shadow_done.set()
         elif msg.topic == topics["shadow_get_rejected"]:
             print(f"    Shadow get rejected: {msg.payload[:500]}")
-            done.set()
+            shadow_done.set()
+        elif msg.topic == topics["from_ncp"]:
+            try:
+                ncp = json.loads(msg.payload)
+                print(f"    NCP response: {json.dumps(ncp, indent=2)[:2000]}")
+            except Exception:
+                print(f"    NCP raw: {msg.payload[:500]}")
+            ncp_done.set()
 
     def on_disconnect(client, userdata, flags, rc, properties=None):
-        if not done.is_set():
+        if not shadow_done.is_set():
             print(f"    Disconnected: rc={rc}")
-            done.set()
+            shadow_done.set()
+            ncp_done.set()
 
     auth_headers = {
         "x-amz-customauthorizer-name": "CustomAuthorizer",
@@ -710,8 +743,13 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name):
     try:
         client.connect(host, port=443, keepalive=30)
         client.loop_start()
-        if not done.wait(timeout=15):
+        shadow_done.wait(timeout=15)
+        if not shadow_done.is_set():
             print("    Timeout waiting for shadow response (15s)")
+        # Wait a bit more for NCP responses (device may be slow)
+        ncp_done.wait(timeout=5)
+        if not ncp_done.is_set():
+            print("    No NCP port response (device may not have active ports)")
         client.loop_stop()
         client.disconnect()
     except Exception as e:

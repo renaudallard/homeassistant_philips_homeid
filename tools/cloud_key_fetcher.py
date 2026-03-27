@@ -1029,31 +1029,66 @@ def fetch_credentials(email, oidc_tokens, access_token, iot_only=False):
                 elif isinstance(sas_resp, str):
                     print(f"    {sas_resp[:150]}")
 
+    # Get full SAS sub (with @fed-...) for alternate client ID tests
+    sas_full_sub = None
+    if sas_id:
+        sas_parts = sas_id.split(".")
+        if len(sas_parts) >= 2:
+            sas_pad = sas_parts[1] + "=" * (4 - len(sas_parts[1]) % 4)
+            sas_full_sub = json.loads(base64.urlsafe_b64decode(sas_pad)).get("sub")
+            if sas_full_sub:
+                print(
+                    f"\n  SAS full sub: {sas_full_sub[:50]}... ({len(sas_full_sub)} chars)"
+                )
+
     # Test ALL remaining token+signature combinations
     gigya_id = oidc_tokens.get("id_token", "") if oidc_tokens else ""
-    extra_tests = []
+    extra_tests = []  # (label, token, signature, client_sub)
     # SAS accessToken combinations
     if sas_at and gigya_sig:
-        extra_tests.append(("SAS accessToken + Gigya sig", sas_at, gigya_sig))
+        extra_tests.append(
+            ("SAS accessToken + Gigya sig", sas_at, gigya_sig, gigya_sub)
+        )
     if sas_at and sas_signed:
-        extra_tests.append(("SAS accessToken + signedToken", sas_at, sas_signed))
-    # SAS idToken combinations
+        extra_tests.append(
+            ("SAS accessToken + signedToken", sas_at, sas_signed, gigya_sub)
+        )
+    # SAS idToken with stripped sub
     if sas_id and gigya_sig:
-        extra_tests.append(("SAS idToken + Gigya sig", sas_id, gigya_sig))
+        extra_tests.append(
+            ("SAS idToken + Gigya sig (stripped sub)", sas_id, gigya_sig, gigya_sub)
+        )
     if sas_id and sas_signed:
-        extra_tests.append(("SAS idToken + signedToken", sas_id, sas_signed))
+        extra_tests.append(
+            ("SAS idToken + signedToken (stripped sub)", sas_id, sas_signed, gigya_sub)
+        )
+    # SAS idToken with FULL @fed-... sub (this got CONNACK rc=2 before)
+    if sas_id and sas_full_sub and gigya_sig:
+        extra_tests.append(
+            ("SAS idToken + Gigya sig (@fed sub)", sas_id, gigya_sig, sas_full_sub)
+        )
+    if sas_id and sas_full_sub and sas_signed:
+        extra_tests.append(
+            ("SAS idToken + signedToken (@fed sub)", sas_id, sas_signed, sas_full_sub)
+        )
     # Gigya token + signedToken (cross-token)
-    if sas_signed and gigya_sig:
-        extra_tests.append(("Gigya token + signedToken", access_token, sas_signed))
-    # Gigya id_token as token-header (doc line 6450: "idToken -> MQTT")
+    if sas_signed:
+        extra_tests.append(
+            ("Gigya token + signedToken", access_token, sas_signed, gigya_sub)
+        )
+    # Gigya id_token as token-header
     if gigya_id and gigya_sig:
-        extra_tests.append(("Gigya id_token + Gigya sig", gigya_id, gigya_sig))
+        extra_tests.append(
+            ("Gigya id_token + Gigya sig", gigya_id, gigya_sig, gigya_sub)
+        )
     if gigya_id and sas_signed:
-        extra_tests.append(("Gigya id_token + signedToken", gigya_id, sas_signed))
+        extra_tests.append(
+            ("Gigya id_token + signedToken", gigya_id, sas_signed, gigya_sub)
+        )
 
-    for label, tok, sig in extra_tests:
+    for label, tok, sig, csub in extra_tests:
         print(f"\n  [{label}]")
-        test_mqtt_connection(tok, custom_sig=sig, client_sub=gigya_sub)
+        test_mqtt_connection(tok, custom_sig=sig, client_sub=csub)
 
     print_summary(homeid_appliances, iot_devices)
 

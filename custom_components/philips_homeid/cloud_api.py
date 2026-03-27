@@ -81,7 +81,7 @@ OAUTH_SCOPES = (
     "DI.AccountGeneralConsent.read DI.AccountGeneralConsent.write "
     "DI.GeneralConsent.read DI.GeneralConsent.write "
     "VoiceProvider.read VoiceProvider.write "
-    "subscriptions consents profile_extended "
+    "subscriptions consent profile_extended "
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 

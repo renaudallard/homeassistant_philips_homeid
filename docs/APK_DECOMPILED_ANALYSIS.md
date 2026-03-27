@@ -6068,6 +6068,168 @@ m.i(payload)  = setPayload(byte[])
 m.c()         = getPayload()
 ```
 
+**7. Topic construction source code** (from `fv/c.java` and `fv/b.java`):
+
+Subscribe topics are built by `fv.c.Companion.a(tenant, thingName)`:
+```java
+// fv/c.java - subscribe topic enum
+DEVICE_SHADOW_BASE_PATH = "$aws/things/";
+ARCH_DEVICE_CTRL_PATH_PART = "_ctrl/";
+
+GET_ACCEPTED    = ending: "/shadow/get/accepted"     QoS: AT_MOST_ONCE (0)
+UPDATE_ACCEPTED = ending: "/shadow/update/accepted"  QoS: AT_MOST_ONCE (0)
+GET_REJECTED    = ending: "/shadow/get/rejected"     QoS: AT_MOST_ONCE (0)
+UPDATE_REJECTED = ending: "/shadow/update/rejected"  QoS: AT_MOST_ONCE (0)
+FROM_NCP        = ending: "/from_ncp"                QoS: AT_MOST_ONCE (0)
+
+// Companion.a(tenant, thingName) builds the topic map:
+// Shadow topics: "$aws/things/" + thingName + ending
+// NCP topic:     tenant + "_ctrl/" + thingName + ending
+```
+
+Publish topics are built by `gv/a.java` (ControlCommand interface):
+```java
+// gv/a.java - getShadowTopic()
+default String getShadowTopic() {
+    return "$aws/things/" + getRemoteControlInfo().getThingName() + getTopicPublish().getEnding();
+}
+// QoS: AT_LEAST_ONCE (1) for shadow commands
+
+// fv/b.java - publish topic enum
+UPDATE = ending: "/shadow/update"
+GET    = ending: "/shadow/get"
+```
+
+NCP port command publish topic (from `RemotePortCommand.java`):
+```java
+// RemotePortCommand.java
+PATH_CTRL = "_ctrl/";
+PATH_TO_NCP = "/to_ncp";
+this.topicPublish = PATH_CTRL + remoteControlInfo.getThingName() + PATH_TO_NCP;
+// "_ctrl/{thingName}/to_ncp"
+
+// In DaMqttClientImpl line 238, tenant is prepended:
+String fullTopic = fusionConfiguration.getTenant() + remotePortCommand.getTopicPublish();
+// "{tenant}_ctrl/{thingName}/to_ncp"
+```
+
+**8. DaMqttClientImpl constants** (all from lines 59-94):
+```java
+APPLICATION_JSON = "application/json"
+BEARER = "Bearer"
+CUSTOM_AUTHORIZER = "CustomAuthorizer"
+DEFAULT_TEMP_SERVER_URI = "wss://localhost.com"
+HEADER_CONTENT_TYPE = "content-type"
+HEADER_CUSTOM_AUTHORIZER_NAME = "x-amz-customauthorizer-name"
+HEADER_CUSTOM_AUTHORIZER_SIGNATURE = "x-amz-customauthorizer-signature"
+HEADER_TENANT = "tenant"
+HEADER_TOKEN_HEADER = "token-header"
+MQTT_CONNECTION_KEEP_ALIVE_SECONDS = 30
+MQTT_CONNECTION_TIMEOUT_SECONDS = 10
+MQTT_PUBLISH_COMMAND_TIMEOUT = 10
+MQTT_QUIESCE_TIMEOUT = 200
+MQTT_TIME_TO_WAIT_MILLISECONDS = 10000
+WAIT_TIME_ON_CONNECTIVITY_CHANGE = 800
+```
+
+**9. createMqttConnectOptions exact code** (lines 751-766):
+```java
+public MqttConnectOptions createMqttConnectOptions(MqttConnectionInfo info) {
+    MqttConnectOptions opts = new MqttConnectOptions();
+    Properties props = new Properties();
+    props.setProperty("x-amz-customauthorizer-name",      "CustomAuthorizer");
+    props.setProperty("x-amz-customauthorizer-signature", info.getMqttSignature());
+    props.setProperty("token-header",                     "Bearer " + info.getAccessToken());
+    props.setProperty("content-type",                     "application/json");
+    props.setProperty("tenant",                           info.getTenant());
+    opts.setCustomWebSocketHeaders(props);  // j.v(props)
+    opts.setConnectionTimeout(10);          // j.u(10)
+    opts.setCleanSession(false);            // j.s(false)
+    opts.setKeepAliveInterval(30);          // j.w(30)
+    opts.setAutomaticReconnect(true);       // j.t(true)
+    opts.setServerURIs(new String[]{info.getWebSocketUrl().getUrl()});  // j.y(...)
+    return opts;
+}
+```
+
+**10. MqttClient creation exact code** (lines 967-971):
+```java
+// Client ID construction:
+String clientId = credentialsProvider.getUserId()   // federated user ID (sans @fed-...)
+    .blockingGet()                                  // RxJava blocking call
+    .unbox()                                        // extract String from UserId value class
+    + "_" + UUID.randomUUID();                      // append random UUID
+
+// Client creation:
+MqttAsyncClient client = new MqttAsyncClient(
+    "wss://localhost.com",  // placeholder URI (overridden by serverURIs in connectOptions)
+    clientId,               // "{userId}_{UUID}"
+    new MemoryPersistence() // in-memory message persistence
+);
+client.setTimeToWait(10000L);  // 10 second timeout for synchronous operations
+```
+
+**11. bindSubjectToDeviceTopics exact code** (lines 709-732):
+```java
+// Called after MQTT connect for each device:
+void bindSubjectToDeviceTopics(String thingName, Subject<DaMqttMessage> subject, MqttAsyncClient client) {
+    FusionConfiguration config = fusionConfigurationRef.get();
+    String tenant = config.getTenant();
+
+    // Build topic -> QoS map (5 subscriptions):
+    Map<String, Integer> topicMap = TopicEnum.Companion.a(tenant, thingName);
+    // Returns:
+    //   "$aws/things/{thingName}/shadow/get/accepted"    -> 0
+    //   "$aws/things/{thingName}/shadow/update/accepted"  -> 0
+    //   "$aws/things/{thingName}/shadow/get/rejected"     -> 0
+    //   "$aws/things/{thingName}/shadow/update/rejected"  -> 0
+    //   "{tenant}_ctrl/{thingName}/from_ncp"              -> 0
+
+    String[] topics = topicMap.keySet().toArray(new String[0]);
+    int[] qosValues = toIntArray(topicMap.values().toArray(new Integer[0]));
+
+    // Create per-topic message listeners
+    IMqttMessageListener[] listeners = new IMqttMessageListener[topics.length];
+    for (int i = 0; i < topics.length; i++) {
+        listeners[i] = (topic, message) -> {
+            subject.onNext(new DaMqttMessage(topic, message.toString()));
+        };
+    }
+
+    // Subscribe to all 5 topics at once
+    client.subscribe(topics, qosValues, listeners);  // h.B(topics, qos, listeners)
+}
+```
+
+**12. CRITICAL CORRECTION to previous testing (C.14.11)**
+
+The APK uses `info.getAccessToken()` (the 27-char opaque SAS accessToken) in the `token-header`, NOT `info.getIdToken()` (the 1478-char JWT). Previous live testing used the idToken which passed the Custom Authorizer but got CONNACK rc=2 "Identifier rejected".
+
+The correction is: `token-header: Bearer {SAS_accessToken}` where SAS_accessToken is the short opaque token from the SAS `/api/TokenExchange` response field `"accessToken"` (27 chars), NOT the `"idToken"` field (1478 chars).
+
+Both may pass the Custom Authorizer, but the APK uses accessToken. The client ID rejection (rc=2) may be caused by the Custom Authorizer deriving a different client ID from the idToken vs accessToken, causing a mismatch with the provided client ID.
+
+**13. Two separate MQTT paths in the APK**
+
+The APK has TWO completely different MQTT implementations:
+
+| | HSDP Condor (older) | DaConnect FUSION (newer) |
+|--|---------------------|------------------------|
+| **Class** | `hsdpclient/mqtt/MqttClientImpl` | `cl/daconnect/device_control/mqtt/DaMqttClientImpl` |
+| **Auth tokens** | accessToken + signedToken from IAM | accessToken + mqttSignature from SAS |
+| **Token header name** | `"AuthorizationToken"` (custom) | `"token-header"` (standard) |
+| **Token header value** | `accessToken` | `"Bearer " + accessToken` |
+| **Signature header** | `x-amz-customauthorizer-signature` = `signedToken` | `x-amz-customauthorizer-signature` = `mqttSignature` |
+| **Custom authorizer** | Not set in headers | `x-amz-customauthorizer-name: CustomAuthorizer` |
+| **Additional headers** | None | `content-type: application/json`, `tenant: {tenant}` |
+| **Topics** | `{topicBase}/crl/things/{hsdpId}/cmd/...` | `$aws/things/{thingName}/shadow/...` + `{tenant}_ctrl/{thingName}/...` |
+| **Client ID** | `hsdpId` | `{userId}_{UUID}` |
+| **cleanSession** | Not set (default true) | `false` |
+| **Used for** | Legacy HSDP devices | FUSION devices |
+
+FUSION devices use the DaConnect path. The HSDP Condor path is for older devices registered in the HSDP cloud.
+```
+
 ### C.12 HSDP Subscription (Cloud Push Events)
 
 ```

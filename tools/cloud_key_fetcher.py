@@ -411,6 +411,7 @@ def test_mqtt_connection(
 
     # Use provided sub, or decode from token, or fall back to "test"
     if client_sub:
+        # Use exactly as provided (caller decides whether to strip @fed-...)
         sub = client_sub
     else:
         parts = access_token.split(".")
@@ -419,8 +420,8 @@ def test_mqtt_connection(
             sub = json.loads(base64.urlsafe_b64decode(padded)).get("sub", "test")
         else:
             sub = "test"
-    # Strip @fed-... suffix (APK's UserId value class does this)
-    sub = sub.split("@")[0]
+        # Strip @fed-... suffix when auto-decoded (APK's UserId does this)
+        sub = sub.split("@")[0]
 
     client_id = f"{sub}_{secrets.token_hex(4)}"
     print(f"    Client ID: {client_id[:60]}... ({len(client_id)} chars)")

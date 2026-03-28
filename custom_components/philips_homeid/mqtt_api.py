@@ -120,6 +120,7 @@ class PhilipsMQTTClient:
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
         self._lock = threading.Lock()
+        self._discovered_ports: list[str] = []  # NCP port names from getAllPorts
 
         # Build topic names
         tn = device.thing_name
@@ -297,6 +298,20 @@ class PhilipsMQTTClient:
         """
         self.send_port_command("", command_name="getAllPorts")
         _LOGGER.debug("Sent getAllPorts for %s", self._device.thing_name)
+
+    def refresh_port_data(self) -> None:
+        """Re-request data from previously discovered ports.
+
+        Uses cached port names from the last getAllPorts response.
+        If no ports discovered yet, sends getAllPorts to discover them.
+        """
+        if not self._client or not self._connected:
+            return
+        if self._discovered_ports:
+            for pname in self._discovered_ports:
+                self.send_port_command(pname, command_name="getPort")
+        else:
+            self._request_port_data()
 
     def set_power(self, power_on: bool) -> None:
         """Set device power via shadow update (APK UpdatePowerState)."""
@@ -513,11 +528,18 @@ class PhilipsMQTTClient:
         if command == "getAllPorts" and status == 0:
             ports_data = payload.get("data", [])
             if isinstance(ports_data, list):
+                read_ports = []
                 for p in ports_data:
-                    pname = p.get("portName", "") if isinstance(p, dict) else ""
-                    if pname:
-                        _LOGGER.info("Discovered NCP port: %s", pname)
-                        self.send_port_command(pname, command_name="getPort")
+                    if not isinstance(p, dict):
+                        continue
+                    pname = p.get("portName", "")
+                    direction = p.get("direction", "")
+                    if pname and direction == "read":
+                        read_ports.append(pname)
+                        _LOGGER.info("Discovered NCP read port: %s", pname)
+                self._discovered_ports = read_ports
+                for pname in read_ports:
+                    self.send_port_command(pname, command_name="getPort")
             return
 
         if status is not None and status != 0:

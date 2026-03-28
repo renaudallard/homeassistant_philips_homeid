@@ -159,11 +159,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return await self._async_update_data_local()
 
     async def _async_update_data_fusion(self) -> LocalDeviceState | None:
-        """Heartbeat poll for FUSION devices via MQTT shadow request."""
+        """Heartbeat poll for FUSION devices via MQTT."""
         assert self.mqtt_client is not None
         try:
             if self.mqtt_client.connected:
                 await self.hass.async_add_executor_job(self.mqtt_client.request_state)
+                await self.hass.async_add_executor_job(
+                    self.mqtt_client.refresh_port_data
+                )
             else:
                 _LOGGER.warning("MQTT not connected for heartbeat")
         except Exception as err:

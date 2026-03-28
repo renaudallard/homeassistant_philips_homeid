@@ -6442,7 +6442,82 @@ $aws/things/{thingName}/shadow/update       (update device state)
 - Shadow properties observed in standby: `productState`, `powerOn`,
   `connected`, `productError`, `ncpFirmwareVersion`, `hostFirmwareVersion`,
   `timezones`, `locale`, `fcRst`, `sub`
-- More properties likely appear when cooking (temperature, time, etc.)
+- Cooking properties come from NCP port commands, not shadow (see below)
+
+---
+
+**NCP PORT DISCOVERY (2026-03-28, HD9285)**
+
+`getAllPorts` returned 7 ports:
+```
+push_c      (write)
+recipe_c    (write)
+UserServer  (write)
+UserClient  (write)
+Status      (read)   ← main airfryer status port
+Control     (write)
+Config      (read)
+```
+
+NCP port names differ from local HTTP API port names:
+```
+NCP "Status"  → local API "airfryer"
+NCP "Control" → local API "control"
+NCP "Config"  → local API "config"
+```
+
+`getPort` for "Status" returned (device in standby):
+```json
+{
+  "portName": "Status",
+  "properties": {
+    "status": "standby",
+    "prev_stat": "pause",
+    "temp": 180,
+    "time": 60,
+    "cur_time": 60,
+    "error": 0,
+    "preset": 0,
+    "drw_opn": false,
+    "temp_unit": false,
+    "shk_rm_act": false,
+    "recipe_id": "",
+    "step_id": "",
+    "SesOwnId": 0,
+    "timestamp": ""
+  }
+}
+```
+
+NCP property names vs local HTTP API:
+```
+NCP "drw_opn"    → local "drawer_open"
+NCP "shk_rm_act" → local "shake"
+NCP "prev_stat"  → local "prev_status"
+NCP "temp_unit"  → no local equivalent
+NCP "SesOwnId"   → no local equivalent
+NCP "timestamp"  → no local equivalent
+```
+
+Properties with same name in both NCP and local API:
+`status`, `temp`, `time`, `cur_time`, `error`, `preset`, `recipe_id`, `step_id`
+
+NCP status codes (from NcpStatusCode.java):
+```
+ 0 = OK
+ 1 = Device busy (retry)
+ 2 = JSON error
+ 3 = correlationId error
+ 4 = client type error
+ 5 = time error
+ 6 = message type error
+ 7 = command name error
+ 8 = port error (missing, invalid, or missing property)
+ 9 = writing to read-only port
+10 = reading from write-only port
+11 = serialization error
+12 = MQTT error
+```
 
 ---
 

@@ -43,6 +43,25 @@ import paho.mqtt.client as mqtt
 
 from .local_api import LocalDeviceInfo, LocalDeviceState
 
+# NCP port name → local API port name (entities use local API names)
+_NCP_PORT_MAP: dict[str, str] = {
+    "Status": "airfryer",
+    "Config": "config",
+    "Control": "control",
+}
+
+# NCP property name → local API property name
+# NCP (FUSION MQTT) uses different keys than the local HTTP API.
+_NCP_PROPERTY_MAP: dict[str, str] = {
+    "drw_opn": "drawer_open",
+    "shk_rm_act": "shake",
+    "prev_stat": "prev_status",
+}
+
+# Reverse maps for sending commands (local API names → NCP names)
+_LOCAL_PORT_MAP: dict[str, str] = {v: k for k, v in _NCP_PORT_MAP.items()}
+_LOCAL_PROPERTY_MAP: dict[str, str] = {v: k for k, v in _NCP_PROPERTY_MAP.items()}
+
 _LOGGER = logging.getLogger(__name__)
 
 # MQTT connection settings (from APK DaMqttClientImpl)
@@ -311,9 +330,15 @@ class PhilipsMQTTClient:
 
         data: dict[str, Any] | None = None
         if port_name:
-            data = {"portName": port_name}
+            # Map local API port name to NCP port name
+            ncp_port = _LOCAL_PORT_MAP.get(port_name, port_name)
+            data = {"portName": ncp_port}
             if properties:
-                data["properties"] = properties
+                # Map local API property names to NCP names
+                ncp_props: dict[str, Any] = {}
+                for k, v in properties.items():
+                    ncp_props[_LOCAL_PROPERTY_MAP.get(k, k)] = v
+                data["properties"] = ncp_props
         # CID: APK uses 8-char hex (32-bit random, byte-reversed)
         cid = secrets.token_bytes(4).hex()
         payload: dict[str, Any] = {
@@ -500,12 +525,24 @@ class PhilipsMQTTClient:
             return
 
         data = payload.get("data", {})
-        port_name = data.get("portName", "") if isinstance(data, dict) else ""
+        ncp_port = data.get("portName", "") if isinstance(data, dict) else ""
         properties = data.get("properties", {}) if isinstance(data, dict) else {}
 
-        if not port_name or not properties:
+        if not ncp_port or not properties:
             _LOGGER.debug("NCP message without port/properties: %s", payload)
             return
+
+        # Map NCP port name to local API port name
+        port_name = _NCP_PORT_MAP.get(ncp_port, ncp_port)
+
+        # Normalize NCP property names to local API names
+        for ncp_key, local_key in _NCP_PROPERTY_MAP.items():
+            if ncp_key in properties and local_key not in properties:
+                properties[local_key] = properties[ncp_key]
+
+        _LOGGER.debug(
+            "NCP port %s -> %s: %s", ncp_port, port_name, list(properties.keys())
+        )
 
         device_info = LocalDeviceInfo(
             ip_address="",
@@ -524,9 +561,15 @@ class PhilipsMQTTClient:
             self._state.connection_state = "connected"
 
             # Update power state from airfryer status
-            if port_name in ("airfryer", "venusaf", "venus1af", "nutrimax", "hermesac"):
-                status = properties.get("status", "")
-                self._state.power_on = status in (
+            if port_name in (
+                "airfryer",
+                "venusaf",
+                "venus1af",
+                "nutrimax",
+                "hermesac",
+            ):
+                port_status = properties.get("status", "")
+                self._state.power_on = port_status in (
                     "cooking",
                     "pause",
                     "setting",

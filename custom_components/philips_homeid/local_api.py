@@ -378,6 +378,12 @@ class PhilipsLocalAPI:
         "total_time": "time",
         "method": "preset",
         "current_temp": "cur_temp",
+        # Venus abbreviated boolean property names
+        # (from APK VenusStatusPortProperties @SerializedName)
+        "probe_unpl": "probe_unplugged",
+        "probe_rqrd": "probe_required",
+        "drw_opn": "drawer_open",
+        "prev_stat": "prev_status",
     }
     _SPECTRE_KEY_MAP = {v: k for k, v in _VENUS_KEY_MAP.items()}
 

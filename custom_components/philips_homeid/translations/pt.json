@@ -1,0 +1,445 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "A instalar temporariamente o navegador Playwright para autenticacao cloud. Pode demorar alguns minutos..."
+    },
+    "step": {
+      "user": {
+        "title": "Introduzir IP do dispositivo",
+        "description": "Introduza o endereco IP do seu dispositivo Philips.",
+        "data": {
+          "host": "Endereco IP",
+          "model": "Modelo"
+        }
+      },
+      "manual_host": {
+        "title": "Introduzir IP do dispositivo",
+        "description": "Introduza o endereco IP do seu dispositivo Philips.",
+        "data": {
+          "host": "Endereco IP",
+          "model": "Modelo"
+        }
+      },
+      "cloud_install": {
+        "title": "A preparar login cloud",
+        "description": "A instalar navegador Playwright e a enviar codigo de verificacao..."
+      },
+      "cloud_email": {
+        "title": "Login conta Philips",
+        "description": "Introduza o email da sua conta Philips HomeID. Um codigo de verificacao sera enviado.",
+        "data": {
+          "email": "Email",
+          "manual_entry": "Introduzir credenciais manualmente"
+        }
+      },
+      "cloud_otp": {
+        "title": "Introduzir codigo de verificacao",
+        "description": "Um codigo de verificacao foi enviado para {email}.",
+        "data": {
+          "code": "Codigo de verificacao"
+        }
+      },
+      "cloud_devices": {
+        "title": "Selecionar dispositivo",
+        "description": "Selecione o dispositivo a adicionar.",
+        "data": {
+          "device": "Dispositivo"
+        }
+      },
+      "confirm": {
+        "title": "Confirmar dispositivo",
+        "description": "Adicionar {name} em {host}?\n\nModelo: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "Dispositivo Philips descoberto",
+        "description": "Dispositivo Philips descoberto:\n\n**{name}**\nIP: {host}\nModelo: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "Dispositivo Philips descoberto",
+        "description": "Dispositivo Philips descoberto:\n\n**{name}**\nIP: {host}\nModelo: {model}"
+      },
+      "manual_credentials": {
+        "title": "Credenciais para {name}",
+        "description": "Introduza as credenciais extraidas da app HomeID.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "Chave de encriptacao (necessaria para dispositivos HTTP)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Falha ao ligar ao dispositivo",
+      "missing_credentials": "Client ID e Client Secret sao obrigatorios",
+      "invalid_credentials": "Credenciais invalidas",
+      "encryption_key_failed": "Nao foi possivel obter chave de encriptacao",
+      "unknown": "Erro inesperado",
+      "missing_email": "Introduza o email",
+      "missing_code": "Introduza o codigo de verificacao",
+      "otp_send_failed": "Falha ao enviar codigo de verificacao",
+      "otp_failed": "Codigo de verificacao invalido",
+      "cloud_browser_failed": "Autenticacao cloud falhou",
+      "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
+      "cloud_credentials_not_found": "Nao foi possivel obter credenciais da cloud",
+      "cloud_no_ip": "Endereco IP nao disponivel"
+    },
+    "abort": {
+      "already_configured": "Dispositivo ja configurado",
+      "cannot_connect": "Nao e possivel ligar ao dispositivo",
+      "cloud_setup_failed": "Login cloud falhou",
+      "playwright_unsupported": "Login cloud nao suportado nesta plataforma"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Intervalo de consulta (segundos)",
+          "active_scan_interval": "Intervalo ativo durante cozedura (segundos)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Indice de qualidade do ar"
+      },
+      "tvoc": {
+        "name": "COV total"
+      },
+      "gas": {
+        "name": "Nivel de gas"
+      },
+      "allergen_index": {
+        "name": "Indice de alergenos"
+      },
+      "humidity": {
+        "name": "Humidade"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "filter_pre": {
+        "name": "Pre-filtro"
+      },
+      "filter_hepa": {
+        "name": "Filtro HEPA"
+      },
+      "filter_carbon": {
+        "name": "Filtro de carbono"
+      },
+      "filter_wick": {
+        "name": "Pavio humidificador"
+      },
+      "water_level": {
+        "name": "Nivel de agua"
+      },
+      "display_brightness": {
+        "name": "Brilho do ecra"
+      },
+      "runtime": {
+        "name": "Tempo total"
+      },
+      "mode": {
+        "name": "Modo"
+      },
+      "fan_speed": {
+        "name": "Velocidade"
+      },
+      "error_code": {
+        "name": "Codigo de erro"
+      },
+      "muji_filter0_lifetime": {
+        "name": "Vida util filtro 0"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Vida util filtro 1"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filtro 0 restante"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filtro 1 restante"
+      },
+      "airfryer_status": {
+        "name": "Estado de cozedura"
+      },
+      "airfryer_temperature": {
+        "name": "Temperatura alvo"
+      },
+      "airfryer_current_temperature": {
+        "name": "Temperatura atual"
+      },
+      "airfryer_time_total": {
+        "name": "Tempo total"
+      },
+      "airfryer_time_remaining": {
+        "name": "Tempo restante"
+      },
+      "airfryer_preset": {
+        "name": "Preset"
+      },
+      "airfryer_recipe_name": {
+        "name": "Receita"
+      },
+      "airfryer_error": {
+        "name": "Codigo de erro"
+      },
+      "airfryer_preheat_status": {
+        "name": "Pre-aquecimento"
+      },
+      "airfryer_keep_warm": {
+        "name": "Manter quente"
+      },
+      "airfryer_recipe_id": {
+        "name": "ID da receita"
+      },
+      "airfryer_step_id": {
+        "name": "ID do passo"
+      },
+      "airfryer_airspeed": {
+        "name": "Velocidade do ar"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Temperatura da sonda"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "Temperatura atual da sonda"
+      },
+      "airfryer_dialog": {
+        "name": "Dialogo"
+      },
+      "airfryer_previous_status": {
+        "name": "Estado anterior"
+      },
+      "airfryer_cooking_id": {
+        "name": "ID de cozedura"
+      },
+      "airfryer_current_stage": {
+        "name": "Etapa atual"
+      },
+      "airfryer_voltage": {
+        "name": "Tensao"
+      },
+      "airfryer_left_status": {
+        "name": "Estado cesto esquerdo"
+      },
+      "airfryer_left_temperature": {
+        "name": "Temperatura cesto esquerdo"
+      },
+      "airfryer_left_time": {
+        "name": "Tempo cesto esquerdo"
+      },
+      "airfryer_right_status": {
+        "name": "Estado cesto direito"
+      },
+      "airfryer_right_temperature": {
+        "name": "Temperatura cesto direito"
+      },
+      "airfryer_right_time": {
+        "name": "Tempo cesto direito"
+      },
+      "multicooker_humidity": {
+        "name": "Humidade"
+      },
+      "multicooker_ingredient": {
+        "name": "Ingrediente"
+      },
+      "autocook_uuid": {
+        "name": "Programa AutoCook"
+      },
+      "autocook_doneness": {
+        "name": "Ponto de cozedura"
+      },
+      "autocook_amount": {
+        "name": "Quantidade"
+      },
+      "autocook_weight": {
+        "name": "Peso"
+      },
+      "autocook_thickness": {
+        "name": "Espessura"
+      },
+      "recipe_current_stage": {
+        "name": "Etapa atual da receita"
+      },
+      "firmware_version": {
+        "name": "Versao firmware"
+      },
+      "firmware_available": {
+        "name": "Firmware disponivel"
+      },
+      "espresso_mainstate": {
+        "name": "Estado da maquina"
+      },
+      "espresso_brewing_progress": {
+        "name": "Progresso da extracao"
+      },
+      "espresso_water_level": {
+        "name": "Nivel de agua"
+      },
+      "espresso_descale_status": {
+        "name": "Estado descalcificacao"
+      },
+      "espresso_filter_status": {
+        "name": "Estado do filtro"
+      },
+      "espresso_filter_number": {
+        "name": "Numero do filtro"
+      },
+      "espresso_waste_bean": {
+        "name": "Bandeja de borras"
+      },
+      "espresso_switch_state": {
+        "name": "Estado interruptor"
+      },
+      "espresso_last_error": {
+        "name": "Ultimo erro"
+      },
+      "espresso_active_user": {
+        "name": "Utilizador ativo"
+      },
+      "espresso_water_hardness": {
+        "name": "Dureza da agua"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Tempo standby automatico"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Substituicao de filtro necessaria"
+      },
+      "water_tank_empty": {
+        "name": "Tanque de agua vazio"
+      },
+      "airfryer_drawer_open": {
+        "name": "Gaveta"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Lembrete agitar"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Lembrete virar"
+      },
+      "airfryer_preheat_active": {
+        "name": "Pre-aquecimento ativo"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Sonda desligada"
+      },
+      "airfryer_probe_required": {
+        "name": "Sonda necessaria"
+      },
+      "airfryer_resting": {
+        "name": "Em repouso"
+      },
+      "multicooker_lid_open": {
+        "name": "Tampa"
+      },
+      "multicooker_no_water": {
+        "name": "Sem agua"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Gaveta esquerda"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Gaveta direita"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Unidade Fahrenheit"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "Iniciar"
+      },
+      "airfryer_pause": {
+        "name": "Pausar"
+      },
+      "airfryer_stop": {
+        "name": "Parar"
+      },
+      "airfryer_keep_warm": {
+        "name": "Manter quente"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "Definir temperatura"
+      },
+      "airfryer_set_time": {
+        "name": "Definir tempo"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Definir velocidade do ar"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Definir temperatura da sonda"
+      },
+      "set_beep_volume": {
+        "name": "Volume do sinal"
+      },
+      "set_air_quality_threshold": {
+        "name": "Limite qualidade do ar"
+      },
+      "set_keep_warm_time": {
+        "name": "Duracao manter quente"
+      },
+      "set_keep_warm_temp": {
+        "name": "Temperatura manter quente"
+      },
+      "espresso_grinder_dose": {
+        "name": "Dose de moagem"
+      },
+      "espresso_brew_temperature": {
+        "name": "Temperatura de extracao"
+      },
+      "espresso_brew_count": {
+        "name": "Numero de extracoes"
+      },
+      "espresso_primary_dose": {
+        "name": "Dose principal"
+      },
+      "espresso_secondary_dose": {
+        "name": "Dose secundaria"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "Metodo de cozedura"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Bloqueio infantil"
+      },
+      "preheat": {
+        "name": "Pre-aquecimento"
+      },
+      "sensor_monitor_standby": {
+        "name": "Monitor sensor em standby"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "Purificador de ar"
+      }
+    }
+  }
+}

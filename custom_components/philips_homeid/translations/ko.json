@@ -1,0 +1,445 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "클라우드 인증을 위해 Playwright 브라우저를 임시 설치 중입니다..."
+    },
+    "step": {
+      "user": {
+        "title": "기기 IP 입력",
+        "description": "네트워크에 연결된 필립스 기기의 IP 주소를 입력하세요.",
+        "data": {
+          "host": "IP 주소",
+          "model": "기기 모델"
+        }
+      },
+      "manual_host": {
+        "title": "기기 IP 입력",
+        "description": "네트워크에 연결된 필립스 기기의 IP 주소를 입력하세요.",
+        "data": {
+          "host": "IP 주소",
+          "model": "기기 모델"
+        }
+      },
+      "cloud_install": {
+        "title": "클라우드 로그인 준비",
+        "description": "Playwright 브라우저 설치 및 인증 코드 전송 중..."
+      },
+      "cloud_email": {
+        "title": "필립스 계정 로그인",
+        "description": "필립스 HomeID 계정 이메일을 입력하세요.",
+        "data": {
+          "email": "이메일",
+          "manual_entry": "수동으로 자격 증명 입력"
+        }
+      },
+      "cloud_otp": {
+        "title": "인증 코드 입력",
+        "description": "{email}로 인증 코드가 전송되었습니다.",
+        "data": {
+          "code": "인증 코드"
+        }
+      },
+      "cloud_devices": {
+        "title": "기기 선택",
+        "description": "추가할 기기를 선택하세요.",
+        "data": {
+          "device": "기기"
+        }
+      },
+      "confirm": {
+        "title": "기기 확인",
+        "description": "{host}의 {name}을(를) 추가하시겠습니까?\n\n모델: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "필립스 기기 발견",
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "필립스 기기 발견",
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+      },
+      "manual_credentials": {
+        "title": "{name} 자격 증명",
+        "description": "HomeID 앱에서 추출한 자격 증명을 입력하세요.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "암호화 키"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "기기에 연결할 수 없습니다",
+      "missing_credentials": "Client ID와 Client Secret이 필요합니다",
+      "invalid_credentials": "자격 증명이 유효하지 않습니다",
+      "encryption_key_failed": "암호화 키를 가져올 수 없습니다",
+      "unknown": "예기치 않은 오류",
+      "missing_email": "이메일을 입력하세요",
+      "missing_code": "인증 코드를 입력하세요",
+      "otp_send_failed": "인증 코드 전송 실패",
+      "otp_failed": "인증 코드가 유효하지 않습니다",
+      "cloud_browser_failed": "클라우드 인증 실패",
+      "no_cloud_devices": "기기를 찾을 수 없습니다",
+      "cloud_credentials_not_found": "클라우드에서 자격 증명을 가져올 수 없습니다",
+      "cloud_no_ip": "IP 주소를 사용할 수 없습니다"
+    },
+    "abort": {
+      "already_configured": "이미 구성된 기기",
+      "cannot_connect": "연결 불가",
+      "cloud_setup_failed": "클라우드 로그인 실패",
+      "playwright_unsupported": "이 플랫폼에서 클라우드 로그인을 지원하지 않습니다"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "폴링 간격 (초)",
+          "active_scan_interval": "조리 중 폴링 간격 (초)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "공기질 지수"
+      },
+      "tvoc": {
+        "name": "총 VOC"
+      },
+      "gas": {
+        "name": "가스 농도"
+      },
+      "allergen_index": {
+        "name": "알레르겐 지수"
+      },
+      "humidity": {
+        "name": "습도"
+      },
+      "temperature": {
+        "name": "온도"
+      },
+      "filter_pre": {
+        "name": "프리필터"
+      },
+      "filter_hepa": {
+        "name": "HEPA 필터"
+      },
+      "filter_carbon": {
+        "name": "탄소 필터"
+      },
+      "filter_wick": {
+        "name": "가습 필터"
+      },
+      "water_level": {
+        "name": "수위"
+      },
+      "display_brightness": {
+        "name": "화면 밝기"
+      },
+      "runtime": {
+        "name": "총 가동 시간"
+      },
+      "mode": {
+        "name": "모드"
+      },
+      "fan_speed": {
+        "name": "팬 속도"
+      },
+      "error_code": {
+        "name": "오류 코드"
+      },
+      "muji_filter0_lifetime": {
+        "name": "필터 0 수명"
+      },
+      "muji_filter1_lifetime": {
+        "name": "필터 1 수명"
+      },
+      "muji_filter0_remaining": {
+        "name": "필터 0 잔여"
+      },
+      "muji_filter1_remaining": {
+        "name": "필터 1 잔여"
+      },
+      "airfryer_status": {
+        "name": "조리 상태"
+      },
+      "airfryer_temperature": {
+        "name": "목표 온도"
+      },
+      "airfryer_current_temperature": {
+        "name": "현재 온도"
+      },
+      "airfryer_time_total": {
+        "name": "총 시간"
+      },
+      "airfryer_time_remaining": {
+        "name": "남은 시간"
+      },
+      "airfryer_preset": {
+        "name": "프리셋"
+      },
+      "airfryer_recipe_name": {
+        "name": "레시피"
+      },
+      "airfryer_error": {
+        "name": "오류 코드"
+      },
+      "airfryer_preheat_status": {
+        "name": "예열 상태"
+      },
+      "airfryer_keep_warm": {
+        "name": "보온"
+      },
+      "airfryer_recipe_id": {
+        "name": "레시피 ID"
+      },
+      "airfryer_step_id": {
+        "name": "단계 ID"
+      },
+      "airfryer_airspeed": {
+        "name": "풍속"
+      },
+      "airfryer_probe_temperature": {
+        "name": "프로브 온도"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "현재 프로브 온도"
+      },
+      "airfryer_dialog": {
+        "name": "대화상자"
+      },
+      "airfryer_previous_status": {
+        "name": "이전 상태"
+      },
+      "airfryer_cooking_id": {
+        "name": "조리 ID"
+      },
+      "airfryer_current_stage": {
+        "name": "현재 단계"
+      },
+      "airfryer_voltage": {
+        "name": "전압"
+      },
+      "airfryer_left_status": {
+        "name": "왼쪽 바스켓 상태"
+      },
+      "airfryer_left_temperature": {
+        "name": "왼쪽 바스켓 온도"
+      },
+      "airfryer_left_time": {
+        "name": "왼쪽 바스켓 시간"
+      },
+      "airfryer_right_status": {
+        "name": "오른쪽 바스켓 상태"
+      },
+      "airfryer_right_temperature": {
+        "name": "오른쪽 바스켓 온도"
+      },
+      "airfryer_right_time": {
+        "name": "오른쪽 바스켓 시간"
+      },
+      "multicooker_humidity": {
+        "name": "습도"
+      },
+      "multicooker_ingredient": {
+        "name": "재료"
+      },
+      "autocook_uuid": {
+        "name": "자동 요리 프로그램"
+      },
+      "autocook_doneness": {
+        "name": "익힘 정도"
+      },
+      "autocook_amount": {
+        "name": "양"
+      },
+      "autocook_weight": {
+        "name": "무게"
+      },
+      "autocook_thickness": {
+        "name": "두께"
+      },
+      "recipe_current_stage": {
+        "name": "레시피 현재 단계"
+      },
+      "firmware_version": {
+        "name": "펌웨어 버전"
+      },
+      "firmware_available": {
+        "name": "사용 가능한 펌웨어"
+      },
+      "espresso_mainstate": {
+        "name": "머신 상태"
+      },
+      "espresso_brewing_progress": {
+        "name": "추출 진행률"
+      },
+      "espresso_water_level": {
+        "name": "수위"
+      },
+      "espresso_descale_status": {
+        "name": "석회 제거 상태"
+      },
+      "espresso_filter_status": {
+        "name": "필터 상태"
+      },
+      "espresso_filter_number": {
+        "name": "필터 번호"
+      },
+      "espresso_waste_bean": {
+        "name": "찌꺼기 통"
+      },
+      "espresso_switch_state": {
+        "name": "스위치 상태"
+      },
+      "espresso_last_error": {
+        "name": "마지막 오류"
+      },
+      "espresso_active_user": {
+        "name": "활성 사용자"
+      },
+      "espresso_water_hardness": {
+        "name": "수질 경도"
+      },
+      "espresso_auto_standby_time": {
+        "name": "자동 대기 시간"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "필터 교체 필요"
+      },
+      "water_tank_empty": {
+        "name": "물탱크 비어있음"
+      },
+      "airfryer_drawer_open": {
+        "name": "서랍"
+      },
+      "airfryer_shake_reminder": {
+        "name": "흔들기 알림"
+      },
+      "airfryer_flip_reminder": {
+        "name": "뒤집기 알림"
+      },
+      "airfryer_preheat_active": {
+        "name": "예열 중"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "프로브 미연결"
+      },
+      "airfryer_probe_required": {
+        "name": "프로브 필요"
+      },
+      "airfryer_resting": {
+        "name": "레스팅"
+      },
+      "multicooker_lid_open": {
+        "name": "뚜껑"
+      },
+      "multicooker_no_water": {
+        "name": "물 부족"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "왼쪽 서랍"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "오른쪽 서랍"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "화씨 단위"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "조리 시작"
+      },
+      "airfryer_pause": {
+        "name": "일시정지"
+      },
+      "airfryer_stop": {
+        "name": "정지"
+      },
+      "airfryer_keep_warm": {
+        "name": "보온"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "온도 설정"
+      },
+      "airfryer_set_time": {
+        "name": "시간 설정"
+      },
+      "airfryer_set_airspeed": {
+        "name": "풍속 설정"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "프로브 온도 설정"
+      },
+      "set_beep_volume": {
+        "name": "알림음 볼륨"
+      },
+      "set_air_quality_threshold": {
+        "name": "공기질 임계값"
+      },
+      "set_keep_warm_time": {
+        "name": "보온 시간"
+      },
+      "set_keep_warm_temp": {
+        "name": "보온 온도"
+      },
+      "espresso_grinder_dose": {
+        "name": "분쇄량"
+      },
+      "espresso_brew_temperature": {
+        "name": "추출 온도"
+      },
+      "espresso_brew_count": {
+        "name": "추출 횟수"
+      },
+      "espresso_primary_dose": {
+        "name": "주 용량"
+      },
+      "espresso_secondary_dose": {
+        "name": "부 용량"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "조리 방법"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "어린이 잠금"
+      },
+      "preheat": {
+        "name": "예열"
+      },
+      "sensor_monitor_standby": {
+        "name": "대기 센서 모니터"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "펌웨어"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "공기청정기"
+      }
+    }
+  }
+}

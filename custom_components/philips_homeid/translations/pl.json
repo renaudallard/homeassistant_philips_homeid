@@ -1,0 +1,445 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "Tymczasowa instalacja przegladarki Playwright do uwierzytelniania w chmurze..."
+    },
+    "step": {
+      "user": {
+        "title": "Wprowadz IP urzadzenia",
+        "description": "Wprowadz adres IP urzadzenia Philips.",
+        "data": {
+          "host": "Adres IP",
+          "model": "Model"
+        }
+      },
+      "manual_host": {
+        "title": "Wprowadz IP urzadzenia",
+        "description": "Wprowadz adres IP urzadzenia Philips.",
+        "data": {
+          "host": "Adres IP",
+          "model": "Model"
+        }
+      },
+      "cloud_install": {
+        "title": "Przygotowanie logowania",
+        "description": "Instalacja przegladarki Playwright i wysylanie kodu weryfikacyjnego..."
+      },
+      "cloud_email": {
+        "title": "Logowanie Philips",
+        "description": "Wprowadz email konta Philips HomeID.",
+        "data": {
+          "email": "Email",
+          "manual_entry": "Wprowadz dane reczne"
+        }
+      },
+      "cloud_otp": {
+        "title": "Kod weryfikacyjny",
+        "description": "Kod weryfikacyjny wyslany na {email}.",
+        "data": {
+          "code": "Kod weryfikacyjny"
+        }
+      },
+      "cloud_devices": {
+        "title": "Wybierz urzadzenie",
+        "description": "Wybierz urzadzenie do dodania.",
+        "data": {
+          "device": "Urzadzenie"
+        }
+      },
+      "confirm": {
+        "title": "Potwierdz urzadzenie",
+        "description": "Dodac {name} pod {host}?\n\nModel: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "Wykryto urzadzenie Philips",
+        "description": "Wykryto urzadzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "Wykryto urzadzenie Philips",
+        "description": "Wykryto urzadzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
+      },
+      "manual_credentials": {
+        "title": "Dane logowania {name}",
+        "description": "Wprowadz dane z aplikacji HomeID.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "Klucz szyfrowania"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie mozna polaczyc",
+      "missing_credentials": "Wymagane Client ID i Client Secret",
+      "invalid_credentials": "Nieprawidlowe dane",
+      "encryption_key_failed": "Nie mozna uzyskac klucza szyfrowania",
+      "unknown": "Nieoczekiwany blad",
+      "missing_email": "Wprowadz email",
+      "missing_code": "Wprowadz kod weryfikacyjny",
+      "otp_send_failed": "Blad wysylania kodu",
+      "otp_failed": "Nieprawidlowy kod",
+      "cloud_browser_failed": "Uwierzytelnianie nie powiodlo sie",
+      "no_cloud_devices": "Nie znaleziono urzadzen",
+      "cloud_credentials_not_found": "Nie mozna pobrac danych z chmury",
+      "cloud_no_ip": "Adres IP niedostepny"
+    },
+    "abort": {
+      "already_configured": "Urzadzenie juz skonfigurowane",
+      "cannot_connect": "Nie mozna polaczyc",
+      "cloud_setup_failed": "Logowanie nie powiodlo sie",
+      "playwright_unsupported": "Logowanie nieobslugiwane na tej platformie"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Interwat odpytywania (sekundy)",
+          "active_scan_interval": "Interwat aktywny podczas gotowania (sekundy)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Indeks jakosci powietrza"
+      },
+      "tvoc": {
+        "name": "Calkowite LZO"
+      },
+      "gas": {
+        "name": "Poziom gazu"
+      },
+      "allergen_index": {
+        "name": "Indeks alergenow"
+      },
+      "humidity": {
+        "name": "Wilgotnosc"
+      },
+      "temperature": {
+        "name": "Temperatura"
+      },
+      "filter_pre": {
+        "name": "Filtr wstepny"
+      },
+      "filter_hepa": {
+        "name": "Filtr HEPA"
+      },
+      "filter_carbon": {
+        "name": "Filtr weglowy"
+      },
+      "filter_wick": {
+        "name": "Knot nawilzacza"
+      },
+      "water_level": {
+        "name": "Poziom wody"
+      },
+      "display_brightness": {
+        "name": "Jasnosc wyswietlacza"
+      },
+      "runtime": {
+        "name": "Calkowity czas pracy"
+      },
+      "mode": {
+        "name": "Tryb"
+      },
+      "fan_speed": {
+        "name": "Predkosc wentylatora"
+      },
+      "error_code": {
+        "name": "Kod bledu"
+      },
+      "muji_filter0_lifetime": {
+        "name": "Zywotnosc filtru 0"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Zywotnosc filtru 1"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filtr 0 pozostalo"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filtr 1 pozostalo"
+      },
+      "airfryer_status": {
+        "name": "Status gotowania"
+      },
+      "airfryer_temperature": {
+        "name": "Temperatura docelowa"
+      },
+      "airfryer_current_temperature": {
+        "name": "Aktualna temperatura"
+      },
+      "airfryer_time_total": {
+        "name": "Calkowity czas"
+      },
+      "airfryer_time_remaining": {
+        "name": "Pozostaly czas"
+      },
+      "airfryer_preset": {
+        "name": "Preset"
+      },
+      "airfryer_recipe_name": {
+        "name": "Przepis"
+      },
+      "airfryer_error": {
+        "name": "Kod bledu"
+      },
+      "airfryer_preheat_status": {
+        "name": "Nagrzewanie"
+      },
+      "airfryer_keep_warm": {
+        "name": "Utrzymanie ciepla"
+      },
+      "airfryer_recipe_id": {
+        "name": "ID przepisu"
+      },
+      "airfryer_step_id": {
+        "name": "ID kroku"
+      },
+      "airfryer_airspeed": {
+        "name": "Predkosc powietrza"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Temperatura sondy"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "Aktualna temp. sondy"
+      },
+      "airfryer_dialog": {
+        "name": "Dialog"
+      },
+      "airfryer_previous_status": {
+        "name": "Poprzedni status"
+      },
+      "airfryer_cooking_id": {
+        "name": "ID gotowania"
+      },
+      "airfryer_current_stage": {
+        "name": "Aktualny etap"
+      },
+      "airfryer_voltage": {
+        "name": "Napiecie"
+      },
+      "airfryer_left_status": {
+        "name": "Status lewy kosz"
+      },
+      "airfryer_left_temperature": {
+        "name": "Temp. lewy kosz"
+      },
+      "airfryer_left_time": {
+        "name": "Czas lewy kosz"
+      },
+      "airfryer_right_status": {
+        "name": "Status prawy kosz"
+      },
+      "airfryer_right_temperature": {
+        "name": "Temp. prawy kosz"
+      },
+      "airfryer_right_time": {
+        "name": "Czas prawy kosz"
+      },
+      "multicooker_humidity": {
+        "name": "Wilgotnosc"
+      },
+      "multicooker_ingredient": {
+        "name": "Skladnik"
+      },
+      "autocook_uuid": {
+        "name": "Program AutoCook"
+      },
+      "autocook_doneness": {
+        "name": "Stopien wypieczenia"
+      },
+      "autocook_amount": {
+        "name": "Ilosc"
+      },
+      "autocook_weight": {
+        "name": "Waga"
+      },
+      "autocook_thickness": {
+        "name": "Grubosc"
+      },
+      "recipe_current_stage": {
+        "name": "Aktualny etap przepisu"
+      },
+      "firmware_version": {
+        "name": "Wersja firmware"
+      },
+      "firmware_available": {
+        "name": "Firmware dostepny"
+      },
+      "espresso_mainstate": {
+        "name": "Stan maszyny"
+      },
+      "espresso_brewing_progress": {
+        "name": "Postep parzenia"
+      },
+      "espresso_water_level": {
+        "name": "Poziom wody"
+      },
+      "espresso_descale_status": {
+        "name": "Status odkamieniania"
+      },
+      "espresso_filter_status": {
+        "name": "Status filtru"
+      },
+      "espresso_filter_number": {
+        "name": "Numer filtru"
+      },
+      "espresso_waste_bean": {
+        "name": "Pojemnik na fusy"
+      },
+      "espresso_switch_state": {
+        "name": "Stan przelacznika"
+      },
+      "espresso_last_error": {
+        "name": "Ostatni blad"
+      },
+      "espresso_active_user": {
+        "name": "Aktywny uzytkownik"
+      },
+      "espresso_water_hardness": {
+        "name": "Twardosc wody"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Czas auto standby"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Wymiana filtru wymagana"
+      },
+      "water_tank_empty": {
+        "name": "Zbiornik wody pusty"
+      },
+      "airfryer_drawer_open": {
+        "name": "Szuflada"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Przypomnienie o wstrzasnieciu"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Przypomnienie o odwroceniu"
+      },
+      "airfryer_preheat_active": {
+        "name": "Nagrzewanie aktywne"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Sonda odlaczona"
+      },
+      "airfryer_probe_required": {
+        "name": "Sonda wymagana"
+      },
+      "airfryer_resting": {
+        "name": "Odpoczywanie"
+      },
+      "multicooker_lid_open": {
+        "name": "Pokrywka"
+      },
+      "multicooker_no_water": {
+        "name": "Brak wody"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Lewa szuflada"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Prawa szuflada"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Jednostka Fahrenheit"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "Start"
+      },
+      "airfryer_pause": {
+        "name": "Pauza"
+      },
+      "airfryer_stop": {
+        "name": "Stop"
+      },
+      "airfryer_keep_warm": {
+        "name": "Utrzymanie ciepla"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "Ustaw temperature"
+      },
+      "airfryer_set_time": {
+        "name": "Ustaw czas"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Ustaw predkosc"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Ustaw temp. sondy"
+      },
+      "set_beep_volume": {
+        "name": "Glosnosc sygnalu"
+      },
+      "set_air_quality_threshold": {
+        "name": "Prog jakosci powietrza"
+      },
+      "set_keep_warm_time": {
+        "name": "Czas utrzymania ciepla"
+      },
+      "set_keep_warm_temp": {
+        "name": "Temp. utrzymania ciepla"
+      },
+      "espresso_grinder_dose": {
+        "name": "Dawka mielenia"
+      },
+      "espresso_brew_temperature": {
+        "name": "Temperatura parzenia"
+      },
+      "espresso_brew_count": {
+        "name": "Liczba parzen"
+      },
+      "espresso_primary_dose": {
+        "name": "Dawka glowna"
+      },
+      "espresso_secondary_dose": {
+        "name": "Dawka dodatkowa"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "Metoda gotowania"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Blokada dziecieca"
+      },
+      "preheat": {
+        "name": "Nagrzewanie"
+      },
+      "sensor_monitor_standby": {
+        "name": "Monitor czujnika w standby"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "Oczyszczacz powietrza"
+      }
+    }
+  }
+}

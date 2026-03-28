@@ -1,0 +1,445 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "Installerar tillfalligt Playwright-webblasare for molnautentisering..."
+    },
+    "step": {
+      "user": {
+        "title": "Ange enhetens IP",
+        "description": "Ange IP-adressen for din Philips-enhet.",
+        "data": {
+          "host": "IP-adress",
+          "model": "Enhetsmodell"
+        }
+      },
+      "manual_host": {
+        "title": "Ange enhetens IP",
+        "description": "Ange IP-adressen for din Philips-enhet.",
+        "data": {
+          "host": "IP-adress",
+          "model": "Enhetsmodell"
+        }
+      },
+      "cloud_install": {
+        "title": "Forbereder molninloggning",
+        "description": "Installerar Playwright-webblasare och skickar verifieringskod..."
+      },
+      "cloud_email": {
+        "title": "Philips-kontoinloggning",
+        "description": "Ange din Philips HomeID-kontoe-post.",
+        "data": {
+          "email": "E-post",
+          "manual_entry": "Ange uppgifter manuellt"
+        }
+      },
+      "cloud_otp": {
+        "title": "Ange verifieringskod",
+        "description": "En verifieringskod har skickats till {email}.",
+        "data": {
+          "code": "Verifieringskod"
+        }
+      },
+      "cloud_devices": {
+        "title": "Valj enhet",
+        "description": "Valj enheten att lagga till.",
+        "data": {
+          "device": "Enhet"
+        }
+      },
+      "confirm": {
+        "title": "Bekrafta enhet",
+        "description": "Lagga till {name} pa {host}?\n\nModell: {model}"
+      },
+      "zeroconf_confirm": {
+        "title": "Philips-enhet hittad",
+        "description": "Philips-enhet hittad:\n\n**{name}**\nIP: {host}\nModell: {model}"
+      },
+      "ssdp_confirm": {
+        "title": "Philips-enhet hittad",
+        "description": "Philips-enhet hittad:\n\n**{name}**\nIP: {host}\nModell: {model}"
+      },
+      "manual_credentials": {
+        "title": "Uppgifter for {name}",
+        "description": "Ange uppgifterna fran HomeID-appen.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "Krypteringsnyckel"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan inte ansluta till enheten",
+      "missing_credentials": "Client ID och Client Secret kravs",
+      "invalid_credentials": "Ogiltiga uppgifter",
+      "encryption_key_failed": "Kan inte hamta krypteringsnyckel",
+      "unknown": "Ovantat fel",
+      "missing_email": "Ange e-post",
+      "missing_code": "Ange verifieringskod",
+      "otp_send_failed": "Kunde inte skicka verifieringskod",
+      "otp_failed": "Ogiltig verifieringskod",
+      "cloud_browser_failed": "Molnautentisering misslyckades",
+      "no_cloud_devices": "Inga enheter hittades",
+      "cloud_credentials_not_found": "Kunde inte hamta uppgifter fran molnet",
+      "cloud_no_ip": "IP-adress inte tillganglig"
+    },
+    "abort": {
+      "already_configured": "Enheten ar redan konfigurerad",
+      "cannot_connect": "Kan inte ansluta",
+      "cloud_setup_failed": "Molninloggning misslyckades",
+      "playwright_unsupported": "Molninloggning stods inte pa denna plattform"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Pollningsintervall (sekunder)",
+          "active_scan_interval": "Aktivt intervall under tillagning (sekunder)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Luftkvalitetsindex"
+      },
+      "tvoc": {
+        "name": "Total VOC"
+      },
+      "gas": {
+        "name": "Gasniva"
+      },
+      "allergen_index": {
+        "name": "Allergenindex"
+      },
+      "humidity": {
+        "name": "Luftfuktighet"
+      },
+      "temperature": {
+        "name": "Temperatur"
+      },
+      "filter_pre": {
+        "name": "Forfilter"
+      },
+      "filter_hepa": {
+        "name": "HEPA-filter"
+      },
+      "filter_carbon": {
+        "name": "Kolfilter"
+      },
+      "filter_wick": {
+        "name": "Luftfuktarveke"
+      },
+      "water_level": {
+        "name": "Vattenniva"
+      },
+      "display_brightness": {
+        "name": "Displayljusstyrka"
+      },
+      "runtime": {
+        "name": "Total drifttid"
+      },
+      "mode": {
+        "name": "Lage"
+      },
+      "fan_speed": {
+        "name": "Flakthastighet"
+      },
+      "error_code": {
+        "name": "Felkod"
+      },
+      "muji_filter0_lifetime": {
+        "name": "Filter 0 livslangd"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Filter 1 livslangd"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filter 0 aterstaende"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filter 1 aterstaende"
+      },
+      "airfryer_status": {
+        "name": "Tillagningsstatus"
+      },
+      "airfryer_temperature": {
+        "name": "Maltemperatur"
+      },
+      "airfryer_current_temperature": {
+        "name": "Nuvarande temperatur"
+      },
+      "airfryer_time_total": {
+        "name": "Total tid"
+      },
+      "airfryer_time_remaining": {
+        "name": "Aterstaende tid"
+      },
+      "airfryer_preset": {
+        "name": "Forinstallt"
+      },
+      "airfryer_recipe_name": {
+        "name": "Recept"
+      },
+      "airfryer_error": {
+        "name": "Felkod"
+      },
+      "airfryer_preheat_status": {
+        "name": "Forvarmning"
+      },
+      "airfryer_keep_warm": {
+        "name": "Hallvarm"
+      },
+      "airfryer_recipe_id": {
+        "name": "Recept-ID"
+      },
+      "airfryer_step_id": {
+        "name": "Steg-ID"
+      },
+      "airfryer_airspeed": {
+        "name": "Lufthastighet"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Sondtemperatur"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "Nuvarande sondtemperatur"
+      },
+      "airfryer_dialog": {
+        "name": "Dialog"
+      },
+      "airfryer_previous_status": {
+        "name": "Foregaende status"
+      },
+      "airfryer_cooking_id": {
+        "name": "Tillagnings-ID"
+      },
+      "airfryer_current_stage": {
+        "name": "Nuvarande steg"
+      },
+      "airfryer_voltage": {
+        "name": "Spanning"
+      },
+      "airfryer_left_status": {
+        "name": "Vanster korg status"
+      },
+      "airfryer_left_temperature": {
+        "name": "Vanster korg temperatur"
+      },
+      "airfryer_left_time": {
+        "name": "Vanster korg tid"
+      },
+      "airfryer_right_status": {
+        "name": "Hoger korg status"
+      },
+      "airfryer_right_temperature": {
+        "name": "Hoger korg temperatur"
+      },
+      "airfryer_right_time": {
+        "name": "Hoger korg tid"
+      },
+      "multicooker_humidity": {
+        "name": "Luftfuktighet"
+      },
+      "multicooker_ingredient": {
+        "name": "Ingrediens"
+      },
+      "autocook_uuid": {
+        "name": "AutoCook-program"
+      },
+      "autocook_doneness": {
+        "name": "Tillagningsgrad"
+      },
+      "autocook_amount": {
+        "name": "Mangd"
+      },
+      "autocook_weight": {
+        "name": "Vikt"
+      },
+      "autocook_thickness": {
+        "name": "Tjocklek"
+      },
+      "recipe_current_stage": {
+        "name": "Receptets nuvarande steg"
+      },
+      "firmware_version": {
+        "name": "Firmware-version"
+      },
+      "firmware_available": {
+        "name": "Firmware tillganglig"
+      },
+      "espresso_mainstate": {
+        "name": "Maskinstatus"
+      },
+      "espresso_brewing_progress": {
+        "name": "Bryggframsteg"
+      },
+      "espresso_water_level": {
+        "name": "Vattenniva"
+      },
+      "espresso_descale_status": {
+        "name": "Avkalkningsstatus"
+      },
+      "espresso_filter_status": {
+        "name": "Filterstatus"
+      },
+      "espresso_filter_number": {
+        "name": "Filternummer"
+      },
+      "espresso_waste_bean": {
+        "name": "Sumpbehallare"
+      },
+      "espresso_switch_state": {
+        "name": "Strombrytarstatus"
+      },
+      "espresso_last_error": {
+        "name": "Senaste fel"
+      },
+      "espresso_active_user": {
+        "name": "Aktiv anvandare"
+      },
+      "espresso_water_hardness": {
+        "name": "Vattenhardhet"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Automatisk standby-tid"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "Filterbyte kravs"
+      },
+      "water_tank_empty": {
+        "name": "Vattentank tom"
+      },
+      "airfryer_drawer_open": {
+        "name": "Lada"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Skakpaminnelse"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Vandpaminnelse"
+      },
+      "airfryer_preheat_active": {
+        "name": "Forvarmning aktiv"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Sond urkopplad"
+      },
+      "airfryer_probe_required": {
+        "name": "Sond kravs"
+      },
+      "airfryer_resting": {
+        "name": "Vilar"
+      },
+      "multicooker_lid_open": {
+        "name": "Lock"
+      },
+      "multicooker_no_water": {
+        "name": "Inget vatten"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Vanster lada"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Hoger lada"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Fahrenheit-enhet"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "Starta tillagning"
+      },
+      "airfryer_pause": {
+        "name": "Pausa"
+      },
+      "airfryer_stop": {
+        "name": "Stoppa"
+      },
+      "airfryer_keep_warm": {
+        "name": "Hallvarm"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "Stall in temperatur"
+      },
+      "airfryer_set_time": {
+        "name": "Stall in tid"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Stall in lufthastighet"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Stall in sondtemperatur"
+      },
+      "set_beep_volume": {
+        "name": "Signalvolym"
+      },
+      "set_air_quality_threshold": {
+        "name": "Luftkvalitetströskel"
+      },
+      "set_keep_warm_time": {
+        "name": "Hallvarm-tid"
+      },
+      "set_keep_warm_temp": {
+        "name": "Hallvarm-temperatur"
+      },
+      "espresso_grinder_dose": {
+        "name": "Malningsdos"
+      },
+      "espresso_brew_temperature": {
+        "name": "Bryggtemperatur"
+      },
+      "espresso_brew_count": {
+        "name": "Antal bryggningar"
+      },
+      "espresso_primary_dose": {
+        "name": "Primardos"
+      },
+      "espresso_secondary_dose": {
+        "name": "Sekundardos"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "Tillagningsmetod"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "Barnlas"
+      },
+      "preheat": {
+        "name": "Forvarmning"
+      },
+      "sensor_monitor_standby": {
+        "name": "Sensorovervakning i standby"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "Luftrenare"
+      }
+    }
+  }
+}

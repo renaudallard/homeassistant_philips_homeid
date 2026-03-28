@@ -1,0 +1,445 @@
+{
+  "config": {
+    "progress": {
+      "cloud_install": "正在临时安装 Playwright 浏览器进行云端认证，可能需要几分钟..."
+    },
+    "step": {
+      "user": {
+        "title": "输入设备IP",
+        "description": "输入已连接到网络的飞利浦设备IP地址。",
+        "data": {
+          "host": "IP地址",
+          "model": "设备型号"
+        }
+      },
+      "manual_host": {
+        "title": "输入设备IP",
+        "description": "输入已连接到网络的飞利浦设备IP地址。",
+        "data": {
+          "host": "IP地址",
+          "model": "设备型号"
+        }
+      },
+      "cloud_install": {
+        "title": "准备云端登录",
+        "description": "正在安装 Playwright 浏览器并发送验证码..."
+      },
+      "cloud_email": {
+        "title": "飞利浦账号登录",
+        "description": "输入您的飞利浦 HomeID 账号邮箱，验证码将发送到此地址。",
+        "data": {
+          "email": "邮箱",
+          "manual_entry": "手动输入凭据"
+        }
+      },
+      "cloud_otp": {
+        "title": "输入验证码",
+        "description": "验证码已发送至 {email}。",
+        "data": {
+          "code": "验证码"
+        }
+      },
+      "cloud_devices": {
+        "title": "选择设备",
+        "description": "选择要添加的设备。",
+        "data": {
+          "device": "设备"
+        }
+      },
+      "confirm": {
+        "title": "确认设备",
+        "description": "添加 {name}（{host}）？\n\n型号：{model}"
+      },
+      "zeroconf_confirm": {
+        "title": "发现飞利浦设备",
+        "description": "在网络上发现飞利浦设备：\n\n**{name}**\nIP：{host}\n型号：{model}"
+      },
+      "ssdp_confirm": {
+        "title": "发现飞利浦设备",
+        "description": "在网络上发现飞利浦设备：\n\n**{name}**\nIP：{host}\n型号：{model}"
+      },
+      "manual_credentials": {
+        "title": "{name} 凭据",
+        "description": "输入从 HomeID 应用提取的凭据。",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret",
+          "encryption_key": "加密密钥（HTTP设备需要）"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到设备",
+      "missing_credentials": "需要 Client ID 和 Client Secret",
+      "invalid_credentials": "凭据无效",
+      "encryption_key_failed": "无法获取加密密钥",
+      "unknown": "未知错误",
+      "missing_email": "请输入邮箱",
+      "missing_code": "请输入验证码",
+      "otp_send_failed": "发送验证码失败",
+      "otp_failed": "验证码无效",
+      "cloud_browser_failed": "云端认证失败",
+      "no_cloud_devices": "未找到设备",
+      "cloud_credentials_not_found": "无法从云端获取凭据",
+      "cloud_no_ip": "IP地址不可用"
+    },
+    "abort": {
+      "already_configured": "设备已配置",
+      "cannot_connect": "无法连接",
+      "cloud_setup_failed": "云端登录失败",
+      "playwright_unsupported": "此平台不支持云端登录"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "轮询间隔（秒）",
+          "active_scan_interval": "烹饪时轮询间隔（秒）"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "空气质量指数"
+      },
+      "tvoc": {
+        "name": "总挥发性有机物"
+      },
+      "gas": {
+        "name": "气体浓度"
+      },
+      "allergen_index": {
+        "name": "过敏原指数"
+      },
+      "humidity": {
+        "name": "湿度"
+      },
+      "temperature": {
+        "name": "温度"
+      },
+      "filter_pre": {
+        "name": "预过滤器"
+      },
+      "filter_hepa": {
+        "name": "HEPA过滤器"
+      },
+      "filter_carbon": {
+        "name": "活性炭过滤器"
+      },
+      "filter_wick": {
+        "name": "加湿滤芯"
+      },
+      "water_level": {
+        "name": "水位"
+      },
+      "display_brightness": {
+        "name": "显示亮度"
+      },
+      "runtime": {
+        "name": "总运行时间"
+      },
+      "mode": {
+        "name": "模式"
+      },
+      "fan_speed": {
+        "name": "风速"
+      },
+      "error_code": {
+        "name": "错误代码"
+      },
+      "muji_filter0_lifetime": {
+        "name": "滤芯0寿命"
+      },
+      "muji_filter1_lifetime": {
+        "name": "滤芯1寿命"
+      },
+      "muji_filter0_remaining": {
+        "name": "滤芯0剩余"
+      },
+      "muji_filter1_remaining": {
+        "name": "滤芯1剩余"
+      },
+      "airfryer_status": {
+        "name": "烹饪状态"
+      },
+      "airfryer_temperature": {
+        "name": "目标温度"
+      },
+      "airfryer_current_temperature": {
+        "name": "当前温度"
+      },
+      "airfryer_time_total": {
+        "name": "总时间"
+      },
+      "airfryer_time_remaining": {
+        "name": "剩余时间"
+      },
+      "airfryer_preset": {
+        "name": "预设"
+      },
+      "airfryer_recipe_name": {
+        "name": "食谱"
+      },
+      "airfryer_error": {
+        "name": "错误代码"
+      },
+      "airfryer_preheat_status": {
+        "name": "预热状态"
+      },
+      "airfryer_keep_warm": {
+        "name": "保温"
+      },
+      "airfryer_recipe_id": {
+        "name": "食谱ID"
+      },
+      "airfryer_step_id": {
+        "name": "步骤ID"
+      },
+      "airfryer_airspeed": {
+        "name": "风速"
+      },
+      "airfryer_probe_temperature": {
+        "name": "探针温度"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "当前探针温度"
+      },
+      "airfryer_dialog": {
+        "name": "对话框"
+      },
+      "airfryer_previous_status": {
+        "name": "上一状态"
+      },
+      "airfryer_cooking_id": {
+        "name": "烹饪ID"
+      },
+      "airfryer_current_stage": {
+        "name": "当前阶段"
+      },
+      "airfryer_voltage": {
+        "name": "电压"
+      },
+      "airfryer_left_status": {
+        "name": "左篮状态"
+      },
+      "airfryer_left_temperature": {
+        "name": "左篮温度"
+      },
+      "airfryer_left_time": {
+        "name": "左篮时间"
+      },
+      "airfryer_right_status": {
+        "name": "右篮状态"
+      },
+      "airfryer_right_temperature": {
+        "name": "右篮温度"
+      },
+      "airfryer_right_time": {
+        "name": "右篮时间"
+      },
+      "multicooker_humidity": {
+        "name": "湿度"
+      },
+      "multicooker_ingredient": {
+        "name": "食材"
+      },
+      "autocook_uuid": {
+        "name": "自动烹饪程序"
+      },
+      "autocook_doneness": {
+        "name": "熟度"
+      },
+      "autocook_amount": {
+        "name": "数量"
+      },
+      "autocook_weight": {
+        "name": "重量"
+      },
+      "autocook_thickness": {
+        "name": "厚度"
+      },
+      "recipe_current_stage": {
+        "name": "食谱当前阶段"
+      },
+      "firmware_version": {
+        "name": "固件版本"
+      },
+      "firmware_available": {
+        "name": "可用固件"
+      },
+      "espresso_mainstate": {
+        "name": "机器状态"
+      },
+      "espresso_brewing_progress": {
+        "name": "冲泡进度"
+      },
+      "espresso_water_level": {
+        "name": "水位"
+      },
+      "espresso_descale_status": {
+        "name": "除垢状态"
+      },
+      "espresso_filter_status": {
+        "name": "滤芯状态"
+      },
+      "espresso_filter_number": {
+        "name": "滤芯编号"
+      },
+      "espresso_waste_bean": {
+        "name": "咖啡渣盒"
+      },
+      "espresso_switch_state": {
+        "name": "开关状态"
+      },
+      "espresso_last_error": {
+        "name": "最近错误"
+      },
+      "espresso_active_user": {
+        "name": "当前用户"
+      },
+      "espresso_water_hardness": {
+        "name": "水硬度"
+      },
+      "espresso_auto_standby_time": {
+        "name": "自动待机时间"
+      }
+    },
+    "binary_sensor": {
+      "filter_replace_required": {
+        "name": "需要更换滤芯"
+      },
+      "water_tank_empty": {
+        "name": "水箱空"
+      },
+      "airfryer_drawer_open": {
+        "name": "抽屉"
+      },
+      "airfryer_shake_reminder": {
+        "name": "摇晃提醒"
+      },
+      "airfryer_flip_reminder": {
+        "name": "翻转提醒"
+      },
+      "airfryer_preheat_active": {
+        "name": "预热中"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "探针未连接"
+      },
+      "airfryer_probe_required": {
+        "name": "需要探针"
+      },
+      "airfryer_resting": {
+        "name": "静置中"
+      },
+      "multicooker_lid_open": {
+        "name": "锅盖"
+      },
+      "multicooker_no_water": {
+        "name": "缺水"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "左抽屉"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "右抽屉"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "华氏温度"
+      }
+    },
+    "button": {
+      "airfryer_start": {
+        "name": "开始烹饪"
+      },
+      "airfryer_pause": {
+        "name": "暂停"
+      },
+      "airfryer_stop": {
+        "name": "停止"
+      },
+      "airfryer_keep_warm": {
+        "name": "保温"
+      }
+    },
+    "number": {
+      "airfryer_set_temperature": {
+        "name": "设置温度"
+      },
+      "airfryer_set_time": {
+        "name": "设置时间"
+      },
+      "airfryer_set_airspeed": {
+        "name": "设置风速"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "设置探针温度"
+      },
+      "set_beep_volume": {
+        "name": "提示音量"
+      },
+      "set_air_quality_threshold": {
+        "name": "空气质量阈值"
+      },
+      "set_keep_warm_time": {
+        "name": "保温时长"
+      },
+      "set_keep_warm_temp": {
+        "name": "保温温度"
+      },
+      "espresso_grinder_dose": {
+        "name": "研磨量"
+      },
+      "espresso_brew_temperature": {
+        "name": "冲泡温度"
+      },
+      "espresso_brew_count": {
+        "name": "冲泡杯数"
+      },
+      "espresso_primary_dose": {
+        "name": "主剂量"
+      },
+      "espresso_secondary_dose": {
+        "name": "副剂量"
+      }
+    },
+    "select": {
+      "cooking_method": {
+        "name": "烹饪方式"
+      }
+    },
+    "switch": {
+      "child_lock": {
+        "name": "童锁"
+      },
+      "preheat": {
+        "name": "预热"
+      },
+      "sensor_monitor_standby": {
+        "name": "待机传感器监控"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "固件"
+      }
+    },
+    "fan": {
+      "air_purifier": {
+        "name": "空气净化器"
+      }
+    }
+  }
+}

@@ -28,19 +28,17 @@ Fetch Philips HomeID device credentials from the cloud API.
 
 Authenticates via email OTP + headless browser OAuth, then queries the
 Home ID backend API (primary) and IoT API (fallback) for registered
-devices and their local credentials.
+devices and their local credentials. For FUSION devices, also tests
+MQTT connection, shadow get, and NCP port discovery.
 
 Requirements:
-  pip install playwright && playwright install chromium
+  pip install playwright paho-mqtt && playwright install chromium
 
-Usage (interactive):
-  python3 cloud_key_fetcher.py                    # Prompts for everything
-  python3 cloud_key_fetcher.py user@example.com   # Prompts for OTP code
-
-Usage (non-interactive):
+Usage:
   python3 cloud_key_fetcher.py user@example.com          # Send OTP
-  python3 cloud_key_fetcher.py user@example.com 123456    # Verify + fetch
-  python3 cloud_key_fetcher.py --resume                   # Reuse saved tokens
+  python3 cloud_key_fetcher.py user@example.com 123456   # Verify + fetch + MQTT test
+  python3 cloud_key_fetcher.py --resume                  # Reuse saved tokens
+  python3 cloud_key_fetcher.py --force-check-all ...     # Run all experimental tests
 """
 
 import argparse
@@ -1145,10 +1143,6 @@ def fetch_credentials(
     if status == 200 and isinstance(homes, list) and homes:
         print(f"  Homes: {json.dumps(homes, indent=2)[:500]}")
 
-    if mqtt_mode == "none":
-        print_summary(homeid_appliances, iot_devices)
-        return
-
     # Ensure token is fresh before MQTT tests
     print("\n--- Pre-MQTT Token Check ---")
     oidc_tokens, access_token = ensure_fresh_token(oidc_tokens)
@@ -1449,10 +1443,9 @@ def main():
         help="Skip Home ID API, only use IoT API",
     )
     parser.add_argument(
-        "--mqtt",
-        choices=["apk", "all", "none"],
-        default="none",
-        help="MQTT connection tests: apk=APK-verified flow only, all=all combinations, none=skip (default: none)",
+        "--force-check-all",
+        action="store_true",
+        help="Run all experimental MQTT tests (HSDP, SAS, raw socket, speculative combinations)",
     )
     parser.add_argument(
         "--debug",
@@ -1529,7 +1522,8 @@ def main():
             if not access_token:
                 return
 
-    fetch_credentials(email, oidc_tokens, access_token, args.iot_only, args.mqtt)
+    mqtt_mode = "all" if args.force_check_all else "apk"
+    fetch_credentials(email, oidc_tokens, access_token, args.iot_only, mqtt_mode)
 
 
 if __name__ == "__main__":

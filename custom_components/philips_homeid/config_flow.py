@@ -694,6 +694,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         fw = device_data.get("firmwareVersion", "")
         name = device_data.get("name", "") or mac or external_id
 
+        # Prefer discovered device MAC so unique ID matches zeroconf/SSDP
+        # discovery, preventing duplicate discovery notifications.
+        if not mac and self._discovered_device:
+            mac = self._discovered_device.cpp_id
+
         unique_id = _normalize_unique_id(mac or external_id)
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()

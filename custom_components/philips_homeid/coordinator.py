@@ -232,7 +232,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if not self.mqtt_client:
             return False
         await self.hass.async_add_executor_job(
-            self.mqtt_client.send_port_command, port, "updatePort", props
+            self.mqtt_client.send_port_command, port, "setPort", props
         )
         return True
 

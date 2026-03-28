@@ -352,7 +352,7 @@ class PhilipsMQTTClient:
     def send_port_command(
         self,
         port_name: str,
-        command_name: str = "updatePort",
+        command_name: str = "setPort",
         properties: dict[str, Any] | None = None,
     ) -> None:
         """Send a port command to the device via NCP.

@@ -542,11 +542,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create config entry from Home ID appliance data."""
         client_id = device_data.get("clientId", "")
         client_secret = device_data.get("clientSecret", "")
+        external_id = device_data.get("externalDeviceId", "")
 
         if not client_id or not client_secret:
             # No local credentials: try FUSION (cloud MQTT relay)
             registered_in = device_data.get("registeredIn", "")
-            external_id = device_data.get("externalDeviceId", "")
             if external_id:
                 _LOGGER.info(
                     "No local credentials, attempting FUSION cloud relay "
@@ -567,8 +567,29 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._discovered_device:
             host = self._discovered_device.ip_address
         if not host:
+            if external_id:
+                _LOGGER.info("No IP for local device, falling back to FUSION relay")
+                return await self._create_fusion_entry(device_data, errors)
             errors["base"] = "cloud_no_ip"
             return None
+
+        # If the device also has an externalDeviceId (FUSION-capable),
+        # verify local connectivity before committing to a local entry.
+        # Some FUSION devices have local credentials in the cloud backend
+        # but no working local HTTP server.
+        if external_id:
+            api = PhilipsLocalAPI()
+            try:
+                probe_result = await api.probe_device(host)
+            finally:
+                await api.close()
+            if not probe_result:
+                _LOGGER.info(
+                    "Local probe failed for FUSION-capable device at %s, "
+                    "using cloud relay instead",
+                    host,
+                )
+                return await self._create_fusion_entry(device_data, errors)
 
         # Use MAC as unique ID (normalized to match discovery format)
         unique_id = _normalize_unique_id(mac or host)

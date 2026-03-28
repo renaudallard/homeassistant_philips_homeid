@@ -386,7 +386,7 @@ All air fryer entities above (including target/current temperature and total coo
 
 Some newer Philips devices are registered as "FUSION" devices in the Philips cloud. These devices do not have local credentials available via the cloud API and communicate exclusively via MQTT cloud relay through AWS IoT.
 
-The integration automatically detects FUSION devices during setup. When a device has no local credentials but has an `externalDeviceId`, the integration creates a cloud relay entry that communicates via MQTT.
+The integration automatically detects FUSION devices during setup. When a device has an `externalDeviceId`, the integration verifies local connectivity before choosing between local control and cloud relay. If the device has no local credentials, or if local credentials exist but the device's HTTP server is unreachable, the integration creates a cloud relay entry that communicates via MQTT.
 
 **How it works:**
 - Uses your Philips account OIDC tokens (from cloud login) to authenticate with AWS IoT

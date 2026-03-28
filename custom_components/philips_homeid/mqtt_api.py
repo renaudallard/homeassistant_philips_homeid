@@ -57,6 +57,9 @@ _NCP_PORT_MAP: dict[str, str] = {
     "devcurst_s": "airfryer",
     # Venus firmware (APK VenusFirmwarePortKt)
     "firmware_s": "firmware",
+    # Device settings (firmware-reported, not in APK port specs).
+    # Contains fw_update (→upgrade via property map) for firmware entity.
+    "devsett_s": "firmware",
     # Venus recipe (APK VenusRecipeStatusPortKt)
     "recipe_s": "recipe",
     # Venus auto cook (APK VenusAutoCookStatusPortKt)
@@ -82,6 +85,12 @@ _NCP_PROPERTY_MAP: dict[str, str] = {
     # NCP uses curr_temp, Venus HTTP uses current_temp (both → cur_temp via Venus map)
     "curr_temp": "current_temp",
     "cur_tmp_pr": "current_temp_probe",
+    # Firmware port (APK VenusFirmwarePortProperties): versions → version
+    "versions": "version",
+    # Device settings port: fw_update → upgrade
+    "fw_update": "upgrade",
+    # Recipe port (APK VenusRecipeStatusPortProperties): rec_cur_st → cur_stage
+    "rec_cur_st": "cur_stage",
 }
 
 # Venus key normalization (Venus→SPECTRE), applied after _NCP_PROPERTY_MAP

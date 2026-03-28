@@ -104,23 +104,6 @@ _ESPRESSO_MAINSTATE: dict[int, str] = {
     9: "out_of_order",
 }
 
-# NCP protocol status codes (from APK NcpStatusCode.java)
-_NCP_STATUS: dict[int, str] = {
-    0: "ok",
-    1: "busy",
-    2: "json_error",
-    3: "correlation_id_error",
-    4: "client_type_error",
-    5: "time_error",
-    6: "message_type_error",
-    7: "command_name_error",
-    8: "port_error",
-    9: "write_read_only_port",
-    10: "read_write_only_port",
-    11: "serialization_error",
-    12: "mqtt_error",
-}
-
 
 def _espresso_mainstate(value: Any) -> str | None:
     """Convert espresso mainstate integer to human-readable string."""

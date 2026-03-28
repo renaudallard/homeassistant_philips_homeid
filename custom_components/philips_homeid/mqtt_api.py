@@ -45,9 +45,16 @@ from .local_api import LocalDeviceInfo, LocalDeviceState
 
 # NCP port name → local API port name (entities use local API names)
 _NCP_PORT_MAP: dict[str, str] = {
+    # Airfryer ports
     "Status": "airfryer",
     "Config": "config",
     "Control": "control",
+    # Espresso ports (from APK espresso/PortsKt.java)
+    "machinestatus": "machinestatus",
+    "command": "command",
+    "command/BasicRecipe": "basicrecipe",
+    "configuration": "configuration",
+    "device": "device",
 }
 
 # NCP property name → local API property name
@@ -582,7 +589,7 @@ class PhilipsMQTTClient:
             self._state.properties[port_name] = properties
             self._state.connection_state = "connected"
 
-            # Update power state from airfryer status
+            # Update power state from device port data
             if port_name in (
                 "airfryer",
                 "venusaf",
@@ -600,6 +607,11 @@ class PhilipsMQTTClient:
                     "maintain",
                     "user_action",
                 )
+            elif port_name == "machinestatus":
+                # Espresso: mainstate != 0 means active
+                mainstate = properties.get("mainstate")
+                if mainstate is not None:
+                    self._state.power_on = mainstate != 0
 
         self._notify_state_update()
 

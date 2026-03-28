@@ -278,6 +278,42 @@
       },
       "firmware_available": {
         "name": "Firmware Available"
+      },
+      "espresso_mainstate": {
+        "name": "Machine State"
+      },
+      "espresso_brewing_progress": {
+        "name": "Brewing Progress"
+      },
+      "espresso_water_level": {
+        "name": "Water Level"
+      },
+      "espresso_descale_status": {
+        "name": "Descale Status"
+      },
+      "espresso_filter_status": {
+        "name": "Filter Status"
+      },
+      "espresso_filter_number": {
+        "name": "Filter Number"
+      },
+      "espresso_waste_bean": {
+        "name": "Waste Bean Tray"
+      },
+      "espresso_switch_state": {
+        "name": "Switch State"
+      },
+      "espresso_last_error": {
+        "name": "Last Error"
+      },
+      "espresso_active_user": {
+        "name": "Active User"
+      },
+      "espresso_water_hardness": {
+        "name": "Water Hardness"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Auto Standby Time"
       }
     },
     "binary_sensor": {

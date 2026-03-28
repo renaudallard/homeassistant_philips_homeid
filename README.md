@@ -26,10 +26,9 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
+| **Espresso Machines** | EP series, SM series | | Cloud relay (FUSION MQTT), untested |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
-
-> **Note:** Espresso machines (EP series) use cloud-based communication and are not supported.
 >
 > **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
 

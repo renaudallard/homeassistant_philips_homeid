@@ -85,6 +85,15 @@ def get_device_type(model_name: str) -> str:
     ):
         return "multicooker"
 
+    # Espresso machines - EP series and SM series
+    if (
+        model_lower.startswith("ep")
+        or model_lower.startswith("sm")
+        or "espresso" in model_lower
+        or "coffee" in model_lower
+    ):
+        return "espresso"
+
     # Default: try to detect from data
     return "unknown"
 
@@ -681,9 +690,121 @@ COMMON_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     ),
 )
 
+# Espresso machine sensors (EP/SM series)
+# Property names from APK: MachineStatusPortProperties, ConfigurationPortProperties
+ESPRESSO_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_mainstate",
+        translation_key="espresso_mainstate",
+        property_key="mainstate",
+        nested_key="machinestatus",
+        icon="mdi:coffee-maker",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_brewing_progress",
+        translation_key="espresso_brewing_progress",
+        property_key="Progress",
+        nested_key="machinestatus",
+        icon="mdi:progress-clock",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_water_level",
+        translation_key="espresso_water_level",
+        property_key="waterlevel",
+        nested_key="machinestatus",
+        icon="mdi:water",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_descale_status",
+        translation_key="espresso_descale_status",
+        property_key="Descalestat",
+        nested_key="machinestatus",
+        icon="mdi:water-opacity",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_filter_status",
+        translation_key="espresso_filter_status",
+        property_key="Filterstat",
+        nested_key="machinestatus",
+        icon="mdi:filter",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_filter_number",
+        translation_key="espresso_filter_number",
+        property_key="Filternr",
+        nested_key="machinestatus",
+        icon="mdi:filter-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_waste_bean",
+        translation_key="espresso_waste_bean",
+        property_key="wastebean",
+        nested_key="machinestatus",
+        icon="mdi:delete-variant",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_switch_state",
+        translation_key="espresso_switch_state",
+        property_key="switchstat",
+        nested_key="machinestatus",
+        icon="mdi:power",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_last_error",
+        translation_key="espresso_last_error",
+        property_key="lasterror",
+        nested_key="machinestatus",
+        icon="mdi:alert-circle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_active_user",
+        translation_key="espresso_active_user",
+        property_key="activeuser",
+        nested_key="machinestatus",
+        icon="mdi:account",
+        device_types=("espresso",),
+    ),
+    # Configuration port
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_water_hardness",
+        translation_key="espresso_water_hardness",
+        property_key="waterhard",
+        nested_key="configuration",
+        icon="mdi:water-check",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="espresso_auto_standby_time",
+        translation_key="espresso_auto_standby_time",
+        property_key="asotime",
+        nested_key="configuration",
+        icon="mdi:timer-off-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+)
+
 # All sensors combined
 SENSORS = (
-    AIR_PURIFIER_SENSORS + AIRFRYER_SENSORS + VENUS_ENDPOINT_SENSORS + COMMON_SENSORS
+    AIR_PURIFIER_SENSORS
+    + AIRFRYER_SENSORS
+    + VENUS_ENDPOINT_SENSORS
+    + ESPRESSO_SENSORS
+    + COMMON_SENSORS
 )
 
 

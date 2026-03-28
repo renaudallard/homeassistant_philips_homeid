@@ -289,16 +289,6 @@ class PhilipsCloudAuth:
         return await self._exchange_code(gigya_code, code_verifier)
 
     @staticmethod
-    def _playwright_available() -> bool:
-        """Check if Playwright is already installed."""
-        try:
-            import playwright  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
-
-    @staticmethod
     def _is_musl() -> bool:
         """Check if the system uses musl libc (e.g. Alpine Linux, HA Docker)."""
         try:

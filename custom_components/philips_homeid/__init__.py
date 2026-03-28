@@ -132,11 +132,8 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 new_data = {**entry.data, CONF_HSDP_REFRESH_TOKEN: new_hsdp_refresh}
                 hass.config_entries.async_update_entry(entry, data=new_data)
         else:
-            # Gigya CDC fallback (may not work for Custom Authorizer)
-            _LOGGER.warning(
-                "No HSDP refresh token, falling back to Gigya CDC tokens. "
-                "Re-add the device to obtain HSDP tokens."
-            )
+            # Gigya CDC tokens (APK-verified path for FUSION MQTT)
+            _LOGGER.info("Using Gigya CDC tokens for FUSION MQTT")
             tokens = await cloud_api.refresh_tokens(refresh_token)
             access_token = tokens["access_token"]
             new_refresh = tokens.get("refresh_token", refresh_token)

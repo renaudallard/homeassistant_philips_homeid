@@ -1149,51 +1149,14 @@ def fetch_credentials(
         print_summary(homeid_appliances, iot_devices)
         return
 
-    # Test HSDP token chain for FUSION MQTT
-    hsdp_at = oidc_tokens.get("hsdp_access_token", "") if oidc_tokens else ""
-    hsdp_rt = oidc_tokens.get("hsdp_refresh_token", "") if oidc_tokens else ""
-    if hsdp_at:
-        print("\n--- HSDP Token Tests ---")
-        print("\n  Testing MQTT signature with HSDP token...")
-        test_mqtt_signature(hsdp_at)
-
-        print("\n  Testing MQTT signature with Gigya token (comparison)...")
-        test_mqtt_signature(access_token)
-
-        if hsdp_rt:
-            print("\n  Testing HSDP token refresh...")
-            refreshed = refresh_hsdp_tokens(hsdp_rt)
-            if refreshed:
-                print("    HSDP token refresh succeeded!")
-                print(f"    New expires_in: {refreshed.get('expires_in', '?')}")
-    else:
-        print("\n--- HSDP Token Tests ---")
-        print("  No HSDP tokens available (SSO did not produce HSDP code)")
-        print("  FUSION MQTT will fall back to Gigya tokens")
-        print("\n  Testing MQTT signature with Gigya token...")
-        test_mqtt_signature(access_token)
-
     # Ensure token is fresh before MQTT tests
     print("\n--- Pre-MQTT Token Check ---")
     oidc_tokens, access_token = ensure_fresh_token(oidc_tokens)
     if not access_token:
         return
 
-    # Token diagnostics
-    print("\n--- Gigya OIDC Token Diagnostics ---")
-    at_claims = decode_jwt_claims(access_token)
-    gigya_sub = at_claims.get("sub", "unknown")
-    print(f"  sub: {gigya_sub}")
-    print(f"  aud: {at_claims.get('aud', 'NONE')}")
-    print(f"  iss: {str(at_claims.get('iss', ''))[:60]}")
-    print(f"  client_id: {at_claims.get('client_id', 'NONE')}")
-    print(f"  azp: {at_claims.get('azp', 'NONE')}")
-    print(f"  scope: {str(at_claims.get('scope', ''))[:80]}")
-
-    # Comprehensive MQTT connection tests
-    print("\n--- MQTT Connection Tests (all combinations) ---")
-
     # Get Gigya-derived signature
+    print("\n--- MQTT Setup ---")
     sig_status, sig_body = api_request(
         f"{IOT_BASE}/user/self/signature",
         headers={
@@ -1202,46 +1165,67 @@ def fetch_credentials(
         },
     )
     gigya_sig = sig_body.get("signature", "") if isinstance(sig_body, dict) else ""
-    print(f"  Gigya signature: {len(gigya_sig)} chars")
+    print(f"  Signature: {len(gigya_sig)} chars")
 
-    # Fetch MQTT userId from dedicated API (APK does this via POST /user/self/get-id)
-    # The Custom Authorizer's IoT policy expects THIS as the client ID prefix,
-    # not the token's sub claim.
+    # Fetch MQTT userId from /user/self/get-id
     gigya_id_token = oidc_tokens.get("id_token", "") if oidc_tokens else ""
     mqtt_user_id = None
     if gigya_id_token:
-        print("  Fetching MQTT userId (POST /user/self/get-id)...")
         mqtt_user_id = fetch_mqtt_user_id(access_token, gigya_id_token)
         if mqtt_user_id:
             print(f"  MQTT userId: {mqtt_user_id}")
         else:
             print("  get-id failed, falling back to sub claim")
 
-    # Determine client ID prefix: prefer API userId, fall back to sub
+    at_claims = decode_jwt_claims(access_token)
+    gigya_sub = at_claims.get("sub", "unknown")
     mqtt_sub = mqtt_user_id or gigya_sub
 
-    # Test 1: APK-verified flow (Gigya OIDC token + Gigya signature + API userId)
-    print(f"\n  [APK flow: Gigya token + Gigya sig, userId={mqtt_sub[:30]}...]")
-    connected = test_mqtt_connection(
-        access_token, custom_sig=gigya_sig, client_sub=mqtt_sub
-    )
-    time.sleep(3)
-
-    # If connect succeeded, do full subscribe + shadow get test
-    if connected and iot_devices:
+    # Full MQTT test: connect + subscribe + shadow + NCP port discovery
+    if iot_devices:
         thing_name = iot_devices[0].get("thingName", "")
         dev_model = iot_devices[0].get("ctn", "")
         if thing_name:
-            print("\n--- Full MQTT Test (subscribe + shadow get + NCP) ---")
-            print(f"  Thing name: {thing_name}")
-            print(f"  Model: {dev_model}")
+            print(f"\n--- MQTT Test (thing={thing_name}, model={dev_model}) ---")
             test_mqtt_full(access_token, gigya_sig, mqtt_sub, thing_name, dev_model)
+    else:
+        print("\n  No devices found, cannot test MQTT")
 
     if mqtt_mode == "apk":
         print_summary(homeid_appliances, iot_devices)
         return
 
-    # --- Extra tests below (mqtt_mode == "all") ---
+    # --- Experimental tests below (mqtt_mode == "all") ---
+    # These test combinations that are known not to work with the
+    # current Custom Authorizer but are kept for future debugging.
+
+    print("\n--- Token Diagnostics ---")
+    print(f"  sub: {gigya_sub}")
+    print(f"  aud: {at_claims.get('aud', 'NONE')}")
+    print(f"  iss: {str(at_claims.get('iss', ''))[:60]}")
+    print(f"  client_id: {at_claims.get('client_id', 'NONE')}")
+    print(f"  azp: {at_claims.get('azp', 'NONE')}")
+    print(f"  scope: {str(at_claims.get('scope', ''))[:80]}")
+
+    # Raw socket MQTT connect (for low-level debugging)
+    print(f"\n  [Raw socket: Gigya token + sig, userId={mqtt_sub[:30]}...]")
+    test_mqtt_connection(access_token, custom_sig=gigya_sig, client_sub=mqtt_sub)
+    time.sleep(3)
+
+    # HSDP token tests
+    hsdp_at = oidc_tokens.get("hsdp_access_token", "") if oidc_tokens else ""
+    hsdp_rt = oidc_tokens.get("hsdp_refresh_token", "") if oidc_tokens else ""
+    if hsdp_at:
+        print("\n--- HSDP Token Tests ---")
+        print("\n  Testing MQTT signature with HSDP token...")
+        test_mqtt_signature(hsdp_at)
+        if hsdp_rt:
+            print("\n  Testing HSDP token refresh...")
+            refreshed = refresh_hsdp_tokens(hsdp_rt)
+            if refreshed:
+                print(f"    Refreshed, expires_in: {refreshed.get('expires_in', '?')}")
+
+    # Extra MQTT combination tests
 
     # Test 2+3: Refresh with BOTH client_ids
     # Android HomeID uses client_id=-u6aTznrxp9_9e_0a57CpvEG

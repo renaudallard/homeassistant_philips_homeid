@@ -118,12 +118,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         return False
 
     # Refresh tokens and get MQTT signature.
-    # The APK uses HSDP tokens (not Gigya CDC) for DaConnect MQTT.
-    # If we have an HSDP refresh token, use it. Otherwise fall back to Gigya.
+    # The APK uses Gigya CDC OIDC tokens for DaConnect MQTT (confirmed 2026-03-27).
+    # HSDP path kept as legacy fallback for entries that stored HSDP refresh tokens.
     cloud_api = PhilipsCloudAPI()
     try:
         if hsdp_refresh:
-            # HSDP token path (matches APK exactly)
+            # Legacy HSDP token path
             _LOGGER.info("Using HSDP tokens for FUSION MQTT")
             hsdp_tokens = await cloud_api.refresh_hsdp_tokens(hsdp_refresh)
             access_token = hsdp_tokens["access_token"]

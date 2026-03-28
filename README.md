@@ -26,7 +26,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
-| **Espresso Machines** | EP series, SM series | | Cloud relay (FUSION MQTT), untested |
+| **Espresso Machines** | EP series, SM series | | Cloud relay (FUSION MQTT), needs tester |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >

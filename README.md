@@ -354,6 +354,30 @@ All air fryer entities above (including target/current temperature and total coo
 
 </details>
 
+<details>
+<summary><b>Espresso Machine Entities (EP/SM series, needs tester)</b></summary>
+
+| Type | Entity | Description |
+|------|--------|-------------|
+| Sensor | Machine State | Current state (standby, ready, brewing, etc.) |
+| Sensor | Brewing Progress | Brew cycle progress |
+| Sensor | Water Level | Water tank level |
+| Sensor | Descale Status | Descaling needed indicator |
+| Sensor | Filter Status | AquaClean filter state |
+| Sensor | Filter Number | Current filter number |
+| Sensor | Waste Bean Tray | Coffee grounds container status |
+| Sensor | Switch State | Power switch state |
+| Sensor | Last Error | Most recent error code |
+| Sensor | Active User | Selected user profile |
+| Sensor | Water Hardness | Configured water hardness (diagnostic) |
+| Sensor | Auto Standby Time | Auto-off timer setting (diagnostic) |
+| Number | Grinder Dose | Coffee grinder amount |
+| Number | Brew Temperature | Brewing temperature |
+| Number | Number of Brews | Cups per session |
+| Number | Primary / Secondary Dose | Water dosage settings |
+
+</details>
+
 > **Note:** Entities are automatically filtered by device type. Only relevant sensors appear for your specific model.
 
 ---
@@ -454,7 +478,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
-| Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt) |
+| Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
 
 For in-depth protocol documentation based on decompiled APK analysis, see:
 - [APK Decompiled Analysis](docs/APK_DECOMPILED_ANALYSIS.md) - Complete annotated code analysis of the Philips HomeID APK (includes OAuth/OIDC flow in Appendix E)

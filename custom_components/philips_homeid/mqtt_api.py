@@ -607,8 +607,12 @@ class PhilipsMQTTClient:
             if self._state is None:
                 self._state = LocalDeviceState(device_info=device_info)
 
-            # Store port data the same way local_api does
-            self._state.properties[port_name] = properties
+            # Merge port properties (NCP push updates only send changed fields)
+            existing = self._state.properties.get(port_name)
+            if existing and isinstance(existing, dict):
+                existing.update(properties)
+            else:
+                self._state.properties[port_name] = properties
             self._state.connection_state = "connected"
 
             # Update power state from device port data

@@ -666,20 +666,19 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name, model=""):
     shadow_done = threading.Event()
     ncp_done = threading.Event()
 
-    def _send_get_port(client, port_name):
-        """Send NCP getPort command for a specific port."""
+    def _send_ncp_command(client, command_name, data=None):
+        """Send NCP command to the device."""
         cid = secrets.token_bytes(4).hex()
-        payload = json.dumps(
-            {
-                "cid": cid,
-                "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "type": "command",
-                "cn": "getPort",
-                "ct": "mobile",
-                "data": {"portName": port_name},
-            }
-        )
-        client.publish(to_ncp_topic, payload=payload, qos=1)
+        payload = {
+            "cid": cid,
+            "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "type": "command",
+            "cn": command_name,
+            "ct": "mobile",
+        }
+        if data is not None:
+            payload["data"] = data
+        client.publish(to_ncp_topic, payload=json.dumps(payload), qos=1)
 
     def on_connect(client, userdata, flags, rc, properties=None):
         if rc != 0:
@@ -694,13 +693,9 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name, model=""):
         # Request shadow state
         print(f"    Publishing shadow get to {shadow_get_topic}")
         client.publish(shadow_get_topic, payload=b"", qos=1)
-        # Request port data via NCP (use model mapping, not all ports)
-        port = MODEL_PORT_MAP.get(model.split("/")[0].upper(), "")
-        if port:
-            _send_get_port(client, port)
-            print(f"    Sent getPort for port '{port}' (model {model})")
-        else:
-            print(f"    No known port for model '{model}', skipping getPort")
+        # Discover available ports via NCP getAllPorts
+        _send_ncp_command(client, "getAllPorts")
+        print("    Sent getAllPorts to discover available ports")
 
     def on_message(client, userdata, msg):
         print(f"    Received on {msg.topic} ({len(msg.payload)} bytes)")
@@ -720,9 +715,29 @@ def test_mqtt_full(access_token, mqtt_sig, mqtt_user_id, thing_name, model=""):
             try:
                 ncp = json.loads(msg.payload)
                 print(f"    NCP response: {json.dumps(ncp, indent=2)[:2000]}")
+                # If getAllPorts response, send getPort for each discovered port
+                if ncp.get("cn") == "getAllPorts" and ncp.get("status") == 0:
+                    ports = ncp.get("data", {})
+                    if isinstance(ports, list):
+                        for p in ports:
+                            pname = p.get("portName", "") if isinstance(p, dict) else ""
+                            if pname:
+                                print(
+                                    f"    Sending getPort for discovered port '{pname}'"
+                                )
+                                _send_ncp_command(
+                                    client, "getPort", {"portName": pname}
+                                )
+                elif ncp.get("cn") == "getPort" and ncp.get("status") == 0:
+                    ncp_done.set()
+                elif ncp.get("status") != 0:
+                    # Non-zero status, might still get more responses
+                    pass
             except Exception:
                 print(f"    NCP raw: {msg.payload[:500]}")
-            ncp_done.set()
+            # Set done after a reasonable wait for all responses
+            if not ncp_done.is_set():
+                threading.Timer(3.0, ncp_done.set).start()
 
     def on_disconnect(client, userdata, flags, rc, properties=None):
         if not shadow_done.is_set():

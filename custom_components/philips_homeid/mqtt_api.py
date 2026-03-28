@@ -38,7 +38,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from .local_api import _MODEL_PORT_MAP
 
 import paho.mqtt.client as mqtt
 
@@ -267,31 +266,18 @@ class PhilipsMQTTClient:
         _LOGGER.debug("Requested shadow state for %s", self._device.thing_name)
 
     def _request_port_data(self) -> None:
-        """Request port data via NCP getPort after connecting.
+        """Discover available ports via NCP getAllPorts.
 
         The shadow only has device-level state (powerOn, productState).
         Airfryer-specific properties (status, temperature, time) come
         from NCP port responses on the from_ncp topic.
 
-        APK sends getPort only for known ports (from device config).
-        We use the model-to-port mapping to determine the correct port.
+        NCP port names may differ from local HTTP port names, so we
+        use getAllPorts to discover what the device supports, then
+        getPort for each discovered port.
         """
-        model = self._device.model_name or ""
-        # Extract model prefix (e.g., "HD9285" from "HD9285/96")
-        model_prefix = model.split("/")[0].upper()
-        port = _MODEL_PORT_MAP.get(model_prefix)
-        if port:
-            self.send_port_command(port, command_name="getPort")
-            _LOGGER.debug(
-                "Requested port '%s' for %s (%s)",
-                port,
-                self._device.thing_name,
-                model_prefix,
-            )
-        else:
-            _LOGGER.info(
-                "No known port for model %s, skipping NCP getPort", model_prefix
-            )
+        self.send_port_command("", command_name="getAllPorts")
+        _LOGGER.debug("Sent getAllPorts for %s", self._device.thing_name)
 
     def set_power(self, power_on: bool) -> None:
         """Set device power via shadow update (APK UpdatePowerState)."""
@@ -314,28 +300,32 @@ class PhilipsMQTTClient:
         """Send a port command to the device via NCP.
 
         Args:
-            port_name: The device port (e.g., "airfryer", "status")
-            command_name: "updatePort" or "getPort"
+            port_name: The device port (e.g., "airfryer", "status").
+                       Empty string for commands that don't need a port (getAllPorts).
+            command_name: "updatePort", "getPort", "getAllPorts", etc.
             properties: Dict of properties to set (for updatePort)
         """
         if not self._client or not self._connected:
             _LOGGER.warning("Cannot send command: MQTT not connected")
             return
 
-        data: dict[str, Any] = {"portName": port_name}
-        if properties:
-            data["properties"] = properties
+        data: dict[str, Any] | None = None
+        if port_name:
+            data = {"portName": port_name}
+            if properties:
+                data["properties"] = properties
         # CID: APK uses 8-char hex (32-bit random, byte-reversed)
         cid = secrets.token_bytes(4).hex()
-        payload = {
+        payload: dict[str, Any] = {
             "cid": cid,
             # APK NcpRequestTime: "yyyy-MM-dd'T'HH:mm:ss'Z'" (no fractional seconds)
             "time": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "type": "command",
             "cn": command_name,
             "ct": "mobile",
-            "data": data,
         }
+        if data is not None:
+            payload["data"] = data
 
         self._client.publish(
             self._topics["to_ncp"],
@@ -491,12 +481,29 @@ class PhilipsMQTTClient:
 
     def _handle_ncp_response(self, payload: dict[str, Any]) -> None:
         """Parse NCP response and update device state."""
+        command = payload.get("cn", "")
+        status = payload.get("status")
+
+        # Handle getAllPorts response: send getPort for each discovered port
+        if command == "getAllPorts" and status == 0:
+            ports_data = payload.get("data", [])
+            if isinstance(ports_data, list):
+                for p in ports_data:
+                    pname = p.get("portName", "") if isinstance(p, dict) else ""
+                    if pname:
+                        _LOGGER.info("Discovered NCP port: %s", pname)
+                        self.send_port_command(pname, command_name="getPort")
+            return
+
+        if status is not None and status != 0:
+            _LOGGER.debug("NCP error status %s for %s: %s", status, command, payload)
+            return
+
         data = payload.get("data", {})
-        port_name = data.get("portName", "")
-        properties = data.get("properties", {})
+        port_name = data.get("portName", "") if isinstance(data, dict) else ""
+        properties = data.get("properties", {}) if isinstance(data, dict) else {}
 
         if not port_name or not properties:
-            # Could be a status response or other NCP message
             _LOGGER.debug("NCP message without port/properties: %s", payload)
             return
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Renaud Allard <renaud@allard.it>
+# Copyright (c) 2025-2026, Renaud Allard <renaud@allard.it>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -22,36 +22,19 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Philips Cloud API for OTP authentication and device credential retrieval."""
+"""Philips Cloud API: device queries, MQTT setup, credential retrieval."""
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
 import logging
-import os
-import platform
 import re
-import secrets
-import shutil
-import subprocess
-import sys
 import time
-import urllib.parse
-from base64 import urlsafe_b64encode
 from typing import Any
 
-import aiohttp
+from .cloud_auth import CloudAuthError, PhilipsCloudAuth
 
-from .const import (
-    GIGYA_API_KEY,
-    GIGYA_API_URL,
-    MOBILE_APP_REDIRECT_URI,
-    OAUTH_CLIENT_ID,
-    OIDC_AUTH_ENDPOINT,
-    OIDC_TOKEN_ENDPOINT,
-)
+__all__ = ["CloudAuthError", "PhilipsCloudAPI"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +44,6 @@ IOT_BASE = "https://prod.eu-da.iot.versuni.com/api/da"
 # Home ID backend (from APK BackendConfigKt)
 BACKEND_BASE = "https://www.backend.vbs.versuni.com"
 BACKEND_API_BASE = "https://www.backend.vbs.versuni.com/api"
-HOMEID_API_BASE = "https://www.home.id/api"
 HOMEID_ACCEPT = "application/vnd.oneka.v2.0+json"
 
 # Headers matching the Android app (DefaultRequestInterceptor)
@@ -70,629 +52,14 @@ HOMEID_USER_AGENT = (
 )
 HOMEID_X_USER_AGENT = "Android 14;8.16.0"
 
-# OAuth scopes (full set from APK)
-OAUTH_SCOPES = (
-    "openid profile email offline_access "
-    "DI.Account.read DI.AccountProfile.read DI.AccountProfile.write "
-    "DI.AccountGeneralConsent.read DI.AccountGeneralConsent.write "
-    "DI.GeneralConsent.read DI.GeneralConsent.write "
-    "VoiceProvider.read VoiceProvider.write "
-    "subscriptions consent profile_extended "
-    "DI.AccountSubscription.write DI.AccountSubscription.read"
-)
 
+class PhilipsCloudAPI(PhilipsCloudAuth):
+    """Philips cloud client for device queries and MQTT setup.
 
-class CloudAuthError(Exception):
-    """Raised on cloud authentication failures."""
+    Inherits OTP, OAuth, and token management from PhilipsCloudAuth.
+    """
 
-
-_ALPINE_PW_TARGET = "/tmp/playwright_lib"
-_ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
-
-# Script executed in a subprocess to isolate Playwright from HA's process
-# management (signal handlers, child process reaping).
-_BROWSER_OAUTH_SCRIPT = """\
-import sys, os, logging, secrets, urllib.parse
-if logging.getLogger("{logger_name}").isEnabledFor(logging.DEBUG):
-    os.environ["DEBUG"] = "pw:*"
-from playwright.sync_api import sync_playwright
-
-session_token = "{session_token}"
-auth_url = "{auth_url}"
-GIGYA_API_KEY = "{gigya_api_key}"
-executable_path = "{executable_path}" or None
-
-auth_code = None
-
-with sync_playwright() as p:
-    launch_args = {{
-        "headless": True,
-        "args": [
-            "--disable-gpu",
-            "--disable-software-rasterizer",
-            "--in-process-gpu",
-            "--disable-gpu-compositing",
-            "--disable-gpu-sandbox",
-            "--disable-seccomp-filter-sandbox",
-            "--single-process",
-            "--js-flags=--max-old-space-size=128",
-            "--disable-site-isolation-trials",
-            "--disable-features=IsolateOrigins,site-per-process",{chromium_debug_args}
-        ],
-    }}
-    if executable_path:
-        launch_args["executable_path"] = executable_path
-    browser = p.chromium.launch(**launch_args)
-    page = browser.new_page()
-
-    gmid = secrets.token_hex(16)
-    page.context.add_cookies([
-        {{"name": f"glt_{{GIGYA_API_KEY}}", "value": session_token,
-          "domain": ".accounts.home.id", "path": "/"}},
-        {{"name": f"gac_{{GIGYA_API_KEY}}", "value": session_token,
-          "domain": ".accounts.home.id", "path": "/"}},
-        {{"name": "gmid", "value": gmid,
-          "domain": ".accounts.home.id", "path": "/"}},
-        {{"name": "ucid", "value": gmid,
-          "domain": ".accounts.home.id", "path": "/"}},
-        {{"name": "hasGmid", "value": "ver4",
-          "domain": ".accounts.home.id", "path": "/"}},
-    ])
-
-    def handle_response(response):
-        global auth_code
-        if "authorize/continue" in response.url and not auth_code:
-            for header in response.headers_array():
-                if header["name"].lower() == "location":
-                    location = header["value"]
-                    if "code=" in location:
-                        parsed = urllib.parse.urlparse(location)
-                        qs = urllib.parse.parse_qs(parsed.query)
-                        codes = qs.get("code", [])
-                        if codes:
-                            auth_code = codes[0]
-
-    page.on("response", handle_response)
-
-    try:
-        page.goto(auth_url, timeout=30000, wait_until="networkidle")
-    except Exception:
-        pass
-
-    if not auth_code:
-        for _ in range(10):
-            page.wait_for_timeout(1000)
-            if auth_code:
-                break
-
-    if not auth_code:
-        browser.close()
-        sys.exit(1)
-
-    browser.close()
-
-print(auth_code)
-"""
-
-
-class PhilipsCloudAPI:
-    """Async client for Philips cloud authentication and device management."""
-
-    def __init__(self) -> None:
-        """Initialize the cloud API client."""
-        self._session: aiohttp.ClientSession | None = None
-        self._we_installed_playwright: bool = False
-        self._alpine_install: bool = False  # True if installed via apk path
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
-        if self._session is None:
-            self._session = aiohttp.ClientSession()
-        return self._session
-
-    async def close(self) -> None:
-        """Close the aiohttp session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
-
-    async def request_otp(self, email: str) -> str:
-        """Request OTP code to be sent to the user's email.
-
-        Returns the vToken needed for OTP verification.
-        """
-        session = await self._get_session()
-        url = f"{GIGYA_API_URL}/accounts.auth.otp.email.sendCode"
-        params = {
-            "email": email,
-            "apiKey": GIGYA_API_KEY,
-            "format": "json",
-        }
-
-        async with session.post(url, data=params) as resp:
-            data = await resp.json(content_type=None)
-
-        error_code = data.get("errorCode", -1)
-        if error_code != 0:
-            msg = data.get("errorMessage", "Unknown error")
-            raise CloudAuthError(f"OTP request failed: {msg}")
-
-        vtoken = data.get("vToken")
-        if not vtoken:
-            raise CloudAuthError("No vToken in OTP response")
-
-        _LOGGER.debug("OTP sent to %s", email)
-        return vtoken
-
-    async def verify_otp(self, email: str, code: str, vtoken: str) -> str:
-        """Verify the OTP code entered by the user.
-
-        Returns the Gigya session token.
-        """
-        session = await self._get_session()
-        url = f"{GIGYA_API_URL}/accounts.auth.otp.email.login"
-        params = {
-            "email": email,
-            "code": code,
-            "vToken": vtoken,
-            "apiKey": GIGYA_API_KEY,
-            "format": "json",
-        }
-
-        async with session.post(url, data=params) as resp:
-            data = await resp.json(content_type=None)
-
-        error_code = data.get("errorCode", -1)
-        if error_code != 0:
-            msg = data.get("errorMessage", "Unknown error")
-            raise CloudAuthError(f"OTP verification failed: {msg}")
-
-        session_token = data.get("sessionInfo", {}).get("cookieValue")
-        if not session_token:
-            raise CloudAuthError("No session token in OTP response")
-
-        _LOGGER.debug("OTP verified for %s", email)
-        return session_token
-
-    async def async_install_playwright(self) -> bool:
-        """Install Playwright asynchronously (runs in executor)."""
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.install_playwright)
-
-    async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
-        """Exchange Gigya session for OIDC tokens using headless browser.
-
-        Uses PKCE flow with Playwright to execute the Gigya OAuth authorize
-        page JavaScript, exactly matching the mobile app's AppAuth flow.
-        Playwright is auto-installed before use and uninstalled after.
-
-        Returns dict with access_token, refresh_token, id_token, expires_in.
-        Raises CloudAuthError on failure.
-        """
-        # Generate PKCE challenge
-        code_verifier = secrets.token_urlsafe(64)
-        code_challenge = (
-            urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-            .rstrip(b"=")
-            .decode()
-        )
-        state = secrets.token_urlsafe(16)
-
-        # Build authorize URL
-        params = {
-            "client_id": OAUTH_CLIENT_ID,
-            "response_type": "code",
-            "redirect_uri": MOBILE_APP_REDIRECT_URI,
-            "scope": OAUTH_SCOPES,
-            "state": state,
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-        }
-        auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(params)}"
-
-        # Run headless browser OAuth in executor (Playwright is sync)
-        # Only uninstall after if we installed it ourselves
-        uninstall = self._we_installed_playwright
-        alpine = self._alpine_install
-        _LOGGER.debug("OAuth params: alpine=%s, we_installed=%s", alpine, uninstall)
-        loop = asyncio.get_running_loop()
-        auth_code = await loop.run_in_executor(
-            None,
-            lambda: self._browser_oauth(session_token, auth_url, uninstall, alpine),
-        )
-
-        if not auth_code:
-            raise CloudAuthError(
-                "Could not obtain authorization code. "
-                "Please ensure you have used the Philips HomeID app "
-                "with this account at least once."
-            )
-
-        gigya_code = auth_code[0] if isinstance(auth_code, tuple) else auth_code
-        return await self._exchange_code(gigya_code, code_verifier)
-
-    @staticmethod
-    def _playwright_available() -> bool:
-        """Check if Playwright is already installed."""
-        try:
-            import playwright  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
-
-    @staticmethod
-    def _is_musl() -> bool:
-        """Check if the system uses musl libc (e.g. Alpine Linux, HA Docker)."""
-        try:
-            import ctypes.util
-
-            libc_path = ctypes.util.find_library("c")
-            if libc_path and "musl" in libc_path:
-                return True
-        except Exception:
-            pass
-        # Fallback: check if /etc/alpine-release exists
-        try:
-            if os.path.exists("/etc/alpine-release"):
-                return True
-        except Exception:
-            pass
-        return False
-
-    @staticmethod
-    def check_playwright_platform() -> str | None:
-        """Check if the current platform supports Playwright.
-
-        Returns None if supported, or an error message if not.
-        On musl/Alpine, we use system Chromium + Node.js instead of
-        Playwright's bundled binaries.
-        """
-        plat = sys.platform
-        machine = platform.machine().lower()
-
-        if plat == "linux":
-            if machine in ("x86_64", "aarch64"):
-                return None  # glibc and musl/Alpine both supported
-            return (
-                f"Playwright does not support Linux {machine}. "
-                "Cloud login requires Linux x86_64 or aarch64 (64-bit)."
-            )
-        if plat == "darwin":
-            return None
-        if plat == "win32":
-            return None
-
-        return f"Playwright does not support platform {plat}/{machine}."
-
-    def install_playwright(self) -> bool:
-        """Install Playwright and Chromium. Returns True on success.
-
-        On glibc systems: pip install playwright + playwright install chromium.
-        On musl/Alpine: apk add chromium nodejs + pip install deps from source
-        + force-install playwright wheel + symlink system node.
-        """
-        try:
-            import playwright  # noqa: F401
-
-            _LOGGER.debug("Playwright already importable from %s", playwright.__file__)
-            # Detect Alpine even if playwright was pre-installed
-            if not self._alpine_install and os.path.exists("/etc/alpine-release"):
-                self._alpine_install = True
-                _LOGGER.debug("Alpine detected, setting alpine flag")
-            return True
-        except ImportError:
-            pass
-
-        # Check platform before attempting install
-        platform_error = PhilipsCloudAPI.check_playwright_platform()
-        if platform_error:
-            _LOGGER.error(platform_error)
-            return False
-
-        is_musl = self._is_musl()
-        _LOGGER.debug("musl detected: %s", is_musl)
-        if is_musl:
-            return self._install_playwright_alpine()
-        return self._install_playwright_glibc()
-
-    def _install_playwright_glibc(self) -> bool:
-        """Install Playwright on glibc systems (standard pip path)."""
-        _LOGGER.info("Installing playwright for cloud authentication")
-        try:
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "playwright"],
-                capture_output=True,
-                check=True,
-                timeout=120,
-            )
-            _LOGGER.debug("Playwright pip package installed, installing chromium")
-            subprocess.run(
-                ["playwright", "install", "chromium"],
-                capture_output=True,
-                check=True,
-                timeout=300,
-            )
-            _LOGGER.info("Playwright and chromium installed successfully")
-            self._we_installed_playwright = True
-            return True
-        except subprocess.CalledProcessError as err:
-            stderr = (err.stderr or b"").decode(errors="replace").strip()
-            _LOGGER.error("Failed to install playwright: %s", stderr)
-            return False
-        except (FileNotFoundError, TimeoutError):
-            _LOGGER.exception("Failed to install playwright")
-            return False
-
-    def _install_playwright_alpine(self) -> bool:
-        """Install Playwright on Alpine/musl using system Chromium and Node.js."""
-        _LOGGER.info("Alpine/musl detected, installing system Chromium + Node.js")
-        try:
-            # Step 1: Install system Chromium and Node.js via apk
-            subprocess.run(
-                ["apk", "add", "--no-cache", "chromium", "nodejs-current"],
-                capture_output=True,
-                check=True,
-                timeout=120,
-            )
-            _LOGGER.debug("System chromium and node.js installed")
-
-            # Step 2: Install greenlet and pyee (build from source on musl)
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-cache-dir",
-                    "greenlet",
-                    "pyee",
-                ],
-                capture_output=True,
-                check=True,
-                timeout=120,
-            )
-            _LOGGER.debug("greenlet and pyee installed")
-
-            # Step 3: Force-install playwright wheel to temp dir
-            # (manylinux wheel, --no-deps since we installed deps above)
-            # Alpine/musl needs --platform to download manylinux wheels.
-            # The wheel tag varies: manylinux1_x86_64 for x86,
-            # manylinux_2_17_aarch64 for arm. Try both.
-            machine = platform.machine().lower()
-            plat_tags = [
-                f"manylinux1_{machine}",
-                f"manylinux_2_17_{machine}",
-            ]
-            installed = False
-            for plat_tag in plat_tags:
-                pip_cmd = [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-cache-dir",
-                    "--no-deps",
-                    "--platform",
-                    plat_tag,
-                    "--only-binary=:all:",
-                    "--target",
-                    _ALPINE_PW_TARGET,
-                    "playwright",
-                ]
-                result = subprocess.run(
-                    pip_cmd,
-                    capture_output=True,
-                    timeout=120,
-                )
-                if result.returncode == 0:
-                    installed = True
-                    break
-                _LOGGER.debug(
-                    "pip install playwright with %s failed: %s",
-                    plat_tag,
-                    result.stderr.decode(errors="replace").strip(),
-                )
-            if not installed:
-                _LOGGER.error(
-                    "pip install playwright failed for all platform tags: %s",
-                    ", ".join(plat_tags),
-                )
-                return False
-            _LOGGER.debug("Playwright wheel installed to %s", _ALPINE_PW_TARGET)
-
-            # Step 4: Replace bundled glibc node with system node
-            system_node = shutil.which("node")
-            if not system_node:
-                _LOGGER.error("System node.js not found after apk install")
-                return False
-            bundled_node = os.path.join(
-                _ALPINE_PW_TARGET, "playwright", "driver", "node"
-            )
-            if os.path.exists(bundled_node):
-                os.remove(bundled_node)
-            os.symlink(system_node, bundled_node)
-            _LOGGER.debug("Symlinked system node to %s", bundled_node)
-
-            # Step 5: Add to sys.path so import works
-            if _ALPINE_PW_TARGET not in sys.path:
-                sys.path.insert(0, _ALPINE_PW_TARGET)
-
-            # Verify import
-            import importlib
-
-            importlib.invalidate_caches()
-            import playwright  # noqa: F401
-
-            _LOGGER.info(
-                "Playwright installed via Alpine path (system Chromium + Node.js)"
-            )
-            self._we_installed_playwright = True
-            self._alpine_install = True
-            return True
-        except subprocess.CalledProcessError as err:
-            stderr = (err.stderr or b"").decode(errors="replace").strip()
-            _LOGGER.error("Failed to install playwright on Alpine: %s", stderr)
-            return False
-        except (FileNotFoundError, TimeoutError):
-            _LOGGER.exception("Failed to install playwright on Alpine")
-            return False
-        except ImportError:
-            _LOGGER.error("Playwright installed but import failed")
-            return False
-
-    @staticmethod
-    def _uninstall_playwright() -> None:
-        """Uninstall Playwright and its browsers."""
-        _LOGGER.info("Uninstalling playwright")
-        try:
-            # Clean up Alpine target dir if it exists
-            if os.path.isdir(_ALPINE_PW_TARGET):
-                shutil.rmtree(_ALPINE_PW_TARGET, ignore_errors=True)
-                if _ALPINE_PW_TARGET in sys.path:
-                    sys.path.remove(_ALPINE_PW_TARGET)
-                _LOGGER.debug("Removed Alpine playwright target dir")
-                return
-
-            # Standard glibc uninstall
-            if shutil.which("playwright"):
-                subprocess.run(
-                    ["playwright", "uninstall"],
-                    capture_output=True,
-                    timeout=60,
-                )
-            subprocess.run(
-                [sys.executable, "-m", "pip", "uninstall", "-y", "playwright"],
-                capture_output=True,
-                timeout=60,
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError, TimeoutError):
-            _LOGGER.debug("Playwright uninstall failed (non-critical)")
-
-    @staticmethod
-    def _browser_oauth(
-        session_token: str,
-        auth_url: str,
-        uninstall_after: bool = True,
-        alpine: bool = False,
-    ) -> str | tuple[str, str] | None:
-        """Run headless browser OAuth flow in a subprocess.
-
-        Runs Playwright in a separate Python process to isolate it from
-        Home Assistant's process management (signal handlers, child process
-        reaping) which can kill Playwright's internal Node.js driver.
-
-        Returns the Gigya authorization code string.
-        """
-        executable = _ALPINE_CHROMIUM if alpine else ""
-        debug = _LOGGER.isEnabledFor(logging.DEBUG)
-        chromium_debug = (
-            '\n            "--enable-logging=stderr",\n            "--v=1",'
-            if debug
-            else ""
-        )
-        script = _BROWSER_OAUTH_SCRIPT.format(
-            session_token=session_token,
-            auth_url=auth_url,
-            gigya_api_key=GIGYA_API_KEY,
-            executable_path=executable,
-            logger_name=__name__,
-            chromium_debug_args=chromium_debug,
-        )
-        auth_code: str | None = None
-        try:
-            env = os.environ.copy()
-            if _ALPINE_PW_TARGET not in (env.get("PYTHONPATH") or ""):
-                env["PYTHONPATH"] = _ALPINE_PW_TARGET + ":" + env.get("PYTHONPATH", "")
-            stderr_target: Any = subprocess.PIPE
-            debug_log = "/tmp/playwright_debug.log"
-            if debug:
-                stderr_target = open(debug_log, "w")  # noqa: SIM115
-            try:
-                result = subprocess.run(
-                    [sys.executable, "-c", script],
-                    stdout=subprocess.PIPE,
-                    stderr=stderr_target,
-                    text=True,
-                    timeout=90,
-                    env=env,
-                )
-            finally:
-                if stderr_target is not subprocess.PIPE:
-                    stderr_target.close()
-            if result.returncode == 0:
-                lines = result.stdout.strip().splitlines()
-                auth_code = lines[0] if lines else None
-                if auth_code:
-                    _LOGGER.info("Browser OAuth obtained Gigya auth code")
-            else:
-                stderr_msg = ""
-                if debug:
-                    stderr_msg = f", debug log at {debug_log}"
-                elif result.stderr:
-                    stderr_msg = f": {result.stderr.strip()[:500]}"
-                _LOGGER.error(
-                    "Browser OAuth subprocess failed (exit %d)%s",
-                    result.returncode,
-                    stderr_msg,
-                )
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            _LOGGER.exception("Browser OAuth subprocess error")
-        finally:
-            if uninstall_after:
-                PhilipsCloudAPI._uninstall_playwright()
-
-        return auth_code
-
-    async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
-        """Exchange authorization code for OIDC tokens."""
-        session = await self._get_session()
-        data = {
-            "client_id": OAUTH_CLIENT_ID,
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": MOBILE_APP_REDIRECT_URI,
-            "code_verifier": code_verifier,
-        }
-
-        _LOGGER.debug("Exchanging auth code for tokens at %s", OIDC_TOKEN_ENDPOINT)
-        async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            text = await resp.text()
-            _LOGGER.debug("Token exchange response: HTTP %s", resp.status)
-            try:
-                result = json.loads(text)
-            except json.JSONDecodeError:
-                raise CloudAuthError(f"Token exchange response not JSON: {text[:200]}")
-
-        if "access_token" not in result:
-            error = result.get("error_description", result.get("error", "Unknown"))
-            _LOGGER.debug("Token exchange error response: %s", text[:500])
-            raise CloudAuthError(f"Token exchange failed: {error}")
-
-        _LOGGER.debug(
-            "OIDC tokens obtained (scopes: %s, expires_in: %s)",
-            result.get("scope", "?"),
-            result.get("expires_in", "?"),
-        )
-        return result
-
-    async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
-        """Refresh OIDC tokens using the refresh token."""
-        session = await self._get_session()
-        data = {
-            "client_id": OAUTH_CLIENT_ID,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }
-
-        async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            result = await resp.json(content_type=None)
-
-        if "access_token" not in result:
-            error = result.get("error_description", result.get("error", "Unknown"))
-            raise CloudAuthError(f"Token refresh failed: {error}")
-
-        return result
+    # --- MQTT setup ---
 
     async def get_mqtt_signature(
         self,
@@ -702,10 +69,10 @@ class PhilipsCloudAPI:
     ) -> dict[str, Any]:
         """Get MQTT signature for FUSION device cloud relay.
 
-        Calls the DaConnect signature endpoint to obtain the accessToken and
-        mqttSignature needed for AWS IoT Custom Authorizer authentication.
+        Calls the DaConnect signature endpoint to obtain the
+        mqttSignature needed for AWS IoT Custom Authorizer.
 
-        Returns dict with 'signature' key (APK SignatureResponse has only this field).
+        Returns dict with 'signature' key.
         """
         session = await self._get_session()
         url = f"https://{platform_rest_url}/api/{tenant}/user/self/signature"
@@ -764,18 +131,15 @@ class PhilipsCloudAPI:
             data = json.loads(text)
             return data.get("userId")
 
+    # --- IoT API ---
+
     async def get_thing_name(
         self,
         access_token: str,
         device_id: str = "",
         mac_address: str = "",
     ) -> str | None:
-        """Get the AWS IoT thingName for a device.
-
-        The IoT API's user/self/device endpoint returns a thingName field
-        per device which is separate from externalDeviceId. The thingName
-        is needed for MQTT topic construction.
-        """
+        """Get the AWS IoT thingName for a device."""
         devices = await self.get_devices(access_token)
         for dev in devices:
             if device_id and dev.get("id") == device_id:
@@ -839,11 +203,9 @@ class PhilipsCloudAPI:
             except json.JSONDecodeError:
                 raise CloudAuthError(f"Device list response not JSON: {text[:200]}")
 
-        # Handle both flat list and nested dict responses
         if isinstance(data, list):
             devices = data
         elif isinstance(data, dict):
-            # Try common nesting patterns
             devices = data.get("devices") or data.get("data") or data.get("items") or []
             if not devices:
                 _LOGGER.debug(
@@ -888,6 +250,8 @@ class PhilipsCloudAPI:
             return data.get("homes") or data.get("data") or []
         return []
 
+    # --- Home ID backend API ---
+
     async def _backend_login(
         self, oidc_tokens: dict[str, Any], email: str
     ) -> tuple[str | None, dict[str, Any]]:
@@ -895,10 +259,6 @@ class PhilipsCloudAPI:
 
         The backend at backend.vbs.versuni.com requires its own session token,
         obtained by POSTing the OIDC id_token via the loginConsumer endpoint.
-        Uses JSON:API format (LoginUserParams type=consumerLoginRequest).
-
-        Tries multiple candidate paths since the exact URL normally comes
-        from the discovery service which itself requires auth.
         """
         session = await self._get_session()
         id_token = oidc_tokens.get("id_token", "")
@@ -915,8 +275,6 @@ class PhilipsCloudAPI:
             "Accept-Language": "en-GB",
         }
 
-        # Step 1: Get the login URL and spaceId from discovery service
-        # In Retrofit, @GET("/.well-known/...") resolves to host root, not /api/
         discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
         _LOGGER.debug("Backend discovery: GET %s", discovery_url)
         try:
@@ -940,18 +298,15 @@ class PhilipsCloudAPI:
             _LOGGER.error("Backend discovery has no authorizationUrl")
             return None, discovery
 
-        # Extract spaceId from discovery (required for login)
         spaces = discovery.get("spaces", [])
         space_id = spaces[0].get("spaceId", "") if spaces else ""
         _LOGGER.debug("Backend login URL: %s", auth_url)
-        _LOGGER.debug("Backend profile URL: %s", discovery.get("profileUrl"))
         _LOGGER.debug("Backend spaceId: %s", space_id)
 
         if not space_id:
             _LOGGER.error("No spaceId in discovery response")
             return None, discovery
 
-        # JSON:API format matching LoginUserParams (type=consumerLoginRequest)
         login_body = {
             "data": {
                 "type": "consumerLoginRequest",
@@ -964,10 +319,7 @@ class PhilipsCloudAPI:
             }
         }
 
-        # Step 2: Login with OIDC id_token
-        # App's DefaultRequestInterceptor skips Bearer for login requests
         headers = dict(common_headers)
-
         _LOGGER.debug("Backend login: POST %s", auth_url)
         try:
             async with session.post(auth_url, headers=headers, json=login_body) as resp:
@@ -985,7 +337,6 @@ class PhilipsCloudAPI:
             _LOGGER.exception("Backend login request failed")
             return None, discovery
 
-        # Extract token from response (try JSON:API and flat formats)
         token = data.get("data", {}).get("attributes", {}).get("token")
         if not token:
             token = data.get("token")
@@ -1006,21 +357,15 @@ class PhilipsCloudAPI:
 
         The full chain:
         1. Login to backend with OIDC id_token -> backend session token
-        2. Discovery: GET /.well-known/tenant/oneka -> profileUrl
-        3. Profile: GET {profileUrl} -> _links.userAppliances.href
-        4. Appliances: GET {appliancesUrl} -> _embedded.item[]
-
-        Falls back to trying discovery directly with the OIDC access_token
-        if backend login fails.
+        2. Profile: GET {profileUrl} -> _links.userAppliances.href
+        3. Appliances: GET {appliancesUrl} -> _embedded.item[]
         """
         session = await self._get_session()
         access_token = oidc_tokens.get("access_token", "")
         ts = int(time.time() * 1000)
 
-        # Step 1: Try to get a backend session token (also returns discovery)
         backend_token, discovery = await self._backend_login(oidc_tokens, email)
 
-        # Use backend token if available, otherwise try OIDC access_token
         auth_token = backend_token or access_token
         token_source = "backend" if backend_token else "oidc"
         _LOGGER.debug("Using %s token for Home ID API", token_source)
@@ -1045,11 +390,9 @@ class PhilipsCloudAPI:
             )
             return []
 
-        # Make profile URL absolute if relative
         if profile_url.startswith("/"):
             profile_url = f"{BACKEND_API_BASE}{profile_url}"
 
-        # Step 3: Get user profile
         profile_req_url = f"{profile_url}?ts={ts}"
         _LOGGER.debug("HomeID profile: GET %s", profile_req_url)
         async with session.get(profile_req_url, headers=hal_headers) as resp:
@@ -1068,7 +411,6 @@ class PhilipsCloudAPI:
                 _LOGGER.error("HomeID profile not JSON: %s", text[:200])
                 return []
 
-        # Try embedded appliances first
         embedded = profile.get("_embedded", {})
         appliances_embedded = embedded.get("userAppliances", {})
         if isinstance(appliances_embedded, dict):
@@ -1081,7 +423,6 @@ class PhilipsCloudAPI:
                 self._log_appliances(items)
                 return items
 
-        # Follow HAL link to appliances
         links = profile.get("_links", {})
         appliances_link = links.get("userAppliances", {})
         appliances_href = (
@@ -1098,10 +439,8 @@ class PhilipsCloudAPI:
         if appliances_href.startswith("/"):
             appliances_href = f"{BACKEND_API_BASE}{appliances_href}"
 
-        # Expand HAL URI template: strip {?param} placeholders
         appliances_href = re.sub(r"\{[^}]*\}", "", appliances_href)
 
-        # Step 4: Get appliances
         appliances_req_url = f"{appliances_href}?ts={ts}&includeSkippedPairing=true"
         _LOGGER.debug("HomeID appliances: GET %s", appliances_req_url)
         async with session.get(appliances_req_url, headers=hal_headers) as resp:
@@ -1120,7 +459,6 @@ class PhilipsCloudAPI:
                 _LOGGER.error("HomeID appliances not JSON: %s", text[:200])
                 return []
 
-        # Extract items from HAL _embedded.item
         if isinstance(appliances_data, dict):
             items = appliances_data.get("_embedded", {}).get("item", [])
         elif isinstance(appliances_data, list):
@@ -1148,18 +486,12 @@ class PhilipsCloudAPI:
                 item.get("externalDeviceId", "?"),
             )
 
+    # --- Credential migration ---
+
     async def get_device_credentials(
         self, access_token: str, device_ids: list[str], ctns: list[str]
     ) -> list[dict[str, Any]]:
-        """Retrieve local credentials for devices via cloud migration API.
-
-        Args:
-            access_token: OIDC access token
-            device_ids: List of device IDs from get_devices()
-            ctns: List of model numbers (e.g., ["HD9280"])
-
-        Returns list of device dicts with localCredentials field.
-        """
+        """Retrieve local credentials for devices via cloud migration API."""
         session = await self._get_session()
         headers = {
             "Authorization": f"Bearer {access_token}",

@@ -102,110 +102,344 @@
   },
   "entity": {
     "sensor": {
-      "pm25": { "name": "PM2.5" },
-      "pm1": { "name": "PM1.0" },
-      "pm10": { "name": "PM10" },
-      "air_quality_index": { "name": "Luftqualitätsindex" },
-      "tvoc": { "name": "Gesamt-VOC" },
-      "gas": { "name": "Gasniveau" },
-      "allergen_index": { "name": "Allergenindex" },
-      "humidity": { "name": "Luftfeuchtigkeit" },
-      "temperature": { "name": "Temperatur" },
-      "filter_pre": { "name": "Vorfilter" },
-      "filter_hepa": { "name": "HEPA-Filter" },
-      "filter_carbon": { "name": "Kohlefilter" },
-      "filter_wick": { "name": "Befeuchterdocht" },
-      "water_level": { "name": "Wasserstand" },
-      "display_brightness": { "name": "Displayhelligkeit" },
-      "runtime": { "name": "Gesamtlaufzeit" },
-      "mode": { "name": "Modus" },
-      "fan_speed": { "name": "Lüftergeschwindigkeit" },
-      "error_code": { "name": "Fehlercode" },
-      "airfryer_status": { "name": "Kochstatus" },
-      "airfryer_temperature": { "name": "Zieltemperatur" },
-      "airfryer_current_temperature": { "name": "Aktuelle Temperatur" },
-      "airfryer_time_total": { "name": "Gesamtkochzeit" },
-      "airfryer_time_remaining": { "name": "Verbleibende Zeit" },
-      "airfryer_preset": { "name": "Programm" },
-      "airfryer_recipe_name": { "name": "Rezept" },
-      "airfryer_error": { "name": "Fehlercode" },
-      "airfryer_preheat_status": { "name": "Vorheizstatus" },
-      "airfryer_keep_warm": { "name": "Warmhalten" },
-      "muji_filter0_lifetime": { "name": "Lebensdauer Filter 0" },
-      "muji_filter1_lifetime": { "name": "Lebensdauer Filter 1" },
-      "muji_filter0_remaining": { "name": "Filter 0 verbleibend" },
-      "muji_filter1_remaining": { "name": "Filter 1 verbleibend" },
-      "airfryer_recipe_id": { "name": "Rezept-ID" },
-      "airfryer_step_id": { "name": "Schritt-ID" },
-      "airfryer_airspeed": { "name": "Luftgeschwindigkeit" },
-      "airfryer_probe_temperature": { "name": "Sondentemperatur" },
-      "airfryer_current_probe_temperature": { "name": "Aktuelle Sondentemperatur" },
-      "airfryer_dialog": { "name": "Benachrichtigung" },
-      "airfryer_previous_status": { "name": "Vorheriger Status" },
-      "airfryer_cooking_id": { "name": "Koch-ID" },
-      "airfryer_current_stage": { "name": "Aktuelle Phase" },
-      "airfryer_voltage": { "name": "Spannung" },
-      "airfryer_left_status": { "name": "Status linker Korb" },
-      "airfryer_left_temperature": { "name": "Temperatur linker Korb" },
-      "airfryer_left_time": { "name": "Zeit linker Korb" },
-      "airfryer_right_status": { "name": "Status rechter Korb" },
-      "airfryer_right_temperature": { "name": "Temperatur rechter Korb" },
-      "airfryer_right_time": { "name": "Zeit rechter Korb" },
-      "multicooker_humidity": { "name": "Luftfeuchtigkeit" },
-      "multicooker_ingredient": { "name": "Zutat" },
-      "autocook_uuid": { "name": "AutoCook-Programm" },
-      "autocook_doneness": { "name": "AutoCook Garstufe" },
-      "autocook_amount": { "name": "AutoCook Menge" },
-      "autocook_weight": { "name": "AutoCook Gewicht" },
-      "autocook_thickness": { "name": "AutoCook Dicke" },
-      "recipe_current_stage": { "name": "Aktuelle Rezeptphase" },
-      "firmware_version": { "name": "Firmware-Version" },
-      "firmware_available": { "name": "Firmware verfügbar" }
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm1": {
+        "name": "PM1.0"
+      },
+      "pm10": {
+        "name": "PM10"
+      },
+      "air_quality_index": {
+        "name": "Luftqualitätsindex"
+      },
+      "tvoc": {
+        "name": "Gesamt-VOC"
+      },
+      "gas": {
+        "name": "Gasniveau"
+      },
+      "allergen_index": {
+        "name": "Allergenindex"
+      },
+      "humidity": {
+        "name": "Luftfeuchtigkeit"
+      },
+      "temperature": {
+        "name": "Temperatur"
+      },
+      "filter_pre": {
+        "name": "Vorfilter"
+      },
+      "filter_hepa": {
+        "name": "HEPA-Filter"
+      },
+      "filter_carbon": {
+        "name": "Kohlefilter"
+      },
+      "filter_wick": {
+        "name": "Befeuchterdocht"
+      },
+      "water_level": {
+        "name": "Wasserstand"
+      },
+      "display_brightness": {
+        "name": "Displayhelligkeit"
+      },
+      "runtime": {
+        "name": "Gesamtlaufzeit"
+      },
+      "mode": {
+        "name": "Modus"
+      },
+      "fan_speed": {
+        "name": "Lüftergeschwindigkeit"
+      },
+      "error_code": {
+        "name": "Fehlercode"
+      },
+      "airfryer_status": {
+        "name": "Kochstatus"
+      },
+      "airfryer_temperature": {
+        "name": "Zieltemperatur"
+      },
+      "airfryer_current_temperature": {
+        "name": "Aktuelle Temperatur"
+      },
+      "airfryer_time_total": {
+        "name": "Gesamtkochzeit"
+      },
+      "airfryer_time_remaining": {
+        "name": "Verbleibende Zeit"
+      },
+      "airfryer_preset": {
+        "name": "Programm"
+      },
+      "airfryer_recipe_name": {
+        "name": "Rezept"
+      },
+      "airfryer_error": {
+        "name": "Fehlercode"
+      },
+      "airfryer_preheat_status": {
+        "name": "Vorheizstatus"
+      },
+      "airfryer_keep_warm": {
+        "name": "Warmhalten"
+      },
+      "muji_filter0_lifetime": {
+        "name": "Lebensdauer Filter 0"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Lebensdauer Filter 1"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filter 0 verbleibend"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filter 1 verbleibend"
+      },
+      "airfryer_recipe_id": {
+        "name": "Rezept-ID"
+      },
+      "airfryer_step_id": {
+        "name": "Schritt-ID"
+      },
+      "airfryer_airspeed": {
+        "name": "Luftgeschwindigkeit"
+      },
+      "airfryer_probe_temperature": {
+        "name": "Sondentemperatur"
+      },
+      "airfryer_current_probe_temperature": {
+        "name": "Aktuelle Sondentemperatur"
+      },
+      "airfryer_dialog": {
+        "name": "Benachrichtigung"
+      },
+      "airfryer_previous_status": {
+        "name": "Vorheriger Status"
+      },
+      "airfryer_cooking_id": {
+        "name": "Koch-ID"
+      },
+      "airfryer_current_stage": {
+        "name": "Aktuelle Phase"
+      },
+      "airfryer_voltage": {
+        "name": "Spannung"
+      },
+      "airfryer_left_status": {
+        "name": "Status linker Korb"
+      },
+      "airfryer_left_temperature": {
+        "name": "Temperatur linker Korb"
+      },
+      "airfryer_left_time": {
+        "name": "Zeit linker Korb"
+      },
+      "airfryer_right_status": {
+        "name": "Status rechter Korb"
+      },
+      "airfryer_right_temperature": {
+        "name": "Temperatur rechter Korb"
+      },
+      "airfryer_right_time": {
+        "name": "Zeit rechter Korb"
+      },
+      "multicooker_humidity": {
+        "name": "Luftfeuchtigkeit"
+      },
+      "multicooker_ingredient": {
+        "name": "Zutat"
+      },
+      "autocook_uuid": {
+        "name": "AutoCook-Programm"
+      },
+      "autocook_doneness": {
+        "name": "AutoCook Garstufe"
+      },
+      "autocook_amount": {
+        "name": "AutoCook Menge"
+      },
+      "autocook_weight": {
+        "name": "AutoCook Gewicht"
+      },
+      "autocook_thickness": {
+        "name": "AutoCook Dicke"
+      },
+      "recipe_current_stage": {
+        "name": "Aktuelle Rezeptphase"
+      },
+      "firmware_version": {
+        "name": "Firmware-Version"
+      },
+      "firmware_available": {
+        "name": "Firmware verfügbar"
+      },
+      "espresso_mainstate": {
+        "name": "Maschinenstatus"
+      },
+      "espresso_brewing_progress": {
+        "name": "Bruhfortschritt"
+      },
+      "espresso_water_level": {
+        "name": "Wasserstand"
+      },
+      "espresso_descale_status": {
+        "name": "Entkalkungsstatus"
+      },
+      "espresso_filter_status": {
+        "name": "Filterstatus"
+      },
+      "espresso_filter_number": {
+        "name": "Filternummer"
+      },
+      "espresso_waste_bean": {
+        "name": "Tresterbehälter"
+      },
+      "espresso_switch_state": {
+        "name": "Schalterstatus"
+      },
+      "espresso_last_error": {
+        "name": "Letzter Fehler"
+      },
+      "espresso_active_user": {
+        "name": "Aktiver Benutzer"
+      },
+      "espresso_water_hardness": {
+        "name": "Wasserhärte"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Automatische Standby-Zeit"
+      }
     },
     "binary_sensor": {
-      "filter_replace_required": { "name": "Filterwechsel erforderlich" },
-      "water_tank_empty": { "name": "Wassertank leer" },
-      "airfryer_drawer_open": { "name": "Schublade" },
-      "airfryer_shake_reminder": { "name": "Schüttelerinnerung" },
-      "airfryer_flip_reminder": { "name": "Wendeerinnerung" },
-      "airfryer_preheat_active": { "name": "Vorheizen aktiv" },
-      "airfryer_probe_unplugged": { "name": "Sonde getrennt" },
-      "airfryer_probe_required": { "name": "Sonde erforderlich" },
-      "airfryer_resting": { "name": "Ruhen" },
-      "multicooker_lid_open": { "name": "Deckel" },
-      "multicooker_no_water": { "name": "Kein Wasser" },
-      "airfryer_left_drawer_open": { "name": "Schublade linker Korb" },
-      "airfryer_right_drawer_open": { "name": "Schublade rechter Korb" }
+      "filter_replace_required": {
+        "name": "Filterwechsel erforderlich"
+      },
+      "water_tank_empty": {
+        "name": "Wassertank leer"
+      },
+      "airfryer_drawer_open": {
+        "name": "Schublade"
+      },
+      "airfryer_shake_reminder": {
+        "name": "Schüttelerinnerung"
+      },
+      "airfryer_flip_reminder": {
+        "name": "Wendeerinnerung"
+      },
+      "airfryer_preheat_active": {
+        "name": "Vorheizen aktiv"
+      },
+      "airfryer_probe_unplugged": {
+        "name": "Sonde getrennt"
+      },
+      "airfryer_probe_required": {
+        "name": "Sonde erforderlich"
+      },
+      "airfryer_resting": {
+        "name": "Ruhen"
+      },
+      "multicooker_lid_open": {
+        "name": "Deckel"
+      },
+      "multicooker_no_water": {
+        "name": "Kein Wasser"
+      },
+      "airfryer_left_drawer_open": {
+        "name": "Schublade linker Korb"
+      },
+      "airfryer_right_drawer_open": {
+        "name": "Schublade rechter Korb"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Temperatur Fahrenheit"
+      }
     },
     "button": {
-      "airfryer_start": { "name": "Kochen starten" },
-      "airfryer_pause": { "name": "Pause" },
-      "airfryer_stop": { "name": "Stopp" },
-      "airfryer_keep_warm": { "name": "Warmhalten" }
+      "airfryer_start": {
+        "name": "Kochen starten"
+      },
+      "airfryer_pause": {
+        "name": "Pause"
+      },
+      "airfryer_stop": {
+        "name": "Stopp"
+      },
+      "airfryer_keep_warm": {
+        "name": "Warmhalten"
+      }
     },
     "number": {
-      "airfryer_set_temperature": { "name": "Temperatur einstellen" },
-      "airfryer_set_time": { "name": "Kochzeit einstellen" },
-      "airfryer_set_airspeed": { "name": "Luftgeschwindigkeit einstellen" },
-      "airfryer_set_probe_temperature": { "name": "Sondentemperatur einstellen" },
-      "set_beep_volume": { "name": "Piepton-Lautstärke" },
-      "set_air_quality_threshold": { "name": "Luftqualitätsschwelle" },
-      "set_keep_warm_time": { "name": "Warmhaltedauer" },
-      "set_keep_warm_temp": { "name": "Warmhaltetemperatur" }
+      "airfryer_set_temperature": {
+        "name": "Temperatur einstellen"
+      },
+      "airfryer_set_time": {
+        "name": "Kochzeit einstellen"
+      },
+      "airfryer_set_airspeed": {
+        "name": "Luftgeschwindigkeit einstellen"
+      },
+      "airfryer_set_probe_temperature": {
+        "name": "Sondentemperatur einstellen"
+      },
+      "set_beep_volume": {
+        "name": "Piepton-Lautstärke"
+      },
+      "set_air_quality_threshold": {
+        "name": "Luftqualitätsschwelle"
+      },
+      "set_keep_warm_time": {
+        "name": "Warmhaltedauer"
+      },
+      "set_keep_warm_temp": {
+        "name": "Warmhaltetemperatur"
+      },
+      "espresso_grinder_dose": {
+        "name": "Mahldosis"
+      },
+      "espresso_brew_temperature": {
+        "name": "Brühtemperatur"
+      },
+      "espresso_brew_count": {
+        "name": "Anzahl Brühvorgänge"
+      },
+      "espresso_primary_dose": {
+        "name": "Primärdosis"
+      },
+      "espresso_secondary_dose": {
+        "name": "Sekundärdosis"
+      }
     },
     "select": {
-      "cooking_method": { "name": "Kochmethode" }
+      "cooking_method": {
+        "name": "Kochmethode"
+      }
     },
     "switch": {
-      "child_lock": { "name": "Kindersicherung" },
-      "preheat": { "name": "Vorheizen" },
-      "sensor_monitor_standby": { "name": "Sensoren im Standby aktiv" }
+      "child_lock": {
+        "name": "Kindersicherung"
+      },
+      "preheat": {
+        "name": "Vorheizen"
+      },
+      "sensor_monitor_standby": {
+        "name": "Sensoren im Standby aktiv"
+      }
     },
     "update": {
-      "firmware": { "name": "Firmware" }
+      "firmware": {
+        "name": "Firmware"
+      }
     },
     "fan": {
-      "air_purifier": { "name": "Luftreiniger" }
+      "air_purifier": {
+        "name": "Luftreiniger"
+      }
     }
   }
 }

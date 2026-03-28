@@ -65,6 +65,23 @@ _NCP_PROPERTY_MAP: dict[str, str] = {
     "prev_stat": "prev_status",
 }
 
+# NCP status codes (from APK NcpStatusCode.java)
+_NCP_STATUS_NAMES: dict[int, str] = {
+    0: "ok",
+    1: "busy",
+    2: "json_error",
+    3: "correlation_id_error",
+    4: "client_type_error",
+    5: "time_error",
+    6: "message_type_error",
+    7: "command_name_error",
+    8: "port_error",
+    9: "write_read_only_port",
+    10: "read_write_only_port",
+    11: "serialization_error",
+    12: "mqtt_error",
+}
+
 # Reverse maps for sending commands (local API names → NCP names)
 _LOCAL_PORT_MAP: dict[str, str] = {v: k for k, v in _NCP_PORT_MAP.items()}
 _LOCAL_PROPERTY_MAP: dict[str, str] = {v: k for k, v in _NCP_PROPERTY_MAP.items()}
@@ -550,7 +567,12 @@ class PhilipsMQTTClient:
             return
 
         if status is not None and status != 0:
-            _LOGGER.debug("NCP error status %s for %s: %s", status, command, payload)
+            status_name = (
+                _NCP_STATUS_NAMES.get(status, "unknown")
+                if isinstance(status, int)
+                else status
+            )
+            _LOGGER.debug("NCP %s (%s) for %s", status_name, status, command)
             return
 
         data = payload.get("data", {})

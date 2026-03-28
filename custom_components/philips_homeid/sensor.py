@@ -111,6 +111,48 @@ class PhilipsHomeIDSensorEntityDescription(SensorEntityDescription):
     extrapolate_countdown: bool = False
 
 
+# Espresso machine state codes (from APK EspressoStateProperty.java)
+_ESPRESSO_MAINSTATE: dict[int, str] = {
+    0: "undefined",
+    1: "standby",
+    2: "ready",
+    3: "brewing",
+    4: "processing",
+    5: "action_required",
+    6: "error",
+    7: "suspended",
+    8: "unknown",
+    9: "out_of_order",
+}
+
+# NCP protocol status codes (from APK NcpStatusCode.java)
+_NCP_STATUS: dict[int, str] = {
+    0: "ok",
+    1: "busy",
+    2: "json_error",
+    3: "correlation_id_error",
+    4: "client_type_error",
+    5: "time_error",
+    6: "message_type_error",
+    7: "command_name_error",
+    8: "port_error",
+    9: "write_read_only_port",
+    10: "read_write_only_port",
+    11: "serialization_error",
+    12: "mqtt_error",
+}
+
+
+def _espresso_mainstate(value: Any) -> str | None:
+    """Convert espresso mainstate integer to human-readable string."""
+    if value is None:
+        return None
+    try:
+        return _ESPRESSO_MAINSTATE.get(int(value), f"unknown ({value})")
+    except (ValueError, TypeError):
+        return str(value)
+
+
 def _seconds_to_minutes(value: Any) -> int | None:
     """Convert seconds to minutes."""
     if value is None:
@@ -699,6 +741,7 @@ ESPRESSO_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="mainstate",
         nested_key="machinestatus",
         icon="mdi:coffee-maker",
+        value_fn=_espresso_mainstate,
         device_types=("espresso",),
     ),
     PhilipsHomeIDSensorEntityDescription(

@@ -35,6 +35,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -181,8 +182,23 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
     ),
 )
 
+# Temperature unit sensor (shared across device types)
+COMMON_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] = (
+    PhilipsHomeIDBinarySensorEntityDescription(
+        key="temp_unit_fahrenheit",
+        translation_key="temp_unit_fahrenheit",
+        property_key="temp_unit",
+        nested_key="airfryer",
+        icon="mdi:temperature-fahrenheit",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
+    ),
+)
+
 # All binary sensors combined
-BINARY_SENSORS = AIR_PURIFIER_BINARY_SENSORS + AIRFRYER_BINARY_SENSORS
+BINARY_SENSORS = (
+    AIR_PURIFIER_BINARY_SENSORS + AIRFRYER_BINARY_SENSORS + COMMON_BINARY_SENSORS
+)
 
 
 async def async_setup_entry(

@@ -146,6 +146,77 @@ MUJI_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
     ),
 )
 
+# Espresso machine number entities (recipe settings)
+# Property names from APK BasicRecipePortProperties
+ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
+    PhilipsHomeIDNumberEntityDescription(
+        key="espresso_grinder_dose",
+        translation_key="espresso_grinder_dose",
+        property_key="GrDose",
+        nested_key="basicrecipe",
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        icon="mdi:coffee-maker-outline",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("GrDose", int(v)),
+        available_key="basicrecipe",
+    ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="espresso_brew_temperature",
+        translation_key="espresso_brew_temperature",
+        property_key="Temperature",
+        nested_key="basicrecipe",
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        icon="mdi:thermometer",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("Temperature", int(v)),
+        available_key="basicrecipe",
+    ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="espresso_brew_count",
+        translation_key="espresso_brew_count",
+        property_key="NrOfBrews",
+        nested_key="basicrecipe",
+        native_min_value=1,
+        native_max_value=4,
+        native_step=1,
+        icon="mdi:counter",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("NrOfBrews", int(v)),
+        available_key="basicrecipe",
+    ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="espresso_primary_dose",
+        translation_key="espresso_primary_dose",
+        property_key="PrimDose",
+        nested_key="basicrecipe",
+        native_min_value=0,
+        native_max_value=500,
+        native_step=1,
+        icon="mdi:cup-water",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("PrimDose", int(v)),
+        available_key="basicrecipe",
+    ),
+    PhilipsHomeIDNumberEntityDescription(
+        key="espresso_secondary_dose",
+        translation_key="espresso_secondary_dose",
+        property_key="SecDose",
+        nested_key="basicrecipe",
+        native_min_value=0,
+        native_max_value=500,
+        native_step=1,
+        icon="mdi:cup",
+        mode=NumberMode.BOX,
+        set_fn=lambda c, v: c.async_set_status_property("SecDose", int(v)),
+        available_key="basicrecipe",
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -176,6 +247,14 @@ async def async_setup_entry(
             entities.append(
                 PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id)
             )
+    elif device_type == "espresso":
+        for description in ESPRESSO_NUMBERS:
+            if coordinator.has_property(
+                description.property_key, description.nested_key
+            ):
+                entities.append(
+                    PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
+                )
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):

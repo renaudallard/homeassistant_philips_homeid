@@ -355,6 +355,9 @@
       },
       "airfryer_right_drawer_open": {
         "name": "Right Basket Drawer"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Temperature Unit Fahrenheit"
       }
     },
     "button": {
@@ -395,6 +398,21 @@
       },
       "set_keep_warm_temp": {
         "name": "Keep Warm Temperature"
+      },
+      "espresso_grinder_dose": {
+        "name": "Grinder Dose"
+      },
+      "espresso_brew_temperature": {
+        "name": "Brew Temperature"
+      },
+      "espresso_brew_count": {
+        "name": "Number of Brews"
+      },
+      "espresso_primary_dose": {
+        "name": "Primary Dose"
+      },
+      "espresso_secondary_dose": {
+        "name": "Secondary Dose"
       }
     },
     "select": {

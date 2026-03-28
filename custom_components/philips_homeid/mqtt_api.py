@@ -71,10 +71,26 @@ _NCP_PORT_MAP: dict[str, str] = {
 
 # NCP property name → local API property name
 # NCP (FUSION MQTT) uses different keys than the local HTTP API.
+# From APK VenusStatusPortProperties / VenusDeviceCurrentStatePortProperties
+# @SerializedName annotations.
 _NCP_PROPERTY_MAP: dict[str, str] = {
     "drw_opn": "drawer_open",
     "shk_rm_act": "shake",
     "prev_stat": "prev_status",
+    "probe_unpl": "probe_unplugged",
+    "probe_rqrd": "probe_required",
+    # NCP uses curr_temp, Venus HTTP uses current_temp (both → cur_temp via Venus map)
+    "curr_temp": "current_temp",
+    "cur_tmp_pr": "current_temp_probe",
+}
+
+# Venus key normalization (Venus→SPECTRE), applied after _NCP_PROPERTY_MAP
+# for airfryer-mapped ports only. Mirrors local_api._VENUS_KEY_MAP.
+_VENUS_KEY_MAP: dict[str, str] = {
+    "disp_time": "cur_time",
+    "total_time": "time",
+    "method": "preset",
+    "current_temp": "cur_temp",
 }
 
 # NCP status codes (from APK NcpStatusCode.java)
@@ -617,6 +633,13 @@ class PhilipsMQTTClient:
         for ncp_key, local_key in _NCP_PROPERTY_MAP.items():
             if ncp_key in properties and local_key not in properties:
                 properties[local_key] = properties[ncp_key]
+
+        # Apply Venus→SPECTRE normalization for airfryer-mapped ports
+        # (matches local_api._normalize_venus_response behavior)
+        if port_name == "airfryer":
+            for venus_key, spectre_key in _VENUS_KEY_MAP.items():
+                if venus_key in properties and spectre_key not in properties:
+                    properties[spectre_key] = properties[venus_key]
 
         _LOGGER.debug(
             "NCP port %s -> %s: %s", ncp_port, port_name, list(properties.keys())

@@ -269,3 +269,120 @@ class PhilipsCrypto:
         except Exception as err:
             _LOGGER.error("AES encryption failed: %s", err)
             return None
+
+
+def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
+    """Parse SSDP discovery info into LocalDeviceInfo."""
+    try:
+        location = discovery_info.get("location", "")
+        udn = discovery_info.get("udn", "")
+
+        if "://" in location:
+            host_part = location.split("://")[1].split("/")[0]
+            ip_address = host_part.split(":")[0]
+        else:
+            return None
+
+        cpp_id = discovery_info.get("cppId", "")
+        if not cpp_id:
+            cpp_id = udn.replace("uuid:", "") if udn.startswith("uuid:") else udn
+
+        model_name = discovery_info.get("modelName", "")
+        model_number = discovery_info.get("modelNumber", "")
+        friendly_name = discovery_info.get("friendlyName", "")
+
+        if not friendly_name or friendly_name in (
+            "Reference Product",
+            "Philips Device",
+        ):
+            friendly_name = f"{model_name} {model_number}".strip() if model_name else ""
+
+        device = LocalDeviceInfo(
+            ip_address=ip_address,
+            cpp_id=cpp_id,
+            friendly_name=friendly_name,
+            model_name=model_name,
+            model_number=model_number,
+            serial_number=discovery_info.get("serialNumber", ""),
+        )
+
+        _LOGGER.info(
+            "Parsed SSDP device: %s at %s",
+            device.friendly_name,
+            ip_address,
+        )
+        return device
+
+    except Exception as err:
+        _LOGGER.error("Failed to parse SSDP discovery: %s", err)
+        return None
+
+
+def _parse_model_from_mdns_name(name: str) -> str:
+    """Extract model number from mDNS name like PHILIPS_HD9285_2_21D740."""
+    parts = name.split("_")
+    if len(parts) >= 2 and parts[0].upper() == "PHILIPS":
+        return parts[1]
+    return ""
+
+
+def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
+    """Parse Zeroconf/mDNS discovery info into LocalDeviceInfo.
+
+    Supports two discovery formats:
+    1. _philipscondor._tcp.local. - properties: fn, mn, mr, id, bi
+    2. _http._tcp.local. - name like PHILIPS_HD9285_2_21D740, uses HTTP
+    """
+    try:
+        host = discovery_info.get("host", "")
+        name = discovery_info.get("name", "")
+        properties = discovery_info.get("properties", {})
+        service_type = discovery_info.get("type", "")
+
+        is_http_device = "_http._tcp" in service_type or "_http._tcp" in name
+
+        cpp_id = properties.get("id", "")
+        friendly_name = properties.get("fn", "")
+        model_name = properties.get("mn", "")
+        model_number = properties.get("mr", "")
+        boot_id = properties.get("bi", "")
+
+        if is_http_device and not model_name:
+            model_name = _parse_model_from_mdns_name(name.split("._")[0])
+
+        if not friendly_name or friendly_name in (
+            "Reference Product",
+            "Philips Device",
+        ):
+            friendly_name = f"{model_name} {model_number}".strip() if model_name else ""
+
+        if not friendly_name:
+            for suffix in ("._philipscondor", "._http"):
+                if suffix in name:
+                    friendly_name = name.split(suffix)[0]
+                    break
+            else:
+                friendly_name = name
+
+        device = LocalDeviceInfo(
+            ip_address=host,
+            cpp_id=cpp_id or name,
+            friendly_name=friendly_name,
+            model_name=model_name,
+            model_number=model_number,
+            boot_id=boot_id,
+            use_https=not is_http_device,
+        )
+
+        _LOGGER.info(
+            "Parsed Zeroconf device: %s at %s (model: %s, https: %s)",
+            friendly_name,
+            host,
+            model_name,
+            device.use_https,
+        )
+        return device
+
+    except Exception as err:
+        _LOGGER.error("Failed to parse Zeroconf discovery: %s", err)
+        return None

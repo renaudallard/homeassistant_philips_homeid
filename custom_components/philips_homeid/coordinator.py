@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 import logging
 import time
@@ -101,6 +102,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
+        # Event signaled when first MQTT data with properties arrives.
+        # Used to delay entity setup until NCP port data is available.
+        self._initial_data_event: asyncio.Event = asyncio.Event()
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -150,6 +154,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._update_polling_interval(state)
         if new_properties:
             self._notify_new_properties(new_properties)
+        # Signal that initial MQTT data is available for entity setup
+        if state.properties and not self._initial_data_event.is_set():
+            self._initial_data_event.set()
         self.async_set_updated_data(state)
 
     async def _async_update_data(self) -> LocalDeviceState | None:
@@ -167,6 +174,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await self.hass.async_add_executor_job(
                     self.mqtt_client.refresh_port_data
                 )
+                # On first refresh, wait for NCP port data so entity setup
+                # has state available (avoids 0-entity race condition).
+                if not self._initial_data_event.is_set():
+                    try:
+                        await asyncio.wait_for(
+                            self._initial_data_event.wait(), timeout=10
+                        )
+                    except TimeoutError:
+                        _LOGGER.warning(
+                            "Timeout waiting for initial MQTT data from %s",
+                            self.device_info.model_name,
+                        )
             else:
                 _LOGGER.warning("MQTT not connected for heartbeat")
         except Exception as err:

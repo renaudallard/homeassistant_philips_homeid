@@ -45,10 +45,22 @@ from .local_api import LocalDeviceInfo, LocalDeviceState
 
 # NCP port name → local API port name (entities use local API names)
 _NCP_PORT_MAP: dict[str, str] = {
-    # Airfryer ports
-    "Status": "airfryer",
+    # Airfryer status ports (APK VenusStatusPortKt / SpectreStatusPortKt)
+    "Status": "airfryer",  # SPECTRE (HD928x) + Venus 1 (HD987x)
+    "venusaf_s": "airfryer",  # Venus 2 (HD9880)
+    # Airfryer control ports (APK VenusControlPortKt / SpectreControlPortKt)
     "Config": "config",
-    "Control": "control",
+    "Control": "control",  # SPECTRE + Venus 1
+    "venusaf_c": "control",  # Venus 2 (HD9880)
+    # Venus device state (APK VenusDeviceCurrentStatePortKt)
+    # Merged into airfryer dict, same as local API does with devcurrstate
+    "devcurst_s": "airfryer",
+    # Venus firmware (APK VenusFirmwarePortKt)
+    "firmware_s": "firmware",
+    # Venus recipe (APK VenusRecipeStatusPortKt)
+    "recipe_s": "recipe",
+    # Venus auto cook (APK VenusAutoCookStatusPortKt)
+    "acp_s": "autocook",
     # Espresso ports (from APK espresso/PortsKt.java)
     "machinestatus": "machinestatus",
     "command": "command",
@@ -83,7 +95,11 @@ _NCP_STATUS_NAMES: dict[int, str] = {
 }
 
 # Reverse maps for sending commands (local API names → NCP names)
-_LOCAL_PORT_MAP: dict[str, str] = {v: k for k, v in _NCP_PORT_MAP.items()}
+# Use first-wins to prefer SPECTRE/Venus 1 names as default fallback;
+# actual resolution uses discovered ports (see _resolve_ncp_port).
+_LOCAL_PORT_MAP: dict[str, str] = {}
+for _ncp, _local in _NCP_PORT_MAP.items():
+    _LOCAL_PORT_MAP.setdefault(_local, _ncp)
 _LOCAL_PROPERTY_MAP: dict[str, str] = {v: k for k, v in _NCP_PROPERTY_MAP.items()}
 
 _LOGGER = logging.getLogger(__name__)
@@ -349,6 +365,17 @@ class PhilipsMQTTClient:
         )
         _LOGGER.debug("Shadow power update: %s", power_on)
 
+    def _resolve_ncp_port(self, local_port: str) -> str:
+        """Resolve local API port name to the NCP port name for this device.
+
+        Prefers discovered ports (device-specific) over static reverse map.
+        Venus 2 uses different NCP names (venusaf_c) than SPECTRE/Venus 1 (Control).
+        """
+        for discovered in self._discovered_ports:
+            if _NCP_PORT_MAP.get(discovered) == local_port:
+                return discovered
+        return _LOCAL_PORT_MAP.get(local_port, local_port)
+
     def send_port_command(
         self,
         port_name: str,
@@ -370,7 +397,7 @@ class PhilipsMQTTClient:
         data: dict[str, Any] | None = None
         if port_name:
             # Map local API port name to NCP port name
-            ncp_port = _LOCAL_PORT_MAP.get(port_name, port_name)
+            ncp_port = self._resolve_ncp_port(port_name)
             data = {"portName": ncp_port}
             if properties:
                 # Map local API property names to NCP names
@@ -616,14 +643,20 @@ class PhilipsMQTTClient:
             self._state.connection_state = "connected"
 
             # Update power state from device port data
-            if port_name in (
-                "airfryer",
-                "venusaf",
-                "venus1af",
-                "nutrimax",
-                "hermesac",
+            # Only update when status is actually present (devcurst_s merges
+            # into airfryer but has no status field).
+            if (
+                port_name
+                in (
+                    "airfryer",
+                    "venusaf",
+                    "venus1af",
+                    "nutrimax",
+                    "hermesac",
+                )
+                and "status" in properties
             ):
-                port_status = properties.get("status", "")
+                port_status = properties["status"]
                 self._state.power_on = port_status in (
                     "cooking",
                     "pause",

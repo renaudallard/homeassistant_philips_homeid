@@ -393,7 +393,8 @@ The integration automatically detects FUSION devices during setup. When a device
 - Fetches MQTT userId from the IoT API (`/user/self/get-id`), matching the APK's client ID format
 - Connects via MQTT over WebSocket Secure (port 443), matching the official app's Java Paho handshake (no Origin header)
 - Receives device state via AWS IoT device shadow (subscribe + shadow get)
-- Sends control commands via MQTT pub/sub (shadow update + NCP port commands)
+- Maps device-specific NCP port names to the integration's internal port names (e.g., Venus 2 `venusaf_s` to `airfryer`)
+- Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)

@@ -421,6 +421,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self.async_request_refresh()
         return result
 
+    async def async_set_port_property(self, port: str, key: str, value: Any) -> bool:
+        """Set a property on a specific device port."""
+        if self._is_fusion:
+            return await self._mqtt_command(port, {key: value})
+        result = await self.api.set_status_property(self.device_info, key, value)
+        if result:
+            await self.async_request_refresh()
+        return result
+
     async def async_set_status_property(self, key: str, value: Any) -> bool:
         """Set a property on the device status port."""
         if self._is_fusion:

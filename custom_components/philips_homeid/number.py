@@ -159,7 +159,7 @@ ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:coffee-maker-outline",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("GrDose", int(v)),
+        set_fn=lambda c, v: c.async_set_port_property("basicrecipe", "GrDose", int(v)),
         available_key="basicrecipe",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -173,7 +173,9 @@ ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:thermometer",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("Temperature", int(v)),
+        set_fn=lambda c, v: c.async_set_port_property(
+            "basicrecipe", "Temperature", int(v)
+        ),
         available_key="basicrecipe",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -186,7 +188,9 @@ ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:counter",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("NrOfBrews", int(v)),
+        set_fn=lambda c, v: c.async_set_port_property(
+            "basicrecipe", "NrOfBrews", int(v)
+        ),
         available_key="basicrecipe",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -199,7 +203,9 @@ ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:cup-water",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("PrimDose", int(v)),
+        set_fn=lambda c, v: c.async_set_port_property(
+            "basicrecipe", "PrimDose", int(v)
+        ),
         available_key="basicrecipe",
     ),
     PhilipsHomeIDNumberEntityDescription(
@@ -212,7 +218,7 @@ ESPRESSO_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:cup",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("SecDose", int(v)),
+        set_fn=lambda c, v: c.async_set_port_property("basicrecipe", "SecDose", int(v)),
         available_key="basicrecipe",
     ),
 )

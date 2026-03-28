@@ -32,277 +32,53 @@ import hashlib
 import json
 import logging
 import secrets
-
-from dataclasses import dataclass, field
 from typing import Any
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.padding import PKCS7
-
 import aiohttp
+
+# Re-export models and constants so existing imports from local_api still work
+from .local_models import (  # noqa: F401
+    AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_FINISH,
+    AIRFRYER_STATUS_IDLE,
+    AIRFRYER_STATUS_MAINMENU,
+    AIRFRYER_STATUS_MAINTAIN,
+    AIRFRYER_STATUS_PAIRING,
+    AIRFRYER_STATUS_PARASETTING,
+    AIRFRYER_STATUS_PAUSED,
+    AIRFRYER_STATUS_POWERSAVE,
+    AIRFRYER_STATUS_PRECOOK,
+    AIRFRYER_STATUS_SETTING,
+    AIRFRYER_STATUS_STANDBY,
+    AIRFRYER_STATUS_USER_ACTION,
+    DEFAULT_PRODUCT_ID,
+    DEFAULT_PROTOCOL_VERSION,
+    LocalDeviceInfo,
+    LocalDeviceState,
+    PhilipsCondorAuth,
+    PhilipsCrypto,
+    PORT_AIR,
+    PORT_AIRFRYER,
+    PORT_AUTOCOOK,
+    PORT_CONTROL,
+    PORT_DEVCURRSTATE,
+    PORT_DEVICE,
+    PORT_FIRMWARE,
+    PORT_FLTSTS,
+    PORT_HERMESAC,
+    PORT_NUTRIMAX,
+    PORT_RECIPE,
+    PORT_SECURITY,
+    PORT_STATUS,
+    PORT_VENUSAF,
+    PORT_VENUS1AF,
+    VENUS_STYLE_PORTS,
+    _MODEL_PORT_MAP,
+)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 _LOGGER = logging.getLogger(__name__)
-
-# Default ports/endpoints for air purifiers
-DEFAULT_PRODUCT_ID = 1
-DEFAULT_PROTOCOL_VERSION = 1
-
-# Known port names for different device features
-PORT_STATUS = "status"
-PORT_CONTROL = "control"
-PORT_AIR = "air"
-PORT_FLTSTS = "fltsts"  # Filter status
-PORT_DEVICE = "device"
-PORT_SECURITY = "security"
-PORT_FIRMWARE = "firmware"
-
-# Airfryer-specific ports per device architecture
-PORT_AIRFRYER = "airfryer"  # SPECTRE (HD9280, HD9285, HD9255)
-PORT_VENUSAF = "venusaf"  # VENUS 2 (HD9880)
-PORT_VENUS1AF = "venus1af"  # VENUS 1 (HD9875, HD9876)
-# VENUS additional endpoints
-PORT_AUTOCOOK = "autocookprogram"  # VENUS auto cook program
-PORT_RECIPE = "recipe"  # VENUS recipe status
-# Multicooker ports
-PORT_NUTRIMAX = "nutrimax"  # Nutrimax multicooker (NX0960)
-PORT_HERMESAC = "hermesac"  # Hermes appliance (NX0950)
-
-# Model-to-port mapping: avoids probing all ports and overwhelming
-# the device's limited web server.
-_MODEL_PORT_MAP: dict[str, str] = {
-    "HD9200": PORT_AIRFRYER,
-    "HD9255": PORT_AIRFRYER,
-    "HD9280": PORT_AIRFRYER,
-    "HD9285": PORT_AIRFRYER,
-    "HD9875": PORT_VENUS1AF,
-    "HD9876": PORT_VENUS1AF,
-    "HD9880": PORT_VENUSAF,
-    "NX0950": PORT_HERMESAC,
-    "NX0960": PORT_NUTRIMAX,
-}
-
-# Ports that use Venus-style key naming (need normalization)
-VENUS_STYLE_PORTS = frozenset(
-    {PORT_VENUSAF, PORT_VENUS1AF, PORT_NUTRIMAX, PORT_HERMESAC}
-)
-# VENUS device current state (voltage, internal temp)
-PORT_DEVCURRSTATE = "devcurrstate"
-
-# Airfryer status values
-AIRFRYER_STATUS_STANDBY = "standby"
-AIRFRYER_STATUS_IDLE = "idle"
-AIRFRYER_STATUS_SETTING = "setting"
-AIRFRYER_STATUS_COOKING = "cooking"
-AIRFRYER_STATUS_PAUSED = "pause"
-AIRFRYER_STATUS_FINISH = "finish"
-AIRFRYER_STATUS_PAIRING = "pairing"
-# Venus/Nutrimax/Hermes status values
-AIRFRYER_STATUS_PRECOOK = "precook"
-AIRFRYER_STATUS_PARASETTING = "parasetting"
-AIRFRYER_STATUS_MAINTAIN = "maintain"
-AIRFRYER_STATUS_USER_ACTION = "user_action"
-AIRFRYER_STATUS_POWERSAVE = "powersave"
-AIRFRYER_STATUS_MAINMENU = "mainmenu"
-
-
-@dataclass
-class LocalDeviceInfo:
-    """Information about a locally discovered device."""
-
-    ip_address: str
-    cpp_id: str  # Cloud Platform ID - unique device identifier
-    friendly_name: str = ""
-    model_name: str = ""
-    model_number: str = ""
-    serial_number: str = ""
-    boot_id: str = ""
-    protocol_version: int = 1
-    product_id: int = 1
-    # Connection protocol
-    use_https: bool = True  # False for devices that use HTTP (e.g., HD9285)
-    # Authentication credentials (obtained during pairing)
-    client_id: str | None = None
-    client_secret: str | None = None
-    credentials: str | None = None  # Cached auth header value
-    # AES encryption key (hex string) for HTTP devices - fetched from /security
-    encryption_key: str | None = None
-    # Discovered airfryer port name (cached after first successful request)
-    # None = not yet probed, False = not an airfryer, str = port name
-    airfryer_port: str | bool | None = None
-
-
-@dataclass
-class LocalDeviceState:
-    """State of a locally controlled device."""
-
-    device_info: LocalDeviceInfo
-    power_on: bool = False
-    connection_state: str = "connected"
-    properties: dict[str, Any] = field(default_factory=dict)
-
-
-class PhilipsCondorAuth:
-    """Implements the PhilipsCondor authentication scheme."""
-
-    SCHEME = "PhilipsCondor"
-    # Alternative scheme names used by different firmware versions
-    SCHEME_VARIANTS = ["PhilipsCondor", "PHILIPS-Condor", "Philips-Condor"]
-    # Accept challenge sizes between 8 and 64 bytes (different firmware versions)
-    MIN_CHALLENGE_SIZE = 8
-    MAX_CHALLENGE_SIZE = 64
-
-    @staticmethod
-    def create_credentials(
-        challenge_b64: str, client_id: str, client_secret: str
-    ) -> str | None:
-        """Create authentication credentials from challenge.
-
-        The PhilipsCondor scheme works as follows:
-        1. Server sends challenge in WWW-Authenticate header
-        2. Client decodes challenge, client_id, and client_secret from base64
-        3. Client creates SHA256 hash of (challenge + client_id + client_secret)
-        4. Client sends back: "<scheme> " + base64(client_id + hash)
-
-        Important: The response scheme must match what the device sent.
-        """
-        try:
-            # Extract and remember the scheme from the challenge
-            challenge_clean = challenge_b64.strip()
-            response_scheme = PhilipsCondorAuth.SCHEME  # Default
-            for variant in PhilipsCondorAuth.SCHEME_VARIANTS:
-                if challenge_clean.lower().startswith(variant.lower()):
-                    # Use the exact scheme the device sent (preserve case and format)
-                    response_scheme = challenge_clean[: len(variant)]
-                    challenge_clean = challenge_clean[len(variant) :].strip()
-                    break
-
-            _LOGGER.debug("Using scheme: %s", response_scheme)
-            _LOGGER.debug("Challenge (cleaned): %s", challenge_clean)
-
-            challenge = base64.b64decode(challenge_clean)
-            if not (
-                PhilipsCondorAuth.MIN_CHALLENGE_SIZE
-                <= len(challenge)
-                <= PhilipsCondorAuth.MAX_CHALLENGE_SIZE
-            ):
-                _LOGGER.warning(
-                    "Invalid challenge size: %d (expected %d-%d)",
-                    len(challenge),
-                    PhilipsCondorAuth.MIN_CHALLENGE_SIZE,
-                    PhilipsCondorAuth.MAX_CHALLENGE_SIZE,
-                )
-                return None
-
-            _LOGGER.debug(
-                "Challenge size: %d bytes, hex: %s", len(challenge), challenge.hex()
-            )
-
-            client_id_bytes = base64.b64decode(client_id)
-            client_secret_bytes = base64.b64decode(client_secret)
-
-            _LOGGER.debug("Client ID size: %d bytes", len(client_id_bytes))
-            _LOGGER.debug("Client secret size: %d bytes", len(client_secret_bytes))
-
-            # Create hash: SHA256(challenge + client_id + client_secret)
-            data = challenge + client_id_bytes + client_secret_bytes
-            hash_result = hashlib.sha256(data).digest()
-
-            _LOGGER.debug("Hash result (hex): %s", hash_result.hex())
-
-            # Create response: base64(client_id + hash)
-            response_bytes = client_id_bytes + hash_result
-            response_b64 = base64.b64encode(response_bytes).decode("utf-8")
-
-            _LOGGER.debug("Response: %s %s", response_scheme, response_b64)
-
-            return f"{response_scheme} {response_b64}"
-        except Exception as err:
-            _LOGGER.error("Failed to create credentials: %s", err)
-            return None
-
-
-class PhilipsCrypto:
-    """AES/CBC/PKCS7 encryption for HTTP devices.
-
-    From APK analysis: devices with https=0 encrypt response payloads
-    using AES-128-CBC with PKCS7 padding and a hardcoded zero IV.
-    The encryption key is a hex string fetched from the /security endpoint.
-    Responses are base64-encoded ciphertext.
-    """
-
-    # 16 bytes of zeros as IV (hardcoded in APK)
-    _ZERO_IV = b"\x00" * 16
-
-    @staticmethod
-    def _hex_to_key(hex_key: str) -> bytes:
-        """Convert hex string encryption key to 16-byte AES key."""
-        key_bytes = bytes.fromhex(hex_key)
-        # APK handles leading zero: if 17 bytes, strip first
-        if len(key_bytes) == 17 and key_bytes[0] == 0:
-            key_bytes = key_bytes[1:]
-        if len(key_bytes) != 16:
-            raise ValueError(
-                f"Invalid AES key length: {len(key_bytes)} bytes (expected 16)"
-            )
-        return key_bytes
-
-    @staticmethod
-    def decrypt(data_b64: str, hex_key: str) -> str | None:
-        """Decrypt a base64-encoded AES/CBC/PKCS7 payload.
-
-        Args:
-            data_b64: Base64-encoded ciphertext from device response
-            hex_key: Encryption key as hex string
-
-        Returns:
-            Decrypted JSON string, or None on failure.
-        """
-        try:
-            key = PhilipsCrypto._hex_to_key(hex_key)
-            ciphertext = base64.b64decode(data_b64.strip())
-
-            cipher = Cipher(algorithms.AES(key), modes.CBC(PhilipsCrypto._ZERO_IV))
-            decryptor = cipher.decryptor()
-            padded = decryptor.update(ciphertext) + decryptor.finalize()
-
-            # Remove PKCS7 padding
-            unpadder = PKCS7(128).unpadder()
-            plaintext = unpadder.update(padded) + unpadder.finalize()
-
-            return plaintext.decode("utf-8")
-        except Exception as err:
-            _LOGGER.error("AES decryption failed: %s", err)
-            return None
-
-    @staticmethod
-    def encrypt(data: str, hex_key: str) -> str | None:
-        """Encrypt a JSON string with AES/CBC/PKCS7.
-
-        Args:
-            data: Plain JSON string to encrypt
-            hex_key: Encryption key as hex string
-
-        Returns:
-            Base64-encoded ciphertext, or None on failure.
-        """
-        try:
-            key = PhilipsCrypto._hex_to_key(hex_key)
-            plaintext = data.encode("utf-8")
-
-            # Add PKCS7 padding
-            padder = PKCS7(128).padder()
-            padded = padder.update(plaintext) + padder.finalize()
-
-            cipher = Cipher(algorithms.AES(key), modes.CBC(PhilipsCrypto._ZERO_IV))
-            encryptor = cipher.encryptor()
-            ciphertext = encryptor.update(padded) + encryptor.finalize()
-
-            return base64.b64encode(ciphertext).decode("utf-8")
-        except Exception as err:
-            _LOGGER.error("AES encryption failed: %s", err)
-            return None
 
 
 class PhilipsLocalAPI:

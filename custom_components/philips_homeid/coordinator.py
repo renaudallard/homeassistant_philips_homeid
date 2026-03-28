@@ -285,7 +285,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_start(self) -> bool:
         """Start airfryer cooking."""
         if self._is_fusion:
-            return await self._mqtt_command("airfryer", {"status": "cooking"})
+            return await self._mqtt_command("control", {"status": "cooking"})
         # Pass current temp/time from device state for Venus 3-step flow
         temp = None
         time_seconds = None
@@ -307,7 +307,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_pause(self) -> bool:
         """Pause airfryer cooking."""
         if self._is_fusion:
-            return await self._mqtt_command("airfryer", {"status": "pause"})
+            return await self._mqtt_command("control", {"status": "pause"})
         result = await self.api.airfryer_pause(self.device_info)
         if result:
             await self.async_request_refresh()
@@ -316,7 +316,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_stop(self) -> bool:
         """Stop airfryer cooking."""
         if self._is_fusion:
-            return await self._mqtt_command("airfryer", {"status": "standby"})
+            return await self._mqtt_command("control", {"status": "standby"})
         result = await self.api.airfryer_stop(self.device_info)
         if result:
             await self.async_request_refresh()
@@ -346,7 +346,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["probe_temp"] = probe_temp
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
-            return await self._mqtt_command("airfryer", props) if props else True
+            return await self._mqtt_command("control", props) if props else True
         result = await self.api.airfryer_set_settings(
             self.device_info,
             temp,
@@ -364,7 +364,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Start keep warm mode with configured time and temperature."""
         if self._is_fusion:
             return await self._mqtt_command(
-                "airfryer",
+                "control",
                 {
                     "status": "cooking",
                     "preset": 8,
@@ -412,7 +412,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["temp"] = temp
             if time_seconds is not None:
                 props["time"] = time_seconds
-            return await self._mqtt_command("airfryer", props) if props else True
+            return await self._mqtt_command("control", props) if props else True
         cooking = self.is_airfryer_cooking()
         result = await self.api.airfryer_update_settings(
             self.device_info, temp, time_seconds, temp_unit_fahrenheit, cooking

@@ -424,6 +424,9 @@ Some newer firmware versions do not generate local credentials at all. The Phili
 **Known affected firmwares:**
 - HD9280 firmware 4.0.0/0.6.8
 - HD9285 firmware 1.6.2/0.6.8
+- HD9285 firmware 1.1.8/0.5.6
+
+FUSION devices have two firmware numbers separated by `/` (NCP firmware / host firmware). Devices with a single firmware version are non-FUSION and use local HTTP.
 
 **Symptoms:**
 - The credential extractor finds no credentials in any method

@@ -493,6 +493,12 @@ If you find this integration useful, you can support its development:
 
 ---
 
+## Acknowledgments
+
+A huge thank you to [LucaTomei](https://github.com/LucaTomei) for his extensive and tireless debugging of the MQTT cloud relay implementation. His detailed testing, logs, and patience were instrumental in getting FUSION device support working. This integration would not support cloud-only devices without his help.
+
+---
+
 ## Disclaimer
 
 This is an unofficial integration and is not affiliated with Philips or Versuni. Use at your own risk.

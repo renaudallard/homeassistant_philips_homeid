@@ -154,8 +154,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._update_polling_interval(state)
         if new_properties:
             self._notify_new_properties(new_properties)
-        # Signal that initial MQTT data is available for entity setup
-        if state.properties and not self._initial_data_event.is_set():
+        # Signal that initial MQTT data is available for entity setup.
+        # Only signal when port data (nested dicts) is present, not just
+        # shadow metadata like productState.
+        if not self._initial_data_event.is_set() and any(
+            isinstance(v, dict) for v in state.properties.values()
+        ):
             self._initial_data_event.set()
         self.async_set_updated_data(state)
 

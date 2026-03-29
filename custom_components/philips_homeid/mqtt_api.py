@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import secrets
@@ -372,8 +373,10 @@ class PhilipsMQTTClient:
         """
         if not self._client or not self._connected:
             return
-        if self._discovered_ports:
-            for pname in self._discovered_ports:
+        # Copy to avoid race with MQTT thread writing _discovered_ports
+        ports = list(self._discovered_ports)
+        if ports:
+            for pname in ports:
                 self.send_port_command(pname, command_name="getPort")
         else:
             self._request_port_data()
@@ -396,7 +399,8 @@ class PhilipsMQTTClient:
         Prefers discovered ports (device-specific) over static reverse map.
         Venus 2 uses different NCP names (venusaf_c) than SPECTRE/Venus 1 (Control).
         """
-        for discovered in self._discovered_ports:
+        # Copy to avoid race with MQTT thread writing _discovered_ports
+        for discovered in list(self._discovered_ports):
             if _NCP_PORT_MAP.get(discovered) == local_port:
                 return discovered
         return _LOCAL_PORT_MAP.get(local_port, local_port)
@@ -593,7 +597,9 @@ class PhilipsMQTTClient:
                 if key != "powerOn":
                     self._state.properties[key] = value
 
-        self._notify_state_update()
+            snapshot = copy.deepcopy(self._state)
+
+        self._notify_state_update(snapshot)
 
     def _handle_ncp_response(self, payload: dict[str, Any]) -> None:
         """Parse NCP response and update device state."""
@@ -704,12 +710,17 @@ class PhilipsMQTTClient:
                 if mainstate is not None:
                     self._state.power_on = mainstate != 0
 
-        self._notify_state_update()
+            snapshot = copy.deepcopy(self._state)
 
-    def _notify_state_update(self) -> None:
-        """Notify the callback of a state update."""
-        if self._state_callback and self._state:
+        self._notify_state_update(snapshot)
+
+    def _notify_state_update(self, state_snapshot: LocalDeviceState) -> None:
+        """Notify the callback of a state update.
+
+        Accepts a deep-copied snapshot to avoid cross-thread mutation.
+        """
+        if self._state_callback and state_snapshot:
             if self._loop:
-                self._loop.call_soon_threadsafe(self._state_callback, self._state)
+                self._loop.call_soon_threadsafe(self._state_callback, state_snapshot)
             else:
-                self._state_callback(self._state)
+                self._state_callback(state_snapshot)

@@ -560,14 +560,17 @@ class PhilipsMQTTClient:
 
         _LOGGER.debug("MQTT message on %s: %s", msg.topic, str(payload)[:500])
 
-        if msg.topic == self._topics["shadow_get_accepted"]:
-            self._handle_shadow(payload)
-        elif msg.topic == self._topics["shadow_update_accepted"]:
-            self._handle_shadow(payload)
-        elif msg.topic == self._topics["from_ncp"]:
-            self._handle_ncp_response(payload)
-        elif "rejected" in msg.topic:
-            _LOGGER.warning("Shadow request rejected: %s", payload)
+        try:
+            if msg.topic == self._topics["shadow_get_accepted"]:
+                self._handle_shadow(payload)
+            elif msg.topic == self._topics["shadow_update_accepted"]:
+                self._handle_shadow(payload)
+            elif msg.topic == self._topics["from_ncp"]:
+                self._handle_ncp_response(payload)
+            elif "rejected" in msg.topic:
+                _LOGGER.warning("Shadow request rejected: %s", payload)
+        except Exception:
+            _LOGGER.exception("Error handling MQTT message on %s", msg.topic)
 
     def _handle_shadow(self, payload: dict[str, Any]) -> None:
         """Parse shadow document and update device state."""

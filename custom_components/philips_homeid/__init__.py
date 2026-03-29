@@ -135,8 +135,8 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             )
         if not user_id:
             user_id = _extract_jwt_sub(access_token)
-            _LOGGER.warning("get-id failed, using sub claim: %s", user_id)
-        _LOGGER.info("MQTT user_id: %s", user_id or "not found")
+            _LOGGER.warning("get-id failed, falling back to JWT sub claim")
+        _LOGGER.debug("MQTT user_id resolved: %s", bool(user_id))
 
         sig_data = await cloud_api.get_mqtt_signature(
             access_token, platform_rest_url, tenant

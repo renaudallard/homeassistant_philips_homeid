@@ -230,13 +230,9 @@ class PhilipsMQTTClient:
         """
         device = self._device
 
-        _LOGGER.info(
-            "MQTT credentials: token=%s...%s (%d chars), signature=%s...%s (%d chars)",
-            access_token[:8] if access_token else "EMPTY",
-            access_token[-4:] if len(access_token) > 12 else "",
+        _LOGGER.debug(
+            "MQTT credentials: token=%d chars, signature=%d chars",
             len(access_token),
-            mqtt_signature[:8] if mqtt_signature else "EMPTY",
-            mqtt_signature[-4:] if len(mqtt_signature) > 12 else "",
             len(mqtt_signature),
         )
 

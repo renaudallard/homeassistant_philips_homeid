@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Chave de encriptacao (necessaria para dispositivos HTTP)"
         }
+      },
+      "reauth_email": {
+        "title": "Login na nuvem necessário",
+        "description": "Login na nuvem é necessário para obter nomes de receitas. Insira seu e-mail Philips HomeID.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Enviando código de verificação..."
+      },
+      "reauth_otp": {
+        "title": "Insira o código de verificação",
+        "description": "Um código de verificação foi enviado para {email}",
+        "data": {
+          "code": "Código de verificação"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Dispositivo ja configurado",
       "cannot_connect": "Nao e possivel ligar ao dispositivo",
       "cloud_setup_failed": "Login cloud falhou",
-      "playwright_unsupported": "Login cloud nao suportado nesta plataforma"
+      "playwright_unsupported": "Login cloud nao suportado nesta plataforma",
+      "reauth_successful": "Login na nuvem bem-sucedido. Pressione Atualizar receitas novamente.",
+      "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde."
     }
   },
   "options": {

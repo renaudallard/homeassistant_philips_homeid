@@ -66,6 +66,23 @@
           "client_secret": "Client-secret",
           "encryption_key": "Encryptiesleutel (vereist voor HTTP-apparaten zoals HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Cloud-aanmelding vereist",
+        "description": "Cloud-aanmelding is nodig om receptnamen op te halen. Voer uw Philips HomeID e-mail in.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Verificatiecode wordt verzonden..."
+      },
+      "reauth_otp": {
+        "title": "Voer verificatiecode in",
+        "description": "Er is een verificatiecode verzonden naar {email}",
+        "data": {
+          "code": "Verificatiecode"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Apparaat is al geconfigureerd",
       "cannot_connect": "Kan geen verbinding maken met het apparaat",
       "cloud_setup_failed": "Cloudverbinding mislukt: kan Playwright-browser niet installeren. Dit kan voorkomen in Docker-containers of beperkte omgevingen. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in.",
-      "playwright_unsupported": "Cloudverbinding wordt niet ondersteund op dit platform. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in."
+      "playwright_unsupported": "Cloudverbinding wordt niet ondersteund op dit platform. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in.",
+      "reauth_successful": "Cloud-aanmelding geslaagd. Druk opnieuw op Recepten vernieuwen.",
+      "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw."
     }
   },
   "options": {

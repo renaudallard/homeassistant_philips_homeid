@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "암호화 키"
         }
+      },
+      "reauth_email": {
+        "title": "클라우드 로그인 필요",
+        "description": "레시피 이름을 가져오려면 클라우드 로그인이 필요합니다. Philips HomeID 이메일을 입력하세요.",
+        "data": {
+          "email": "이메일"
+        }
+      },
+      "reauth_install": {
+        "title": "인증 코드 전송 중..."
+      },
+      "reauth_otp": {
+        "title": "인증 코드 입력",
+        "description": "{email}로 인증 코드가 전송되었습니다",
+        "data": {
+          "code": "인증 코드"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "이미 구성된 기기",
       "cannot_connect": "연결 불가",
       "cloud_setup_failed": "클라우드 로그인 실패",
-      "playwright_unsupported": "이 플랫폼에서 클라우드 로그인을 지원하지 않습니다"
+      "playwright_unsupported": "이 플랫폼에서 클라우드 로그인을 지원하지 않습니다",
+      "reauth_successful": "클라우드 로그인 성공. 레시피 새로고침을 다시 누르세요.",
+      "reauth_failed": "클라우드 로그인 실패. 나중에 다시 시도하세요."
     }
   },
   "options": {

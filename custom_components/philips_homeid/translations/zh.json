@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "加密密钥（HTTP设备需要）"
         }
+      },
+      "reauth_email": {
+        "title": "需要云登录",
+        "description": "需要云登录以获取食谱名称。请输入您的 Philips HomeID 电子邮件。",
+        "data": {
+          "email": "电子邮件"
+        }
+      },
+      "reauth_install": {
+        "title": "正在发送验证码..."
+      },
+      "reauth_otp": {
+        "title": "输入验证码",
+        "description": "验证码已发送至 {email}",
+        "data": {
+          "code": "验证码"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "设备已配置",
       "cannot_connect": "无法连接",
       "cloud_setup_failed": "云端登录失败",
-      "playwright_unsupported": "此平台不支持云端登录"
+      "playwright_unsupported": "此平台不支持云端登录",
+      "reauth_successful": "云登录成功。请再次按刷新食谱。",
+      "reauth_failed": "云登录失败。请稍后重试。"
     }
   },
   "options": {

@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Chiave di crittografia (richiesta per dispositivi HTTP come HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Accesso cloud richiesto",
+        "description": "L accesso cloud è necessario per recuperare i nomi delle ricette. Inserisci la tua e-mail Philips HomeID.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Invio codice di verifica..."
+      },
+      "reauth_otp": {
+        "title": "Inserisci il codice di verifica",
+        "description": "Un codice di verifica è stato inviato a {email}",
+        "data": {
+          "code": "Codice di verifica"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Dispositivo già configurato",
       "cannot_connect": "Impossibile connettersi al dispositivo",
       "cloud_setup_failed": "Accesso cloud fallito: impossibile installare il browser Playwright. Questo può accadere in container Docker o ambienti limitati. Esegui lo strumento cloud_key_fetcher.py su un sistema supportato (Debian, Ubuntu, Fedora, macOS o Windows) per ottenere le credenziali, poi inseriscile manualmente.",
-      "playwright_unsupported": "L'accesso cloud non è supportato su questa piattaforma. Esegui lo strumento cloud_key_fetcher.py su un sistema supportato (Debian, Ubuntu, Fedora, macOS o Windows) per ottenere le credenziali, poi inseriscile manualmente."
+      "playwright_unsupported": "L'accesso cloud non è supportato su questa piattaforma. Esegui lo strumento cloud_key_fetcher.py su un sistema supportato (Debian, Ubuntu, Fedora, macOS o Windows) per ottenere le credenziali, poi inseriscile manualmente.",
+      "reauth_successful": "Accesso cloud riuscito. Premi di nuovo Aggiorna ricette.",
+      "reauth_failed": "Accesso cloud fallito. Riprova più tardi."
     }
   },
   "options": {

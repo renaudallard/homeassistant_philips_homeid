@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Krypteringsnyckel"
         }
+      },
+      "reauth_email": {
+        "title": "Molninloggning krävs",
+        "description": "Molninloggning krävs för att hämta receptnamn. Ange din Philips HomeID e-post.",
+        "data": {
+          "email": "E-post"
+        }
+      },
+      "reauth_install": {
+        "title": "Skickar verifieringskod..."
+      },
+      "reauth_otp": {
+        "title": "Ange verifieringskod",
+        "description": "En verifieringskod har skickats till {email}",
+        "data": {
+          "code": "Verifieringskod"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Enheten ar redan konfigurerad",
       "cannot_connect": "Kan inte ansluta",
       "cloud_setup_failed": "Molninloggning misslyckades",
-      "playwright_unsupported": "Molninloggning stods inte pa denna plattform"
+      "playwright_unsupported": "Molninloggning stods inte pa denna plattform",
+      "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",
+      "reauth_failed": "Molninloggning misslyckades. Försök igen senare."
     }
   },
   "options": {

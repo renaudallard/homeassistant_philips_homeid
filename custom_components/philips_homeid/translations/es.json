@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Clave de cifrado (necesaria para dispositivos HTTP como HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Inicio de sesión en la nube requerido",
+        "description": "Se necesita inicio de sesión en la nube para obtener nombres de recetas. Ingrese su correo de Philips HomeID.",
+        "data": {
+          "email": "Correo electrónico"
+        }
+      },
+      "reauth_install": {
+        "title": "Enviando código de verificación..."
+      },
+      "reauth_otp": {
+        "title": "Ingrese el código de verificación",
+        "description": "Se envió un código de verificación a {email}",
+        "data": {
+          "code": "Código de verificación"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Dispositivo ya configurado",
       "cannot_connect": "No se puede conectar al dispositivo",
       "cloud_setup_failed": "El acceso a la nube falló: no se pudo instalar el navegador Playwright. Esto puede ocurrir en contenedores Docker o entornos restringidos. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
-      "playwright_unsupported": "El acceso a la nube no está soportado en esta plataforma. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente."
+      "playwright_unsupported": "El acceso a la nube no está soportado en esta plataforma. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
+      "reauth_successful": "Inicio de sesión exitoso. Presione Actualizar recetas de nuevo.",
+      "reauth_failed": "Inicio de sesión fallido. Intente más tarde."
     }
   },
   "options": {

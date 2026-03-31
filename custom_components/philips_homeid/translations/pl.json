@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Klucz szyfrowania"
         }
+      },
+      "reauth_email": {
+        "title": "Wymagane logowanie do chmury",
+        "description": "Logowanie do chmury jest wymagane, aby pobrać nazwy przepisów. Wprowadź swój e-mail Philips HomeID.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Wysyłanie kodu weryfikacyjnego..."
+      },
+      "reauth_otp": {
+        "title": "Wprowadź kod weryfikacyjny",
+        "description": "Kod weryfikacyjny został wysłany na {email}",
+        "data": {
+          "code": "Kod weryfikacyjny"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Urzadzenie juz skonfigurowane",
       "cannot_connect": "Nie mozna polaczyc",
       "cloud_setup_failed": "Logowanie nie powiodlo sie",
-      "playwright_unsupported": "Logowanie nieobslugiwane na tej platformie"
+      "playwright_unsupported": "Logowanie nieobslugiwane na tej platformie",
+      "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",
+      "reauth_failed": "Logowanie do chmury nieudane. Spróbuj ponownie później."
     }
   },
   "options": {

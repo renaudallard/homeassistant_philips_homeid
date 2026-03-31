@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Clé de chiffrement (obligatoire pour les appareils HTTP comme le HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Connexion cloud requise",
+        "description": "La connexion cloud est nécessaire pour récupérer les noms de recettes. Entrez votre e-mail Philips HomeID.",
+        "data": {
+          "email": "E-mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Envoi du code de vérification..."
+      },
+      "reauth_otp": {
+        "title": "Entrez le code de vérification",
+        "description": "Un code de vérification a été envoyé à {email}",
+        "data": {
+          "code": "Code de vérification"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Appareil déjà configuré",
       "cannot_connect": "Impossible de se connecter à l'appareil",
       "cloud_setup_failed": "La connexion cloud a échoué : impossible d'installer le navigateur Playwright. Cela peut se produire dans des conteneurs Docker ou des environnements restreints. Exécutez l'outil cloud_key_fetcher.py sur un système compatible (Debian, Ubuntu, Fedora, macOS ou Windows) pour obtenir les identifiants, puis saisissez-les manuellement.",
-      "playwright_unsupported": "La connexion cloud n'est pas supportée sur cette plateforme. Exécutez l'outil cloud_key_fetcher.py sur un système compatible (Debian, Ubuntu, Fedora, macOS ou Windows) pour obtenir les identifiants, puis saisissez-les manuellement."
+      "playwright_unsupported": "La connexion cloud n'est pas supportée sur cette plateforme. Exécutez l'outil cloud_key_fetcher.py sur un système compatible (Debian, Ubuntu, Fedora, macOS ou Windows) pour obtenir les identifiants, puis saisissez-les manuellement.",
+      "reauth_successful": "Connexion cloud réussie. Appuyez à nouveau sur Actualiser les recettes.",
+      "reauth_failed": "Connexion cloud échouée. Réessayez plus tard."
     }
   },
   "options": {

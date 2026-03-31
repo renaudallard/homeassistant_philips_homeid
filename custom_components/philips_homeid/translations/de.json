@@ -66,6 +66,23 @@
           "client_secret": "Client-Secret",
           "encryption_key": "Verschlüsselungsschlüssel (erforderlich für HTTP-Geräte wie HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Cloud-Anmeldung erforderlich",
+        "description": "Cloud-Anmeldung wird benötigt, um Rezeptnamen abzurufen. Geben Sie Ihre Philips HomeID E-Mail ein.",
+        "data": {
+          "email": "E-Mail"
+        }
+      },
+      "reauth_install": {
+        "title": "Bestätigungscode wird gesendet..."
+      },
+      "reauth_otp": {
+        "title": "Bestätigungscode eingeben",
+        "description": "Ein Bestätigungscode wurde an {email} gesendet",
+        "data": {
+          "code": "Bestätigungscode"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Gerät bereits konfiguriert",
       "cannot_connect": "Verbindung zum Gerät nicht möglich",
       "cloud_setup_failed": "Cloud-Anmeldung fehlgeschlagen: Playwright-Browser konnte nicht installiert werden. Dies kann in Docker-Containern oder eingeschränkten Umgebungen passieren. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
-      "playwright_unsupported": "Cloud-Anmeldung wird auf dieser Plattform nicht unterstützt. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein."
+      "playwright_unsupported": "Cloud-Anmeldung wird auf dieser Plattform nicht unterstützt. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
+      "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",
+      "reauth_failed": "Cloud-Anmeldung fehlgeschlagen. Versuchen Sie es später erneut."
     }
   },
   "options": {

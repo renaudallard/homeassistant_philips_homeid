@@ -563,7 +563,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return
             cloud_api = PhilipsCloudAPI()
             try:
-                name = await cloud_api.get_recipe_name(access_token, recipe_id)
+                name = await cloud_api.get_recipe_name(
+                    access_token, recipe_id, self.hass.config.language
+                )
             finally:
                 await cloud_api.close()
             if name:

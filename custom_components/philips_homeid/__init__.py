@@ -177,19 +177,24 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         import asyncio as _asyncio
 
         async def _do_refresh() -> tuple[str, str]:
-            api = PhilipsCloudAPI()
-            try:
-                rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
-                toks = await api.refresh_tokens(rt)
-                new_rt = toks.get("refresh_token", rt)
-                if new_rt != rt:
-                    new_data = {**entry.data, CONF_CLOUD_REFRESH_TOKEN: new_rt}
-                    hass.config_entries.async_update_entry(entry, data=new_data)
-                at = toks["access_token"]
-                sig = await api.get_mqtt_signature(at, platform_rest_url, tenant)
-                return at, sig.get("signature", "")
-            finally:
-                await api.close()
+            # Use coordinator's token lock to prevent race with recipe fetch
+            async with coordinator._token_lock:
+                api = PhilipsCloudAPI()
+                try:
+                    rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+                    toks = await api.refresh_tokens(rt)
+                    new_rt = toks.get("refresh_token", rt)
+                    if new_rt != rt:
+                        new_data = {
+                            **entry.data,
+                            CONF_CLOUD_REFRESH_TOKEN: new_rt,
+                        }
+                        hass.config_entries.async_update_entry(entry, data=new_data)
+                    at = toks["access_token"]
+                    sig = await api.get_mqtt_signature(at, platform_rest_url, tenant)
+                    return at, sig.get("signature", "")
+                finally:
+                    await api.close()
 
         future = _asyncio.run_coroutine_threadsafe(_do_refresh(), hass.loop)
         return future.result(timeout=30)

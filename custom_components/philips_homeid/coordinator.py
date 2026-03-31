@@ -110,6 +110,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Recipe name cache: recipe_id -> name, persisted in config entry
         self._recipe_cache: dict[str, str] = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
         self._pending_recipe_fetch: str | None = None
+        # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
+        self._token_lock: asyncio.Lock = asyncio.Lock()
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -522,28 +524,43 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._pending_recipe_fetch = recipe_id
             self.hass.async_create_task(self._fetch_and_inject_recipe(recipe_id))
 
+    async def _get_access_token(self) -> str | None:
+        """Get a fresh access token, coordinated with MQTT credential refresh."""
+        from .cloud_api import PhilipsCloudAPI
+
+        async with self._token_lock:
+            refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+            if not refresh_token:
+                return None
+            cloud_api = PhilipsCloudAPI()
+            try:
+                tokens = await cloud_api.refresh_tokens(refresh_token)
+                new_refresh = tokens.get("refresh_token", refresh_token)
+                if new_refresh != refresh_token:
+                    new_data = {
+                        **self.config_entry.data,
+                        CONF_CLOUD_REFRESH_TOKEN: new_refresh,
+                    }
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry, data=new_data
+                    )
+                return tokens.get("access_token", "")
+            finally:
+                await cloud_api.close()
+
     async def _fetch_and_inject_recipe(self, recipe_id: str) -> None:
         """Fetch a recipe name from the cloud and inject into state."""
         from .cloud_api import PhilipsCloudAPI
 
-        refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
-        if not refresh_token:
-            self._pending_recipe_fetch = None
-            return
-        cloud_api = PhilipsCloudAPI()
         try:
-            tokens = await cloud_api.refresh_tokens(refresh_token)
-            new_refresh = tokens.get("refresh_token", refresh_token)
-            if new_refresh != refresh_token:
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_CLOUD_REFRESH_TOKEN: new_refresh,
-                }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
-            access_token = tokens.get("access_token", "")
-            name = await cloud_api.get_recipe_name(access_token, recipe_id)
+            access_token = await self._get_access_token()
+            if not access_token:
+                return
+            cloud_api = PhilipsCloudAPI()
+            try:
+                name = await cloud_api.get_recipe_name(access_token, recipe_id)
+            finally:
+                await cloud_api.close()
             if name:
                 self._recipe_cache[recipe_id] = name
                 new_data = {
@@ -562,47 +579,24 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             _LOGGER.exception("Failed to fetch recipe name for %s", recipe_id)
         finally:
             self._pending_recipe_fetch = None
-            await cloud_api.close()
 
     async def async_refresh_recipe_cache(self) -> bool:
-        """Clear cache and re-fetch all recipes from the cloud API."""
-        from .cloud_api import PhilipsCloudAPI
-
+        """Clear cache and re-fetch current recipe from the cloud API."""
         refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
         if not refresh_token:
             self.config_entry.async_start_reauth(self.hass)
             return False
         self._recipe_cache.clear()
-        cloud_api = PhilipsCloudAPI()
-        try:
-            tokens = await cloud_api.refresh_tokens(refresh_token)
-            new_refresh = tokens.get("refresh_token", refresh_token)
-            if new_refresh != refresh_token:
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_CLOUD_REFRESH_TOKEN: new_refresh,
-                }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
-            access_token = tokens.get("access_token", "")
-            recipes = await cloud_api.get_all_recipes(access_token)
-            if recipes:
-                self._recipe_cache.update(recipes)
-            new_data = {
-                **self.config_entry.data,
-                CONF_RECIPE_CACHE: dict(self._recipe_cache),
-            }
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=new_data
-            )
-            self._inject_recipe_name()
-            if self._state:
-                self.async_set_updated_data(self._state)
-        except Exception:
-            _LOGGER.exception("Failed to refresh recipe cache")
-        finally:
-            await cloud_api.close()
+        new_data = {**self.config_entry.data, CONF_RECIPE_CACHE: {}}
+        self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        # Re-fetch current recipe if active
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if airfryer and isinstance(airfryer, dict):
+                recipe_id = str(airfryer.get("recipe_id", ""))
+                if recipe_id and recipe_id != "0":
+                    self._pending_recipe_fetch = None
+                    await self._fetch_and_inject_recipe(recipe_id)
         return True
 
     @property

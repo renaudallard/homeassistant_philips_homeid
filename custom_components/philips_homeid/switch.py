@@ -77,6 +77,12 @@ async def async_setup_entry(
             PhilipsHomeIDSensorMonitorSwitch(coordinator, coordinator.device_id)
         )
 
+    _LOGGER.debug(
+        "Setting up switches for device type: %s (model: %s), count: %d",
+        device_type,
+        model_name,
+        len(entities),
+    )
     if entities:
         async_add_entities(entities)
 

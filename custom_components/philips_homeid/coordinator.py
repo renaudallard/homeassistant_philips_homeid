@@ -621,7 +621,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     @property
     def available(self) -> bool:
         """Return True if device is available."""
-        return self._state is not None
+        if self._state is None:
+            return False
+        if self._is_fusion and self.mqtt_client:
+            return self.mqtt_client.connected
+        return True
 
     @property
     def last_update_time(self) -> float:

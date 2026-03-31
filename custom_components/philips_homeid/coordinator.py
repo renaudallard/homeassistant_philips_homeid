@@ -565,17 +565,43 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await cloud_api.close()
 
     async def async_refresh_recipe_cache(self) -> bool:
-        """Clear recipe cache and re-fetch the current recipe."""
+        """Clear cache and re-fetch all recipes from the cloud API."""
+        from .cloud_api import PhilipsCloudAPI
+
+        refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+        if not refresh_token:
+            return False
         self._recipe_cache.clear()
-        new_data = {**self.config_entry.data, CONF_RECIPE_CACHE: {}}
-        self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
-        if self._state:
-            airfryer = self._state.properties.get("airfryer")
-            if airfryer and isinstance(airfryer, dict):
-                recipe_id = str(airfryer.get("recipe_id", ""))
-                if recipe_id and recipe_id != "0":
-                    self._pending_recipe_fetch = None  # Allow re-fetch
-                    await self._fetch_and_inject_recipe(recipe_id)
+        cloud_api = PhilipsCloudAPI()
+        try:
+            tokens = await cloud_api.refresh_tokens(refresh_token)
+            new_refresh = tokens.get("refresh_token", refresh_token)
+            if new_refresh != refresh_token:
+                new_data = {
+                    **self.config_entry.data,
+                    CONF_CLOUD_REFRESH_TOKEN: new_refresh,
+                }
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+            access_token = tokens.get("access_token", "")
+            recipes = await cloud_api.get_all_recipes(access_token)
+            if recipes:
+                self._recipe_cache.update(recipes)
+            new_data = {
+                **self.config_entry.data,
+                CONF_RECIPE_CACHE: dict(self._recipe_cache),
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+            self._inject_recipe_name()
+            if self._state:
+                self.async_set_updated_data(self._state)
+        except Exception:
+            _LOGGER.exception("Failed to refresh recipe cache")
+        finally:
+            await cloud_api.close()
         return True
 
     @property

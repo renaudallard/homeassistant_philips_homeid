@@ -491,7 +491,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
     async def get_recipe_name(
         self, access_token: str, recipe_id: str, language: str = "en-GB"
     ) -> str | None:
-        """Fetch recipe name from the backend API."""
+        """Fetch a single recipe name from the backend API."""
         session = await self._get_session()
         url = (
             f"{BACKEND_API_BASE}/v1/mobile/recipes/{recipe_id}?incrementViewCount=false"
@@ -515,20 +515,88 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             _LOGGER.exception("Recipe lookup request failed for %s", recipe_id)
             return None
 
-        # JSON:API format: title may be in data.attributes or included translations
+        return self._extract_recipe_title(data)
+
+    async def get_all_recipes(
+        self, access_token: str, language: str = "en-GB"
+    ) -> dict[str, str]:
+        """Fetch all recipes from the backend API.
+
+        Returns a dict of recipe_id -> title.
+        """
+        session = await self._get_session()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": HOMEID_ACCEPT,
+            "Accept-Language": language,
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        recipes: dict[str, str] = {}
+        page = 0
+        while True:
+            url = (
+                f"{BACKEND_API_BASE}/v1/mobile/recipes"
+                f"?size=100&page={page}&incrementViewCount=false"
+            )
+            _LOGGER.debug("Recipe catalog fetch: GET %s", url)
+            try:
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status != 200:
+                        _LOGGER.warning(
+                            "Recipe catalog fetch failed: HTTP %s", resp.status
+                        )
+                        break
+                    data = await resp.json(content_type=None)
+            except Exception:
+                _LOGGER.exception("Recipe catalog request failed")
+                break
+
+            # Parse paginated list response
+            items: list[Any] = []
+            if isinstance(data, list):
+                items = data
+            elif isinstance(data, dict):
+                raw = data.get("data", data.get("items", data.get("content", [])))
+                if isinstance(raw, dict):
+                    raw = raw.get("item", raw.get("_embedded", {}).get("item", []))
+                if isinstance(raw, list):
+                    items = raw
+
+            if not items:
+                break
+
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                rid = item.get("id") or item.get("recipeId")
+                attrs = item.get("attributes", item)
+                title = attrs.get("title") or attrs.get("name")
+                if rid and title:
+                    recipes[str(rid)] = str(title)
+
+            # Stop if we got fewer items than requested (last page)
+            if len(items) < 100:
+                break
+            page += 1
+            if page > 50:  # Safety limit
+                break
+
+        _LOGGER.info("Fetched %d recipes from cloud API", len(recipes))
+        return recipes
+
+    @staticmethod
+    def _extract_recipe_title(data: dict[str, Any]) -> str | None:
+        """Extract recipe title from a JSON:API response."""
         attrs = data.get("data", {}).get("attributes", {})
         title = attrs.get("title")
         if title:
             return str(title)
-
-        # Check included translations
         for item in data.get("included", []):
             if item.get("type") in ("recipeTranslations", "recipeTranslation"):
                 t = item.get("attributes", {}).get("title")
                 if t:
                     return str(t)
-
-        _LOGGER.debug("No title found in recipe response for %s", recipe_id)
         return None
 
     # --- Credential migration ---

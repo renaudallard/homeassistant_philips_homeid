@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Capteurs actifs en veille"
+      },
+      "power": {
+        "name": "Alimentation"
       }
     },
     "update": {

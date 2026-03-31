@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "대기 센서 모니터"
+      },
+      "power": {
+        "name": "전원"
       }
     },
     "update": {

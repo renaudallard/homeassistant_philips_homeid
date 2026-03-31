@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Sensoren im Standby aktiv"
+      },
+      "power": {
+        "name": "Stromversorgung"
       }
     },
     "update": {

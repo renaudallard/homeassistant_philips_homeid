@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Monitor czujnika w standby"
+      },
+      "power": {
+        "name": "Zasilanie"
       }
     },
     "update": {

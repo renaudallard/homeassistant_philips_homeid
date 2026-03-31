@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "待机传感器监控"
+      },
+      "power": {
+        "name": "电源"
       }
     },
     "update": {

@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Sensori attivi in standby"
+      },
+      "power": {
+        "name": "Alimentazione"
       }
     },
     "update": {

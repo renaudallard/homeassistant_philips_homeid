@@ -58,7 +58,7 @@
         "title": "Discovered Philips Device",
         "description": "A Philips device was discovered on your network:\n\n**{name}**\nIP: {host}\nModel: {model}\n\nDo you want to add this device?\n\n**Note:** All entities may take a few minutes to appear while the integration establishes authentication with the device."
       },
-"manual_credentials": {
+      "manual_credentials": {
         "title": "Enter Credentials for {name}",
         "description": "Enter the client credentials extracted from the HomeID app.",
         "data": {
@@ -70,7 +70,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to device",
-"missing_credentials": "Both Client ID and Client Secret are required",
+      "missing_credentials": "Both Client ID and Client Secret are required",
       "invalid_credentials": "The credentials are invalid or the device rejected them",
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",
       "unknown": "An unexpected error occurred",
@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Sensor Monitor in Standby"
+      },
+      "power": {
+        "name": "Power"
       }
     },
     "update": {

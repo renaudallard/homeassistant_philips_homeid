@@ -429,6 +429,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Sensorovervakning i standby"
+      },
+      "power": {
+        "name": "Ström"
       }
     },
     "update": {

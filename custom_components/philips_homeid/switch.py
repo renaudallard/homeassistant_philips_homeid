@@ -61,12 +61,14 @@ async def async_setup_entry(
             PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
         )
 
-    # Preheat toggle for airfryers that have airfryer data
+    # Power switch for airfryers
     if device_type in (
         "airfryer",
         "airfryer_dual",
         "multicooker",
     ) and coordinator.has_property("status", "airfryer"):
+        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
+        # Preheat toggle
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
     # MUJI sensor monitor in standby (AC0650/AC0651)
@@ -114,6 +116,34 @@ class PhilipsHomeIDChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable child lock."""
         await self.coordinator.async_set_child_lock(False)
+
+
+class PhilipsHomeIDPowerSwitch(PhilipsHomeIDEntity, SwitchEntity):
+    """Power switch for Philips airfryers."""
+
+    _attr_translation_key = "power"
+    _attr_icon = "mdi:power"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_power"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the device is powered on."""
+        state = self.device_state
+        if state:
+            return state.power_on
+        return None
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn on the device."""
+        await self.coordinator.async_set_power(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn off the device."""
+        await self.coordinator.async_set_power(False)
 
 
 class PhilipsHomeIDPreheatSwitch(PhilipsHomeIDEntity, SwitchEntity):

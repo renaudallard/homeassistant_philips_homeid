@@ -322,8 +322,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     # Airfryer-specific methods
     async def async_airfryer_start(self) -> bool:
-        """Start airfryer cooking."""
+        """Start or resume airfryer cooking."""
         if self._is_fusion:
+            # If paused, just resume without re-sending settings
+            if self._is_airfryer_paused():
+                return await self._mqtt_command(
+                    "control", {"status": AIRFRYER_STATUS_COOKING}
+                )
             # FUSION two-step flow: configure with "setting"/"precook", then start
             settings: dict[str, Any] = {"status": self._fusion_setting_status}
             if self._state:
@@ -645,6 +650,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if not airfryer or not isinstance(airfryer, dict):
             return False
         return airfryer.get("status") == AIRFRYER_STATUS_COOKING
+
+    def _is_airfryer_paused(self) -> bool:
+        """Check if airfryer is paused."""
+        if not self._state:
+            return False
+        airfryer = self._state.properties.get("airfryer")
+        if not airfryer or not isinstance(airfryer, dict):
+            return False
+        return airfryer.get("status") == AIRFRYER_STATUS_PAUSED
 
     def has_property(
         self,

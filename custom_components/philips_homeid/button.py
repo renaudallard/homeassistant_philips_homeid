@@ -91,7 +91,6 @@ AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         icon="mdi:book-refresh",
         press_fn=lambda c: c.async_refresh_recipe_cache(),
         available_key="airfryer",
-        cloud_only=True,
     ),
 )
 

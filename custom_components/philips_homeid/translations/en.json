@@ -66,6 +66,23 @@
           "client_secret": "Client Secret",
           "encryption_key": "Encryption Key (required for HTTP devices like HD9285)"
         }
+      },
+      "reauth_email": {
+        "title": "Cloud login required",
+        "description": "Cloud login is needed to fetch recipe names. Enter your Philips HomeID email.",
+        "data": {
+          "email": "Email"
+        }
+      },
+      "reauth_install": {
+        "title": "Sending verification code..."
+      },
+      "reauth_otp": {
+        "title": "Enter verification code",
+        "description": "A verification code was sent to {email}",
+        "data": {
+          "code": "Verification code"
+        }
       }
     },
     "error": {
@@ -87,7 +104,9 @@
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
       "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
-      "playwright_unsupported": "Cloud login is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually."
+      "playwright_unsupported": "Cloud login is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
+      "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",
+      "reauth_failed": "Cloud login failed. Try again later."
     }
   },
   "options": {

@@ -570,6 +570,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
         if not refresh_token:
+            self.config_entry.async_start_reauth(self.hass)
             return False
         self._recipe_cache.clear()
         cloud_api = PhilipsCloudAPI()

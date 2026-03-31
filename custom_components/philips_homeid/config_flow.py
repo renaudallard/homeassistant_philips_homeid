@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -149,6 +150,100 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._cloud_api:
             await self._cloud_api.close()
             self._cloud_api = None
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle reauth triggered when cloud credentials are needed."""
+        return await self.async_step_reauth_email()
+
+    async def async_step_reauth_email(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reauth - email entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            email = user_input.get("email", "").strip()
+            if email:
+                self._cloud_email = email
+                self._cloud_api = PhilipsCloudAPI()
+                return await self.async_step_reauth_install()
+            errors["base"] = "missing_email"
+
+        return self.async_show_form(
+            step_id="reauth_email",
+            data_schema=vol.Schema({vol.Required("email"): str}),
+            errors=errors,
+        )
+
+    async def async_step_reauth_install(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Install playwright and send OTP for reauth."""
+        if self._install_task is None:
+            platform_error = PhilipsCloudAPI.check_playwright_platform()
+            if platform_error:
+                return self.async_abort(reason="reauth_failed")
+            self._install_task = self.hass.async_create_task(
+                self._async_install_and_send_otp()
+            )
+
+        if not self._install_task.done():
+            return self.async_show_progress(
+                step_id="reauth_install",
+                progress_action="cloud_install",
+                progress_task=self._install_task,
+            )
+
+        try:
+            await self._install_task
+        except Exception:
+            _LOGGER.exception("Reauth OTP send failed")
+            self._install_task = None
+            await self._close_cloud_api()
+            return self.async_abort(reason="reauth_failed")
+        finally:
+            self._install_task = None
+
+        return self.async_show_progress_done(next_step_id="reauth_otp")
+
+    async def async_step_reauth_otp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reauth OTP verification."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            code = user_input.get("code", "").strip()
+            if code and self._cloud_api:
+                try:
+                    session_token = await self._cloud_api.verify_otp(
+                        self._cloud_email, code, self._cloud_vtoken
+                    )
+                    tokens = await self._cloud_api.get_oidc_tokens(session_token)
+                    # Store refresh token in existing entry
+                    reauth_entry = self.hass.config_entries.async_get_entry(
+                        self.context["entry_id"]
+                    )
+                    if reauth_entry:
+                        new_data = {
+                            **reauth_entry.data,
+                            CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
+                        }
+                        self.hass.config_entries.async_update_entry(
+                            reauth_entry, data=new_data
+                        )
+                    await self._close_cloud_api()
+                    return self.async_abort(reason="reauth_successful")
+                except CloudAuthError as err:
+                    _LOGGER.error("Reauth OTP failed: %s", err)
+                    errors["base"] = "otp_failed"
+
+        return self.async_show_form(
+            step_id="reauth_otp",
+            data_schema=vol.Schema({vol.Required("code"): str}),
+            errors=errors,
+            description_placeholders={"email": self._cloud_email},
+        )
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

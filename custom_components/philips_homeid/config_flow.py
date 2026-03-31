@@ -151,6 +151,16 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._cloud_api.close()
             self._cloud_api = None
 
+    def _abort_if_device_already_configured(self, cpp_id: str) -> None:
+        """Abort if any existing entry matches this device by cpp_id."""
+        from homeassistant.data_entry_flow import AbortFlow
+
+        norm = _normalize_unique_id(cpp_id)
+        for entry in self._async_current_entries():
+            entry_cpp = entry.data.get(CONF_CPP_ID, "")
+            if _normalize_unique_id(entry_cpp) == norm:
+                raise AbortFlow("already_configured")
+
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
@@ -882,6 +892,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured(updates={CONF_HOST: device.ip_address})
 
+        # Also check existing entries by cpp_id/device_id to catch FUSION
+        # entries that used external_id instead of MAC as unique_id.
+        if device.cpp_id:
+            self._abort_if_device_already_configured(device.cpp_id)
+
         # Set context for display
         self.context["title_placeholders"] = {
             "name": device.friendly_name or device.model_name or discovery_info.name,
@@ -937,6 +952,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         unique_id = _normalize_unique_id(device.cpp_id or upnp.get("UDN", ""))
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured(updates={CONF_HOST: device.ip_address})
+
+        # Also check existing entries by cpp_id/device_id to catch FUSION
+        # entries that used external_id instead of MAC as unique_id.
+        if device.cpp_id:
+            self._abort_if_device_already_configured(device.cpp_id)
 
         # Set context for display
         self.context["title_placeholders"] = {

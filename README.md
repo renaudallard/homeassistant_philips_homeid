@@ -326,6 +326,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Resting | Resting phase active (Venus only) |
 | Button | Start / Pause / Stop | Cooking controls |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
+| Button | Refresh Recipes | Re-fetch recipe names from cloud (cloud devices only) |
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |

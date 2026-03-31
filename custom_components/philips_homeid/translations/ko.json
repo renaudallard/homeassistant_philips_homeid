@@ -372,6 +372,9 @@
       },
       "airfryer_keep_warm": {
         "name": "보온"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "레시피 새로고침"
       }
     },
     "number": {

@@ -40,6 +40,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
+    CONF_CLOUD_REFRESH_TOKEN,
+    CONF_RECIPE_CACHE,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -105,6 +107,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Event signaled when first MQTT data with properties arrives.
         # Used to delay entity setup until NCP port data is available.
         self._initial_data_event: asyncio.Event = asyncio.Event()
+        # Recipe name cache: recipe_id -> name, persisted in config entry
+        self._recipe_cache: dict[str, str] = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
+        self._pending_recipe_fetch: str | None = None
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -161,6 +166,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             isinstance(v, dict) for v in state.properties.values()
         ):
             self._initial_data_event.set()
+        self._inject_recipe_name()
         self.async_set_updated_data(state)
 
     async def _async_update_data(self) -> LocalDeviceState | None:
@@ -227,6 +233,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 if new_properties:
                     self._notify_new_properties(new_properties)
 
+                self._inject_recipe_name()
                 return state
 
             # No response: track consecutive failures
@@ -492,6 +499,84 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if result:
             await self.async_request_refresh()
         return result
+
+    # --- Recipe cache ---
+
+    def _inject_recipe_name(self) -> None:
+        """Inject cached recipe name into airfryer state."""
+        if not self._state:
+            return
+        airfryer = self._state.properties.get("airfryer")
+        if not airfryer or not isinstance(airfryer, dict):
+            return
+        recipe_id = str(airfryer.get("recipe_id", ""))
+        if not recipe_id or recipe_id == "0":
+            return
+        cached = self._recipe_cache.get(recipe_id)
+        if cached:
+            airfryer["recipeName"] = cached
+        elif (
+            self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
+            and self._pending_recipe_fetch != recipe_id
+        ):
+            self._pending_recipe_fetch = recipe_id
+            self.hass.async_create_task(self._fetch_and_inject_recipe(recipe_id))
+
+    async def _fetch_and_inject_recipe(self, recipe_id: str) -> None:
+        """Fetch a recipe name from the cloud and inject into state."""
+        from .cloud_api import PhilipsCloudAPI
+
+        refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+        if not refresh_token:
+            self._pending_recipe_fetch = None
+            return
+        cloud_api = PhilipsCloudAPI()
+        try:
+            tokens = await cloud_api.refresh_tokens(refresh_token)
+            new_refresh = tokens.get("refresh_token", refresh_token)
+            if new_refresh != refresh_token:
+                new_data = {
+                    **self.config_entry.data,
+                    CONF_CLOUD_REFRESH_TOKEN: new_refresh,
+                }
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+            access_token = tokens.get("access_token", "")
+            name = await cloud_api.get_recipe_name(access_token, recipe_id)
+            if name:
+                self._recipe_cache[recipe_id] = name
+                new_data = {
+                    **self.config_entry.data,
+                    CONF_RECIPE_CACHE: dict(self._recipe_cache),
+                }
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+                if self._state:
+                    airfryer = self._state.properties.get("airfryer")
+                    if airfryer and isinstance(airfryer, dict):
+                        airfryer["recipeName"] = name
+                    self.async_set_updated_data(self._state)
+        except Exception:
+            _LOGGER.exception("Failed to fetch recipe name for %s", recipe_id)
+        finally:
+            self._pending_recipe_fetch = None
+            await cloud_api.close()
+
+    async def async_refresh_recipe_cache(self) -> bool:
+        """Clear recipe cache and re-fetch the current recipe."""
+        self._recipe_cache.clear()
+        new_data = {**self.config_entry.data, CONF_RECIPE_CACHE: {}}
+        self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if airfryer and isinstance(airfryer, dict):
+                recipe_id = str(airfryer.get("recipe_id", ""))
+                if recipe_id and recipe_id != "0":
+                    self._pending_recipe_fetch = None  # Allow re-fetch
+                    await self._fetch_and_inject_recipe(recipe_id)
+        return True
 
     @property
     def preheat_enabled(self) -> bool:

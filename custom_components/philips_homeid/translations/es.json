@@ -372,6 +372,9 @@
       },
       "airfryer_keep_warm": {
         "name": "Mantener caliente"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "Actualizar recetas"
       }
     },
     "number": {

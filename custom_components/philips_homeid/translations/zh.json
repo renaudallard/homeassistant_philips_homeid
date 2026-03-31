@@ -372,6 +372,9 @@
       },
       "airfryer_keep_warm": {
         "name": "保温"
+      },
+      "airfryer_refresh_recipe": {
+        "name": "刷新食谱"
       }
     },
     "number": {

@@ -36,7 +36,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_CLOUD_REFRESH_TOKEN, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -52,6 +52,7 @@ class PhilipsHomeIDButtonEntityDescription(ButtonEntityDescription):
         None
     )
     available_key: str | None = None  # Nested key to check for availability
+    cloud_only: bool = False  # Only show for cloud-authenticated devices
 
 
 # Airfryer buttons
@@ -84,6 +85,14 @@ AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         press_fn=lambda c: c.async_airfryer_keep_warm(),
         available_key="airfryer",
     ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="airfryer_refresh_recipe",
+        translation_key="airfryer_refresh_recipe",
+        icon="mdi:book-refresh",
+        press_fn=lambda c: c.async_refresh_recipe_cache(),
+        available_key="airfryer",
+        cloud_only=True,
+    ),
 )
 
 
@@ -112,6 +121,8 @@ async def async_setup_entry(
     entities: list[PhilipsHomeIDButton] = []
 
     for description in AIRFRYER_BUTTONS:
+        if description.cloud_only and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
+            continue
         entities.append(
             PhilipsHomeIDButton(coordinator, description, coordinator.device_id)
         )

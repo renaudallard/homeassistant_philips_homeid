@@ -486,6 +486,51 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 item.get("externalDeviceId", "?"),
             )
 
+    # --- Recipe lookup ---
+
+    async def get_recipe_name(
+        self, access_token: str, recipe_id: str, language: str = "en-GB"
+    ) -> str | None:
+        """Fetch recipe name from the backend API."""
+        session = await self._get_session()
+        url = (
+            f"{BACKEND_API_BASE}/v1/mobile/recipes/{recipe_id}?incrementViewCount=false"
+        )
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept-Language": language,
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        _LOGGER.debug("Recipe lookup: GET %s", url)
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning(
+                        "Recipe lookup failed: HTTP %s for %s", resp.status, recipe_id
+                    )
+                    return None
+                data = await resp.json(content_type=None)
+        except Exception:
+            _LOGGER.exception("Recipe lookup request failed for %s", recipe_id)
+            return None
+
+        # JSON:API format: title may be in data.attributes or included translations
+        attrs = data.get("data", {}).get("attributes", {})
+        title = attrs.get("title")
+        if title:
+            return str(title)
+
+        # Check included translations
+        for item in data.get("included", []):
+            if item.get("type") in ("recipeTranslations", "recipeTranslation"):
+                t = item.get("attributes", {}).get("title")
+                if t:
+                    return str(t)
+
+        _LOGGER.debug("No title found in recipe response for %s", recipe_id)
+        return None
+
     # --- Credential migration ---
 
     async def get_device_credentials(

@@ -331,6 +331,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
+| Switch | Power | Turn the airfryer on/off |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |
 | Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |

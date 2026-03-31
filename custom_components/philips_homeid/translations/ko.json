@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "조리 방법"
+        "name": "조리 방법",
+        "state": {
+          "manual": "수동",
+          "frozen_snacks": "냉동 간식",
+          "fresh_fries": "신선한 감자튀김",
+          "chicken": "치킨",
+          "fish": "생선",
+          "muffins_cake": "머핀/케이크",
+          "meat_chops": "갈비",
+          "vegetables": "채소",
+          "keep_warm": "보온",
+          "auto_cook": "자동 조리",
+          "recipe": "레시피",
+          "no_selection": "선택 없음",
+          "air_steam": "에어 스팀",
+          "steaming": "찜",
+          "roast": "구이",
+          "bake": "베이킹",
+          "slow_cook": "저속 조리",
+          "defrost": "해동",
+          "reheat": "재가열",
+          "sous_vide": "수비드",
+          "air_steam_pro": "에어 스팀 프로",
+          "stew": "조림",
+          "user_preset": "사용자 설정",
+          "easy_clean": "간편 세척"
+        }
       }
     },
     "switch": {

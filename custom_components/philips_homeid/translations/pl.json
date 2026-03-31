@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Metoda gotowania"
+        "name": "Metoda gotowania",
+        "state": {
+          "manual": "Ręczny",
+          "frozen_snacks": "Mrożone przekąski",
+          "fresh_fries": "Świeże frytki",
+          "chicken": "Kurczak",
+          "fish": "Ryba",
+          "muffins_cake": "Muffinki/Ciasto",
+          "meat_chops": "Kotlety",
+          "vegetables": "Warzywa",
+          "keep_warm": "Utrzymanie ciepła",
+          "auto_cook": "Automatyczne",
+          "recipe": "Przepis",
+          "no_selection": "Brak wyboru",
+          "air_steam": "Para powietrzna",
+          "steaming": "Gotowanie na parze",
+          "roast": "Pieczenie",
+          "bake": "Wypiekanie",
+          "slow_cook": "Wolne gotowanie",
+          "defrost": "Rozmrażanie",
+          "reheat": "Podgrzewanie",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Para powietrzna Pro",
+          "stew": "Duszenie",
+          "user_preset": "Własne ustawienie",
+          "easy_clean": "Łatwe czyszczenie"
+        }
       }
     },
     "switch": {

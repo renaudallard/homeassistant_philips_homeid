@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Método de cocción"
+        "name": "Método de cocción",
+        "state": {
+          "manual": "Manual",
+          "frozen_snacks": "Snacks congelados",
+          "fresh_fries": "Patatas frescas",
+          "chicken": "Pollo",
+          "fish": "Pescado",
+          "muffins_cake": "Muffins/Pastel",
+          "meat_chops": "Chuletas",
+          "vegetables": "Verduras",
+          "keep_warm": "Mantener caliente",
+          "auto_cook": "Cocción automática",
+          "recipe": "Receta",
+          "no_selection": "Sin selección",
+          "air_steam": "Vapor aire",
+          "steaming": "Vapor",
+          "roast": "Asar",
+          "bake": "Hornear",
+          "slow_cook": "Cocción lenta",
+          "defrost": "Descongelar",
+          "reheat": "Recalentar",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Vapor aire Pro",
+          "stew": "Estofado",
+          "user_preset": "Preajuste",
+          "easy_clean": "Limpieza fácil"
+        }
       }
     },
     "switch": {

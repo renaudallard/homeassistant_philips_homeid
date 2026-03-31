@@ -382,7 +382,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Cooking Method"
+        "name": "Cooking Method",
+        "state": {
+          "manual": "Manual",
+          "frozen_snacks": "Frozen Snacks",
+          "fresh_fries": "Fresh Fries",
+          "chicken": "Chicken",
+          "fish": "Fish",
+          "muffins_cake": "Muffins/Cake",
+          "meat_chops": "Meat Chops",
+          "vegetables": "Vegetables",
+          "keep_warm": "Keep Warm",
+          "auto_cook": "Auto Cook",
+          "recipe": "Recipe",
+          "no_selection": "No Selection",
+          "air_steam": "Air Steam",
+          "steaming": "Steaming",
+          "roast": "Roast",
+          "bake": "Bake",
+          "slow_cook": "Slow Cook",
+          "defrost": "Defrost",
+          "reheat": "Reheat",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Air Steam Pro",
+          "stew": "Stew",
+          "user_preset": "User Preset",
+          "easy_clean": "Easy Clean"
+        }
       }
     },
     "switch": {

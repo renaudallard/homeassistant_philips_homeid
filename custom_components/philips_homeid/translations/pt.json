@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Metodo de cozedura"
+        "name": "Metodo de cozedura",
+        "state": {
+          "manual": "Manual",
+          "frozen_snacks": "Snacks congelados",
+          "fresh_fries": "Batatas frescas",
+          "chicken": "Frango",
+          "fish": "Peixe",
+          "muffins_cake": "Muffins/Bolo",
+          "meat_chops": "Costeletas",
+          "vegetables": "Vegetais",
+          "keep_warm": "Manter quente",
+          "auto_cook": "Cozedura automática",
+          "recipe": "Receita",
+          "no_selection": "Sem seleção",
+          "air_steam": "Vapor ar",
+          "steaming": "Vapor",
+          "roast": "Assar",
+          "bake": "Cozer",
+          "slow_cook": "Cozedura lenta",
+          "defrost": "Descongelar",
+          "reheat": "Reaquecer",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Vapor ar Pro",
+          "stew": "Estufado",
+          "user_preset": "Predefinição",
+          "easy_clean": "Limpeza fácil"
+        }
       }
     },
     "switch": {

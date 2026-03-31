@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Méthode de cuisson"
+        "name": "Méthode de cuisson",
+        "state": {
+          "manual": "Manuel",
+          "frozen_snacks": "Snacks surgelés",
+          "fresh_fries": "Frites fraîches",
+          "chicken": "Poulet",
+          "fish": "Poisson",
+          "muffins_cake": "Muffins/Gâteau",
+          "meat_chops": "Côtelettes",
+          "vegetables": "Légumes",
+          "keep_warm": "Maintien au chaud",
+          "auto_cook": "Cuisson auto",
+          "recipe": "Recette",
+          "no_selection": "Aucune sélection",
+          "air_steam": "Vapeur air",
+          "steaming": "Vapeur",
+          "roast": "Rôtir",
+          "bake": "Cuire",
+          "slow_cook": "Cuisson lente",
+          "defrost": "Décongeler",
+          "reheat": "Réchauffer",
+          "sous_vide": "Sous vide",
+          "air_steam_pro": "Vapeur air pro",
+          "stew": "Mijoter",
+          "user_preset": "Préréglage",
+          "easy_clean": "Nettoyage facile"
+        }
       }
     },
     "switch": {

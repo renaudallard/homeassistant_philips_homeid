@@ -43,56 +43,56 @@ _LOGGER = logging.getLogger(__name__)
 
 # SPECTRE preset IDs (from APK CookingMethodCategoryKt)
 SPECTRE_PRESETS: dict[int, str] = {
-    0: "Manual",
-    1: "Frozen Snacks",
-    2: "Fresh Fries",
-    3: "Chicken",
-    4: "Fish",
-    5: "Muffins/Cake",
-    6: "Meat Chops",
-    7: "Vegetables",
-    8: "Keep Warm",
+    0: "manual",
+    1: "frozen_snacks",
+    2: "fresh_fries",
+    3: "chicken",
+    4: "fish",
+    5: "muffins_cake",
+    6: "meat_chops",
+    7: "vegetables",
+    8: "keep_warm",
 }
 
 # Venus preset IDs (from APK CookingMethodCategoryKt)
 VENUS_PRESETS: dict[int, str] = {
-    0: "Manual",
-    1: "Auto Cook",
-    2: "Keep Warm",
-    3: "Recipe",
-    4: "No Selection",
+    0: "manual",
+    1: "auto_cook",
+    2: "keep_warm",
+    3: "recipe",
+    4: "no_selection",
 }
 
 # Nutrimax preset IDs (from APK nutrimax/CookingMethodCategoryKt)
 NUTRIMAX_PRESETS: dict[int, str] = {
-    0: "Air Steam",
-    1: "Steaming",
-    2: "Roast",
-    3: "Bake",
-    4: "Slow Cook",
-    5: "Defrost",
-    6: "Reheat",
-    7: "Sous Vide",
-    8: "Manual",
-    9: "Keep Warm",
+    0: "air_steam",
+    1: "steaming",
+    2: "roast",
+    3: "bake",
+    4: "slow_cook",
+    5: "defrost",
+    6: "reheat",
+    7: "sous_vide",
+    8: "manual",
+    9: "keep_warm",
 }
 
 # Hermes preset IDs (from APK hermes/CookingMethodCategoryKt)
 HERMES_PRESETS: dict[int, str] = {
-    0: "No Selection",
-    1: "Manual",
-    2: "Air Steam",
-    3: "Roast",
-    4: "Bake",
-    11: "Steaming",
-    12: "Air Steam Pro",
-    13: "Defrost",
-    14: "Reheat",
-    15: "Stew",
-    30: "User Preset",
-    40: "Recipe",
-    50: "Keep Warm",
-    60: "Easy Clean",
+    0: "no_selection",
+    1: "manual",
+    2: "air_steam",
+    3: "roast",
+    4: "bake",
+    11: "steaming",
+    12: "air_steam_pro",
+    13: "defrost",
+    14: "reheat",
+    15: "stew",
+    30: "user_preset",
+    40: "recipe",
+    50: "keep_warm",
+    60: "easy_clean",
 }
 
 

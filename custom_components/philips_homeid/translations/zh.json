@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "烹饪方式"
+        "name": "烹饪方式",
+        "state": {
+          "manual": "手动",
+          "frozen_snacks": "冷冻零食",
+          "fresh_fries": "新鲜薯条",
+          "chicken": "鸡肉",
+          "fish": "鱼",
+          "muffins_cake": "松饼/蛋糕",
+          "meat_chops": "肉排",
+          "vegetables": "蔬菜",
+          "keep_warm": "保温",
+          "auto_cook": "自动烹饪",
+          "recipe": "食谱",
+          "no_selection": "无选择",
+          "air_steam": "空气蒸",
+          "steaming": "蒸",
+          "roast": "烤",
+          "bake": "烘焙",
+          "slow_cook": "慢炖",
+          "defrost": "解冻",
+          "reheat": "加热",
+          "sous_vide": "低温慢煮",
+          "air_steam_pro": "空气蒸 Pro",
+          "stew": "炖",
+          "user_preset": "自定义",
+          "easy_clean": "简易清洁"
+        }
       }
     },
     "switch": {

@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Metodo di cottura"
+        "name": "Metodo di cottura",
+        "state": {
+          "manual": "Manuale",
+          "frozen_snacks": "Snack surgelati",
+          "fresh_fries": "Patatine fresche",
+          "chicken": "Pollo",
+          "fish": "Pesce",
+          "muffins_cake": "Muffin/Torta",
+          "meat_chops": "Costolette",
+          "vegetables": "Verdure",
+          "keep_warm": "Mantenere caldo",
+          "auto_cook": "Cottura automatica",
+          "recipe": "Ricetta",
+          "no_selection": "Nessuna selezione",
+          "air_steam": "Vapore aria",
+          "steaming": "Vapore",
+          "roast": "Arrosto",
+          "bake": "Forno",
+          "slow_cook": "Cottura lenta",
+          "defrost": "Scongelare",
+          "reheat": "Riscaldare",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Vapore aria Pro",
+          "stew": "Stufato",
+          "user_preset": "Preimpostazione",
+          "easy_clean": "Pulizia facile"
+        }
       }
     },
     "switch": {

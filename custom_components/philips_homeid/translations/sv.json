@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Tillagningsmetod"
+        "name": "Tillagningsmetod",
+        "state": {
+          "manual": "Manuell",
+          "frozen_snacks": "Frysta snacks",
+          "fresh_fries": "Färska pommes",
+          "chicken": "Kyckling",
+          "fish": "Fisk",
+          "muffins_cake": "Muffins/Kaka",
+          "meat_chops": "Kotletter",
+          "vegetables": "Grönsaker",
+          "keep_warm": "Hålla varm",
+          "auto_cook": "Automatisk",
+          "recipe": "Recept",
+          "no_selection": "Inget val",
+          "air_steam": "Luftånga",
+          "steaming": "Ångkokning",
+          "roast": "Steka",
+          "bake": "Baka",
+          "slow_cook": "Långkok",
+          "defrost": "Tina",
+          "reheat": "Värma",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Luftånga Pro",
+          "stew": "Gryta",
+          "user_preset": "Egen inställning",
+          "easy_clean": "Enkel rengöring"
+        }
       }
     },
     "switch": {

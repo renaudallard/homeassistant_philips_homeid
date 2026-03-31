@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Kookmethode"
+        "name": "Kookmethode",
+        "state": {
+          "manual": "Handmatig",
+          "frozen_snacks": "Bevroren snacks",
+          "fresh_fries": "Verse friet",
+          "chicken": "Kip",
+          "fish": "Vis",
+          "muffins_cake": "Muffins/Cake",
+          "meat_chops": "Koteletten",
+          "vegetables": "Groenten",
+          "keep_warm": "Warmhouden",
+          "auto_cook": "Automatisch",
+          "recipe": "Recept",
+          "no_selection": "Geen selectie",
+          "air_steam": "Hetelucht-stoom",
+          "steaming": "Stomen",
+          "roast": "Braden",
+          "bake": "Bakken",
+          "slow_cook": "Langzaam koken",
+          "defrost": "Ontdooien",
+          "reheat": "Opwarmen",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Hetelucht-stoom Pro",
+          "stew": "Stoven",
+          "user_preset": "Eigen instelling",
+          "easy_clean": "Makkelijk schoonmaken"
+        }
       }
     },
     "switch": {

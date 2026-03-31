@@ -439,7 +439,33 @@
     },
     "select": {
       "cooking_method": {
-        "name": "Kochmethode"
+        "name": "Kochmethode",
+        "state": {
+          "manual": "Manuell",
+          "frozen_snacks": "Tiefkühlsnacks",
+          "fresh_fries": "Frische Pommes",
+          "chicken": "Hähnchen",
+          "fish": "Fisch",
+          "muffins_cake": "Muffins/Kuchen",
+          "meat_chops": "Koteletts",
+          "vegetables": "Gemüse",
+          "keep_warm": "Warmhalten",
+          "auto_cook": "Automatisch",
+          "recipe": "Rezept",
+          "no_selection": "Keine Auswahl",
+          "air_steam": "Heißluft-Dampf",
+          "steaming": "Dampfgaren",
+          "roast": "Braten",
+          "bake": "Backen",
+          "slow_cook": "Schmoren",
+          "defrost": "Auftauen",
+          "reheat": "Aufwärmen",
+          "sous_vide": "Sous Vide",
+          "air_steam_pro": "Heißluft-Dampf Pro",
+          "stew": "Eintopf",
+          "user_preset": "Eigene Einstellung",
+          "easy_clean": "Einfache Reinigung"
+        }
       }
     },
     "switch": {

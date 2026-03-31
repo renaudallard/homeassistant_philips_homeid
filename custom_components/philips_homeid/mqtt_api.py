@@ -128,6 +128,13 @@ for _ncp, _local in _NCP_PORT_MAP.items():
     _LOCAL_PORT_MAP.setdefault(_local, _ncp)
 _LOCAL_PROPERTY_MAP: dict[str, str] = {v: k for k, v in _NCP_PROPERTY_MAP.items()}
 
+# Reverse Venus key map for sending commands to Venus control ports.
+# Coordinator uses SPECTRE-normalized names; Venus NCP expects Venus names.
+_VENUS_SEND_KEY_MAP: dict[str, str] = {v: k for k, v in _VENUS_KEY_MAP.items()}
+
+# Venus NCP control port names (for send-path key mapping)
+_VENUS_CONTROL_PORTS = {"venusaf_c"}
+
 _LOGGER = logging.getLogger(__name__)
 
 # MQTT connection settings (from APK DaMqttClientImpl)
@@ -211,6 +218,12 @@ class PhilipsMQTTClient:
     def device_state(self) -> LocalDeviceState | None:
         """Return the current device state."""
         return self._state
+
+    @property
+    def is_venus(self) -> bool:
+        """Return True if this is a Venus-style FUSION device."""
+        venus_ports = {"venusaf_s", "venusaf_c", "devcurst_s"}
+        return bool(venus_ports & set(self._discovered_ports))
 
     def set_state_callback(self, callback: Callable[[LocalDeviceState], None]) -> None:
         """Set callback for state updates."""
@@ -429,6 +442,13 @@ class PhilipsMQTTClient:
                 ncp_props: dict[str, Any] = {}
                 for k, v in properties.items():
                     ncp_props[_LOCAL_PROPERTY_MAP.get(k, k)] = v
+                # Venus control ports use different property names
+                if ncp_port in _VENUS_CONTROL_PORTS or (
+                    self.is_venus and ncp_port == "Control"
+                ):
+                    ncp_props = {
+                        _VENUS_SEND_KEY_MAP.get(k, k): v for k, v in ncp_props.items()
+                    }
                 data["properties"] = ncp_props
         # CID: APK uses 8-char hex (32-bit random, byte-reversed)
         cid = secrets.token_bytes(4).hex()

@@ -259,6 +259,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         )
         return True
 
+    @property
+    def _fusion_setting_status(self) -> str:
+        """Return the pre-cooking status for this FUSION device type."""
+        if self.mqtt_client and self.mqtt_client.is_venus:
+            return AIRFRYER_STATUS_PRECOOK
+        return AIRFRYER_STATUS_SETTING
+
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
         if self._is_fusion and self.mqtt_client:
@@ -308,7 +315,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_start(self) -> bool:
         """Start airfryer cooking."""
         if self._is_fusion:
-            return await self._mqtt_command("control", {"status": "cooking"})
+            # FUSION two-step flow: configure with "setting"/"precook", then start
+            settings: dict[str, Any] = {"status": self._fusion_setting_status}
+            if self._state:
+                airfryer = self._state.properties.get("airfryer")
+                if airfryer and isinstance(airfryer, dict):
+                    for key in ("temp", "time", "preset"):
+                        if key in airfryer:
+                            settings[key] = airfryer[key]
+            await self._mqtt_command("control", settings)
+            return await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_COOKING}
+            )
         # Pass current temp/time from device state for Venus 3-step flow
         temp = None
         time_seconds = None
@@ -369,7 +387,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["probe_temp"] = probe_temp
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
-            return await self._mqtt_command("control", props) if props else True
+            if props:
+                props["status"] = self._fusion_setting_status
+                return await self._mqtt_command("control", props)
+            return True
         result = await self.api.airfryer_set_settings(
             self.device_info,
             temp,
@@ -386,14 +407,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_keep_warm(self) -> bool:
         """Start keep warm mode with configured time and temperature."""
         if self._is_fusion:
-            return await self._mqtt_command(
+            # Two-step flow: configure keep warm, then start
+            await self._mqtt_command(
                 "control",
                 {
-                    "status": "cooking",
+                    "status": self._fusion_setting_status,
                     "preset": 8,
                     "time": self._keep_warm_time,
                     "temp": self._keep_warm_temp,
                 },
+            )
+            return await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_COOKING}
             )
         result = await self.api.airfryer_keep_warm(
             self.device_info,
@@ -435,7 +460,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["temp"] = temp
             if time_seconds is not None:
                 props["time"] = time_seconds
-            return await self._mqtt_command("control", props) if props else True
+            if props:
+                # Pre-cooking: include setting status so device accepts values.
+                # Mid-cooking: send without status (APK behavior).
+                if not self.is_airfryer_cooking():
+                    props["status"] = self._fusion_setting_status
+                return await self._mqtt_command("control", props)
+            return True
         cooking = self.is_airfryer_cooking()
         result = await self.api.airfryer_update_settings(
             self.device_info, temp, time_seconds, temp_unit_fahrenheit, cooking

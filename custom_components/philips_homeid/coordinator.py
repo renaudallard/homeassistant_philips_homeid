@@ -648,8 +648,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Return True if device is available."""
         if self._state is None:
             return False
-        if self._is_fusion and self.mqtt_client:
-            return self.mqtt_client.connected
         return True
 
     @property

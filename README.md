@@ -324,15 +324,15 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Preheat Active | Preheat cycle status |
 | Binary Sensor | Probe Unplugged / Required | Probe connection state (Venus only) |
 | Binary Sensor | Resting | Resting phase active (Venus only) |
-| Button | Start / Pause / Stop | Cooking controls |
+| Button | Start / Pause / Stop | Cooking controls (Start resumes when paused) |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
-| Button | Refresh Recipes | Re-fetch recipe names from cloud (cloud devices only) |
+| Button | Refresh Recipes | Re-fetch recipe names from cloud API |
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
-| Switch | Power | Turn the airfryer on/off |
+| Switch | Power | Power off sends standby; power on via Start button |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |
 | Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
@@ -399,6 +399,17 @@ The integration automatically detects FUSION devices during setup. When a device
 - Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
 - Uses a two-step cooking flow matching the official app: first sends cooking parameters with a "setting" status (SPECTRE) or "precook" status (Venus) to configure the device, then sends "cooking" to start
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
+
+**Token management:**
+- OIDC access tokens expire after 1 hour; the integration proactively refreshes them before expiry to avoid disconnects
+- Entities stay available during token refresh (no flickering)
+- Token refresh is synchronized with a lock to prevent race conditions between MQTT reconnection and recipe fetching
+
+**Recipe names:**
+- When the device reports a recipe ID during cooking, the integration resolves it to a human-readable name via the Philips cloud API
+- Recipe names are fetched in the Home Assistant configured language and cached locally
+- Cache auto-invalidates when the HA language changes
+- A "Refresh Recipes" button allows manual re-fetch; for local-only devices, pressing it triggers a one-time cloud login (email + OTP) to get tokens
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)
@@ -484,6 +495,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
+| Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH, KO, SV |
 
 For in-depth protocol documentation based on decompiled APK analysis, see:
 - [APK Decompiled Analysis](docs/APK_DECOMPILED_ANALYSIS.md) - Complete annotated code analysis of the Philips HomeID APK (includes OAuth/OIDC flow in Appendix E)

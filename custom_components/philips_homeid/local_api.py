@@ -872,25 +872,25 @@ class PhilipsLocalAPI:
                 # pre-auth state.
                 device.airfryer_port = False
 
-        # Get status (for air purifiers and other devices)
-        status = await self.get_status(device)
-        if status:
-            got_data = True
-            if not airfryer:
+        # Get status/air/filter for non-airfryer devices (air purifiers).
+        # Airfryers don't have these endpoints (return 501), so skip to
+        # avoid noisy warnings every poll cycle.
+        if not airfryer:
+            status = await self.get_status(device)
+            if status:
+                got_data = True
                 state.power_on = status.get("pwr") == "1"
-            state.properties.update(status)
+                state.properties.update(status)
 
-        # Get air quality (for air purifiers) - merge into top level
-        air = await self.get_air_quality(device)
-        if air:
-            got_data = True
-            state.properties.update(air)
+            air = await self.get_air_quality(device)
+            if air:
+                got_data = True
+                state.properties.update(air)
 
-        # Get filter status - merge into top level
-        filters = await self.get_filter_status(device)
-        if filters:
-            got_data = True
-            state.properties.update(filters)
+            filters = await self.get_filter_status(device)
+            if filters:
+                got_data = True
+                state.properties.update(filters)
 
         # Get firmware version info
         firmware = await self.get_firmware_info(device)

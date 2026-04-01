@@ -50,6 +50,7 @@ CONF_ENCRYPTION_KEY = "encryption_key"
 CONF_AIRFRYER_PORT = "airfryer_port"
 CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
 CONF_RECIPE_CACHE = "recipe_cache"
+CONF_RECIPE_LANGUAGE = "recipe_language"
 
 # FUSION (cloud MQTT relay) configuration keys
 CONF_IS_FUSION = "is_fusion"

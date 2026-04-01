@@ -42,6 +42,7 @@ from .const import (
     CONF_ACTIVE_SCAN_INTERVAL,
     CONF_CLOUD_REFRESH_TOKEN,
     CONF_RECIPE_CACHE,
+    CONF_RECIPE_LANGUAGE,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -107,8 +108,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Event signaled when first MQTT data with properties arrives.
         # Used to delay entity setup until NCP port data is available.
         self._initial_data_event: asyncio.Event = asyncio.Event()
-        # Recipe name cache: recipe_id -> name, persisted in config entry
-        self._recipe_cache: dict[str, str] = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
+        # Recipe name cache: recipe_id -> name, persisted in config entry.
+        # Invalidate if HA language changed since cache was built.
+        cached_lang = entry.data.get(CONF_RECIPE_LANGUAGE, "")
+        if cached_lang and cached_lang != hass.config.language:
+            self._recipe_cache: dict[str, str] = {}
+        else:
+            self._recipe_cache = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
         self._pending_recipe_fetch: str | None = None
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
@@ -584,6 +590,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 new_data = {
                     **self.config_entry.data,
                     CONF_RECIPE_CACHE: dict(self._recipe_cache),
+                    CONF_RECIPE_LANGUAGE: self.hass.config.language,
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, data=new_data

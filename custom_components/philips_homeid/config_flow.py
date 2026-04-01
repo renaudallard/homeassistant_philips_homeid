@@ -161,6 +161,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for entry in self._async_current_entries():
             entry_cpp = entry.data.get(CONF_CPP_ID, "")
             if norm and _normalize_unique_id(entry_cpp) == norm:
+                # Update host IP if discovered (helps future matching)
+                if ip_address and entry.data.get(CONF_HOST) != ip_address:
+                    self.hass.config_entries.async_update_entry(
+                        entry, data={**entry.data, CONF_HOST: ip_address}
+                    )
                 raise AbortFlow("already_configured")
             # Match by IP only for FUSION entries (cpp_id is a cloud
             # external_id that won't match the discovered MAC)

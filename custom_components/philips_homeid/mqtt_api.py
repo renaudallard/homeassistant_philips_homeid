@@ -190,6 +190,7 @@ class PhilipsMQTTClient:
         self._client: mqtt.Client | None = None
         self._connected = False
         self._reconnecting = False
+        self._refreshing = False  # True during proactive token refresh
         self._connect_time: float = 0.0  # monotonic time of last connect
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
@@ -213,7 +214,7 @@ class PhilipsMQTTClient:
     @property
     def connected(self) -> bool:
         """Return whether the MQTT client is connected."""
-        return self._connected
+        return self._connected or self._refreshing
 
     @property
     def device_state(self) -> LocalDeviceState | None:
@@ -357,6 +358,7 @@ class PhilipsMQTTClient:
         if not self._credential_refresh or self._reconnecting:
             return
         self._reconnecting = True
+        self._refreshing = True  # Suppress unavailability during planned refresh
         _LOGGER.info("Proactive MQTT token refresh before expiry")
         try:
             access_token, signature = self._credential_refresh()
@@ -370,6 +372,7 @@ class PhilipsMQTTClient:
             )
         finally:
             self._reconnecting = False
+            self._refreshing = False
 
     def request_state(self) -> None:
         """Request the device shadow state.

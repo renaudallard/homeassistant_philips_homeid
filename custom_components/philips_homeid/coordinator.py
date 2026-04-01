@@ -181,6 +181,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Heartbeat poll for FUSION devices via MQTT."""
         assert self.mqtt_client is not None
         try:
+            # Proactively refresh token before the 1-hour expiry
+            if self.mqtt_client.needs_token_refresh():
+                await self.hass.async_add_executor_job(
+                    self.mqtt_client.proactive_reconnect
+                )
             if self.mqtt_client.connected:
                 await self.hass.async_add_executor_job(self.mqtt_client.request_state)
                 await self.hass.async_add_executor_job(

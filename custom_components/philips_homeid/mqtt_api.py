@@ -190,6 +190,7 @@ class PhilipsMQTTClient:
         self._client: mqtt.Client | None = None
         self._connected = False
         self._reconnecting = False
+        self._connect_time: float = 0.0  # monotonic time of last connect
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
         self._lock = threading.Lock()
@@ -345,6 +346,31 @@ class PhilipsMQTTClient:
             self._client = None
             self._connected = False
 
+    def needs_token_refresh(self) -> bool:
+        """Check if the MQTT token is about to expire (>50 minutes old)."""
+        if not self._connected or self._connect_time == 0.0:
+            return False
+        return (time.monotonic() - self._connect_time) > 3000  # 50 minutes
+
+    def proactive_reconnect(self) -> None:
+        """Reconnect with fresh credentials before token expires."""
+        if not self._credential_refresh or self._reconnecting:
+            return
+        self._reconnecting = True
+        _LOGGER.info("Proactive MQTT token refresh before expiry")
+        try:
+            access_token, signature = self._credential_refresh()
+            if self._client:
+                self._client.loop_stop()
+            self.connect(access_token, signature)
+            _LOGGER.info("Proactive MQTT reconnect successful")
+        except Exception:
+            _LOGGER.warning(
+                "Proactive MQTT reconnect failed, will retry on next heartbeat"
+            )
+        finally:
+            self._reconnecting = False
+
     def request_state(self) -> None:
         """Request the device shadow state.
 
@@ -488,6 +514,7 @@ class PhilipsMQTTClient:
         _LOGGER.info("MQTT on_connect: reason_code=%s, flags=%s", reason_code, flags)
         if reason_code == 0:
             self._connected = True
+            self._connect_time = time.monotonic()
             _LOGGER.info(
                 "MQTT connected to %s for %s",
                 self._device.mqtt_host,

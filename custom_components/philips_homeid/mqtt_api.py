@@ -364,6 +364,7 @@ class PhilipsMQTTClient:
             access_token, signature = self._credential_refresh()
             if self._client:
                 self._client.loop_stop()
+                self._client.disconnect()
             self.connect(access_token, signature)
             _LOGGER.info("Proactive MQTT reconnect successful")
         except Exception:
@@ -576,9 +577,10 @@ class PhilipsMQTTClient:
             try:
                 assert self._credential_refresh is not None
                 access_token, signature = self._credential_refresh()
-                # Disconnect old client
+                # Disconnect old client cleanly
                 if self._client:
                     self._client.loop_stop()
+                    self._client.disconnect()
                 # Connect with fresh credentials
                 self.connect(access_token, signature)
                 _LOGGER.info("MQTT reconnected successfully")

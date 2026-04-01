@@ -186,8 +186,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await self.hass.async_add_executor_job(
                     self.mqtt_client.proactive_reconnect
                 )
-                # Wait for paho connect callback to fire
-                await asyncio.sleep(2)
             if self.mqtt_client.connected:
                 await self.hass.async_add_executor_job(self.mqtt_client.request_state)
                 await self.hass.async_add_executor_job(

@@ -551,6 +551,11 @@ class PhilipsMQTTClient:
         properties: Any = None,
     ) -> None:
         """Handle MQTT disconnection with reconnection."""
+        # Ignore disconnect from a stale client (replaced by proactive_reconnect)
+        if client is not self._client:
+            _LOGGER.debug("Ignoring disconnect from stale MQTT client")
+            return
+
         self._connected = False
         if reason_code == 0:
             _LOGGER.info("MQTT disconnected gracefully")

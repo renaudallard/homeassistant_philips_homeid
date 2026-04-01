@@ -169,7 +169,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-up",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_right_drawer_open",
@@ -178,7 +178,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-down",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
 )
 

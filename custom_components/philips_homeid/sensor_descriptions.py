@@ -545,7 +545,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status_l",
         nested_key="airfryer",
         icon="mdi:tray-arrow-up",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_left_temperature",
@@ -556,7 +556,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_left_time",
@@ -568,7 +568,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_right_status",
@@ -576,7 +576,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="status_r",
         nested_key="airfryer",
         icon="mdi:tray-arrow-down",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_right_temperature",
@@ -587,7 +587,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="airfryer_right_time",
@@ -599,7 +599,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:timer",
         value_fn=_seconds_to_minutes,
-        device_types=("airfryer_dual",),
+        device_types=("airfryer", "airfryer_dual", "multicooker"),
     ),
 )
 

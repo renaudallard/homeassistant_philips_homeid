@@ -188,6 +188,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         assert self.mqtt_client is not None
         try:
             # Proactively refresh token before the 1-hour expiry
+            _LOGGER.debug(
+                "FUSION heartbeat: connected=%s, connect_time=%.0f",
+                self.mqtt_client.connected,
+                self.mqtt_client._connect_time,
+            )
             if self.mqtt_client.needs_token_refresh():
                 await self.hass.async_add_executor_job(
                     self.mqtt_client.proactive_reconnect

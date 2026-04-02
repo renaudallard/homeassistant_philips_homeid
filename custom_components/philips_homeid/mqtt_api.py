@@ -351,7 +351,10 @@ class PhilipsMQTTClient:
         """Check if the MQTT token is about to expire (>50 minutes old)."""
         if not self._connected or self._connect_time == 0.0:
             return False
-        return (time.monotonic() - self._connect_time) > 3000  # 50 minutes
+        age = time.monotonic() - self._connect_time
+        if age > 2700:  # Log when approaching refresh threshold (45+ min)
+            _LOGGER.debug("MQTT token age: %.0f seconds", age)
+        return age > 3000  # 50 minutes
 
     def proactive_reconnect(self) -> None:
         """Reconnect with fresh credentials before token expires."""

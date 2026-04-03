@@ -41,9 +41,11 @@ from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
     CONF_CLOUD_REFRESH_TOKEN,
+    CONF_PLATFORM_REST_URL,
     CONF_RECIPE_CACHE,
     CONF_RECIPE_LANGUAGE,
     CONF_SCAN_INTERVAL,
+    CONF_TENANT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FUSION_HEARTBEAT_INTERVAL,
@@ -195,9 +197,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 self.mqtt_client._connect_time,
             )
             if self.mqtt_client.needs_token_refresh():
-                await self.hass.async_add_executor_job(
-                    self.mqtt_client.proactive_reconnect
-                )
+                await self._proactive_mqtt_refresh()
             if self.mqtt_client.connected:
                 await self.hass.async_add_executor_job(self.mqtt_client.request_state)
                 await self.hass.async_add_executor_job(
@@ -531,6 +531,52 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return result
 
     # --- Recipe cache ---
+
+    async def _proactive_mqtt_refresh(self) -> None:
+        """Refresh MQTT credentials and reconnect before token expiry."""
+        assert self.mqtt_client is not None
+        from .cloud_api import PhilipsCloudAPI
+
+        self.mqtt_client._reconnecting = True
+        self.mqtt_client._refreshing = True
+        try:
+            async with self._token_lock:
+                refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+                if not refresh_token:
+                    return
+                cloud_api = PhilipsCloudAPI()
+                try:
+                    tokens = await cloud_api.refresh_tokens(refresh_token)
+                    new_refresh = tokens.get("refresh_token", refresh_token)
+                    if new_refresh != refresh_token:
+                        new_data = {
+                            **self.config_entry.data,
+                            CONF_CLOUD_REFRESH_TOKEN: new_refresh,
+                        }
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
+                    access_token = tokens.get("access_token", "")
+                    sig = await cloud_api.get_mqtt_signature(
+                        access_token,
+                        self.config_entry.data.get(CONF_PLATFORM_REST_URL, ""),
+                        self.config_entry.data.get(CONF_TENANT, ""),
+                    )
+                    signature = sig.get("signature", "")
+                finally:
+                    await cloud_api.close()
+            # Blocking connect in executor (not holding the lock)
+            await self.hass.async_add_executor_job(
+                self.mqtt_client._do_reconnect, access_token, signature
+            )
+            _LOGGER.info("Proactive MQTT reconnect successful")
+        except Exception:
+            _LOGGER.warning(
+                "Proactive MQTT reconnect failed, will retry on next heartbeat"
+            )
+        finally:
+            self.mqtt_client._reconnecting = False
+            self.mqtt_client._refreshing = False
 
     def _inject_recipe_name(self) -> None:
         """Inject cached recipe name into airfryer state."""

@@ -356,27 +356,12 @@ class PhilipsMQTTClient:
             _LOGGER.debug("MQTT token age: %.0f seconds", age)
         return age > 3000  # 50 minutes
 
-    def proactive_reconnect(self) -> None:
-        """Reconnect with fresh credentials before token expires."""
-        if not self._credential_refresh or self._reconnecting:
-            return
-        self._reconnecting = True
-        self._refreshing = True  # Suppress unavailability during planned refresh
-        _LOGGER.info("Proactive MQTT token refresh before expiry")
-        try:
-            access_token, signature = self._credential_refresh()
-            if self._client:
-                self._client.loop_stop()
-                self._client.disconnect()
-            self.connect(access_token, signature)
-            _LOGGER.info("Proactive MQTT reconnect successful")
-        except Exception:
-            _LOGGER.warning(
-                "Proactive MQTT reconnect failed, will retry on next heartbeat"
-            )
-        finally:
-            self._reconnecting = False
-            self._refreshing = False
+    def _do_reconnect(self, access_token: str, signature: str) -> None:
+        """Disconnect old client and connect with new credentials (blocking)."""
+        if self._client:
+            self._client.loop_stop()
+            self._client.disconnect()
+        self.connect(access_token, signature)
 
     def request_state(self) -> None:
         """Request the device shadow state.

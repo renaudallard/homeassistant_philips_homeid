@@ -116,6 +116,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         else:
             self._recipe_cache = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
         self._pending_recipe_fetch: str | None = None
+        self._failed_recipe_ids: set[str] = set()  # IDs that failed cloud lookup
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
 
@@ -550,6 +551,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         elif (
             self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
             and self._pending_recipe_fetch != recipe_id
+            and recipe_id not in self._failed_recipe_ids
         ):
             self._pending_recipe_fetch = recipe_id
             self.hass.async_create_task(self._fetch_and_inject_recipe(recipe_id))
@@ -609,7 +611,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                         airfryer["recipeName"] = name
                     self.async_set_updated_data(self._state)
         except Exception:
-            _LOGGER.exception("Failed to fetch recipe name for %s", recipe_id)
+            _LOGGER.warning("Failed to fetch recipe name for %s", recipe_id)
+            self._failed_recipe_ids.add(recipe_id)
         finally:
             self._pending_recipe_fetch = None
 
@@ -620,6 +623,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self.config_entry.async_start_reauth(self.hass)
             return False
         self._recipe_cache.clear()
+        self._failed_recipe_ids.clear()
         new_data = {**self.config_entry.data, CONF_RECIPE_CACHE: {}}
         self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
         # Re-fetch current recipe if active

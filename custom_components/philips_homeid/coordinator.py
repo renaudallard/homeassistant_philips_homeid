@@ -541,6 +541,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         recipe_id = str(airfryer.get("recipe_id", ""))
         if not recipe_id or recipe_id == "0":
             return
+        # Local preset IDs (PRESET-*) are not cloud recipes
+        if recipe_id.startswith("PRESET-"):
+            return
         cached = self._recipe_cache.get(recipe_id)
         if cached:
             airfryer["recipeName"] = cached

@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -233,6 +234,18 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     except Exception:
         mqtt_client.disconnect()
         raise
+
+    # Wait for NCP port data before entity setup. The first refresh
+    # sends getAllPorts + getPort requests; responses arrive async.
+    # Without this, entities are created before airfryer properties
+    # are available, resulting in 0 sensors/controls.
+    try:
+        await asyncio.wait_for(coordinator._initial_data_event.wait(), timeout=15)
+    except TimeoutError:
+        _LOGGER.warning(
+            "Timeout waiting for NCP port data from %s, proceeding with setup",
+            model,
+        )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

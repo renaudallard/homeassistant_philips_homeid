@@ -203,18 +203,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await self.hass.async_add_executor_job(
                     self.mqtt_client.refresh_port_data
                 )
-                # On first refresh, wait for NCP port data so entity setup
-                # has state available (avoids 0-entity race condition).
-                if not self._initial_data_event.is_set():
-                    try:
-                        await asyncio.wait_for(
-                            self._initial_data_event.wait(), timeout=10
-                        )
-                    except TimeoutError:
-                        _LOGGER.warning(
-                            "Timeout waiting for initial MQTT data from %s",
-                            self.device_info.model_name,
-                        )
             else:
                 _LOGGER.warning("MQTT not connected for heartbeat")
         except Exception as err:

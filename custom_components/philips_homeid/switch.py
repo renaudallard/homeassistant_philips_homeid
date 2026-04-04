@@ -116,7 +116,7 @@ async def async_setup_entry(
                         PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id)
                     )
                     _LOGGER.info("Creating switches for newly discovered airfryer")
-                    async_add_entities(new_entities)
+                    async_add_entities(new_entities, update_before_add=True)
                     return
 
         unregister = coordinator.register_new_property_callback(handle_new_properties)

@@ -136,7 +136,8 @@ async def async_setup_entry(
                         PhilipsHomeIDCookingMethodSelect(
                             coordinator, coordinator.device_id
                         )
-                    ]
+                    ],
+                    update_before_add=True,
                 )
                 return
 

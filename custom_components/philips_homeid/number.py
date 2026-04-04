@@ -267,7 +267,9 @@ async def async_setup_entry(
                     if prop_key == "status" and nested_key == "airfryer":
                         created = True
                         _LOGGER.info("Creating numbers for newly discovered airfryer")
-                        async_add_entities(_create_airfryer_numbers())
+                        async_add_entities(
+                            _create_airfryer_numbers(), update_before_add=True
+                        )
                         return
 
             unregister = coordinator.register_new_property_callback(

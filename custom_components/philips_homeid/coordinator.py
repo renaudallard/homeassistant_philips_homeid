@@ -378,9 +378,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return result
 
     async def async_airfryer_stop(self) -> bool:
-        """Stop airfryer cooking (APK uses SpectreCookingFinishConverter)."""
+        """Stop airfryer and return to standby."""
         if self._is_fusion:
-            return await self._mqtt_command("control", {"status": "finish"})
+            return await self._mqtt_command("control", {"status": "standby"})
         result = await self.api.airfryer_stop(self.device_info)
         if result:
             await self.async_request_refresh()

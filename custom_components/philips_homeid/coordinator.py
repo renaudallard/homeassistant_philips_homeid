@@ -52,11 +52,13 @@ from .const import (
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_IDLE,
     AIRFRYER_STATUS_MAINTAIN,
     AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
     AIRFRYER_STATUS_PRECOOK,
     AIRFRYER_STATUS_SETTING,
+    AIRFRYER_STATUS_STANDBY,
     AIRFRYER_STATUS_USER_ACTION,
     LocalDeviceInfo,
     LocalDeviceState,
@@ -341,6 +343,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return await self._mqtt_command(
                     "control", {"status": AIRFRYER_STATUS_COOKING}
                 )
+            # Wake from standby if needed (device ignores commands in standby)
+            if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
             # FUSION two-step flow: configure with "setting"/"precook", then start
             settings: dict[str, Any] = {"status": self._fusion_setting_status}
             if self._state:
@@ -414,6 +419,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
             if props:
+                # Wake from standby if needed
+                if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                    await self._mqtt_command(
+                        "control", {"status": AIRFRYER_STATUS_IDLE}
+                    )
                 props["status"] = self._fusion_setting_status
                 return await self._mqtt_command("control", props)
             return True
@@ -707,23 +717,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Return number of consecutive poll failures."""
         return self._consecutive_failures
 
-    def is_airfryer_cooking(self) -> bool:
-        """Check if airfryer is actively cooking (not paused)."""
+    def _get_airfryer_status(self) -> str:
+        """Return the current airfryer status string."""
         if not self._state:
-            return False
+            return ""
         airfryer = self._state.properties.get("airfryer")
         if not airfryer or not isinstance(airfryer, dict):
-            return False
-        return airfryer.get("status") == AIRFRYER_STATUS_COOKING
+            return ""
+        return airfryer.get("status", "")
+
+    def is_airfryer_cooking(self) -> bool:
+        """Check if airfryer is actively cooking (not paused)."""
+        return self._get_airfryer_status() == AIRFRYER_STATUS_COOKING
 
     def _is_airfryer_paused(self) -> bool:
         """Check if airfryer is paused."""
-        if not self._state:
-            return False
-        airfryer = self._state.properties.get("airfryer")
-        if not airfryer or not isinstance(airfryer, dict):
-            return False
-        return airfryer.get("status") == AIRFRYER_STATUS_PAUSED
+        return self._get_airfryer_status() == AIRFRYER_STATUS_PAUSED
 
     def has_property(
         self,

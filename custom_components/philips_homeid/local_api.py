@@ -849,6 +849,8 @@ class PhilipsLocalAPI:
                     AIRFRYER_STATUS_PARASETTING,
                     AIRFRYER_STATUS_MAINTAIN,
                     AIRFRYER_STATUS_USER_ACTION,
+                    AIRFRYER_STATUS_IDLE,
+                    AIRFRYER_STATUS_FINISH,
                 )
                 _LOGGER.debug("Airfryer status: %s", airfryer)
 

@@ -749,6 +749,8 @@ class PhilipsMQTTClient:
                     "parasetting",
                     "maintain",
                     "user_action",
+                    "idle",
+                    "finish",
                 )
             elif port_name == "machinestatus":
                 # Espresso: mainstate != 0 means active

@@ -292,6 +292,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Power off = send standby to the airfryer control port.
         if self._state and "airfryer" in self._state.properties:
             if not power_on:
+                if self._is_fusion:
+                    return await self._mqtt_command(
+                        "control", {"status": AIRFRYER_STATUS_STANDBY}
+                    )
                 return await self.async_airfryer_stop()
             return True  # Power on is a no-op; use Start button
         result = await self.api.set_power(self.device_info, power_on)
@@ -336,28 +340,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     # Airfryer-specific methods
     async def async_airfryer_start(self) -> bool:
-        """Start or resume airfryer cooking."""
+        """Start airfryer cooking.
+
+        APK sends only status=cooking (SpectreCookingStartConverter).
+        Settings (temp/time/preset) are configured separately via
+        set_settings before the user presses start.
+        """
         if self._is_fusion:
-            # If paused, just resume without re-sending settings
-            if self._is_airfryer_paused():
-                return await self._mqtt_command(
-                    "control", {"status": AIRFRYER_STATUS_COOKING}
-                )
-            # Wake from standby first (device ignores property values in standby)
-            if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
-                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
-                await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
-            # FUSION two-step flow: configure with "setting"/"precook", then start.
-            # APK uses PutAndObserve: waits for device confirmation between steps.
-            settings: dict[str, Any] = {"status": self._fusion_setting_status}
-            if self._state:
-                airfryer = self._state.properties.get("airfryer")
-                if airfryer and isinstance(airfryer, dict):
-                    for key in ("temp", "time", "preset"):
-                        if key in airfryer:
-                            settings[key] = airfryer[key]
-            await self._mqtt_command("control", settings)
-            await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )
@@ -389,9 +378,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return result
 
     async def async_airfryer_stop(self) -> bool:
-        """Stop airfryer cooking."""
+        """Stop airfryer cooking (APK uses SpectreCookingFinishConverter)."""
         if self._is_fusion:
-            return await self._mqtt_command("control", {"status": "standby"})
+            return await self._mqtt_command("control", {"status": "finish"})
         result = await self.api.airfryer_stop(self.device_info)
         if result:
             await self.async_request_refresh()
@@ -406,7 +395,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         airspeed: int | None = None,
         probe_temp: int | None = None,
     ) -> bool:
-        """Set airfryer cooking settings."""
+        """Set airfryer cooking settings (APK SpectreCookingSettingsSetConverter).
+
+        Sends settings with status=setting. If device is in standby,
+        wakes it to idle first (APK SpectreCookingIdleConverter).
+        """
         if self._is_fusion:
             props: dict[str, Any] = {}
             if temp is not None:
@@ -446,6 +439,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_keep_warm(self) -> bool:
         """Start keep warm mode with configured time and temperature."""
         if self._is_fusion:
+            # Wake from standby if needed
+            if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
+                await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
             # Two-step flow: configure keep warm, then start
             await self._mqtt_command(
                 "control",

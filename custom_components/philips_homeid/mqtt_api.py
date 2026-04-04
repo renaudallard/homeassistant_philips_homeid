@@ -361,7 +361,7 @@ class PhilipsMQTTClient:
         if self._client:
             self._client.loop_stop()
             self._client.disconnect()
-        # Clear discovered ports so they're re-fetched on the new connection
+        # Clear discovered ports so they're re-fetched
         self._discovered_ports = []
         self.connect(access_token, signature)
 

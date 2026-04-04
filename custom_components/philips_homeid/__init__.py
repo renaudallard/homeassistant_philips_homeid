@@ -239,11 +239,13 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # sends getAllPorts + getPort requests; responses arrive async.
     # Without this, entities are created before airfryer properties
     # are available, resulting in 0 sensors/controls.
-    # Poll state until airfryer data appears (or timeout).
+    # Wait until NCP data arrives AFTER the refresh started.
+    import time as _time
+
+    refresh_time = _time.monotonic()
     deadline = asyncio.get_event_loop().time() + 15
     while asyncio.get_event_loop().time() < deadline:
-        state = coordinator.device_state
-        if state and any(isinstance(v, dict) for v in state.properties.values()):
+        if coordinator._ncp_data_timestamp > refresh_time:
             break
         await asyncio.sleep(0.2)
     else:

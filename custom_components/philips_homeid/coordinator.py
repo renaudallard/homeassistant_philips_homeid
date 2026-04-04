@@ -110,6 +110,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Event signaled when first MQTT data with properties arrives.
         # Used to delay entity setup until NCP port data is available.
         self._initial_data_event: asyncio.Event = asyncio.Event()
+        self._ncp_data_timestamp: float = 0.0  # monotonic time of last NCP data
         # Recipe name cache: recipe_id -> name, persisted in config entry.
         # Invalidate if HA language changed since cache was built.
         cached_lang = entry.data.get(CONF_RECIPE_LANGUAGE, "")
@@ -173,10 +174,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Signal that initial MQTT data is available for entity setup.
         # Only signal when port data (nested dicts) is present, not just
         # shadow metadata like productState.
-        if not self._initial_data_event.is_set() and any(
-            isinstance(v, dict) for v in state.properties.values()
-        ):
-            self._initial_data_event.set()
+        if any(isinstance(v, dict) for v in state.properties.values()):
+            self._ncp_data_timestamp = time.monotonic()
+            if not self._initial_data_event.is_set():
+                self._initial_data_event.set()
         self._inject_recipe_name()
         self.async_set_updated_data(state)
 

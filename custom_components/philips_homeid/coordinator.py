@@ -52,11 +52,13 @@ from .const import (
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
+    AIRFRYER_STATUS_IDLE,
     AIRFRYER_STATUS_MAINTAIN,
     AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
     AIRFRYER_STATUS_PRECOOK,
     AIRFRYER_STATUS_SETTING,
+    AIRFRYER_STATUS_STANDBY,
     AIRFRYER_STATUS_USER_ACTION,
     LocalDeviceInfo,
     LocalDeviceState,
@@ -341,10 +343,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return await self._mqtt_command(
                     "control", {"status": AIRFRYER_STATUS_COOKING}
                 )
+            # Wake from standby first (device ignores property values in standby)
+            if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
+                await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
             # FUSION two-step flow: configure with "setting"/"precook", then start.
-            # APK uses PutAndObserve: sends command, waits for device to confirm
-            # state change before sending the next. We wait for the device to
-            # enter "setting" state before sending "cooking".
+            # APK uses PutAndObserve: waits for device confirmation between steps.
             settings: dict[str, Any] = {"status": self._fusion_setting_status}
             if self._state:
                 airfryer = self._state.properties.get("airfryer")
@@ -353,7 +357,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                         if key in airfryer:
                             settings[key] = airfryer[key]
             await self._mqtt_command("control", settings)
-            # Wait for device to confirm "setting" state (up to 10s like APK)
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
@@ -419,6 +422,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
             if props:
+                if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                    await self._mqtt_command(
+                        "control", {"status": AIRFRYER_STATUS_IDLE}
+                    )
+                    await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
                 props["status"] = self._fusion_setting_status
                 return await self._mqtt_command("control", props)
             return True

@@ -86,6 +86,31 @@ async def async_setup_entry(
     if entities:
         async_add_entities(entities)
 
+    # Dynamic creation for airfryer switches when properties arrive late
+    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+        created = set()
+        if entities:
+            created.add("power")
+
+        def handle_new_properties(
+            new_properties: list[tuple[str, str | None]],
+        ) -> None:
+            if "power" in created:
+                return
+            for prop_key, nested_key in new_properties:
+                if prop_key == "status" and nested_key == "airfryer":
+                    created.add("power")
+                    new_entities: list[SwitchEntity] = [
+                        PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id),
+                        PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id),
+                    ]
+                    _LOGGER.info("Creating switches for newly discovered airfryer")
+                    async_add_entities(new_entities)
+                    return
+
+        unregister = coordinator.register_new_property_callback(handle_new_properties)
+        entry.async_on_unload(unregister)
+
 
 class PhilipsHomeIDChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     """Child lock switch for Philips HomeID devices."""

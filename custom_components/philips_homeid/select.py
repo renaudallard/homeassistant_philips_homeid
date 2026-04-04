@@ -114,6 +114,34 @@ async def async_setup_entry(
         async_add_entities(
             [PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)]
         )
+        return
+
+    # Dynamic creation when airfryer properties arrive late
+    created = False
+
+    def handle_new_properties(
+        new_properties: list[tuple[str, str | None]],
+    ) -> None:
+        nonlocal created
+        if created:
+            return
+        for prop_key, nested_key in new_properties:
+            if prop_key == "preset" and nested_key == "airfryer":
+                created = True
+                _LOGGER.info(
+                    "Creating cooking method select for newly discovered airfryer"
+                )
+                async_add_entities(
+                    [
+                        PhilipsHomeIDCookingMethodSelect(
+                            coordinator, coordinator.device_id
+                        )
+                    ]
+                )
+                return
+
+    unregister = coordinator.register_new_property_callback(handle_new_properties)
+    entry.async_on_unload(unregister)
 
 
 class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):

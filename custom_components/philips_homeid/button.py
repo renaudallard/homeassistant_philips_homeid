@@ -113,20 +113,39 @@ async def async_setup_entry(
         )
         return
 
-    # Only create buttons if device has airfryer data
-    if not coordinator.has_property("status", "airfryer"):
+    def _create_buttons() -> list[PhilipsHomeIDButton]:
+        entities: list[PhilipsHomeIDButton] = []
+        for description in AIRFRYER_BUTTONS:
+            if description.cloud_only and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
+                continue
+            entities.append(
+                PhilipsHomeIDButton(coordinator, description, coordinator.device_id)
+            )
+        return entities
+
+    # Create buttons if airfryer data is available
+    if coordinator.has_property("status", "airfryer"):
+        async_add_entities(_create_buttons())
         return
 
-    entities: list[PhilipsHomeIDButton] = []
+    # Dynamic creation when airfryer properties arrive late
+    created = False
 
-    for description in AIRFRYER_BUTTONS:
-        if description.cloud_only and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
-            continue
-        entities.append(
-            PhilipsHomeIDButton(coordinator, description, coordinator.device_id)
-        )
+    def handle_new_properties(
+        new_properties: list[tuple[str, str | None]],
+    ) -> None:
+        nonlocal created
+        if created:
+            return
+        for prop_key, nested_key in new_properties:
+            if prop_key == "status" and nested_key == "airfryer":
+                created = True
+                _LOGGER.info("Creating buttons for newly discovered airfryer")
+                async_add_entities(_create_buttons())
+                return
 
-    async_add_entities(entities)
+    unregister = coordinator.register_new_property_callback(handle_new_properties)
+    entry.async_on_unload(unregister)
 
 
 class PhilipsHomeIDButton(PhilipsHomeIDEntity, ButtonEntity):

@@ -237,22 +237,44 @@ async def async_setup_entry(
 
     entities: list[NumberEntity] = []
 
-    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+    def _create_airfryer_numbers() -> list[NumberEntity]:
+        nums: list[NumberEntity] = []
         for description in AIRFRYER_NUMBERS:
             if coordinator.has_property(
                 description.property_key, description.nested_key
             ):
-                entities.append(
+                nums.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
-        # Keep warm setting numbers (always available for airfryers)
+        nums.append(PhilipsHomeIDKeepWarmTimeNumber(coordinator, coordinator.device_id))
+        nums.append(PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id))
+        return nums
+
+    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
         if coordinator.has_property("status", "airfryer"):
-            entities.append(
-                PhilipsHomeIDKeepWarmTimeNumber(coordinator, coordinator.device_id)
+            entities.extend(_create_airfryer_numbers())
+        else:
+            # Dynamic creation when airfryer properties arrive late
+            created = False
+
+            def handle_new_properties(
+                new_properties: list[tuple[str, str | None]],
+            ) -> None:
+                nonlocal created
+                if created:
+                    return
+                for prop_key, nested_key in new_properties:
+                    if prop_key == "status" and nested_key == "airfryer":
+                        created = True
+                        _LOGGER.info("Creating numbers for newly discovered airfryer")
+                        async_add_entities(_create_airfryer_numbers())
+                        return
+
+            unregister = coordinator.register_new_property_callback(
+                handle_new_properties
             )
-            entities.append(
-                PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id)
-            )
+            entry.async_on_unload(unregister)
+
     elif device_type == "espresso":
         for description in ESPRESSO_NUMBERS:
             if coordinator.has_property(

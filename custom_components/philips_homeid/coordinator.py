@@ -285,19 +285,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
+        # FUSION airfryers: use NCP control port, not shadow update
+        if self._is_fusion and self._state and "airfryer" in self._state.properties:
+            if not power_on:
+                return await self._mqtt_command(
+                    "control", {"status": AIRFRYER_STATUS_STANDBY}
+                )
+            return True  # Power on is a no-op; use Start button
+        # FUSION non-airfryers: shadow update
         if self._is_fusion and self.mqtt_client:
             await self.hass.async_add_executor_job(self.mqtt_client.set_power, power_on)
             return True
-        # Airfryers don't have a /status endpoint (returns 501).
-        # Power off = send standby to the airfryer control port.
+        # Local airfryers: stop command
         if self._state and "airfryer" in self._state.properties:
             if not power_on:
-                if self._is_fusion:
-                    return await self._mqtt_command(
-                        "control", {"status": AIRFRYER_STATUS_STANDBY}
-                    )
                 return await self.async_airfryer_stop()
-            return True  # Power on is a no-op; use Start button
+            return True
         result = await self.api.set_power(self.device_info, power_on)
         if result:
             if self._state:

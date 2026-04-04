@@ -6,6 +6,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
 [![Release](https://img.shields.io/github/v/release/renaudallard/homeassistant_philips_homeid)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
+[![Downloads](https://img.shields.io/github/downloads/renaudallard/homeassistant_philips_homeid/total)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-green.svg)](LICENSE)
 
 Control your Philips domestic appliances through Home Assistant. Local control for most devices, cloud relay for FUSION devices.

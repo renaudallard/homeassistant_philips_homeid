@@ -325,7 +325,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Preheat Active | Preheat cycle status |
 | Binary Sensor | Probe Unplugged / Required | Probe connection state (Venus only) |
 | Binary Sensor | Resting | Resting phase active (Venus only) |
-| Button | Start / Pause / Stop | Cooking controls (Start resumes when paused) |
+| Button | Start / Pause / Stop | Cooking controls (Start resumes when paused, works from standby) |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
 | Button | Refresh Recipes | Re-fetch recipe names from cloud API |
 | Number | Set Temperature / Cook Time | Adjustable settings |
@@ -398,8 +398,9 @@ The integration automatically detects FUSION devices during setup. When a device
 - Receives device state via AWS IoT device shadow (subscribe + shadow get)
 - Maps device-specific NCP port names to the integration's internal port names (e.g., Venus 2 `venusaf_s` to `airfryer`)
 - Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
-- Uses a two-step cooking flow matching the official app: first sends cooking parameters with a "setting" status (SPECTRE) or "precook" status (Venus) to configure the device, then sends "cooking" to start
+- Uses the same Put-and-Observe cooking flow as the official app: sends cooking parameters with a "setting" status, waits for device confirmation, then sends "cooking" to start
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
+- All entity platforms (sensors, buttons, switches, numbers, cooking method) support dynamic creation: entities appear automatically when device properties become available, even if NCP port data arrives after initial setup
 
 **Token management:**
 - OIDC access tokens expire after 1 hour; the integration proactively refreshes them before expiry to avoid disconnects
@@ -414,8 +415,8 @@ The integration automatically detects FUSION devices during setup. When a device
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)
-- Entities may take a few minutes to appear after initial setup
 - Token refresh happens automatically but requires a valid refresh token
+- Built-in preset recipe IDs (PRESET-*) are local to the device and cannot be resolved to names via the cloud API
 
 **Debugging MQTT connection issues:**
 Enable debug logging to see detailed MQTT protocol diagnostics (credential info, paho-mqtt protocol trace):

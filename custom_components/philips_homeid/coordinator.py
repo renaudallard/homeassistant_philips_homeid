@@ -341,8 +341,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return await self._mqtt_command(
                     "control", {"status": AIRFRYER_STATUS_COOKING}
                 )
-            # FUSION two-step flow: configure with "setting"/"precook", then start
-            # The "setting" status works from standby (no idle step needed).
+            # FUSION two-step flow: configure with "setting"/"precook", then start.
+            # APK uses PutAndObserve: sends command, waits for device to confirm
+            # state change before sending the next. We wait for the device to
+            # enter "setting" state before sending "cooking".
             settings: dict[str, Any] = {"status": self._fusion_setting_status}
             if self._state:
                 airfryer = self._state.properties.get("airfryer")
@@ -351,6 +353,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                         if key in airfryer:
                             settings[key] = airfryer[key]
             await self._mqtt_command("control", settings)
+            # Wait for device to confirm "setting" state (up to 10s like APK)
+            await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )
@@ -444,6 +448,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     "temp": self._keep_warm_temp,
                 },
             )
+            await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )
@@ -707,6 +712,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def consecutive_failures(self) -> int:
         """Return number of consecutive poll failures."""
         return self._consecutive_failures
+
+    async def _wait_for_status(self, target: str, timeout: int = 10) -> bool:
+        """Wait for the airfryer to reach a target status."""
+        deadline = asyncio.get_event_loop().time() + timeout
+        while asyncio.get_event_loop().time() < deadline:
+            if self._get_airfryer_status() == target:
+                return True
+            await asyncio.sleep(0.3)
+        _LOGGER.warning("Timeout waiting for airfryer status %s", target)
+        return False
 
     def _get_airfryer_status(self) -> str:
         """Return the current airfryer status string."""

@@ -34,7 +34,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_IS_FUSION, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -61,14 +61,20 @@ async def async_setup_entry(
             PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
         )
 
-    # Power switch for airfryers
+    # Power switch for FUSION airfryers only (local HTTP devices don't need it)
+    if (
+        device_type in ("airfryer", "airfryer_dual", "multicooker")
+        and coordinator.has_property("status", "airfryer")
+        and entry.data.get(CONF_IS_FUSION)
+    ):
+        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
+
+    # Preheat toggle for airfryers
     if device_type in (
         "airfryer",
         "airfryer_dual",
         "multicooker",
     ) and coordinator.has_property("status", "airfryer"):
-        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
-        # Preheat toggle
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
     # MUJI sensor monitor in standby (AC0650/AC0651)
@@ -88,22 +94,27 @@ async def async_setup_entry(
 
     # Dynamic creation for airfryer switches when properties arrive late
     if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+        is_fusion = entry.data.get(CONF_IS_FUSION)
         created = set()
         if entities:
-            created.add("power")
+            created.add("switches")
 
         def handle_new_properties(
             new_properties: list[tuple[str, str | None]],
         ) -> None:
-            if "power" in created:
+            if "switches" in created:
                 return
             for prop_key, nested_key in new_properties:
                 if prop_key == "status" and nested_key == "airfryer":
-                    created.add("power")
-                    new_entities: list[SwitchEntity] = [
-                        PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id),
-                        PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id),
-                    ]
+                    created.add("switches")
+                    new_entities: list[SwitchEntity] = []
+                    if is_fusion:
+                        new_entities.append(
+                            PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id)
+                        )
+                    new_entities.append(
+                        PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id)
+                    )
                     _LOGGER.info("Creating switches for newly discovered airfryer")
                     async_add_entities(new_entities)
                     return

@@ -325,7 +325,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Binary Sensor | Preheat Active | Preheat cycle status |
 | Binary Sensor | Probe Unplugged / Required | Probe connection state (Venus only) |
 | Binary Sensor | Resting | Resting phase active (Venus only) |
-| Button | Start / Pause / Stop | Cooking controls (Start resumes when paused, works from standby) |
+| Button | Start / Pause / Stop | Cooking controls (set temp/time first, then Start) |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
 | Button | Refresh Recipes | Re-fetch recipe names from cloud API |
 | Number | Set Temperature / Cook Time | Adjustable settings |
@@ -333,7 +333,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
-| Switch | Power | Power off sends standby; power on via Start button |
+| Switch | Power | Power status indicator, sends standby on off (FUSION only) |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |
 | Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
@@ -398,7 +398,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Receives device state via AWS IoT device shadow (subscribe + shadow get)
 - Maps device-specific NCP port names to the integration's internal port names (e.g., Venus 2 `venusaf_s` to `airfryer`)
 - Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
-- Uses the same Put-and-Observe cooking flow as the official app: wakes from standby if needed, sends cooking parameters with a "setting" status, waits for device confirmation at each step, then sends "cooking" to start
+- Uses the same cooking flow as the official app: configure settings first (temp, time, cooking method), which wakes the device and puts it in "setting" state, then press Start to begin cooking
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
 - All entity platforms (sensors, buttons, switches, numbers, cooking method) support dynamic creation: entities appear automatically when device properties become available, even if NCP port data arrives after initial setup
 

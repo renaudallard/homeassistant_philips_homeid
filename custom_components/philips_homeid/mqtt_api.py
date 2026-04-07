@@ -695,9 +695,9 @@ class PhilipsMQTTClient:
             if ncp_key in properties and local_key not in properties:
                 properties[local_key] = properties[ncp_key]
 
-        # Apply Venus→SPECTRE normalization for airfryer-mapped ports
+        # Apply Venus→SPECTRE normalization for Venus airfryer ports only
         # (matches local_api._normalize_venus_response behavior)
-        if port_name == "airfryer":
+        if port_name == "airfryer" and self.is_venus:
             for venus_key, spectre_key in _VENUS_KEY_MAP.items():
                 if venus_key in properties and spectre_key not in properties:
                     properties[spectre_key] = properties[venus_key]
@@ -729,17 +729,7 @@ class PhilipsMQTTClient:
             # Update power state from device port data
             # Only update when status is actually present (devcurst_s merges
             # into airfryer but has no status field).
-            if (
-                port_name
-                in (
-                    "airfryer",
-                    "venusaf",
-                    "venus1af",
-                    "nutrimax",
-                    "hermesac",
-                )
-                and "status" in properties
-            ):
+            if port_name == "airfryer" and "status" in properties:
                 port_status = properties["status"]
                 self._state.power_on = port_status in (
                     "cooking",

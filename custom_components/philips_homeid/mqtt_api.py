@@ -195,7 +195,8 @@ class PhilipsMQTTClient:
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
         self._lock = threading.Lock()
-        self._discovered_ports: list[str] = []  # NCP port names from getAllPorts
+        self._discovered_ports: list[str] = []  # NCP read port names from getAllPorts
+        self._discovered_write_ports: list[str] = []  # NCP write port names
 
         # Build topic names
         tn = device.thing_name
@@ -225,7 +226,29 @@ class PhilipsMQTTClient:
     def is_venus(self) -> bool:
         """Return True if this is a Venus-style FUSION device."""
         venus_ports = {"venusaf_s", "venusaf_c", "devcurst_s"}
-        return bool(venus_ports & set(self._discovered_ports))
+        all_ports = set(self._discovered_ports) | set(self._discovered_write_ports)
+        return bool(venus_ports & all_ports)
+
+    def has_cooking_control_port(self) -> bool:
+        """Return True if the device advertises a cooking control port.
+
+        Venus 2 (HD9880) does not advertise venusaf_c while in standby;
+        the device must be woken via shadow powerOn first.
+        """
+        control_ports = {"venusaf_c", "Control"}
+        return bool(control_ports & set(self._discovered_write_ports))
+
+    def wake_airfryer(self) -> None:
+        """Wake a FUSION airfryer from standby by setting shadow powerOn.
+
+        Needed for Venus 2 devices (HD9880) which hide their cooking
+        control port (venusaf_c) while in standby. After wake, the
+        device re-advertises its ports so a fresh getAllPorts is issued.
+        """
+        if not self._client or not self._connected:
+            return
+        self.set_power(True)
+        self._request_port_data()
 
     def set_state_callback(self, callback: Callable[[LocalDeviceState], None]) -> None:
         """Set callback for state updates."""
@@ -363,6 +386,7 @@ class PhilipsMQTTClient:
             self._client.disconnect()
         # Clear discovered ports so they're re-fetched
         self._discovered_ports = []
+        self._discovered_write_ports = []
         self.connect(access_token, signature)
 
     def request_state(self) -> None:
@@ -427,9 +451,14 @@ class PhilipsMQTTClient:
 
         Prefers discovered ports (device-specific) over static reverse map.
         Venus 2 uses different NCP names (venusaf_c) than SPECTRE/Venus 1 (Control).
+        Write ports (venusaf_c, Control) are also checked so control commands
+        resolve correctly.
         """
-        # Copy to avoid race with MQTT thread writing _discovered_ports
-        for discovered in list(self._discovered_ports):
+        # Copy to avoid race with MQTT thread writing discovered port lists
+        discovered_all = list(self._discovered_ports) + list(
+            self._discovered_write_ports
+        )
+        for discovered in discovered_all:
             if _NCP_PORT_MAP.get(discovered) == local_port:
                 return discovered
         return _LOCAL_PORT_MAP.get(local_port, local_port)
@@ -657,15 +686,22 @@ class PhilipsMQTTClient:
             ports_data = payload.get("data", [])
             if isinstance(ports_data, list):
                 read_ports = []
+                write_ports = []
                 for p in ports_data:
                     if not isinstance(p, dict):
                         continue
                     pname = p.get("portName", "")
                     direction = p.get("direction", "")
-                    if pname and direction == "read":
+                    if not pname:
+                        continue
+                    if direction == "read":
                         read_ports.append(pname)
                         _LOGGER.info("Discovered NCP read port: %s", pname)
+                    elif direction == "write":
+                        write_ports.append(pname)
+                        _LOGGER.info("Discovered NCP write port: %s", pname)
                 self._discovered_ports = read_ports
+                self._discovered_write_ports = write_ports
                 for pname in read_ports:
                     self.send_port_command(pname, command_name="getPort")
             return

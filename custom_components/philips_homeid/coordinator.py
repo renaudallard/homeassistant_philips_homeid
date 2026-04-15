@@ -350,6 +350,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         set_settings before the user presses start.
         """
         if self._is_fusion:
+            await self._ensure_fusion_control_port()
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )
@@ -418,6 +419,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
             if props:
+                await self._ensure_fusion_control_port()
                 if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
                     await self._mqtt_command(
                         "control", {"status": AIRFRYER_STATUS_IDLE}
@@ -442,6 +444,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_keep_warm(self) -> bool:
         """Start keep warm mode with configured time and temperature."""
         if self._is_fusion:
+            await self._ensure_fusion_control_port()
             # Wake from standby if needed
             if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
                 await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
@@ -729,6 +732,26 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return True
             await asyncio.sleep(0.3)
         _LOGGER.warning("Timeout waiting for airfryer status %s", target)
+        return False
+
+    async def _ensure_fusion_control_port(self, timeout: int = 10) -> bool:
+        """Ensure a FUSION airfryer has advertised its cooking control port.
+
+        Venus 2 devices (HD9880) hide venusaf_c while in standby. Sending
+        shadow powerOn=true makes the device advertise its control port.
+        """
+        if not self._is_fusion or not self.mqtt_client:
+            return True
+        if self.mqtt_client.has_cooking_control_port():
+            return True
+        _LOGGER.debug("No cooking control port advertised, waking airfryer")
+        await self.hass.async_add_executor_job(self.mqtt_client.wake_airfryer)
+        deadline = asyncio.get_event_loop().time() + timeout
+        while asyncio.get_event_loop().time() < deadline:
+            if self.mqtt_client.has_cooking_control_port():
+                return True
+            await asyncio.sleep(0.3)
+        _LOGGER.warning("Timeout waiting for cooking control port after wake")
         return False
 
     def _get_airfryer_status(self) -> str:

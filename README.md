@@ -360,6 +360,24 @@ All air fryer entities above (including target/current temperature and total coo
 <details>
 <summary><b>Espresso Machine Entities (EP/SM series, needs tester)</b></summary>
 
+Rita-class machines (EP8757 and similar):
+
+| Type | Entity | Description |
+|------|--------|-------------|
+| Sensor | Machine State | Idle / brewing / action required / error |
+| Sensor | Machine Status | Running / suspended / finishing status |
+| Sensor | Machine Extra Info | Alerts (bean lack, water lack, door open, etc.) |
+| Sensor | Control Status | Last command status |
+| Sensor | Bean Type | Arabica / mix / other |
+| Sensor | Roast Level | Light / medium / dark |
+| Sensor | AquaClean Filter Number | Current filter number (diagnostic) |
+| Sensor | AquaClean Autonomy | Filter autonomy percentage |
+| Sensor | Descale Autonomy | Descale autonomy percentage |
+| Sensor | Coffee Autonomy | Coffee autonomy percentage |
+| Sensor | Brew Group Autonomy | Brew group cleaning autonomy percentage |
+
+Legacy mappings (older/untested firmwares):
+
 | Type | Entity | Description |
 |------|--------|-------------|
 | Sensor | Machine State | Current state (standby, ready, brewing, etc.) |

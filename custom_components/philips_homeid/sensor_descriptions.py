@@ -115,6 +115,106 @@ def _espresso_mainstate(value: Any) -> str | None:
         return str(value)
 
 
+# Rita (EP8757 and similar) enum mappings from APK
+# (fusion/bridge/device/rita/mappers/)
+_RITA_MACHINE_STATE: dict[int, str] = {
+    0: "not_used",
+    1: "brewing",
+    2: "action_required",
+    3: "unrecoverable_error",
+}
+
+_RITA_MACHINE_STATUS: dict[int, str] = {
+    0: "not_used",
+    1: "running",
+    2: "suspended_alarm",
+    3: "suspended_resumable",
+    4: "finishing_successfully",
+    5: "finishing_unsuccessfully",
+}
+
+_RITA_MACHINE_EXTRA_INFO: dict[int, str] = {
+    0: "not_used",
+    1: "bean_lack",
+    2: "water_lack",
+    3: "ground_container_full",
+    4: "brew_unit_missing",
+    5: "water_container_should_be_removed",
+    6: "drip_tray_removed",
+    7: "door_open",
+    8: "ground_container_removed",
+    9: "masterpiece_alarm",
+    20: "user_abort_or_suspend_timeout",
+    21: "brew_abort_refill_required",
+    22: "brew_abort_heater_fail",
+    23: "brew_abort_bu_fail",
+    24: "brew_abort_grinder_fail",
+    40: "error_1",
+    41: "error_2",
+    42: "error_3",
+    43: "error_4",
+    44: "error_5",
+    45: "error_10",
+    46: "error_11",
+    47: "error_14",
+    48: "error_15",
+    49: "error_19",
+    50: "error_24",
+}
+
+_RITA_BEAN_TYPE: dict[int, str] = {
+    0: "arabica",
+    1: "mix",
+    2: "other",
+}
+
+_RITA_ROAST_LEVEL: dict[int, str] = {
+    0: "light",
+    1: "medium",
+    2: "dark",
+}
+
+_RITA_CONTROL_STATUS: dict[int, str] = {
+    1: "machine_notification",
+    2: "no_error",
+    3: "invalid_command",
+    50: "non_existent_or_invalid_recipe",
+    51: "machine_busy",
+    52: "machine_in_alarm_or_error_state",
+    100: "profiles_full",
+    101: "unavailable_color",
+    102: "invalid_profile_name",
+    103: "no_recipe_selected",
+    104: "recipes_full",
+    105: "invalid_recipe_name",
+    106: "invalid_profile_id",
+    107: "invalid_profile_order",
+    150: "invalid_barista_assistant_settings",
+}
+
+
+def _make_enum_decoder(mapping: dict[int, str]) -> Callable[[Any], str | None]:
+    """Build a value_fn that decodes an integer enum via the given mapping."""
+
+    def decoder(value: Any) -> str | None:
+        if value is None:
+            return None
+        try:
+            return mapping.get(int(value), f"unknown ({value})")
+        except (ValueError, TypeError):
+            return str(value)
+
+    return decoder
+
+
+_rita_machine_state = _make_enum_decoder(_RITA_MACHINE_STATE)
+_rita_machine_status = _make_enum_decoder(_RITA_MACHINE_STATUS)
+_rita_machine_extra_info = _make_enum_decoder(_RITA_MACHINE_EXTRA_INFO)
+_rita_bean_type = _make_enum_decoder(_RITA_BEAN_TYPE)
+_rita_roast_level = _make_enum_decoder(_RITA_ROAST_LEVEL)
+_rita_control_status = _make_enum_decoder(_RITA_CONTROL_STATUS)
+
+
 def _seconds_to_minutes(value: Any) -> int | None:
     """Convert seconds to minutes."""
     if value is None:
@@ -790,11 +890,123 @@ ESPRESSO_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     ),
 )
 
+# Rita espresso machines (EP8757 and similar). Status port properties
+# are stored under the "airfryer" key of device state (see _NCP_PORT_MAP
+# in mqtt_api.py; "Status" -> "airfryer" is applied for all FUSION devices).
+RITA_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_machine_state",
+        translation_key="rita_machine_state",
+        property_key="McState",
+        nested_key="airfryer",
+        icon="mdi:coffee-maker",
+        value_fn=_rita_machine_state,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_machine_status",
+        translation_key="rita_machine_status",
+        property_key="McStatus",
+        nested_key="airfryer",
+        icon="mdi:coffee",
+        value_fn=_rita_machine_status,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_machine_extra_info",
+        translation_key="rita_machine_extra_info",
+        property_key="McExInfo",
+        nested_key="airfryer",
+        icon="mdi:information-outline",
+        value_fn=_rita_machine_extra_info,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_control_status",
+        translation_key="rita_control_status",
+        property_key="CtrlStatus",
+        nested_key="airfryer",
+        icon="mdi:check-circle-outline",
+        value_fn=_rita_control_status,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_bean_type",
+        translation_key="rita_bean_type",
+        property_key="BeanType",
+        nested_key="airfryer",
+        icon="mdi:coffee-outline",
+        value_fn=_rita_bean_type,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_roast_level",
+        translation_key="rita_roast_level",
+        property_key="RoastLevel",
+        nested_key="airfryer",
+        icon="mdi:fire",
+        value_fn=_rita_roast_level,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_aquaclean_filter_number",
+        translation_key="rita_aquaclean_filter_number",
+        property_key="AqFiltNum",
+        nested_key="airfryer",
+        icon="mdi:filter-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_aquaclean_autonomy",
+        translation_key="rita_aquaclean_autonomy",
+        property_key="AqAutmy",
+        nested_key="airfryer",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:water-percent",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_descale_autonomy",
+        translation_key="rita_descale_autonomy",
+        property_key="DescAutmy",
+        nested_key="airfryer",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:water-opacity",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_coffee_autonomy",
+        translation_key="rita_coffee_autonomy",
+        property_key="CorAutmy",
+        nested_key="airfryer",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:coffee-maker-outline",
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="rita_brew_group_autonomy",
+        translation_key="rita_brew_group_autonomy",
+        property_key="MbcAutmy",
+        nested_key="airfryer",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:cog-outline",
+        device_types=("espresso",),
+    ),
+)
+
 # All sensors combined
 SENSORS = (
     AIR_PURIFIER_SENSORS
     + AIRFRYER_SENSORS
     + VENUS_ENDPOINT_SENSORS
     + ESPRESSO_SENSORS
+    + RITA_SENSORS
     + COMMON_SENSORS
 )

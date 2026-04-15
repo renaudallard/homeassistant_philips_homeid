@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Auto Standby Time"
+      },
+      "rita_machine_state": {
+        "name": "Machine State"
+      },
+      "rita_machine_status": {
+        "name": "Machine Status"
+      },
+      "rita_machine_extra_info": {
+        "name": "Machine Extra Info"
+      },
+      "rita_control_status": {
+        "name": "Control Status"
+      },
+      "rita_bean_type": {
+        "name": "Bean Type"
+      },
+      "rita_roast_level": {
+        "name": "Roast Level"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean Filter Number"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean Autonomy"
+      },
+      "rita_descale_autonomy": {
+        "name": "Descale Autonomy"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Coffee Autonomy"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Brew Group Autonomy"
       }
     },
     "binary_sensor": {

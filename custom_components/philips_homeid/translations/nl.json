@@ -439,6 +439,9 @@
       },
       "rita_skip_step": {
         "name": "Stap overslaan"
+      },
+      "rita_brew_hot_water": {
+        "name": "Heet water"
       }
     },
     "number": {
@@ -480,6 +483,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Secundaire dosis"
+      },
+      "rita_hot_water_volume": {
+        "name": "Volume heet water"
       }
     },
     "select": {
@@ -533,6 +539,14 @@
       },
       "rita_brew_recipe_select": {
         "name": "Zetrecept"
+      },
+      "rita_hot_water_temperature_select": {
+        "name": "Temperatuur heet water",
+        "state": {
+          "low": "Laag",
+          "medium": "Midden",
+          "high": "Hoog"
+        }
       }
     },
     "switch": {

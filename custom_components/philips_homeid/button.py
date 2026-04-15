@@ -67,6 +67,13 @@ RITA_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         available_key="airfryer",
     ),
     PhilipsHomeIDButtonEntityDescription(
+        key="rita_brew_hot_water",
+        translation_key="rita_brew_hot_water",
+        icon="mdi:kettle-steam",
+        press_fn=lambda c: c.async_rita_brew_hot_water(),
+        available_key="airfryer",
+    ),
+    PhilipsHomeIDButtonEntityDescription(
         key="rita_abort_brew",
         translation_key="rita_abort_brew",
         icon="mdi:stop",

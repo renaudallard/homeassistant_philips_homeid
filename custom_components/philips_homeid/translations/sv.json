@@ -439,6 +439,9 @@
       },
       "rita_skip_step": {
         "name": "Hoppa över steg"
+      },
+      "rita_brew_hot_water": {
+        "name": "Hett vatten"
       }
     },
     "number": {
@@ -480,6 +483,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Sekundardos"
+      },
+      "rita_hot_water_volume": {
+        "name": "Hetvattenvolym"
       }
     },
     "select": {
@@ -533,6 +539,14 @@
       },
       "rita_brew_recipe_select": {
         "name": "Bryggrecept"
+      },
+      "rita_hot_water_temperature_select": {
+        "name": "Hetvattentemperatur",
+        "state": {
+          "low": "Låg",
+          "medium": "Mellan",
+          "high": "Hög"
+        }
       }
     },
     "switch": {

@@ -439,6 +439,9 @@
       },
       "rita_skip_step": {
         "name": "Passer l'étape"
+      },
+      "rita_brew_hot_water": {
+        "name": "Eau chaude"
       }
     },
     "number": {
@@ -480,6 +483,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secondaire"
+      },
+      "rita_hot_water_volume": {
+        "name": "Volume d'eau chaude"
       }
     },
     "select": {
@@ -533,6 +539,14 @@
       },
       "rita_brew_recipe_select": {
         "name": "Recette"
+      },
+      "rita_hot_water_temperature_select": {
+        "name": "Température de l'eau chaude",
+        "state": {
+          "low": "Basse",
+          "medium": "Moyenne",
+          "high": "Haute"
+        }
       }
     },
     "switch": {

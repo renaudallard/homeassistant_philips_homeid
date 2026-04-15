@@ -88,6 +88,12 @@ RITA_ROAST_LEVELS: dict[int, str] = {
     1: "medium",
     2: "dark",
 }
+# Rita brewing temperature (APK RitaBrewingTemperature)
+RITA_BREW_TEMPERATURES: dict[int, str] = {
+    0: "low",
+    1: "medium",
+    2: "high",
+}
 
 # Hermes preset IDs (from APK hermes/CookingMethodCategoryKt)
 HERMES_PRESETS: dict[int, str] = {
@@ -162,6 +168,9 @@ async def async_setup_entry(
                 PhilipsHomeIDRitaBeanTypeSelect(coordinator, coordinator.device_id),
                 PhilipsHomeIDRitaBrewProfileSelect(coordinator, coordinator.device_id),
                 PhilipsHomeIDRitaBrewRecipeSelect(coordinator, coordinator.device_id),
+                PhilipsHomeIDRitaHotWaterTemperatureSelect(
+                    coordinator, coordinator.device_id
+                ),
             ]
 
         if coordinator.has_property(
@@ -399,3 +408,26 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
             return
         self.coordinator.set_rita_brew_recipe_id(idx)
         self.async_write_ha_state()
+
+
+class PhilipsHomeIDRitaHotWaterTemperatureSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Hot water temperature select for Rita espresso machines."""
+
+    _attr_translation_key = "rita_hot_water_temperature_select"
+    _attr_icon = "mdi:thermometer"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_hot_water_temperature"
+        self._name_to_id = {v: k for k, v in RITA_BREW_TEMPERATURES.items()}
+        self._attr_options = list(RITA_BREW_TEMPERATURES.values())
+
+    @property
+    def current_option(self) -> str | None:
+        return RITA_BREW_TEMPERATURES.get(self.coordinator.rita_hot_water_temperature)
+
+    async def async_select_option(self, option: str) -> None:
+        enum_value = self._name_to_id.get(option)
+        if enum_value is not None:
+            self.coordinator.set_rita_hot_water_temperature(enum_value)
+            self.async_write_ha_state()

@@ -69,6 +69,10 @@ async def async_setup_entry(
     ):
         entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
 
+    # Power switch for Rita espresso machines (FUSION shadow powerOn)
+    if device_type == "espresso" and entry.data.get(CONF_IS_FUSION):
+        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
+
     # Preheat toggle for airfryers
     if device_type in (
         "airfryer",

@@ -288,19 +288,25 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
+        # Deferred import avoids a circular dependency on sensor_descriptions.
+        from .sensor_descriptions import get_device_type
+
+        device_type = get_device_type(self.device_info.model_name or "")
+        is_airfryer = device_type in ("airfryer", "airfryer_dual", "multicooker")
+
         # FUSION airfryers: use NCP control port, not shadow update
-        if self._is_fusion and self._state and "airfryer" in self._state.properties:
+        if self._is_fusion and is_airfryer:
             if not power_on:
                 return await self._mqtt_command(
                     "control", {"status": AIRFRYER_STATUS_STANDBY}
                 )
             return True  # Power on is a no-op; use Start button
-        # FUSION non-airfryers: shadow update
+        # FUSION non-airfryers (Rita espresso, air purifier): shadow update
         if self._is_fusion and self.mqtt_client:
             await self.hass.async_add_executor_job(self.mqtt_client.set_power, power_on)
             return True
         # Local airfryers: stop command
-        if self._state and "airfryer" in self._state.properties:
+        if is_airfryer and self._state and "airfryer" in self._state.properties:
             if not power_on:
                 return await self.async_airfryer_stop()
             return True

@@ -285,9 +285,6 @@ async def async_setup_entry(
                 entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
-        entities.append(
-            PhilipsHomeIDRitaHotWaterVolumeNumber(coordinator, coordinator.device_id)
-        )
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):
@@ -393,28 +390,4 @@ class PhilipsHomeIDKeepWarmTempNumber(PhilipsHomeIDEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set the value."""
         self.coordinator.set_keep_warm_temp(int(value))
-        self.async_write_ha_state()
-
-
-class PhilipsHomeIDRitaHotWaterVolumeNumber(PhilipsHomeIDEntity, NumberEntity):
-    """Rita espresso: hot water volume used by the Brew Hot Water button."""
-
-    _attr_translation_key = "rita_hot_water_volume"
-    _attr_icon = "mdi:kettle"
-    _attr_native_min_value = 20
-    _attr_native_max_value = 400
-    _attr_native_step = 10
-    _attr_native_unit_of_measurement = "mL"
-    _attr_mode = NumberMode.BOX
-
-    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{device_id}_rita_hot_water_volume"
-
-    @property
-    def native_value(self) -> int:
-        return self.coordinator.rita_hot_water_ml
-
-    async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.set_rita_hot_water_ml(int(value))
         self.async_write_ha_state()

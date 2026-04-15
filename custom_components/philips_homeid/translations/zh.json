@@ -483,9 +483,6 @@
       },
       "espresso_secondary_dose": {
         "name": "副剂量"
-      },
-      "rita_hot_water_volume": {
-        "name": "热水量"
       }
     },
     "select": {
@@ -539,14 +536,6 @@
       },
       "rita_brew_recipe_select": {
         "name": "冲煮配方"
-      },
-      "rita_hot_water_temperature_select": {
-        "name": "热水温度",
-        "state": {
-          "low": "低",
-          "medium": "中",
-          "high": "高"
-        }
       }
     },
     "switch": {

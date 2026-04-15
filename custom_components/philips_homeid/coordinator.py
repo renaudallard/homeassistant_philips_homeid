@@ -27,7 +27,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 from datetime import timedelta
 import logging
 import secrets
@@ -111,8 +110,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
         self._rita_brew_recipe_id: int = 0  # Rita espresso: recipe id to brew
-        self._rita_hot_water_ml: int = 150  # Rita hot water volume
-        self._rita_hot_water_temperature: int = 1  # Rita hot water temp (0/1/2)
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
         # Event signaled when first MQTT data with properties arrives.
@@ -486,15 +483,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     # Rita espresso machine control commands (APK RitaControlCommand)
     RITA_CMD_REMOTE_BREW = 1
-    RITA_CMD_REMOTE_BREW_CUSTOM = 2
     RITA_CMD_SKIP_STEP = 3
     RITA_CMD_ABORT_BREW = 4
     RITA_CMD_RESUME_BREW = 5
 
-    # RitaBrewingBrsDrinkType values (APK RitaSequenceMapperKt)
-    RITA_BRS_HOT_WATER = 64
-
-    # RitaDrinkId values (APK RitaDrinkKt)
+    # RitaDrinkId values (APK RitaDrinkKt) used as Recipe_id for REMOTE_BREW
+    # of built-in drinks (BrewRitaRegularDrinkUseCase).
     RITA_DRINK_HOT_WATER = 21
 
     def _rita_session_id(self) -> int:
@@ -545,99 +539,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             }
         )
 
-    @staticmethod
-    def _rita_encode_brew_command(
-        *,
-        brs_type: int,
-        drink_id: int = 0,
-        recipe_book_id: int = 0,
-        water_ml: int = 0,
-        temperature: int = 0,
-        coffee_ml: int = 0,
-        milk_ml: int = 0,
-        aroma: int = 0,
-        taste: int = 0,
-        num_bev: int = 0,
-    ) -> str:
-        """Proto3-encode a RitaBrewCommand (APK rita_brew_command.proto).
-
-        Fields: 1=recipeId (APK "drinkId"), 2=recipeBookId (APK
-        "createdFromDrinkId"), 3=coffeeMl, 4=aroma, 5=milkMl,
-        6=temperature, 7=waterMl, 8=numBev, 9=taste, 10=brs_type.
-        Proto3 skips default (zero) values; only non-zero are emitted.
-        Returns the base64 string expected in the RcpBinData field.
-        """
-
-        def _varint(v: int) -> bytes:
-            out = bytearray()
-            while v > 0x7F:
-                out.append((v & 0x7F) | 0x80)
-                v >>= 7
-            out.append(v & 0x7F)
-            return bytes(out)
-
-        out = bytearray()
-        fields = (
-            (1, drink_id),
-            (2, recipe_book_id),
-            (3, coffee_ml),
-            (4, aroma),
-            (5, milk_ml),
-            (6, temperature),
-            (7, water_ml),
-            (8, num_bev),
-            (9, taste),
-            (10, brs_type),
-        )
-        for field_num, value in fields:
-            if value == 0:
-                continue
-            tag = (field_num << 3) | 0  # wire type 0 = varint
-            out.extend(_varint(tag))
-            out.extend(_varint(value))
-        return base64.b64encode(bytes(out)).decode("ascii")
-
     async def async_rita_brew_hot_water(self) -> bool:
-        """Brew hot water (APK REMOTE_BREW_CUSTOM, brs_type=64).
+        """Brew hot water using the built-in drink id (APK REMOTE_BREW).
 
-        Mirrors the mobile app payload for the built-in hot water drink:
-        drink id 21 (RitaDrinkKt) with brs_type 64 (RCPU_RECIPE_WATER).
-        The machine still requires a non-empty profile slot in the
-        Profile_id field, so the user may need a named profile first.
+        The APK brews built-in drinks via BrewRitaRegularDrinkUseCase,
+        which sends REMOTE_BREW with Recipe_id = drink id. Hot water is
+        drink id 21 per RitaDrinkKt. The profile must be non-empty.
         """
-        payload = self._rita_encode_brew_command(
-            brs_type=self.RITA_BRS_HOT_WATER,
-            drink_id=self.RITA_DRINK_HOT_WATER,
-            recipe_book_id=self.RITA_DRINK_HOT_WATER,
-            water_ml=self._rita_hot_water_ml,
-            temperature=self._rita_hot_water_temperature,
+        return await self.async_rita_brew(
+            self._rita_brew_profile_id, self.RITA_DRINK_HOT_WATER
         )
-        return await self._rita_control(
-            {
-                "CtrlCmd": self.RITA_CMD_REMOTE_BREW_CUSTOM,
-                "SesOwnId": self._rita_session_id(),
-                "Profile_id": self._rita_brew_profile_id,
-                "RcpBinData": payload,
-            }
-        )
-
-    @property
-    def rita_hot_water_ml(self) -> int:
-        """Return the configured hot water volume in ml."""
-        return self._rita_hot_water_ml
-
-    def set_rita_hot_water_ml(self, value: int) -> None:
-        """Update the configured hot water volume in ml."""
-        self._rita_hot_water_ml = value
-
-    @property
-    def rita_hot_water_temperature(self) -> int:
-        """Return the configured hot water temperature (0=low, 1=med, 2=high)."""
-        return self._rita_hot_water_temperature
-
-    def set_rita_hot_water_temperature(self, value: int) -> None:
-        """Update the configured hot water temperature (0/1/2)."""
-        self._rita_hot_water_temperature = value
 
     async def async_rita_set_roast_level(self, level: int) -> bool:
         """Set the bean roast level (0=light, 1=medium, 2=dark)."""

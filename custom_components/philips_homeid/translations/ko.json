@@ -483,9 +483,6 @@
       },
       "espresso_secondary_dose": {
         "name": "부 용량"
-      },
-      "rita_hot_water_volume": {
-        "name": "뜨거운 물 용량"
       }
     },
     "select": {
@@ -539,14 +536,6 @@
       },
       "rita_brew_recipe_select": {
         "name": "추출 레시피"
-      },
-      "rita_hot_water_temperature_select": {
-        "name": "뜨거운 물 온도",
-        "state": {
-          "low": "낮음",
-          "medium": "중간",
-          "high": "높음"
-        }
       }
     },
     "switch": {

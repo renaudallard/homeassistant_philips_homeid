@@ -483,9 +483,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secondaria"
-      },
-      "rita_hot_water_volume": {
-        "name": "Volume acqua calda"
       }
     },
     "select": {
@@ -539,14 +536,6 @@
       },
       "rita_brew_recipe_select": {
         "name": "Ricetta"
-      },
-      "rita_hot_water_temperature_select": {
-        "name": "Temperatura acqua calda",
-        "state": {
-          "low": "Bassa",
-          "medium": "Media",
-          "high": "Alta"
-        }
       }
     },
     "switch": {

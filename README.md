@@ -376,7 +376,7 @@ Rita-class machines (EP8757 and similar):
 | Sensor | Coffee Autonomy | Coffee autonomy percentage |
 | Sensor | Brew Group Autonomy | Brew group cleaning autonomy percentage |
 | Button | Brew Selected Recipe | Start brewing the selected profile/recipe |
-| Button | Brew Hot Water | Dispense hot water (REMOTE_BREW_CUSTOM) |
+| Button | Brew Hot Water | Dispense hot water using the selected profile |
 | Button | Abort Brew | Stop the current brew |
 | Button | Resume Brew | Resume a suspended brew |
 | Button | Skip Step | Skip the current brewing step |
@@ -384,8 +384,6 @@ Rita-class machines (EP8757 and similar):
 | Select | Bean Type | Set bean type |
 | Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
 | Select | Brew Recipe | Recipe used by Brew (names from device, 80 slots) |
-| Select | Hot Water Temperature | Low / Medium / High for Brew Hot Water |
-| Number | Hot Water Volume | Hot water amount in mL |
 
 Legacy mappings (older/untested firmwares):
 

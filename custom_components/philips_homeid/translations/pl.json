@@ -483,9 +483,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Dawka dodatkowa"
-      },
-      "rita_hot_water_volume": {
-        "name": "Objętość gorącej wody"
       }
     },
     "select": {
@@ -539,14 +536,6 @@
       },
       "rita_brew_recipe_select": {
         "name": "Przepis parzenia"
-      },
-      "rita_hot_water_temperature_select": {
-        "name": "Temperatura gorącej wody",
-        "state": {
-          "low": "Niska",
-          "medium": "Średnia",
-          "high": "Wysoka"
-        }
       }
     },
     "switch": {

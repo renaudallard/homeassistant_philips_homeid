@@ -381,8 +381,8 @@ Rita-class machines (EP8757 and similar):
 | Button | Skip Step | Skip the current brewing step |
 | Select | Roast Level | Set bean roast level |
 | Select | Bean Type | Set bean type |
-| Number | Brew Profile | Profile id (0-7) used by Brew |
-| Number | Brew Recipe | Recipe id (0-79) used by Brew |
+| Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
+| Select | Brew Recipe | Recipe used by Brew (names from device, 80 slots) |
 
 Legacy mappings (older/untested firmwares):
 

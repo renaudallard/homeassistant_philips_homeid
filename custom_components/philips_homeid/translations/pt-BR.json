@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secundaria"
-      },
-      "rita_brew_profile_id": {
-        "name": "Perfil de preparação"
-      },
-      "rita_brew_recipe_id": {
-        "name": "Receita de preparação"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "Mistura",
           "other": "Outro"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "Perfil de preparação"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Receita de preparação"
       }
     },
     "switch": {

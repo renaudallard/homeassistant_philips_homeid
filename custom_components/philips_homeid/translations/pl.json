@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Dawka dodatkowa"
-      },
-      "rita_brew_profile_id": {
-        "name": "Profil parzenia"
-      },
-      "rita_brew_recipe_id": {
-        "name": "Przepis parzenia"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "Mieszanka",
           "other": "Inne"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "Profil parzenia"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Przepis parzenia"
       }
     },
     "switch": {

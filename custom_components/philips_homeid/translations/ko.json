@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "부 용량"
-      },
-      "rita_brew_profile_id": {
-        "name": "추출 프로파일"
-      },
-      "rita_brew_recipe_id": {
-        "name": "추출 레시피"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "블렌드",
           "other": "기타"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "추출 프로파일"
+      },
+      "rita_brew_recipe_select": {
+        "name": "추출 레시피"
       }
     },
     "switch": {

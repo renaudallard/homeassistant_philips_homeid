@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Secundaire dosis"
-      },
-      "rita_brew_profile_id": {
-        "name": "Zetprofiel"
-      },
-      "rita_brew_recipe_id": {
-        "name": "Zetrecept"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "Mix",
           "other": "Andere"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "Zetprofiel"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Zetrecept"
       }
     },
     "switch": {

@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Secondary Dose"
-      },
-      "rita_brew_profile_id": {
-        "name": "Brew Profile"
-      },
-      "rita_brew_recipe_id": {
-        "name": "Brew Recipe"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "Mix",
           "other": "Other"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "Brew Profile"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Brew Recipe"
       }
     },
     "switch": {

@@ -160,6 +160,8 @@ async def async_setup_entry(
             return [
                 PhilipsHomeIDRitaRoastLevelSelect(coordinator, coordinator.device_id),
                 PhilipsHomeIDRitaBeanTypeSelect(coordinator, coordinator.device_id),
+                PhilipsHomeIDRitaBrewProfileSelect(coordinator, coordinator.device_id),
+                PhilipsHomeIDRitaBrewRecipeSelect(coordinator, coordinator.device_id),
             ]
 
         if coordinator.has_property(
@@ -286,3 +288,114 @@ class PhilipsHomeIDRitaBeanTypeSelect(PhilipsHomeIDEntity, SelectEntity):
         enum_value = self._name_to_id.get(option)
         if enum_value is not None:
             await self.coordinator.async_rita_set_bean_type(enum_value)
+
+
+def _split_names(raw: object, expected: int) -> list[str]:
+    """Split a comma-separated name list from an NCP port response.
+
+    The machine reports the names as a single comma-separated string with
+    a fixed number of slots (8 profiles, 40 recipes per recipe port).
+    """
+    if not isinstance(raw, str):
+        return [""] * expected
+    parts = raw.split(",")
+    parts += [""] * max(0, expected - len(parts))
+    return [p.strip() for p in parts[:expected]]
+
+
+def _name_option(index: int, name: str, fallback_prefix: str) -> str:
+    """Return the option label for the given slot index and name."""
+    if name:
+        return f"{index}: {name}"
+    return f"{fallback_prefix} {index}"
+
+
+def _parse_option_index(option: str) -> int | None:
+    """Extract the integer slot index from an option label."""
+    head = option.split(":", 1)[0].strip()
+    token = head.split()[-1] if head else ""
+    try:
+        return int(token)
+    except ValueError:
+        return None
+
+
+class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Profile selector for Rita espresso machines (APK RitaProfilesPort)."""
+
+    _attr_translation_key = "rita_brew_profile_select"
+    _attr_icon = "mdi:account"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_brew_profile_select"
+
+    def _build_options(self) -> list[str]:
+        state = self.device_state
+        names = [""] * 8
+        if state:
+            profiles = state.properties.get("Profiles")
+            if isinstance(profiles, dict):
+                names = _split_names(profiles.get("Pr_Names"), 8)
+        return [_name_option(i, names[i], "Profile") for i in range(8)]
+
+    @property
+    def options(self) -> list[str]:
+        return self._build_options()
+
+    @property
+    def current_option(self) -> str | None:
+        opts = self._build_options()
+        idx = self.coordinator.rita_brew_profile_id
+        if 0 <= idx < len(opts):
+            return opts[idx]
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        idx = _parse_option_index(option)
+        if idx is None or not 0 <= idx < 8:
+            return
+        self.coordinator.set_rita_brew_profile_id(idx)
+        self.async_write_ha_state()
+
+
+class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Recipe selector for Rita espresso machines (APK RitaRecipesPort)."""
+
+    _attr_translation_key = "rita_brew_recipe_select"
+    _attr_icon = "mdi:book-open-variant"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_brew_recipe_select"
+
+    def _build_options(self) -> list[str]:
+        state = self.device_state
+        names = [""] * 80
+        if state:
+            p1 = state.properties.get("Recipes_p1")
+            p2 = state.properties.get("Recipes_p2")
+            if isinstance(p1, dict):
+                names[0:40] = _split_names(p1.get("Rec_Names"), 40)
+            if isinstance(p2, dict):
+                names[40:80] = _split_names(p2.get("Rec_Names"), 40)
+        return [_name_option(i, names[i], "Recipe") for i in range(80)]
+
+    @property
+    def options(self) -> list[str]:
+        return self._build_options()
+
+    @property
+    def current_option(self) -> str | None:
+        opts = self._build_options()
+        idx = self.coordinator.rita_brew_recipe_id
+        if 0 <= idx < len(opts):
+            return opts[idx]
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        idx = _parse_option_index(option)
+        if idx is None or not 0 <= idx < 80:
+            return
+        self.coordinator.set_rita_brew_recipe_id(idx)
+        self.async_write_ha_state()

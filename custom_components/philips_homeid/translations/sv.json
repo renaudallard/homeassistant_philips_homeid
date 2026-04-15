@@ -480,12 +480,6 @@
       },
       "espresso_secondary_dose": {
         "name": "Sekundardos"
-      },
-      "rita_brew_profile_id": {
-        "name": "Bryggprofil"
-      },
-      "rita_brew_recipe_id": {
-        "name": "Bryggrecept"
       }
     },
     "select": {
@@ -533,6 +527,12 @@
           "mix": "Blandning",
           "other": "Övrigt"
         }
+      },
+      "rita_brew_profile_select": {
+        "name": "Bryggprofil"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Bryggrecept"
       }
     },
     "switch": {

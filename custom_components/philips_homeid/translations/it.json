@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Tempo standby automatico"
+      },
+      "rita_machine_state": {
+        "name": "Stato macchina"
+      },
+      "rita_machine_status": {
+        "name": "Stato operativo"
+      },
+      "rita_machine_extra_info": {
+        "name": "Info aggiuntive"
+      },
+      "rita_control_status": {
+        "name": "Stato comando"
+      },
+      "rita_bean_type": {
+        "name": "Tipo di chicco"
+      },
+      "rita_roast_level": {
+        "name": "Livello di tostatura"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "Numero filtro AquaClean"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "Autonomia AquaClean"
+      },
+      "rita_descale_autonomy": {
+        "name": "Autonomia decalcificazione"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Autonomia caffè"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Autonomia gruppo caffè"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Aggiorna ricette"
+      },
+      "rita_brew": {
+        "name": "Prepara ricetta selezionata"
+      },
+      "rita_abort_brew": {
+        "name": "Annulla preparazione"
+      },
+      "rita_resume_brew": {
+        "name": "Riprendi preparazione"
+      },
+      "rita_skip_step": {
+        "name": "Salta passaggio"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secondaria"
+      },
+      "rita_brew_profile_id": {
+        "name": "Profilo di preparazione"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Ricetta"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Stufato",
           "user_preset": "Preimpostazione",
           "easy_clean": "Pulizia facile"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Livello di tostatura",
+        "state": {
+          "light": "Chiaro",
+          "medium": "Medio",
+          "dark": "Scuro"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Tipo di chicco",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Miscela",
+          "other": "Altro"
         }
       }
     },

@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
+import secrets
 import time
 from collections.abc import Callable
 from typing import Any
@@ -107,6 +108,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
         self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
+        self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
+        self._rita_brew_recipe_id: int = 0  # Rita espresso: recipe id to brew
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
         # Event signaled when first MQTT data with properties arrives.
@@ -471,6 +474,86 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if result:
             await self.async_request_refresh()
         return result
+
+    # Rita espresso machine control commands (APK RitaControlCommand)
+    RITA_CMD_REMOTE_BREW = 1
+    RITA_CMD_SKIP_STEP = 3
+    RITA_CMD_ABORT_BREW = 4
+    RITA_CMD_RESUME_BREW = 5
+
+    def _rita_session_id(self) -> int:
+        """Generate a new Rita session owner id (APK RitaSessionIdGenerator)."""
+        return secrets.randbelow(2**31 - 10) + 10
+
+    async def _rita_control(self, props: dict[str, Any]) -> bool:
+        """Send a Rita control port command."""
+        if not self._is_fusion or not self.mqtt_client:
+            return False
+        return await self._mqtt_command("control", props)
+
+    async def async_rita_abort_brew(self) -> bool:
+        """Abort the current brew (APK ABORT_BREW)."""
+        return await self._rita_control(
+            {
+                "CtrlCmd": self.RITA_CMD_ABORT_BREW,
+                "SesOwnId": self._rita_session_id(),
+            }
+        )
+
+    async def async_rita_resume_brew(self) -> bool:
+        """Resume a suspended brew (APK RESUME_BREW)."""
+        return await self._rita_control(
+            {
+                "CtrlCmd": self.RITA_CMD_RESUME_BREW,
+                "SesOwnId": self._rita_session_id(),
+            }
+        )
+
+    async def async_rita_skip_step(self) -> bool:
+        """Skip the current brewing step (APK SKIP_STEP)."""
+        return await self._rita_control(
+            {
+                "CtrlCmd": self.RITA_CMD_SKIP_STEP,
+                "SesOwnId": self._rita_session_id(),
+            }
+        )
+
+    async def async_rita_brew(self, profile_id: int, recipe_id: int = 0) -> bool:
+        """Start brewing an existing recipe (APK REMOTE_BREW)."""
+        return await self._rita_control(
+            {
+                "CtrlCmd": self.RITA_CMD_REMOTE_BREW,
+                "SesOwnId": self._rita_session_id(),
+                "Profile_id": profile_id,
+                "Recipe_id": recipe_id,
+            }
+        )
+
+    async def async_rita_set_roast_level(self, level: int) -> bool:
+        """Set the bean roast level (0=light, 1=medium, 2=dark)."""
+        return await self._rita_control({"RoastLevel": level})
+
+    async def async_rita_set_bean_type(self, bean_type: int) -> bool:
+        """Set the bean type (0=arabica, 1=mix, 2=other)."""
+        return await self._rita_control({"BeanType": bean_type})
+
+    @property
+    def rita_brew_profile_id(self) -> int:
+        """Return the profile id selected for the next manual brew."""
+        return self._rita_brew_profile_id
+
+    def set_rita_brew_profile_id(self, value: int) -> None:
+        """Update the profile id selected for the next manual brew."""
+        self._rita_brew_profile_id = value
+
+    @property
+    def rita_brew_recipe_id(self) -> int:
+        """Return the recipe id selected for the next manual brew."""
+        return self._rita_brew_recipe_id
+
+    def set_rita_brew_recipe_id(self, value: int) -> None:
+        """Update the recipe id selected for the next manual brew."""
+        self._rita_brew_recipe_id = value
 
     @property
     def keep_warm_time(self) -> int:

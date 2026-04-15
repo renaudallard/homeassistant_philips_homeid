@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "自动待机时间"
+      },
+      "rita_machine_state": {
+        "name": "机器状态"
+      },
+      "rita_machine_status": {
+        "name": "运行状态"
+      },
+      "rita_machine_extra_info": {
+        "name": "附加信息"
+      },
+      "rita_control_status": {
+        "name": "控制状态"
+      },
+      "rita_bean_type": {
+        "name": "咖啡豆种类"
+      },
+      "rita_roast_level": {
+        "name": "烘焙程度"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean 滤芯编号"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean 剩余量"
+      },
+      "rita_descale_autonomy": {
+        "name": "除垢剩余量"
+      },
+      "rita_coffee_autonomy": {
+        "name": "咖啡剩余量"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "冲煮组剩余量"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "刷新食谱"
+      },
+      "rita_brew": {
+        "name": "冲煮所选配方"
+      },
+      "rita_abort_brew": {
+        "name": "中止冲煮"
+      },
+      "rita_resume_brew": {
+        "name": "继续冲煮"
+      },
+      "rita_skip_step": {
+        "name": "跳过步骤"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "副剂量"
+      },
+      "rita_brew_profile_id": {
+        "name": "冲煮配置文件"
+      },
+      "rita_brew_recipe_id": {
+        "name": "冲煮配方"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "炖",
           "user_preset": "自定义",
           "easy_clean": "简易清洁"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "烘焙程度",
+        "state": {
+          "light": "浅",
+          "medium": "中",
+          "dark": "深"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "咖啡豆种类",
+        "state": {
+          "arabica": "阿拉比卡",
+          "mix": "混合",
+          "other": "其他"
         }
       }
     },

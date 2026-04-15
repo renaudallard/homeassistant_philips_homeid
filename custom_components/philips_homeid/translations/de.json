@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Automatische Standby-Zeit"
+      },
+      "rita_machine_state": {
+        "name": "Maschinenzustand"
+      },
+      "rita_machine_status": {
+        "name": "Maschinenstatus"
+      },
+      "rita_machine_extra_info": {
+        "name": "Zusatzinformation"
+      },
+      "rita_control_status": {
+        "name": "Steuerungsstatus"
+      },
+      "rita_bean_type": {
+        "name": "Bohnensorte"
+      },
+      "rita_roast_level": {
+        "name": "Röststufe"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean Filternummer"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean Autonomie"
+      },
+      "rita_descale_autonomy": {
+        "name": "Entkalkungsautonomie"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Kaffeeautonomie"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Brühgruppenautonomie"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Rezepte aktualisieren"
+      },
+      "rita_brew": {
+        "name": "Ausgewähltes Rezept brühen"
+      },
+      "rita_abort_brew": {
+        "name": "Brühvorgang abbrechen"
+      },
+      "rita_resume_brew": {
+        "name": "Brühvorgang fortsetzen"
+      },
+      "rita_skip_step": {
+        "name": "Schritt überspringen"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Sekundärdosis"
+      },
+      "rita_brew_profile_id": {
+        "name": "Brühprofil"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Brührezept"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Eintopf",
           "user_preset": "Eigene Einstellung",
           "easy_clean": "Einfache Reinigung"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Röststufe",
+        "state": {
+          "light": "Hell",
+          "medium": "Mittel",
+          "dark": "Dunkel"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Bohnensorte",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mischung",
+          "other": "Andere"
         }
       }
     },

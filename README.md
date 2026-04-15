@@ -375,6 +375,14 @@ Rita-class machines (EP8757 and similar):
 | Sensor | Descale Autonomy | Descale autonomy percentage |
 | Sensor | Coffee Autonomy | Coffee autonomy percentage |
 | Sensor | Brew Group Autonomy | Brew group cleaning autonomy percentage |
+| Button | Brew Selected Recipe | Start brewing the selected profile/recipe |
+| Button | Abort Brew | Stop the current brew |
+| Button | Resume Brew | Resume a suspended brew |
+| Button | Skip Step | Skip the current brewing step |
+| Select | Roast Level | Set bean roast level |
+| Select | Bean Type | Set bean type |
+| Number | Brew Profile | Profile id (0-7) used by Brew |
+| Number | Brew Recipe | Recipe id (0-79) used by Brew |
 
 Legacy mappings (older/untested firmwares):
 

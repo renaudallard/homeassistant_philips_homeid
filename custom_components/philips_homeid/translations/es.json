@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Tiempo espera automatico"
+      },
+      "rita_machine_state": {
+        "name": "Estado de la máquina"
+      },
+      "rita_machine_status": {
+        "name": "Estado operativo"
+      },
+      "rita_machine_extra_info": {
+        "name": "Información adicional"
+      },
+      "rita_control_status": {
+        "name": "Estado de control"
+      },
+      "rita_bean_type": {
+        "name": "Tipo de grano"
+      },
+      "rita_roast_level": {
+        "name": "Nivel de tueste"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "Número de filtro AquaClean"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "Autonomía AquaClean"
+      },
+      "rita_descale_autonomy": {
+        "name": "Autonomía descalcificación"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Autonomía café"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Autonomía grupo de café"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Actualizar recetas"
+      },
+      "rita_brew": {
+        "name": "Preparar receta seleccionada"
+      },
+      "rita_abort_brew": {
+        "name": "Cancelar preparación"
+      },
+      "rita_resume_brew": {
+        "name": "Reanudar preparación"
+      },
+      "rita_skip_step": {
+        "name": "Saltar paso"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Dosis secundaria"
+      },
+      "rita_brew_profile_id": {
+        "name": "Perfil de preparación"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Receta de preparación"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Estofado",
           "user_preset": "Preajuste",
           "easy_clean": "Limpieza fácil"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Nivel de tueste",
+        "state": {
+          "light": "Claro",
+          "medium": "Medio",
+          "dark": "Oscuro"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Tipo de grano",
+        "state": {
+          "arabica": "Arábica",
+          "mix": "Mezcla",
+          "other": "Otro"
         }
       }
     },

@@ -285,6 +285,12 @@ async def async_setup_entry(
                 entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
+        entities.append(
+            PhilipsHomeIDRitaBrewProfileNumber(coordinator, coordinator.device_id)
+        )
+        entities.append(
+            PhilipsHomeIDRitaBrewRecipeNumber(coordinator, coordinator.device_id)
+        )
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):
@@ -390,4 +396,50 @@ class PhilipsHomeIDKeepWarmTempNumber(PhilipsHomeIDEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Set the value."""
         self.coordinator.set_keep_warm_temp(int(value))
+        self.async_write_ha_state()
+
+
+class PhilipsHomeIDRitaBrewProfileNumber(PhilipsHomeIDEntity, NumberEntity):
+    """Rita espresso: profile id used by the Brew button (0-7)."""
+
+    _attr_translation_key = "rita_brew_profile_id"
+    _attr_icon = "mdi:account"
+    _attr_native_min_value = 0
+    _attr_native_max_value = 7
+    _attr_native_step = 1
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_brew_profile_id"
+
+    @property
+    def native_value(self) -> float:
+        return float(self.coordinator.rita_brew_profile_id)
+
+    async def async_set_native_value(self, value: float) -> None:
+        self.coordinator.set_rita_brew_profile_id(int(value))
+        self.async_write_ha_state()
+
+
+class PhilipsHomeIDRitaBrewRecipeNumber(PhilipsHomeIDEntity, NumberEntity):
+    """Rita espresso: recipe id used by the Brew button (0-79)."""
+
+    _attr_translation_key = "rita_brew_recipe_id"
+    _attr_icon = "mdi:book-open-variant"
+    _attr_native_min_value = 0
+    _attr_native_max_value = 79
+    _attr_native_step = 1
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_brew_recipe_id"
+
+    @property
+    def native_value(self) -> float:
+        return float(self.coordinator.rita_brew_recipe_id)
+
+    async def async_set_native_value(self, value: float) -> None:
+        self.coordinator.set_rita_brew_recipe_id(int(value))
         self.async_write_ha_state()

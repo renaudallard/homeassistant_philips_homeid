@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Automatisk standby-tid"
+      },
+      "rita_machine_state": {
+        "name": "Maskinläge"
+      },
+      "rita_machine_status": {
+        "name": "Driftstatus"
+      },
+      "rita_machine_extra_info": {
+        "name": "Extra information"
+      },
+      "rita_control_status": {
+        "name": "Kommandostatus"
+      },
+      "rita_bean_type": {
+        "name": "Bönsort"
+      },
+      "rita_roast_level": {
+        "name": "Rostnivå"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean-filternummer"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean-autonomi"
+      },
+      "rita_descale_autonomy": {
+        "name": "Avkalkningsautonomi"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Kaffeautonomi"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Bryggruppsautonomi"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Uppdatera recept"
+      },
+      "rita_brew": {
+        "name": "Brygg valt recept"
+      },
+      "rita_abort_brew": {
+        "name": "Avbryt bryggning"
+      },
+      "rita_resume_brew": {
+        "name": "Återuppta bryggning"
+      },
+      "rita_skip_step": {
+        "name": "Hoppa över steg"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Sekundardos"
+      },
+      "rita_brew_profile_id": {
+        "name": "Bryggprofil"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Bryggrecept"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Gryta",
           "user_preset": "Egen inställning",
           "easy_clean": "Enkel rengöring"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Rostnivå",
+        "state": {
+          "light": "Ljus",
+          "medium": "Mellan",
+          "dark": "Mörk"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Bönsort",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Blandning",
+          "other": "Övrigt"
         }
       }
     },

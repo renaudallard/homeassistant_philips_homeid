@@ -427,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Refresh Recipes"
+      },
+      "rita_brew": {
+        "name": "Brew Selected Recipe"
+      },
+      "rita_abort_brew": {
+        "name": "Abort Brew"
+      },
+      "rita_resume_brew": {
+        "name": "Resume Brew"
+      },
+      "rita_skip_step": {
+        "name": "Skip Step"
       }
     },
     "number": {
@@ -468,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Secondary Dose"
+      },
+      "rita_brew_profile_id": {
+        "name": "Brew Profile"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Brew Recipe"
       }
     },
     "select": {
@@ -498,6 +516,22 @@
           "stew": "Stew",
           "user_preset": "User Preset",
           "easy_clean": "Easy Clean"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Roast Level",
+        "state": {
+          "light": "Light",
+          "medium": "Medium",
+          "dark": "Dark"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Bean Type",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mix",
+          "other": "Other"
         }
       }
     },

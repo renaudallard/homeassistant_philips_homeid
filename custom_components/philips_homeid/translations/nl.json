@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Automatische standby tijd"
+      },
+      "rita_machine_state": {
+        "name": "Machinestatus"
+      },
+      "rita_machine_status": {
+        "name": "Werkingsstatus"
+      },
+      "rita_machine_extra_info": {
+        "name": "Extra info"
+      },
+      "rita_control_status": {
+        "name": "Commandostatus"
+      },
+      "rita_bean_type": {
+        "name": "Boontype"
+      },
+      "rita_roast_level": {
+        "name": "Brandingsniveau"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean filternummer"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean autonomie"
+      },
+      "rita_descale_autonomy": {
+        "name": "Ontkalkingsautonomie"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Koffieautonomie"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Zetgroepautonomie"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Recepten vernieuwen"
+      },
+      "rita_brew": {
+        "name": "Gekozen recept zetten"
+      },
+      "rita_abort_brew": {
+        "name": "Zetten annuleren"
+      },
+      "rita_resume_brew": {
+        "name": "Zetten hervatten"
+      },
+      "rita_skip_step": {
+        "name": "Stap overslaan"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Secundaire dosis"
+      },
+      "rita_brew_profile_id": {
+        "name": "Zetprofiel"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Zetrecept"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Stoven",
           "user_preset": "Eigen instelling",
           "easy_clean": "Makkelijk schoonmaken"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Brandingsniveau",
+        "state": {
+          "light": "Licht",
+          "medium": "Midden",
+          "dark": "Donker"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Boontype",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mix",
+          "other": "Andere"
         }
       }
     },

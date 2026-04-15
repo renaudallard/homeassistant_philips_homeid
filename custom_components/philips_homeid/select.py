@@ -77,6 +77,18 @@ NUTRIMAX_PRESETS: dict[int, str] = {
     9: "keep_warm",
 }
 
+# Rita bean type / roast level (APK RitaBeanType / RitaRoastLevel)
+RITA_BEAN_TYPES: dict[int, str] = {
+    0: "arabica",
+    1: "mix",
+    2: "other",
+}
+RITA_ROAST_LEVELS: dict[int, str] = {
+    0: "light",
+    1: "medium",
+    2: "dark",
+}
+
 # Hermes preset IDs (from APK hermes/CookingMethodCategoryKt)
 HERMES_PRESETS: dict[int, str] = {
     0: "no_selection",
@@ -107,42 +119,73 @@ async def async_setup_entry(
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    if device_type not in ("airfryer", "airfryer_dual", "multicooker"):
-        return
-
-    if coordinator.has_property("preset", "airfryer"):
-        async_add_entities(
-            [PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)]
-        )
-        return
-
-    # Dynamic creation when airfryer properties arrive late
-    created = False
-
-    def handle_new_properties(
-        new_properties: list[tuple[str, str | None]],
-    ) -> None:
-        nonlocal created
-        if created:
+    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+        if coordinator.has_property("preset", "airfryer"):
+            async_add_entities(
+                [PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)]
+            )
             return
-        for prop_key, nested_key in new_properties:
-            if prop_key == "preset" and nested_key == "airfryer":
-                created = True
-                _LOGGER.info(
-                    "Creating cooking method select for newly discovered airfryer"
-                )
-                async_add_entities(
-                    [
-                        PhilipsHomeIDCookingMethodSelect(
-                            coordinator, coordinator.device_id
-                        )
-                    ],
-                    update_before_add=True,
-                )
-                return
 
-    unregister = coordinator.register_new_property_callback(handle_new_properties)
-    entry.async_on_unload(unregister)
+        created = False
+
+        def handle_new_properties(
+            new_properties: list[tuple[str, str | None]],
+        ) -> None:
+            nonlocal created
+            if created:
+                return
+            for prop_key, nested_key in new_properties:
+                if prop_key == "preset" and nested_key == "airfryer":
+                    created = True
+                    _LOGGER.info(
+                        "Creating cooking method select for newly discovered airfryer"
+                    )
+                    async_add_entities(
+                        [
+                            PhilipsHomeIDCookingMethodSelect(
+                                coordinator, coordinator.device_id
+                            )
+                        ],
+                        update_before_add=True,
+                    )
+                    return
+
+        unregister = coordinator.register_new_property_callback(handle_new_properties)
+        entry.async_on_unload(unregister)
+        return
+
+    if device_type == "espresso":
+
+        def _rita_entities() -> list[PhilipsHomeIDEntity]:
+            return [
+                PhilipsHomeIDRitaRoastLevelSelect(coordinator, coordinator.device_id),
+                PhilipsHomeIDRitaBeanTypeSelect(coordinator, coordinator.device_id),
+            ]
+
+        if coordinator.has_property(
+            "RoastLevel", "airfryer"
+        ) or coordinator.has_property("BeanType", "airfryer"):
+            async_add_entities(_rita_entities())
+            return
+
+        rita_created = False
+
+        def handle_rita_properties(
+            new_properties: list[tuple[str, str | None]],
+        ) -> None:
+            nonlocal rita_created
+            if rita_created:
+                return
+            for prop_key, nested_key in new_properties:
+                if prop_key in ("RoastLevel", "BeanType") and nested_key == "airfryer":
+                    rita_created = True
+                    _LOGGER.info("Creating Rita selects for newly discovered espresso")
+                    async_add_entities(_rita_entities(), update_before_add=True)
+                    return
+
+        unregister = coordinator.register_new_property_callback(handle_rita_properties)
+        entry.async_on_unload(unregister)
+        return
 
 
 class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
@@ -187,3 +230,59 @@ class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
         preset_id = self._name_to_id.get(option)
         if preset_id is not None:
             await self.coordinator.async_airfryer_set_settings(preset=preset_id)
+
+
+class PhilipsHomeIDRitaRoastLevelSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Roast level select for Rita espresso machines."""
+
+    _attr_translation_key = "rita_roast_level_select"
+    _attr_icon = "mdi:fire"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_roast_level"
+        self._name_to_id = {v: k for k, v in RITA_ROAST_LEVELS.items()}
+        self._attr_options = list(RITA_ROAST_LEVELS.values())
+
+    @property
+    def current_option(self) -> str | None:
+        value = self._get_property_value("RoastLevel", "airfryer")
+        if value is None:
+            return None
+        try:
+            return RITA_ROAST_LEVELS.get(int(value))
+        except (ValueError, TypeError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        enum_value = self._name_to_id.get(option)
+        if enum_value is not None:
+            await self.coordinator.async_rita_set_roast_level(enum_value)
+
+
+class PhilipsHomeIDRitaBeanTypeSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Bean type select for Rita espresso machines."""
+
+    _attr_translation_key = "rita_bean_type_select"
+    _attr_icon = "mdi:coffee-outline"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_bean_type"
+        self._name_to_id = {v: k for k, v in RITA_BEAN_TYPES.items()}
+        self._attr_options = list(RITA_BEAN_TYPES.values())
+
+    @property
+    def current_option(self) -> str | None:
+        value = self._get_property_value("BeanType", "airfryer")
+        if value is None:
+            return None
+        try:
+            return RITA_BEAN_TYPES.get(int(value))
+        except (ValueError, TypeError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        enum_value = self._name_to_id.get(option)
+        if enum_value is not None:
+            await self.coordinator.async_rita_set_bean_type(enum_value)

@@ -333,6 +333,39 @@
       },
       "espresso_auto_standby_time": {
         "name": "Czas auto standby"
+      },
+      "rita_machine_state": {
+        "name": "Stan maszyny"
+      },
+      "rita_machine_status": {
+        "name": "Status pracy"
+      },
+      "rita_machine_extra_info": {
+        "name": "Dodatkowe informacje"
+      },
+      "rita_control_status": {
+        "name": "Status komendy"
+      },
+      "rita_bean_type": {
+        "name": "Typ ziarna"
+      },
+      "rita_roast_level": {
+        "name": "Stopień palenia"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "Numer filtra AquaClean"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "Autonomia AquaClean"
+      },
+      "rita_descale_autonomy": {
+        "name": "Autonomia odkamieniania"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Autonomia kawy"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Autonomia zaparzacza"
       }
     },
     "binary_sensor": {
@@ -394,6 +427,18 @@
       },
       "airfryer_refresh_recipe": {
         "name": "Odśwież przepisy"
+      },
+      "rita_brew": {
+        "name": "Zaparz wybrany przepis"
+      },
+      "rita_abort_brew": {
+        "name": "Przerwij parzenie"
+      },
+      "rita_resume_brew": {
+        "name": "Wznów parzenie"
+      },
+      "rita_skip_step": {
+        "name": "Pomiń krok"
       }
     },
     "number": {
@@ -435,6 +480,12 @@
       },
       "espresso_secondary_dose": {
         "name": "Dawka dodatkowa"
+      },
+      "rita_brew_profile_id": {
+        "name": "Profil parzenia"
+      },
+      "rita_brew_recipe_id": {
+        "name": "Przepis parzenia"
       }
     },
     "select": {
@@ -465,6 +516,22 @@
           "stew": "Duszenie",
           "user_preset": "Własne ustawienie",
           "easy_clean": "Łatwe czyszczenie"
+        }
+      },
+      "rita_roast_level_select": {
+        "name": "Stopień palenia",
+        "state": {
+          "light": "Jasny",
+          "medium": "Średni",
+          "dark": "Ciemny"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Typ ziarna",
+        "state": {
+          "arabica": "Arabika",
+          "mix": "Mieszanka",
+          "other": "Inne"
         }
       }
     },

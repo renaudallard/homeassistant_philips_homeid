@@ -55,6 +55,41 @@ class PhilipsHomeIDButtonEntityDescription(ButtonEntityDescription):
     cloud_only: bool = False  # Only show for cloud-authenticated devices
 
 
+# Rita espresso machine buttons (APK RitaControlCommand)
+RITA_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
+    PhilipsHomeIDButtonEntityDescription(
+        key="rita_brew",
+        translation_key="rita_brew",
+        icon="mdi:coffee",
+        press_fn=lambda c: c.async_rita_brew(
+            c.rita_brew_profile_id, c.rita_brew_recipe_id
+        ),
+        available_key="airfryer",
+    ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="rita_abort_brew",
+        translation_key="rita_abort_brew",
+        icon="mdi:stop",
+        press_fn=lambda c: c.async_rita_abort_brew(),
+        available_key="airfryer",
+    ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="rita_resume_brew",
+        translation_key="rita_resume_brew",
+        icon="mdi:play",
+        press_fn=lambda c: c.async_rita_resume_brew(),
+        available_key="airfryer",
+    ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="rita_skip_step",
+        translation_key="rita_skip_step",
+        icon="mdi:skip-next",
+        press_fn=lambda c: c.async_rita_skip_step(),
+        available_key="airfryer",
+    ),
+)
+
+
 # Airfryer buttons
 AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
     PhilipsHomeIDButtonEntityDescription(
@@ -103,19 +138,24 @@ async def async_setup_entry(
     """Set up buttons from config entry."""
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    # Only create button entities for airfryers
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
 
-    if device_type not in ("airfryer", "airfryer_dual", "multicooker"):
-        _LOGGER.debug(
-            "Skipping button entities for non-airfryer device: %s", model_name
-        )
+    button_descriptions: tuple[PhilipsHomeIDButtonEntityDescription, ...]
+    watch_prop: tuple[str, str | None]
+    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+        button_descriptions = AIRFRYER_BUTTONS
+        watch_prop = ("status", "airfryer")
+    elif device_type == "espresso":
+        button_descriptions = RITA_BUTTONS
+        watch_prop = ("McState", "airfryer")
+    else:
+        _LOGGER.debug("Skipping button entities for device: %s", model_name)
         return
 
     def _create_buttons() -> list[PhilipsHomeIDButton]:
         entities: list[PhilipsHomeIDButton] = []
-        for description in AIRFRYER_BUTTONS:
+        for description in button_descriptions:
             if description.cloud_only and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
                 continue
             entities.append(
@@ -123,12 +163,12 @@ async def async_setup_entry(
             )
         return entities
 
-    # Create buttons if airfryer data is available
-    if coordinator.has_property("status", "airfryer"):
+    # Create buttons if the watched property is already available
+    if coordinator.has_property(watch_prop[0], watch_prop[1]):
         async_add_entities(_create_buttons())
         return
 
-    # Dynamic creation when airfryer properties arrive late
+    # Dynamic creation when the watched property arrives late
     created = False
 
     def handle_new_properties(
@@ -138,9 +178,9 @@ async def async_setup_entry(
         if created:
             return
         for prop_key, nested_key in new_properties:
-            if prop_key == "status" and nested_key == "airfryer":
+            if (prop_key, nested_key) == watch_prop:
                 created = True
-                _LOGGER.info("Creating buttons for newly discovered airfryer")
+                _LOGGER.info("Creating buttons for newly discovered %s", device_type)
                 async_add_entities(_create_buttons(), update_before_add=True)
                 return
 

@@ -483,6 +483,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     # Rita espresso machine control commands (APK RitaControlCommand)
     RITA_CMD_REMOTE_BREW = 1
+    RITA_CMD_REMOTE_BREW_CUSTOM = 2
     RITA_CMD_SKIP_STEP = 3
     RITA_CMD_ABORT_BREW = 4
     RITA_CMD_RESUME_BREW = 5
@@ -549,25 +550,65 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             }
         )
 
-    async def async_rita_brew(self, profile_id: int, recipe_id: int = 0) -> bool:
-        """Start brewing an existing recipe (APK REMOTE_BREW)."""
+    async def async_rita_brew_builtin(self, profile_id: int, drink_id: int) -> bool:
+        """Brew a built-in drink (APK BrewRitaRegularDrinkUseCase, REMOTE_BREW)."""
         return await self._rita_control(
             {
                 "CtrlCmd": self.RITA_CMD_REMOTE_BREW,
                 "SesOwnId": self._rita_session_id(),
                 "Profile_id": profile_id,
-                "Recipe_id": recipe_id,
+                "Recipe_id": drink_id,
             }
         )
+
+    async def async_rita_brew(self, profile_id: int, slot: int = 0) -> bool:
+        """Brew the recipe saved in a profile's slot if present, else fall back.
+
+        If the slot holds a user-saved recipe (base64 RitaBrewCommand in
+        Recipes_p1/p2), brew it via REMOTE_BREW_CUSTOM so the machine
+        applies the saved customization. Otherwise treat ``slot`` as a
+        built-in drink id and route through REMOTE_BREW.
+        """
+        blob = self._rita_recipe_blob(slot)
+        if blob:
+            return await self._rita_control(
+                {
+                    "CtrlCmd": self.RITA_CMD_REMOTE_BREW_CUSTOM,
+                    "SesOwnId": self._rita_session_id(),
+                    "Profile_id": profile_id,
+                    "RcpBinData": blob,
+                }
+            )
+        return await self.async_rita_brew_builtin(profile_id, slot)
+
+    def _rita_recipe_blob(self, slot: int) -> str | None:
+        """Return the base64 RitaBrewCommand blob for a recipe slot, if any.
+
+        Slots 0-39 are stored as ``rcp0``..``rcp39`` in the Recipes_p1 port
+        (APK RitaRecipesP1PortProperties). Slots 40-79 map to ``rcp40``..
+        ``rcp79`` in Recipes_p2. Empty slots report an empty string.
+        """
+        if not self._state or slot < 0 or slot > 79:
+            return None
+        port_key = "Recipes_p1" if slot < 40 else "Recipes_p2"
+        port = self._state.properties.get(port_key)
+        if not isinstance(port, dict):
+            return None
+        value = port.get(f"rcp{slot}")
+        if isinstance(value, str) and value:
+            return value
+        return None
 
     async def async_rita_brew_hot_water(self) -> bool:
         """Brew hot water using the built-in drink id (APK REMOTE_BREW).
 
         The APK brews built-in drinks via BrewRitaRegularDrinkUseCase,
         which sends REMOTE_BREW with Recipe_id = drink id. Hot water is
-        drink id 21 per RitaDrinkKt. The profile must be non-empty.
+        drink id 21 per RitaDrinkKt. The profile must be non-empty. Using
+        the built-in path directly avoids treating slot 21 as a saved
+        recipe if that slot happens to be populated.
         """
-        return await self.async_rita_brew(
+        return await self.async_rita_brew_builtin(
             self._rita_brew_profile_id, self.RITA_DRINK_HOT_WATER
         )
 

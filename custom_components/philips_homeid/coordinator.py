@@ -494,6 +494,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     # RitaBrewingBrsDrinkType values (APK RitaSequenceMapperKt)
     RITA_BRS_HOT_WATER = 64
 
+    # RitaDrinkId values (APK RitaDrinkKt)
+    RITA_DRINK_HOT_WATER = 21
+
     def _rita_session_id(self) -> int:
         """Generate a new Rita session owner id (APK RitaSessionIdGenerator)."""
         return secrets.randbelow(2**31 - 10) + 10
@@ -546,15 +549,20 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def _rita_encode_brew_command(
         *,
         brs_type: int,
+        drink_id: int = 0,
+        recipe_book_id: int = 0,
         water_ml: int = 0,
         temperature: int = 0,
         coffee_ml: int = 0,
         milk_ml: int = 0,
+        aroma: int = 0,
+        taste: int = 0,
         num_bev: int = 0,
     ) -> str:
         """Proto3-encode a RitaBrewCommand (APK rita_brew_command.proto).
 
-        Fields: 1=recipeId, 2=recipeBookId, 3=coffeeMl, 4=aroma, 5=milkMl,
+        Fields: 1=recipeId (APK "drinkId"), 2=recipeBookId (APK
+        "createdFromDrinkId"), 3=coffeeMl, 4=aroma, 5=milkMl,
         6=temperature, 7=waterMl, 8=numBev, 9=taste, 10=brs_type.
         Proto3 skips default (zero) values; only non-zero are emitted.
         Returns the base64 string expected in the RcpBinData field.
@@ -570,11 +578,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         out = bytearray()
         fields = (
+            (1, drink_id),
+            (2, recipe_book_id),
             (3, coffee_ml),
+            (4, aroma),
             (5, milk_ml),
             (6, temperature),
             (7, water_ml),
             (8, num_bev),
+            (9, taste),
             (10, brs_type),
         )
         for field_num, value in fields:
@@ -588,15 +600,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_rita_brew_hot_water(self) -> bool:
         """Brew hot water (APK REMOTE_BREW_CUSTOM, brs_type=64).
 
-        Uses the configured hot water volume and temperature. The machine
-        returns ``invalid_profile_id`` if the selected brew profile slot
-        is empty, so the user typically needs a named profile first.
+        Mirrors the mobile app payload for the built-in hot water drink:
+        drink id 21 (RitaDrinkKt) with brs_type 64 (RCPU_RECIPE_WATER).
+        The machine still requires a non-empty profile slot in the
+        Profile_id field, so the user may need a named profile first.
         """
         payload = self._rita_encode_brew_command(
             brs_type=self.RITA_BRS_HOT_WATER,
+            drink_id=self.RITA_DRINK_HOT_WATER,
+            recipe_book_id=self.RITA_DRINK_HOT_WATER,
             water_ml=self._rita_hot_water_ml,
             temperature=self._rita_hot_water_temperature,
-            num_bev=1,
         )
         return await self._rita_control(
             {

@@ -495,6 +495,27 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Generate a new Rita session owner id (APK RitaSessionIdGenerator)."""
         return secrets.randbelow(2**31 - 10) + 10
 
+    def _rita_active_session_id(self) -> int:
+        """Return the active session id for abort/resume/skip.
+
+        The APK's RitaCancelBrewingConverter and RitaContinueBrewingConverter
+        pass the current SessionId as SesOwnId. Using a fresh random id gets
+        MACHINE_BUSY (51) because the command does not match the active
+        session. Read the latest SesOwnId the machine reported via the
+        Status port, and fall back to a random id if none is known yet.
+        """
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if isinstance(airfryer, dict):
+                value = airfryer.get("SesOwnId")
+                try:
+                    sid = int(value) if value is not None else 0
+                except (ValueError, TypeError):
+                    sid = 0
+                if sid > 0:
+                    return sid
+        return self._rita_session_id()
+
     async def _rita_control(self, props: dict[str, Any]) -> bool:
         """Send a Rita control port command."""
         if not self._is_fusion or not self.mqtt_client:
@@ -506,7 +527,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return await self._rita_control(
             {
                 "CtrlCmd": self.RITA_CMD_ABORT_BREW,
-                "SesOwnId": self._rita_session_id(),
+                "SesOwnId": self._rita_active_session_id(),
             }
         )
 
@@ -515,7 +536,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return await self._rita_control(
             {
                 "CtrlCmd": self.RITA_CMD_RESUME_BREW,
-                "SesOwnId": self._rita_session_id(),
+                "SesOwnId": self._rita_active_session_id(),
             }
         )
 
@@ -524,7 +545,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return await self._rita_control(
             {
                 "CtrlCmd": self.RITA_CMD_SKIP_STEP,
-                "SesOwnId": self._rita_session_id(),
+                "SesOwnId": self._rita_active_session_id(),
             }
         )
 

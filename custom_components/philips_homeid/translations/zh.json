@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "冲煮组剩余量"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP 固件版本"
+      },
+      "host_firmware_version": {
+        "name": "主机固件版本"
+      },
+      "product_error": {
+        "name": "产品错误"
+      },
+      "device_name": {
+        "name": "设备名称"
+      },
+      "device_serial": {
+        "name": "序列号"
+      },
+      "device_ctn": {
+        "name": "型号"
       }
     },
     "binary_sensor": {

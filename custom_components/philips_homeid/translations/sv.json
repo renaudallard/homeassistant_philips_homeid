@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "Bryggruppsautonomi"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP-firmwareversion"
+      },
+      "host_firmware_version": {
+        "name": "Värd-firmwareversion"
+      },
+      "product_error": {
+        "name": "Produktfel"
+      },
+      "device_name": {
+        "name": "Enhetsnamn"
+      },
+      "device_serial": {
+        "name": "Serienummer"
+      },
+      "device_ctn": {
+        "name": "Modellnummer"
       }
     },
     "binary_sensor": {

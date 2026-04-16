@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "브루잉 그룹 잔여량"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP 펌웨어 버전"
+      },
+      "host_firmware_version": {
+        "name": "호스트 펌웨어 버전"
+      },
+      "product_error": {
+        "name": "제품 오류"
+      },
+      "device_name": {
+        "name": "기기 이름"
+      },
+      "device_serial": {
+        "name": "시리얼 번호"
+      },
+      "device_ctn": {
+        "name": "모델 번호"
       }
     },
     "binary_sensor": {

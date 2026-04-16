@@ -348,6 +348,9 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
 | Sensor | AutoCook Amount / Weight / Thickness | AutoCook parameters (Venus only) |
 | Sensor | Recipe Current Stage | Multi-stage recipe tracking (Venus only) |
+| Sensor | NCP / Host Firmware Version | Reported firmware versions, FUSION only (diagnostic) |
+| Sensor | Product Error | Device error code from shadow, FUSION only (diagnostic) |
+| Sensor | Device Name / Serial Number / Model Number | Config port identifiers, FUSION only (diagnostic) |
 | Update | Firmware | Installed and available firmware version |
 
 </details>
@@ -394,6 +397,9 @@ Rita-class machines (EP8757 and similar):
 | Select | Bean Type | Set bean type |
 | Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
 | Select | Brew Recipe | Recipe used by Brew (names from device, 80 slots) |
+| Sensor | NCP / Host Firmware Version | Reported firmware versions (diagnostic) |
+| Sensor | Product Error | Device error code from shadow (diagnostic) |
+| Sensor | Device Name / Serial Number / Model Number | Config port identifiers (diagnostic) |
 
 Legacy mappings (older/untested firmwares):
 

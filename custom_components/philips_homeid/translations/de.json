@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "Brühgruppenautonomie"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP-Firmware-Version"
+      },
+      "host_firmware_version": {
+        "name": "Host-Firmware-Version"
+      },
+      "product_error": {
+        "name": "Produktfehler"
+      },
+      "device_name": {
+        "name": "Gerätename"
+      },
+      "device_serial": {
+        "name": "Seriennummer"
+      },
+      "device_ctn": {
+        "name": "Modellnummer"
       }
     },
     "binary_sensor": {

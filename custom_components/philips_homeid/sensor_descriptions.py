@@ -1001,6 +1001,63 @@ RITA_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     ),
 )
 
+# FUSION cloud-relay sensors (shadow + Config port fields).
+# Populated from the AWS IoT shadow `reported` block and the NCP Config port
+# for any FUSION-capable device (airfryer HD928x/HD988x, espresso EP*).
+FUSION_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
+    PhilipsHomeIDSensorEntityDescription(
+        key="ncp_firmware_version",
+        translation_key="ncp_firmware_version",
+        property_key="ncpFirmwareVersion",
+        icon="mdi:chip",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="host_firmware_version",
+        translation_key="host_firmware_version",
+        property_key="hostFirmwareVersion",
+        icon="mdi:memory",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="product_error",
+        translation_key="product_error",
+        property_key="productError",
+        icon="mdi:alert-circle-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="device_name",
+        translation_key="device_name",
+        property_key="name",
+        nested_key="config",
+        icon="mdi:tag-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="device_serial",
+        translation_key="device_serial",
+        property_key="serial",
+        nested_key="config",
+        icon="mdi:barcode",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="device_ctn",
+        translation_key="device_ctn",
+        property_key="ctn",
+        nested_key="config",
+        icon="mdi:identifier",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_types=("airfryer", "espresso"),
+    ),
+)
+
 # All sensors combined
 SENSORS = (
     AIR_PURIFIER_SENSORS
@@ -1008,5 +1065,6 @@ SENSORS = (
     + VENUS_ENDPOINT_SENSORS
     + ESPRESSO_SENSORS
     + RITA_SENSORS
+    + FUSION_SENSORS
     + COMMON_SENSORS
 )

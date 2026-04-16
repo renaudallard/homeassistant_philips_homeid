@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "Autonomia zaparzacza"
+      },
+      "ncp_firmware_version": {
+        "name": "Wersja oprogramowania NCP"
+      },
+      "host_firmware_version": {
+        "name": "Wersja oprogramowania hosta"
+      },
+      "product_error": {
+        "name": "Błąd produktu"
+      },
+      "device_name": {
+        "name": "Nazwa urządzenia"
+      },
+      "device_serial": {
+        "name": "Numer seryjny"
+      },
+      "device_ctn": {
+        "name": "Numer modelu"
       }
     },
     "binary_sensor": {

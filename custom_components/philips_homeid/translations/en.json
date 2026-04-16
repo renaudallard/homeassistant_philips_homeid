@@ -366,6 +366,24 @@
       },
       "rita_brew_group_autonomy": {
         "name": "Brew Group Autonomy"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP Firmware Version"
+      },
+      "host_firmware_version": {
+        "name": "Host Firmware Version"
+      },
+      "product_error": {
+        "name": "Product Error"
+      },
+      "device_name": {
+        "name": "Device Name"
+      },
+      "device_serial": {
+        "name": "Serial Number"
+      },
+      "device_ctn": {
+        "name": "Model Number"
       }
     },
     "binary_sensor": {

@@ -396,7 +396,7 @@ Rita-class machines (EP8757 and similar):
 | Select | Roast Level | Set bean roast level |
 | Select | Bean Type | Set bean type |
 | Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
-| Select | Brew Recipe | Recipe used by Brew (names from device, 80 slots) |
+| Select | Brew Recipe | Recipe used by Brew, filtered to the selected profile's saved recipes |
 | Sensor | NCP / Host Firmware Version | Reported firmware versions (diagnostic) |
 | Sensor | Product Error | Device error code from shadow (diagnostic) |
 | Sensor | Device Name / Serial Number / Model Number | Config port identifiers (diagnostic) |

@@ -26,7 +26,9 @@
 
 from __future__ import annotations
 
+import base64
 import logging
+from collections.abc import Iterator
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -375,11 +377,92 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
         if slot is None:
             return
         self.coordinator.set_rita_brew_profile_id(slot)
-        self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
+
+
+def _decode_varint(data: bytes, offset: int) -> tuple[int, int]:
+    """Decode one protobuf varint; return (value, new_offset)."""
+    value = 0
+    shift = 0
+    while offset < len(data):
+        byte = data[offset]
+        offset += 1
+        value |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return value, offset
+        shift += 7
+        if shift >= 64:
+            raise ValueError("varint overflow")
+    raise ValueError("truncated varint")
+
+
+def _pb_iter_fields(data: bytes) -> Iterator[tuple[int, int, int | bytes]]:
+    """Yield (field_number, wire_type, value) for top-level protobuf fields."""
+    offset = 0
+    while offset < len(data):
+        tag, offset = _decode_varint(data, offset)
+        field_number = tag >> 3
+        wire_type = tag & 0x7
+        if wire_type == 0:  # varint
+            value, offset = _decode_varint(data, offset)
+            yield field_number, wire_type, value
+        elif wire_type == 2:  # length-delimited
+            length, offset = _decode_varint(data, offset)
+            raw = data[offset : offset + length]
+            offset += length
+            yield field_number, wire_type, raw
+        elif wire_type == 1:  # 64-bit fixed
+            offset += 8
+        elif wire_type == 5:  # 32-bit fixed
+            offset += 4
+        else:
+            raise ValueError(f"unsupported wire type {wire_type}")
+
+
+def _decode_profile_recipe_ids(blob_b64: str) -> set[int]:
+    """Return the recipeIds from a Rita profile's recipeIdOrderList (tag 4)."""
+    try:
+        data = base64.b64decode(blob_b64)
+    except (ValueError, TypeError):
+        return set()
+    result: set[int] = set()
+    try:
+        for field_number, wire_type, value in _pb_iter_fields(data):
+            if field_number != 4 or wire_type != 2 or not isinstance(value, bytes):
+                continue
+            offset = 0
+            while offset < len(value):
+                recipe_id, offset = _decode_varint(value, offset)
+                if recipe_id:
+                    result.add(recipe_id)
+    except ValueError:
+        return set()
+    return result
+
+
+def _decode_recipe_id(blob_b64: str) -> int | None:
+    """Return the recipeId (tag 1) from a RitaBrewCommand saved recipe blob."""
+    try:
+        data = base64.b64decode(blob_b64)
+    except (ValueError, TypeError):
+        return None
+    try:
+        for field_number, wire_type, value in _pb_iter_fields(data):
+            if field_number == 1 and wire_type == 0 and isinstance(value, int):
+                return value
+    except ValueError:
+        return None
+    return None
 
 
 class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
-    """Recipe selector for Rita espresso machines (APK RitaRecipesPort)."""
+    """Recipe selector for Rita espresso machines (APK RitaRecipesPort).
+
+    Shown slots are filtered to the active profile by matching each rcp
+    blob's recipeId (field 1 of RitaBrewCommand) against the selected
+    profile's recipeIdOrderList (field 4 of RitaProfileData), the same
+    approach the APK uses in DefaultGetDrinksForActiveProfileUseCase.
+    """
 
     _attr_translation_key = "rita_brew_recipe_select"
     _attr_icon = "mdi:book-open-variant"
@@ -391,14 +474,49 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
     def _slot_labels(self) -> dict[int, str]:
         state = self.device_state
         names = [""] * 80
+        blobs: list[str] = [""] * 80
+        profile_ids: set[int] = set()
+        profile_slot = self.coordinator.rita_brew_profile_id
+
         if state:
             p1 = state.properties.get("Recipes_p1")
             p2 = state.properties.get("Recipes_p2")
             if isinstance(p1, dict):
                 names[0:40] = _split_names(p1.get("Rec_Names"), 40)
+                for i in range(40):
+                    raw = p1.get(f"rcp{i}")
+                    if isinstance(raw, str):
+                        blobs[i] = raw
             if isinstance(p2, dict):
                 names[40:80] = _split_names(p2.get("Rec_Names"), 40)
-        return _build_named_options(names, 80, "Recipe")
+                for i in range(40):
+                    raw = p2.get(f"rcp{40 + i}")
+                    if isinstance(raw, str):
+                        blobs[40 + i] = raw
+
+            profiles = state.properties.get("Profiles")
+            if isinstance(profiles, dict):
+                profile_blob = profiles.get(f"profile{profile_slot}")
+                if isinstance(profile_blob, str) and profile_blob:
+                    profile_ids = _decode_profile_recipe_ids(profile_blob)
+
+        if not profile_ids:
+            # Empty profile: keep the numeric fallback so users can still
+            # trigger a built-in-drink brew via slot id (the brew path
+            # falls through to REMOTE_BREW when the slot has no blob).
+            return _build_named_options([""] * 80, 80, "Recipe")
+
+        filtered = [""] * 80
+        for i in range(80):
+            if not names[i] or not blobs[i]:
+                continue
+            rid = _decode_recipe_id(blobs[i])
+            if rid is not None and rid in profile_ids:
+                filtered[i] = names[i]
+
+        if not any(filtered):
+            return {}
+        return _build_named_options(filtered, 80, "Recipe")
 
     @property
     def options(self) -> list[str]:

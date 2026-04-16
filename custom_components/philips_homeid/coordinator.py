@@ -487,6 +487,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     RITA_CMD_SKIP_STEP = 3
     RITA_CMD_ABORT_BREW = 4
     RITA_CMD_RESUME_BREW = 5
+    RITA_CMD_CONFIG_BARISTA_ASSISTANT = 14
 
     # RitaDrinkId values (APK RitaDrinkKt) used as Recipe_id for REMOTE_BREW
     # of built-in drinks (BrewRitaRegularDrinkUseCase).
@@ -612,13 +613,60 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._rita_brew_profile_id, self.RITA_DRINK_HOT_WATER
         )
 
+    def _rita_current_roast_level(self) -> int:
+        """Return the roast level the machine last reported, or 0."""
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if isinstance(airfryer, dict):
+                value = airfryer.get("RoastLevel")
+                try:
+                    return int(value) if value is not None else 0
+                except (ValueError, TypeError):
+                    return 0
+        return 0
+
+    def _rita_current_bean_type(self) -> int:
+        """Return the bean type the machine last reported, or 0."""
+        if self._state:
+            airfryer = self._state.properties.get("airfryer")
+            if isinstance(airfryer, dict):
+                value = airfryer.get("BeanType")
+                try:
+                    return int(value) if value is not None else 0
+                except (ValueError, TypeError):
+                    return 0
+        return 0
+
+    async def async_rita_set_roast_and_bean(
+        self, roast_level: int, bean_type: int
+    ) -> bool:
+        """Persist both roast level and bean type on the machine.
+
+        APK RitaSetRoastLevelAndBeanTypeConverter sends both fields with
+        CtrlCmd=CONFIG_BARISTA_ASSISTANT and a fresh session id. Sending
+        the properties without the command wrapper does not stick, the
+        machine reverts within a few seconds.
+        """
+        return await self._rita_control(
+            {
+                "CtrlCmd": self.RITA_CMD_CONFIG_BARISTA_ASSISTANT,
+                "SesOwnId": self._rita_session_id(),
+                "RoastLevel": roast_level,
+                "BeanType": bean_type,
+            }
+        )
+
     async def async_rita_set_roast_level(self, level: int) -> bool:
         """Set the bean roast level (0=light, 1=medium, 2=dark)."""
-        return await self._rita_control({"RoastLevel": level})
+        return await self.async_rita_set_roast_and_bean(
+            level, self._rita_current_bean_type()
+        )
 
     async def async_rita_set_bean_type(self, bean_type: int) -> bool:
         """Set the bean type (0=arabica, 1=mix, 2=other)."""
-        return await self._rita_control({"BeanType": bean_type})
+        return await self.async_rita_set_roast_and_bean(
+            self._rita_current_roast_level(), bean_type
+        )
 
     @property
     def rita_brew_profile_id(self) -> int:

@@ -27,7 +27,8 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
-| **Espresso Machines** | EP series, SM series | | Cloud relay (FUSION MQTT), needs tester |
+| **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
+| **Espresso Machines** | EP3546, EP2520, SM series | | Legacy HSDP / Condor, needs tester |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -72,6 +73,14 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 - Sensors: humidity, ingredient, temperature, cooking status
 - Binary sensors: lid open, no water
 - Architecture-specific cooking presets (Nutrimax: 10 methods, Hermes: 14 methods)
+
+### Espresso Machines (Rita)
+- Power on/off via shadow
+- Brew a saved profile recipe or a built-in drink id
+- One-tap Brew Hot Water using the active profile
+- Abort, resume and skip step during a brew
+- Select roast level (light/medium/dark) and bean type (arabica/mix/other)
+- Sensors: machine state, running status, active alert, control status, autonomies (AquaClean, descale, coffee, brew group), AquaClean filter number
 
 ---
 
@@ -375,7 +384,8 @@ Rita-class machines (EP8757 and similar):
 | Sensor | Descale Autonomy | Descale autonomy percentage |
 | Sensor | Coffee Autonomy | Coffee autonomy percentage |
 | Sensor | Brew Group Autonomy | Brew group cleaning autonomy percentage |
-| Button | Brew Selected Recipe | Start brewing the selected profile/recipe |
+| Switch | Power | Turn the machine on or off (shadow `powerOn`) |
+| Button | Brew Selected Recipe | Brew the selected slot (saved recipe) or the built-in drink at that id |
 | Button | Brew Hot Water | Dispense hot water using the selected profile |
 | Button | Abort Brew | Stop the current brew |
 | Button | Resume Brew | Resume a suspended brew |

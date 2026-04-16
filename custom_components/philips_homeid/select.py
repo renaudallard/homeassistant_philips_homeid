@@ -320,6 +320,25 @@ def _parse_option_index(option: str) -> int | None:
         return None
 
 
+def _build_named_options(
+    names: list[str], total: int, fallback_prefix: str
+) -> tuple[list[str], dict[int, str]]:
+    """Return (options list, slot->label map) for a named slot dropdown.
+
+    Empty slots are hidden when at least one slot carries a name. When no
+    slot is named the dropdown falls back to the full numbered list so the
+    user can still pick a slot to brew its built-in drink id.
+    """
+    has_named = any(n for n in names)
+    slot_to_label: dict[int, str] = {}
+    for i in range(total):
+        name = names[i] if i < len(names) else ""
+        if has_named and not name:
+            continue
+        slot_to_label[i] = _name_option(i, name, fallback_prefix)
+    return list(slot_to_label.values()), slot_to_label
+
+
 class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
     """Profile selector for Rita espresso machines (APK RitaProfilesPort)."""
 
@@ -330,26 +349,23 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{device_id}_rita_brew_profile_select"
 
-    def _build_options(self) -> list[str]:
+    def _slot_labels(self) -> dict[int, str]:
         state = self.device_state
         names = [""] * 8
         if state:
             profiles = state.properties.get("Profiles")
             if isinstance(profiles, dict):
                 names = _split_names(profiles.get("Pr_Names"), 8)
-        return [_name_option(i, names[i], "Profile") for i in range(8)]
+        _, mapping = _build_named_options(names, 8, "Profile")
+        return mapping
 
     @property
     def options(self) -> list[str]:
-        return self._build_options()
+        return list(self._slot_labels().values())
 
     @property
     def current_option(self) -> str | None:
-        opts = self._build_options()
-        idx = self.coordinator.rita_brew_profile_id
-        if 0 <= idx < len(opts):
-            return opts[idx]
-        return None
+        return self._slot_labels().get(self.coordinator.rita_brew_profile_id)
 
     async def async_select_option(self, option: str) -> None:
         idx = _parse_option_index(option)
@@ -369,7 +385,7 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{device_id}_rita_brew_recipe_select"
 
-    def _build_options(self) -> list[str]:
+    def _slot_labels(self) -> dict[int, str]:
         state = self.device_state
         names = [""] * 80
         if state:
@@ -379,19 +395,16 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
                 names[0:40] = _split_names(p1.get("Rec_Names"), 40)
             if isinstance(p2, dict):
                 names[40:80] = _split_names(p2.get("Rec_Names"), 40)
-        return [_name_option(i, names[i], "Recipe") for i in range(80)]
+        _, mapping = _build_named_options(names, 80, "Recipe")
+        return mapping
 
     @property
     def options(self) -> list[str]:
-        return self._build_options()
+        return list(self._slot_labels().values())
 
     @property
     def current_option(self) -> str | None:
-        opts = self._build_options()
-        idx = self.coordinator.rita_brew_recipe_id
-        if 0 <= idx < len(opts):
-            return opts[idx]
-        return None
+        return self._slot_labels().get(self.coordinator.rita_brew_recipe_id)
 
     async def async_select_option(self, option: str) -> None:
         idx = _parse_option_index(option)

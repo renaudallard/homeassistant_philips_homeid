@@ -303,40 +303,44 @@ def _split_names(raw: object, expected: int) -> list[str]:
     return [p.strip() for p in parts[:expected]]
 
 
-def _name_option(index: int, name: str, fallback_prefix: str) -> str:
-    """Return the option label for the given slot index and name."""
-    if name:
-        return f"{index}: {name}"
-    return f"{fallback_prefix} {index}"
-
-
-def _parse_option_index(option: str) -> int | None:
-    """Extract the integer slot index from an option label."""
-    head = option.split(":", 1)[0].strip()
-    token = head.split()[-1] if head else ""
-    try:
-        return int(token)
-    except ValueError:
-        return None
-
-
 def _build_named_options(
     names: list[str], total: int, fallback_prefix: str
-) -> tuple[list[str], dict[int, str]]:
-    """Return (options list, slot->label map) for a named slot dropdown.
+) -> dict[int, str]:
+    """Return a slot->label map for a named slot dropdown.
 
-    Empty slots are hidden when at least one slot carries a name. When no
-    slot is named the dropdown falls back to the full numbered list so the
-    user can still pick a slot to brew its built-in drink id.
+    Empty slots are hidden when at least one slot carries a name, and the
+    label is just the name for uniquely-named slots. Slots that share a
+    name keep the "N: name" prefix so they stay distinguishable. When no
+    slot is named the dropdown falls back to the full numbered list so
+    the user can still pick a slot to brew its built-in drink id.
     """
     has_named = any(n for n in names)
+    if not has_named:
+        return {i: f"{fallback_prefix} {i}" for i in range(total)}
+
+    name_counts: dict[str, int] = {}
+    for n in names:
+        if n:
+            name_counts[n] = name_counts.get(n, 0) + 1
+
     slot_to_label: dict[int, str] = {}
     for i in range(total):
         name = names[i] if i < len(names) else ""
-        if has_named and not name:
+        if not name:
             continue
-        slot_to_label[i] = _name_option(i, name, fallback_prefix)
-    return list(slot_to_label.values()), slot_to_label
+        if name_counts.get(name, 0) > 1:
+            slot_to_label[i] = f"{i}: {name}"
+        else:
+            slot_to_label[i] = name
+    return slot_to_label
+
+
+def _label_to_slot(labels: dict[int, str], option: str) -> int | None:
+    """Return the slot index for the given option label."""
+    for slot, label in labels.items():
+        if label == option:
+            return slot
+    return None
 
 
 class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
@@ -356,8 +360,7 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
             profiles = state.properties.get("Profiles")
             if isinstance(profiles, dict):
                 names = _split_names(profiles.get("Pr_Names"), 8)
-        _, mapping = _build_named_options(names, 8, "Profile")
-        return mapping
+        return _build_named_options(names, 8, "Profile")
 
     @property
     def options(self) -> list[str]:
@@ -368,10 +371,10 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
         return self._slot_labels().get(self.coordinator.rita_brew_profile_id)
 
     async def async_select_option(self, option: str) -> None:
-        idx = _parse_option_index(option)
-        if idx is None or not 0 <= idx < 8:
+        slot = _label_to_slot(self._slot_labels(), option)
+        if slot is None:
             return
-        self.coordinator.set_rita_brew_profile_id(idx)
+        self.coordinator.set_rita_brew_profile_id(slot)
         self.async_write_ha_state()
 
 
@@ -395,8 +398,7 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
                 names[0:40] = _split_names(p1.get("Rec_Names"), 40)
             if isinstance(p2, dict):
                 names[40:80] = _split_names(p2.get("Rec_Names"), 40)
-        _, mapping = _build_named_options(names, 80, "Recipe")
-        return mapping
+        return _build_named_options(names, 80, "Recipe")
 
     @property
     def options(self) -> list[str]:
@@ -407,8 +409,8 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         return self._slot_labels().get(self.coordinator.rita_brew_recipe_id)
 
     async def async_select_option(self, option: str) -> None:
-        idx = _parse_option_index(option)
-        if idx is None or not 0 <= idx < 80:
+        slot = _label_to_slot(self._slot_labels(), option)
+        if slot is None:
             return
-        self.coordinator.set_rita_brew_recipe_id(idx)
+        self.coordinator.set_rita_brew_recipe_id(slot)
         self.async_write_ha_state()

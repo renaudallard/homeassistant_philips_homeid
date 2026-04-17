@@ -32,7 +32,7 @@ from collections.abc import Iterator
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -517,6 +517,14 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         if not any(filtered):
             return {}
         return _build_named_options(filtered, 80, "Recipe")
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Auto-select first recipe when current selection is not in the list."""
+        labels = self._slot_labels()
+        if labels and self.coordinator.rita_brew_recipe_id not in labels:
+            self.coordinator.set_rita_brew_recipe_id(next(iter(labels)))
+        super()._handle_coordinator_update()
 
     @property
     def options(self) -> list[str]:

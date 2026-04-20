@@ -52,6 +52,47 @@ HOMEID_USER_AGENT = (
 )
 HOMEID_X_USER_AGENT = "Android 14;8.16.0"
 
+# HA gives short ISO 639-1 codes; the Philips backend expects BCP 47 tags
+# (e.g. "de-DE"). APK LanguageUtilsImpl.l() always sends toLanguageTag() output.
+_LANG_TAG_MAP = {
+    "en": "en-GB",
+    "de": "de-DE",
+    "fr": "fr-FR",
+    "es": "es-ES",
+    "it": "it-IT",
+    "nl": "nl-NL",
+    "pt": "pt-PT",
+    "pl": "pl-PL",
+    "sv": "sv-SE",
+    "zh": "zh-CN",
+    "ko": "ko-KR",
+    "ja": "ja-JP",
+    "ru": "ru-RU",
+    "cs": "cs-CZ",
+    "da": "da-DK",
+    "fi": "fi-FI",
+    "no": "nb-NO",
+    "nb": "nb-NO",
+    "tr": "tr-TR",
+    "ar": "ar-AE",
+    "el": "el-GR",
+    "hu": "hu-HU",
+    "ro": "ro-RO",
+    "sk": "sk-SK",
+    "th": "th-TH",
+    "uk": "uk-UA",
+    "vi": "vi-VN",
+}
+
+
+def _expand_language_tag(lang: str) -> str:
+    """Return a BCP 47 tag. Pass through if already has a region subtag."""
+    if not lang:
+        return "en-GB"
+    if "-" in lang or "_" in lang:
+        return lang.replace("_", "-")
+    return _LANG_TAG_MAP.get(lang.lower(), f"{lang}-{lang.upper()}")
+
 
 class PhilipsCloudAPI(PhilipsCloudAuth):
     """Philips cloud client for device queries and MQTT setup.
@@ -498,7 +539,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         )
         headers = {
             "Authorization": f"Bearer {access_token}",
-            "Accept-Language": language,
+            "Accept-Language": _expand_language_tag(language),
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
@@ -549,7 +590,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": HOMEID_ACCEPT,
-            "Accept-Language": language,
+            "Accept-Language": _expand_language_tag(language),
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }

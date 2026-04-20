@@ -477,11 +477,15 @@ class PhilipsLocalAPI:
         self, device: LocalDeviceInfo
     ) -> dict[str, Any] | None:
         """Get auto cook program (Venus devices only)."""
-        return await self._request(device, PORT_AUTOCOOK)
+        result = await self._request(device, PORT_AUTOCOOK)
+        _LOGGER.debug("Autocook program: %s", result)
+        return result
 
     async def get_recipe_status(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
         """Get recipe status (Venus devices only)."""
-        return await self._request(device, PORT_RECIPE)
+        result = await self._request(device, PORT_RECIPE)
+        _LOGGER.debug("Recipe status: %s", result)
+        return result
 
     async def airfryer_start_cooking(
         self,

@@ -807,6 +807,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return
         recipe_id = str(airfryer.get("recipe_id", ""))
         if not recipe_id or recipe_id == "0":
+            recipe = self._state.properties.get("recipe")
+            if isinstance(recipe, dict):
+                recipe_id = str(recipe.get("recipe_id", ""))
+        if not recipe_id or recipe_id == "0":
             return
         # Local preset IDs (PRESET-*) are not cloud recipes
         if recipe_id.startswith("PRESET-"):
@@ -859,6 +863,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 name = await cloud_api.get_recipe_name(
                     access_token, recipe_id, self.hass.config.language
                 )
+                if not name and recipe_id.isdigit():
+                    name = await cloud_api.get_autocook_program_name(
+                        access_token, recipe_id, self.hass.config.language
+                    )
             finally:
                 await cloud_api.close()
             if name:
@@ -876,6 +884,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     if airfryer and isinstance(airfryer, dict):
                         airfryer["recipeName"] = name
                     self.async_set_updated_data(self._state)
+            else:
+                self._failed_recipe_ids.add(recipe_id)
         except Exception:
             _LOGGER.warning("Failed to fetch recipe name for %s", recipe_id)
             self._failed_recipe_ids.add(recipe_id)

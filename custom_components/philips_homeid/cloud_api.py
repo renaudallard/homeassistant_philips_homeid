@@ -531,6 +531,119 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                     return str(t)
         return None
 
+    async def get_autocook_program_name(
+        self, access_token: str, reference_id: str, language: str = "en-GB"
+    ) -> str | None:
+        """Fetch an AutoCook program foodItem name by referenceId.
+
+        AutoCook programs live on a different endpoint than community recipes.
+        The URL template is discovered via discovery -> space.backendBaseUrl ->
+        root API _links.autocookPrograms, then expanded with referenceId.
+        """
+        template = await self._get_autocook_template(access_token)
+        if not template:
+            return None
+        url = re.sub(r"\{[^}]*\}", "", template)
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}referenceId={reference_id}"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": HOMEID_ACCEPT,
+            "Accept-Language": language,
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        _LOGGER.debug("AutoCook lookup: GET %s", url)
+        session = await self._get_session()
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning(
+                        "AutoCook lookup failed: HTTP %s for referenceId=%s",
+                        resp.status,
+                        reference_id,
+                    )
+                    return None
+                data = await resp.json(content_type=None)
+        except Exception:
+            _LOGGER.exception(
+                "AutoCook lookup request failed for referenceId=%s", reference_id
+            )
+            return None
+        return self._extract_autocook_food_item(data)
+
+    async def _get_autocook_template(self, access_token: str) -> str | None:
+        """Return the AutoCook programs URL template from the root API.
+
+        Cached on the instance after first successful discovery.
+        """
+        cached = getattr(self, "_autocook_template_cache", None)
+        if cached:
+            return cached
+
+        session = await self._get_session()
+        discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
+        try:
+            async with session.get(discovery_url) as resp:
+                if resp.status != 200:
+                    _LOGGER.debug("AutoCook discovery failed: HTTP %s", resp.status)
+                    return None
+                discovery = await resp.json(content_type=None)
+        except Exception:
+            _LOGGER.debug("AutoCook discovery request failed", exc_info=True)
+            return None
+
+        spaces = discovery.get("spaces") or []
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": HOMEID_ACCEPT,
+            "Accept-Language": "en-GB",
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        for space in spaces:
+            base_url = space.get("backendBaseUrl", "")
+            if not base_url:
+                continue
+            _LOGGER.debug("AutoCook root API: GET %s", base_url)
+            try:
+                async with session.get(base_url, headers=headers) as resp:
+                    if resp.status != 200:
+                        continue
+                    root = await resp.json(content_type=None)
+            except Exception:
+                continue
+            links = root.get("_links") or {}
+            link = links.get("autocookPrograms") or {}
+            if isinstance(link, list):
+                link = link[0] if link else {}
+            href = link.get("href") if isinstance(link, dict) else None
+            if href:
+                self._autocook_template_cache = href
+                _LOGGER.debug("AutoCook template discovered: %s", href)
+                return href
+        _LOGGER.debug("AutoCook template not found in any space")
+        return None
+
+    @staticmethod
+    def _extract_autocook_food_item(data: dict[str, Any]) -> str | None:
+        """Extract foodItem from an AutoCook HAL collection response."""
+        embedded = data.get("_embedded") or {}
+        for key in ("item", "autocookProgram", "autocookPrograms"):
+            items = embedded.get(key)
+            if isinstance(items, list) and items:
+                food = items[0].get("foodItem")
+                if food:
+                    return str(food)
+            if isinstance(items, dict):
+                food = items.get("foodItem")
+                if food:
+                    return str(food)
+        food = data.get("foodItem")
+        if food:
+            return str(food)
+        return None
+
     # --- Credential migration ---
 
     async def get_device_credentials(

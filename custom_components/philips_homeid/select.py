@@ -122,35 +122,43 @@ async def async_setup_entry(
     device_type = get_device_type(model_name)
 
     if device_type in ("airfryer", "airfryer_dual", "multicooker"):
-        if coordinator.has_property("preset", "airfryer"):
-            async_add_entities(
-                [PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)]
-            )
-            return
+        created_keys: set[str] = set()
 
-        created = False
+        def _make_airfryer_selects() -> list[PhilipsHomeIDEntity]:
+            entities: list[PhilipsHomeIDEntity] = []
+            if "cooking_method" not in created_keys and coordinator.has_property(
+                "preset", "airfryer"
+            ):
+                entities.append(
+                    PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)
+                )
+                created_keys.add("cooking_method")
+            if (
+                "autocook_program" not in created_keys
+                and coordinator.mqtt_client is None
+                and coordinator.has_property("autocook")
+            ):
+                entities.append(
+                    PhilipsHomeIDAutoCookProgramSelect(
+                        coordinator, coordinator.device_id
+                    )
+                )
+                created_keys.add("autocook_program")
+            return entities
+
+        initial = _make_airfryer_selects()
+        if initial:
+            async_add_entities(initial)
 
         def handle_new_properties(
             new_properties: list[tuple[str, str | None]],
         ) -> None:
-            nonlocal created
-            if created:
-                return
-            for prop_key, nested_key in new_properties:
-                if prop_key == "preset" and nested_key == "airfryer":
-                    created = True
-                    _LOGGER.info(
-                        "Creating cooking method select for newly discovered airfryer"
-                    )
-                    async_add_entities(
-                        [
-                            PhilipsHomeIDCookingMethodSelect(
-                                coordinator, coordinator.device_id
-                            )
-                        ],
-                        update_before_add=True,
-                    )
-                    return
+            entities = _make_airfryer_selects()
+            if entities:
+                _LOGGER.info(
+                    "Creating airfryer selects for newly discovered properties"
+                )
+                async_add_entities(entities, update_before_add=True)
 
         unregister = coordinator.register_new_property_callback(handle_new_properties)
         entry.async_on_unload(unregister)
@@ -262,6 +270,43 @@ class PhilipsHomeIDRitaRoastLevelSelect(PhilipsHomeIDEntity, SelectEntity):
         enum_value = self._name_to_id.get(option)
         if enum_value is not None:
             await self.coordinator.async_rita_set_roast_level(enum_value)
+
+
+class PhilipsHomeIDAutoCookProgramSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Built-in AutoCook program selector for Venus local-HTTP airfryers."""
+
+    _attr_translation_key = "autocook_program"
+    _attr_icon = "mdi:chef-hat"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_autocook_program"
+
+    def _name_to_uuid(self) -> dict[str, str]:
+        programs = self.coordinator.autocook_program_options()
+        return {
+            name: uuid
+            for uuid, name in sorted(
+                programs.items(), key=lambda item: item[1].casefold()
+            )
+        }
+
+    @property
+    def options(self) -> list[str]:
+        return list(self._name_to_uuid().keys())
+
+    @property
+    def current_option(self) -> str | None:
+        uuid = self.coordinator.autocook_selected_uuid
+        if not uuid:
+            return None
+        return self.coordinator.autocook_program_options().get(uuid)
+
+    async def async_select_option(self, option: str) -> None:
+        uuid = self._name_to_uuid().get(option)
+        if uuid:
+            self.coordinator.set_autocook_selected_uuid(uuid)
+            self.coordinator.async_update_listeners()
 
 
 class PhilipsHomeIDRitaBeanTypeSelect(PhilipsHomeIDEntity, SelectEntity):

@@ -539,6 +539,19 @@ class PhilipsLocalAPI:
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 
+    async def set_autocook_program(self, device: LocalDeviceInfo, uuid: str) -> bool:
+        """Select a built-in Auto-Cook program by UUID (Venus local HTTP).
+
+        APK ConnectKitAutoCookBridge.b() sends only the UUID; the device
+        fills in the rest of the program parameters locally.
+        """
+        if not uuid:
+            return False
+        result = await self._request(
+            device, PORT_AUTOCOOK, method="PUT", data={"UUID": uuid}
+        )
+        return result is not None
+
     async def airfryer_stop(self, device: LocalDeviceInfo) -> bool:
         """Stop the airfryer and return to standby.
 

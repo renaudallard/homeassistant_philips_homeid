@@ -352,6 +352,9 @@
       },
       "airfryer_keep_warm": {
         "name": "Keep Warm"
+      },
+      "airfryer_autocook_send": {
+        "name": "Send AutoCook Program"
       }
     },
     "number": {
@@ -381,6 +384,9 @@
       }
     },
     "select": {
+      "autocook_program": {
+        "name": "AutoCook Program"
+      },
       "cooking_method": {
         "name": "Cooking Method",
         "state": {

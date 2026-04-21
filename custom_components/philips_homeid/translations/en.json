@@ -446,6 +446,9 @@
       "airfryer_refresh_recipe": {
         "name": "Refresh Recipes"
       },
+      "airfryer_autocook_send": {
+        "name": "Send AutoCook Program"
+      },
       "rita_brew": {
         "name": "Brew Selected Recipe"
       },
@@ -504,6 +507,9 @@
       }
     },
     "select": {
+      "autocook_program": {
+        "name": "AutoCook Program"
+      },
       "cooking_method": {
         "name": "Cooking Method",
         "state": {

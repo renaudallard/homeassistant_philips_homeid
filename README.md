@@ -337,11 +337,13 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Button | Start / Pause / Stop | Cooking controls (set temp/time first, then Start) |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
 | Button | Refresh Recipes | Re-fetch recipe names from cloud API |
+| Button | Send AutoCook Program | Send the selected built-in AutoCook program to the device (Venus local only) |
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
+| Select | AutoCook Program | Pick a built-in AutoCook program by name (Venus local only; names come from the cached cloud catalog) |
 | Switch | Power | Power status indicator, sends standby on off (FUSION only) |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |

@@ -53,6 +53,7 @@ class PhilipsHomeIDButtonEntityDescription(ButtonEntityDescription):
     )
     available_key: str | None = None  # Nested key to check for availability
     cloud_only: bool = False  # Only show for cloud-authenticated devices
+    local_only: bool = False  # Only show for local-HTTP devices (not FUSION)
 
 
 # Rita espresso machine buttons (APK RitaControlCommand)
@@ -134,6 +135,14 @@ AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         press_fn=lambda c: c.async_refresh_recipe_cache(),
         available_key="airfryer",
     ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="airfryer_autocook_send",
+        translation_key="airfryer_autocook_send",
+        icon="mdi:send",
+        press_fn=lambda c: c.async_autocook_send(),
+        available_key="autocook",
+        local_only=True,
+    ),
 )
 
 
@@ -164,6 +173,8 @@ async def async_setup_entry(
         entities: list[PhilipsHomeIDButton] = []
         for description in button_descriptions:
             if description.cloud_only and not entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
+                continue
+            if description.local_only and coordinator.mqtt_client is not None:
                 continue
             entities.append(
                 PhilipsHomeIDButton(coordinator, description, coordinator.device_id)

@@ -111,6 +111,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
         self._rita_brew_recipe_id: int = 0  # Rita espresso: recipe id to brew
+        self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
         # Event signaled when first MQTT data with properties arrives.
@@ -397,6 +398,29 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if self._is_fusion:
             return await self._mqtt_command("control", {"status": "standby"})
         result = await self.api.airfryer_stop(self.device_info)
+        if result:
+            await self.async_request_refresh()
+        return result
+
+    @property
+    def autocook_selected_uuid(self) -> str:
+        """Return the currently selected built-in AutoCook UUID."""
+        return self._autocook_selected_uuid
+
+    def set_autocook_selected_uuid(self, uuid: str) -> None:
+        """Remember which built-in AutoCook UUID the user selected."""
+        self._autocook_selected_uuid = uuid
+
+    def autocook_program_options(self) -> dict[str, str]:
+        """Return cached {uuid: name} pairs for built-in AutoCook programs."""
+        return {rid: name for rid, name in self._recipe_cache.items() if rid.isdigit()}
+
+    async def async_autocook_send(self) -> bool:
+        """Send the currently selected AutoCook UUID to the device."""
+        uuid = self._autocook_selected_uuid
+        if not uuid or self._is_fusion:
+            return False
+        result = await self.api.set_autocook_program(self.device_info, uuid)
         if result:
             await self.async_request_refresh()
         return result

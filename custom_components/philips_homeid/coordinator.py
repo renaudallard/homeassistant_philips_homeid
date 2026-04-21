@@ -41,6 +41,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
+    CONF_AUTOCOOK_CATALOG_FETCHED,
     CONF_CLOUD_REFRESH_TOKEN,
     CONF_PLATFORM_REST_URL,
     CONF_RECIPE_CACHE,
@@ -127,6 +128,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._failed_recipe_ids: set[str] = set()  # IDs that failed cloud lookup
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
+        self._catalog_fetch_running: bool = False
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""
@@ -805,6 +807,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         airfryer = self._state.properties.get("airfryer")
         if not airfryer or not isinstance(airfryer, dict):
             return
+        stored_lang = self.config_entry.data.get(CONF_RECIPE_LANGUAGE, "")
+        catalog_fresh = (
+            self.config_entry.data.get(CONF_AUTOCOOK_CATALOG_FETCHED)
+            and stored_lang == self.hass.config.language
+        )
+        if (
+            not catalog_fresh
+            and not self._catalog_fetch_running
+            and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
+        ):
+            self._catalog_fetch_running = True
+            self.hass.async_create_task(self._populate_autocook_catalog())
         recipe_id = str(airfryer.get("recipe_id", ""))
         if not recipe_id or recipe_id == "0":
             recipe = self._state.properties.get("recipe")
@@ -892,6 +906,46 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         finally:
             self._pending_recipe_fetch = None
 
+    async def _populate_autocook_catalog(self) -> None:
+        """Merge the full AutoCook catalog into the recipe name cache."""
+        from .cloud_api import PhilipsCloudAPI
+
+        try:
+            access_token = await self._get_access_token()
+            if not access_token:
+                return
+            cloud_api = PhilipsCloudAPI()
+            try:
+                programs = await cloud_api.get_autocook_programs(
+                    access_token, self.hass.config.language
+                )
+            finally:
+                await cloud_api.close()
+            if not programs:
+                return
+            added = 0
+            for rid, name in programs.items():
+                if rid not in self._recipe_cache:
+                    self._recipe_cache[rid] = name
+                    added += 1
+            new_data = {
+                **self.config_entry.data,
+                CONF_RECIPE_CACHE: dict(self._recipe_cache),
+                CONF_RECIPE_LANGUAGE: self.hass.config.language,
+                CONF_AUTOCOOK_CATALOG_FETCHED: True,
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+            _LOGGER.info("AutoCook catalog cached: %d new names", added)
+            if added and self._state:
+                self._inject_recipe_name()
+                self.async_set_updated_data(self._state)
+        except Exception:
+            _LOGGER.warning("AutoCook catalog fetch failed", exc_info=True)
+        finally:
+            self._catalog_fetch_running = False
+
     async def async_refresh_recipe_cache(self) -> bool:
         """Clear cache and re-fetch current recipe from the cloud API."""
         refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
@@ -900,8 +954,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return False
         self._recipe_cache.clear()
         self._failed_recipe_ids.clear()
-        new_data = {**self.config_entry.data, CONF_RECIPE_CACHE: {}}
+        new_data = {
+            **self.config_entry.data,
+            CONF_RECIPE_CACHE: {},
+            CONF_AUTOCOOK_CATALOG_FETCHED: False,
+        }
         self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        self._catalog_fetch_running = True
+        await self._populate_autocook_catalog()
         # Re-fetch current recipe if active
         if self._state:
             airfryer = self._state.properties.get("airfryer")

@@ -613,6 +613,62 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             return None
         return self._extract_autocook_food_item(data)
 
+    async def get_autocook_programs(
+        self, access_token: str, language: str = "en-GB"
+    ) -> dict[str, str]:
+        """Fetch the full AutoCook program catalog as referenceId -> foodItem.
+
+        Hits the root AutoCook link with no referenceId filter. Returns an
+        empty dict on any failure so callers can treat it as best-effort.
+        """
+        template = await self._get_autocook_template(access_token)
+        if not template:
+            return {}
+        url = re.sub(r"\{[^}]*\}", "", template)
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": HOMEID_ACCEPT,
+            "Accept-Language": _expand_language_tag(language),
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        _LOGGER.debug("AutoCook catalog: GET %s", url)
+        session = await self._get_session()
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning("AutoCook catalog failed: HTTP %s", resp.status)
+                    return {}
+                data = await resp.json(content_type=None)
+        except Exception:
+            _LOGGER.exception("AutoCook catalog request failed")
+            return {}
+        return self._walk_autocook_catalog(data)
+
+    @staticmethod
+    def _walk_autocook_catalog(data: Any) -> dict[str, str]:
+        """Collect referenceId -> foodItem pairs from a HAL response tree."""
+        result: dict[str, str] = {}
+
+        def visit(node: Any) -> None:
+            if isinstance(node, list):
+                for item in node:
+                    visit(item)
+                return
+            if not isinstance(node, dict):
+                return
+            ref = node.get("referenceId")
+            food = node.get("foodItem")
+            if ref is not None and food:
+                result[str(ref)] = str(food)
+            embedded = node.get("_embedded")
+            if isinstance(embedded, dict):
+                for v in embedded.values():
+                    visit(v)
+
+        visit(data)
+        return result
+
     async def _get_autocook_template(self, access_token: str) -> str | None:
         """Return the AutoCook programs URL template from the root API.
 

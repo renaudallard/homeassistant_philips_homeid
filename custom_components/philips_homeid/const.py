@@ -51,6 +51,7 @@ CONF_AIRFRYER_PORT = "airfryer_port"
 CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
 CONF_RECIPE_CACHE = "recipe_cache"
 CONF_RECIPE_LANGUAGE = "recipe_language"
+CONF_AUTOCOOK_CATALOG_FETCHED = "autocook_catalog_fetched"
 
 # FUSION (cloud MQTT relay) configuration keys
 CONF_IS_FUSION = "is_fusion"

@@ -454,7 +454,8 @@ The integration automatically detects FUSION devices during setup. When a device
 - When the device reports a recipe ID during cooking, the integration resolves it to a human-readable name via the Philips cloud API
 - Recipe names are fetched in the Home Assistant configured language and cached locally
 - Cache auto-invalidates when the HA language changes
-- A "Refresh Recipes" button allows manual re-fetch; for local-only devices, pressing it triggers a one-time cloud login (email + OTP) to get tokens
+- For airfryers, the full built-in AutoCook catalog is fetched once (on first startup after cloud login) and kept in the persistent cache, so recipe names appear immediately without waiting for the first cook
+- A "Refresh Recipes" button allows manual re-fetch of both the catalog and the active recipe; for local-only devices, pressing it triggers a one-time cloud login (email + OTP) to get tokens
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)

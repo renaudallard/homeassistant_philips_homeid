@@ -973,6 +973,18 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not device:
             return self.async_abort(reason="cannot_connect")
 
+        if (
+            get_device_type(device.model_name) == "unknown"
+            and get_device_type(device.model_number) == "unknown"
+        ):
+            _LOGGER.debug(
+                "Ignoring unsupported SSDP device: name=%s model=%s number=%s",
+                device.friendly_name,
+                device.model_name,
+                device.model_number,
+            )
+            return self.async_abort(reason="unsupported_device")
+
         self._discovered_device = device
 
         # Set unique ID - prefer cppId over UDN (normalized to match FUSION entries)

@@ -174,7 +174,11 @@ class PhilipsCloudAuth:
         return self._session
 
     async def close(self) -> None:
-        """Close the aiohttp session."""
+        """Close the aiohttp session and clean up any leftover Playwright install."""
+        if self._we_installed_playwright:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, PhilipsCloudAuth._uninstall_playwright)
+            self._we_installed_playwright = False
         if self._session:
             await self._session.close()
             self._session = None
@@ -277,6 +281,9 @@ class PhilipsCloudAuth:
             None,
             lambda: self._browser_oauth(session_token, auth_url, uninstall, alpine),
         )
+        if uninstall:
+            # _browser_oauth already removed Playwright in its finally block.
+            self._we_installed_playwright = False
 
         if not auth_code:
             raise CloudAuthError(

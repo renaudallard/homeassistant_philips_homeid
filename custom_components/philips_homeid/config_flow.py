@@ -901,7 +901,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not device:
             return self.async_abort(reason="cannot_connect")
 
-        if get_device_type(device.model_name or device.model_number) == "unknown":
+        if (
+            get_device_type(device.model_name) == "unknown"
+            and get_device_type(device.model_number) == "unknown"
+        ):
             _LOGGER.debug(
                 "Ignoring unsupported zeroconf device: name=%s model=%s mr=%s",
                 device.friendly_name,

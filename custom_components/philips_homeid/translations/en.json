@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
+      "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
       "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
       "playwright_unsupported": "Cloud login is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
       "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",

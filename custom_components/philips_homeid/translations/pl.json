@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Urzadzenie juz skonfigurowane",
       "cannot_connect": "Nie mozna polaczyc",
+      "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
       "cloud_setup_failed": "Logowanie nie powiodlo sie",
       "playwright_unsupported": "Logowanie nieobslugiwane na tej platformie",
       "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",

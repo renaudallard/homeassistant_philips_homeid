@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Gerät bereits konfiguriert",
       "cannot_connect": "Verbindung zum Gerät nicht möglich",
+      "unsupported_device": "Dieses Philips-Gerät wird von der Integration nicht unterstützt und wurde ignoriert.",
       "cloud_setup_failed": "Cloud-Anmeldung fehlgeschlagen: Playwright-Browser konnte nicht installiert werden. Dies kann in Docker-Containern oder eingeschränkten Umgebungen passieren. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
       "playwright_unsupported": "Cloud-Anmeldung wird auf dieser Plattform nicht unterstützt. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
       "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",

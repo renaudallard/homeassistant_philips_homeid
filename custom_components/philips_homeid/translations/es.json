@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Dispositivo ya configurado",
       "cannot_connect": "No se puede conectar al dispositivo",
+      "unsupported_device": "Este dispositivo Philips no es compatible con la integración y se ha ignorado.",
       "cloud_setup_failed": "El acceso a la nube falló: no se pudo instalar el navegador Playwright. Esto puede ocurrir en contenedores Docker o entornos restringidos. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
       "playwright_unsupported": "El acceso a la nube no está soportado en esta plataforma. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
       "reauth_successful": "Inicio de sesión exitoso. Presione Actualizar recetas de nuevo.",

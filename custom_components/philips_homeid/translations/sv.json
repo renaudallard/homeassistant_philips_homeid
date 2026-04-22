@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Enheten ar redan konfigurerad",
       "cannot_connect": "Kan inte ansluta",
+      "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
       "cloud_setup_failed": "Molninloggning misslyckades",
       "playwright_unsupported": "Molninloggning stods inte pa denna plattform",
       "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",

@@ -103,6 +103,7 @@
     "abort": {
       "already_configured": "Dispositivo já configurado",
       "cannot_connect": "Não é possível conectar ao dispositivo",
+      "unsupported_device": "Este dispositivo Philips não é suportado pela integração e foi ignorado.",
       "cloud_setup_failed": "Login na nuvem falhou",
       "playwright_unsupported": "Login na nuvem não suportado nesta plataforma",
       "reauth_successful": "Login na nuvem bem-sucedido. Pressione Atualizar receitas novamente.",

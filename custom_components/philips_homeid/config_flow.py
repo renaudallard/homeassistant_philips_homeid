@@ -72,6 +72,7 @@ from .local_api import (
     parse_ssdp_device,
     parse_zeroconf_device,
 )
+from .sensor_descriptions import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -899,6 +900,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not device:
             return self.async_abort(reason="cannot_connect")
+
+        if get_device_type(device.model_name or device.model_number) == "unknown":
+            _LOGGER.debug(
+                "Ignoring unsupported zeroconf device: name=%s model=%s mr=%s",
+                device.friendly_name,
+                device.model_name,
+                device.model_number,
+            )
+            return self.async_abort(reason="unsupported_device")
 
         self._discovered_device = device
 

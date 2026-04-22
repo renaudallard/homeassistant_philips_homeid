@@ -506,6 +506,9 @@ HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_i
 
 ### Cloud-only Firmware
 
+> [!WARNING]
+> If your airfryer currently runs SPECTRE firmware and works locally, consider declining the FUSION firmware upgrade when the Philips app offers it. The upgrade is one-way: the FUSION firmware does not generate local credentials, so the device can only be controlled through the Philips cloud afterwards.
+
 Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via AWS IoT at `ats.prod.eu-da.iot.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
 
 **Known affected firmwares:**

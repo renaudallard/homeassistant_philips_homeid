@@ -509,6 +509,7 @@ HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_i
 Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via AWS IoT at `ats.prod.eu-da.iot.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
 
 **Known affected firmwares:**
+- HD9255 firmware 4.0.0/0.6.8
 - HD9280 firmware 4.0.0/0.6.8
 - HD9285 firmware 1.6.2/0.6.8
 - HD9285 firmware 1.1.8/0.5.6

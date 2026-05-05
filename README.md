@@ -347,7 +347,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Button | Refresh Recipes | Re-fetch recipe names from cloud API |
 | Button | Send AutoCook Program | Send the selected built-in AutoCook program to the device (Venus local only) |
 | Number | Set Temperature / Cook Time | Adjustable settings |
-| Number | Set Air Speed | 0=LOW, 1=HIGH (Venus only) |
+| Number | Set Air Speed | 1=LOW, 2=HIGH (Venus only) |
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |

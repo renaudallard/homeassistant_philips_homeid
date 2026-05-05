@@ -587,7 +587,7 @@ class PhilipsLocalAPI:
             time_seconds: Total cooking time in seconds
             temp_unit_fahrenheit: True for Fahrenheit, False for Celsius
             preset: Preset program number
-            airspeed: Air speed (0=LOW, 1=HIGH, Venus only)
+            airspeed: Air speed (1=LOW, 2=HIGH, Venus only)
             probe_temp: Target probe temperature (Venus only)
         """
         port = self._airfryer_port(device)

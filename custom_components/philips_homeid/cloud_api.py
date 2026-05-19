@@ -293,130 +293,54 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
     # --- Home ID backend API ---
 
-    async def _backend_login(
-        self, oidc_tokens: dict[str, Any], email: str
-    ) -> tuple[str | None, dict[str, Any]]:
-        """Login to the Home ID backend and return a backend session token.
+    async def _homeid_discovery(self) -> dict[str, Any]:
+        """Fetch the HomeID tenant discovery document.
 
-        The backend at backend.vbs.versuni.com requires its own session token,
-        obtained by POSTing the OIDC id_token via the loginConsumer endpoint.
+        Plain GET — must NOT send Content-Type (sending
+        application/vnd.api+json triggers a 403).
         """
         session = await self._get_session()
-        id_token = oidc_tokens.get("id_token", "")
-
-        if not id_token:
-            _LOGGER.debug("No id_token available, skipping backend login")
-            return None, {}
-
-        common_headers = {
-            "Content-Type": "application/vnd.api+json",
-            "Accept": "application/vnd.api+json",
-            "User-Agent": HOMEID_USER_AGENT,
-            "X-USER-AGENT": HOMEID_X_USER_AGENT,
-            "Accept-Language": "en-GB",
-        }
-
         discovery_url = f"{BACKEND_BASE}/.well-known/tenant/oneka"
-        _LOGGER.debug("Backend discovery: GET %s", discovery_url)
+        _LOGGER.debug("HomeID discovery: GET %s", discovery_url)
         try:
             async with session.get(discovery_url) as resp:
-                disc_text = await resp.text()
-                _LOGGER.debug(
-                    "Backend discovery response: HTTP %s, body: %s",
-                    resp.status,
-                    disc_text[:500],
-                )
-                if resp.status != 200:
-                    _LOGGER.error("Backend discovery failed: HTTP %s", resp.status)
-                    return None, {}
-                discovery = json.loads(disc_text)
-        except Exception:
-            _LOGGER.exception("Backend discovery request failed")
-            return None, {}
-
-        auth_url = discovery.get("authorizationUrl", "")
-        if not auth_url:
-            _LOGGER.error("Backend discovery has no authorizationUrl")
-            return None, discovery
-
-        spaces = discovery.get("spaces", [])
-        space_id = spaces[0].get("spaceId", "") if spaces else ""
-        _LOGGER.debug("Backend login URL: %s", auth_url)
-        _LOGGER.debug("Backend spaceId: %s", space_id)
-
-        if not space_id:
-            _LOGGER.error("No spaceId in discovery response")
-            return None, discovery
-
-        login_body = {
-            "data": {
-                "type": "consumerLoginRequest",
-                "attributes": {
-                    "email": email,
-                    "token": id_token,
-                    "identityProvider": "DI",
-                    "spaceId": space_id,
-                },
-            }
-        }
-
-        headers = dict(common_headers)
-        _LOGGER.debug("Backend login: POST %s", auth_url)
-        try:
-            async with session.post(auth_url, headers=headers, json=login_body) as resp:
                 text = await resp.text()
                 _LOGGER.debug(
-                    "Backend login response: HTTP %s, body: %s",
+                    "HomeID discovery response: HTTP %s, body: %s",
                     resp.status,
                     text[:500],
                 )
-                if resp.status not in (200, 201):
-                    _LOGGER.error("Backend login failed: HTTP %s", resp.status)
-                    return None, discovery
-                data = json.loads(text)
+                if resp.status != 200:
+                    _LOGGER.error("HomeID discovery failed: HTTP %s", resp.status)
+                    return {}
+                return json.loads(text)
         except Exception:
-            _LOGGER.exception("Backend login request failed")
-            return None, discovery
-
-        token = data.get("data", {}).get("attributes", {}).get("token")
-        if not token:
-            token = data.get("token")
-        if token:
-            _LOGGER.info("Backend login succeeded")
-            return token, discovery
-
-        _LOGGER.debug(
-            "Backend login response has no token, keys: %s",
-            list(data.keys()),
-        )
-        return None, discovery
+            _LOGGER.exception("HomeID discovery request failed")
+            return {}
 
     async def get_appliances_via_homeid(
-        self, oidc_tokens: dict[str, Any], email: str
+        self, oidc_tokens: dict[str, Any]
     ) -> list[dict[str, Any]]:
         """Get appliances via the Home ID backend API.
 
-        The full chain:
-        1. Login to backend with OIDC id_token -> backend session token
-        2. Profile: GET {profileUrl} -> _links.userAppliances.href
+        Chain:
+        1. Discovery: GET /.well-known/tenant/oneka -> profileUrl
+        2. Profile: GET {profileUrl} (Bearer OIDC access_token) -> userAppliances href
         3. Appliances: GET {appliancesUrl} -> _embedded.item[]
         """
         session = await self._get_session()
         access_token = oidc_tokens.get("access_token", "")
-        ts = int(time.time() * 1000)
-
-        backend_token, discovery = await self._backend_login(oidc_tokens, email)
-
-        auth_token = backend_token or access_token
-        token_source = "backend" if backend_token else "oidc"
-        _LOGGER.debug("Using %s token for Home ID API", token_source)
-
-        if not discovery:
-            _LOGGER.error("No discovery data available")
+        if not access_token:
+            _LOGGER.error("No OIDC access_token available")
             return []
 
+        discovery = await self._homeid_discovery()
+        if not discovery:
+            return []
+
+        ts = int(time.time() * 1000)
         hal_headers = {
-            "Authorization": f"Bearer {auth_token}",
+            "Authorization": f"Bearer {access_token}",
             "Accept": HOMEID_ACCEPT,
             "Accept-Language": "en-GB",
             "User-Agent": HOMEID_USER_AGENT,

@@ -536,7 +536,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         # Try Home ID HAL API first (the app's primary backend)
                         _LOGGER.debug("Trying Home ID API for appliances")
                         appliances = await self._cloud_api.get_appliances_via_homeid(
-                            tokens, self._cloud_email
+                            tokens
                         )
 
                         if appliances:

@@ -22,7 +22,19 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Philips Cloud authentication: OTP, OAuth browser flow, token management."""
+"""Philips Cloud authentication: OTP, OAuth, token management.
+
+Two OAuth paths are supported and the caller selects between them:
+
+* ``use_playwright=False`` (default): pure HTTP. Gigya passive-login via
+  ``prompt=none``, plus ``socialize.getIDs`` and ``/authorize/continue``.
+  No external binaries, no installs.
+* ``use_playwright=True``: opt-in headless-browser flow. The integration
+  installs Playwright (and on Alpine/musl, system Chromium + Node.js) on
+  demand, runs the OAuth flow in a subprocess to isolate it from Home
+  Assistant's process management, and uninstalls it again when the auth
+  session is closed.
+"""
 
 from __future__ import annotations
 
@@ -48,12 +60,12 @@ from .const import (
     MOBILE_APP_REDIRECT_URI,
     OAUTH_CLIENT_ID,
     OIDC_AUTH_ENDPOINT,
+    OIDC_ISSUER,
     OIDC_TOKEN_ENDPOINT,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-# OAuth scopes (full set from APK DiDaConstants)
 OAUTH_SCOPES = (
     "openid profile email offline_access "
     "DI.Account.read DI.AccountProfile.read DI.AccountProfile.write "
@@ -64,16 +76,19 @@ OAUTH_SCOPES = (
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
 
+_SOCIALIZE_GET_IDS = f"{GIGYA_API_URL}/socialize.getIDs"
+
+_ALPINE_PW_TARGET = "/tmp/playwright_lib"
+_ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
+
 
 class CloudAuthError(Exception):
     """Raised on cloud authentication failures."""
 
 
-_ALPINE_PW_TARGET = "/tmp/playwright_lib"
-_ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
-
-# Script executed in a subprocess to isolate Playwright from HA's process
-# management (signal handlers, child process reaping).
+# Script run in an isolated Python subprocess so Playwright's child
+# processes and signal handlers don't fight Home Assistant's process
+# manager. The subprocess writes the auth code (or nothing) to stdout.
 _BROWSER_OAUTH_SCRIPT = """\
 import sys, os, logging, secrets, urllib.parse
 if logging.getLogger("{logger_name}").isEnabledFor(logging.DEBUG):
@@ -159,7 +174,7 @@ print(auth_code)
 
 
 class PhilipsCloudAuth:
-    """Handles OTP login, OAuth browser flow, and token management."""
+    """Handles OTP login, OAuth (HTTP or Playwright), and token management."""
 
     def __init__(self) -> None:
         """Initialize the auth client."""
@@ -241,18 +256,25 @@ class PhilipsCloudAuth:
         _LOGGER.debug("OTP verified for %s", email)
         return session_token
 
-    async def async_install_playwright(self) -> bool:
-        """Install Playwright asynchronously (runs in executor)."""
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self.install_playwright)
+    async def get_oidc_tokens(
+        self,
+        session_token: str,
+        *,
+        use_playwright: bool = False,
+    ) -> dict[str, Any]:
+        """Exchange a Gigya session for OIDC tokens.
 
-    async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
-        """Exchange Gigya session for OIDC tokens using headless browser.
+        Default (``use_playwright=False``): pure HTTP. We ask Gigya for a
+        passive login (``prompt=none``), fetch a gmidTicket via
+        ``socialize.getIDs``, then call ``/authorize/continue`` to receive
+        the authorization code in a redirect Location header. PKCE is
+        completed against the ``/token`` endpoint as usual.
 
-        Uses PKCE flow with Playwright to execute the Gigya OAuth authorize
-        page JavaScript, exactly matching the mobile app's AppAuth flow.
-
-        Returns dict with access_token, refresh_token, id_token, expires_in.
+        Opt-in (``use_playwright=True``): launch a headless Chromium via
+        Playwright (which the caller should have installed via
+        ``async_install_playwright``). The browser navigates the Gigya
+        OAuth page and the auth code is captured from the
+        ``authorize/continue`` Location header.
         """
         code_verifier = secrets.token_urlsafe(64)
         code_challenge = (
@@ -260,40 +282,139 @@ class PhilipsCloudAuth:
             .rstrip(b"=")
             .decode()
         )
-        state = secrets.token_urlsafe(16)
 
-        params = {
+        if use_playwright:
+            auth_code = await self._playwright_oauth(session_token, code_challenge)
+        else:
+            auth_code = await self._http_oauth(session_token, code_challenge)
+
+        return await self._exchange_code(auth_code, code_verifier)
+
+    async def _http_oauth(self, session_token: str, code_challenge: str) -> str:
+        """Pure-HTTP OAuth flow. Returns the authorization code."""
+        session = await self._get_session()
+
+        auth_params = {
             "client_id": OAUTH_CLIENT_ID,
             "response_type": "code",
             "redirect_uri": MOBILE_APP_REDIRECT_URI,
             "scope": OAUTH_SCOPES,
-            "state": state,
+            "state": secrets.token_urlsafe(16),
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
+            # passiveLogin: skips the consent dialog for users who already
+            # consented via the Philips HomeID app. Without it, Gigya's
+            # /authorize/continue rejects the request because it expects a
+            # signed consent token only the WebSDK consent UI can produce.
+            "prompt": "none",
         }
-        auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(params)}"
+        auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(auth_params)}"
 
-        uninstall = self._we_installed_playwright
+        async with session.get(auth_url, allow_redirects=False) as resp:
+            if resp.status not in (301, 302, 303, 307, 308):
+                body = (await resp.text())[:300]
+                raise CloudAuthError(
+                    f"/authorize: expected redirect, got HTTP {resp.status}: {body}"
+                )
+            location = resp.headers.get("Location", "")
+
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
+        context_jwt = (query.get("context") or [""])[0]
+        if not context_jwt:
+            raise CloudAuthError(
+                f"/authorize: no 'context' in Location header ({location[:200]})"
+            )
+
+        async with session.post(
+            _SOCIALIZE_GET_IDS,
+            data={
+                "APIKey": GIGYA_API_KEY,
+                "includeTicket": "true",
+                "format": "json",
+            },
+        ) as resp:
+            ids_data = await resp.json(content_type=None)
+        gmid_ticket = ids_data.get("gmidTicket")
+        if not gmid_ticket:
+            err = ids_data.get("errorMessage") or ids_data.get("errorCode")
+            raise CloudAuthError(f"socialize.getIDs returned no gmidTicket: {err}")
+
+        cont_params = {
+            "context": context_jwt,
+            "login_token": session_token,
+            "gmidTicket": gmid_ticket,
+            "client_id": OAUTH_CLIENT_ID,
+        }
+        cont_url = (
+            f"{OIDC_ISSUER}/authorize/continue?{urllib.parse.urlencode(cont_params)}"
+        )
+        async with session.get(cont_url, allow_redirects=False) as resp:
+            if resp.status not in (301, 302, 303, 307, 308):
+                body = (await resp.text())[:300]
+                raise CloudAuthError(
+                    f"/authorize/continue: expected redirect, "
+                    f"got HTTP {resp.status}: {body}"
+                )
+            location = resp.headers.get("Location", "")
+
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
+        if query.get("errorMessage"):
+            raise CloudAuthError(f"/authorize/continue: {query['errorMessage'][0]}")
+        auth_code = (query.get("code") or [""])[0]
+        if not auth_code:
+            raise CloudAuthError(
+                f"/authorize/continue: no 'code' in Location ({location[:200]})"
+            )
+        return auth_code
+
+    async def _playwright_oauth(self, session_token: str, code_challenge: str) -> str:
+        """Subprocess-isolated headless-browser OAuth.
+
+        Caller is expected to have installed Playwright via
+        ``async_install_playwright``. The subprocess uses
+        ``_BROWSER_OAUTH_SCRIPT`` to keep Playwright's child processes
+        and signal handlers separated from Home Assistant's.
+        """
+        auth_url = f"{OIDC_AUTH_ENDPOINT}?" + urllib.parse.urlencode(
+            {
+                "client_id": OAUTH_CLIENT_ID,
+                "response_type": "code",
+                "redirect_uri": MOBILE_APP_REDIRECT_URI,
+                "scope": OAUTH_SCOPES,
+                "state": secrets.token_urlsafe(16),
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+            }
+        )
+        uninstall_after = self._we_installed_playwright
         alpine = self._alpine_install
-        _LOGGER.debug("OAuth params: alpine=%s, we_installed=%s", alpine, uninstall)
         loop = asyncio.get_running_loop()
         auth_code = await loop.run_in_executor(
             None,
-            lambda: self._browser_oauth(session_token, auth_url, uninstall, alpine),
+            lambda: self._browser_oauth(
+                session_token, auth_url, uninstall_after, alpine
+            ),
         )
-        if uninstall:
-            # _browser_oauth already removed Playwright in its finally block.
+        if uninstall_after:
             self._we_installed_playwright = False
 
         if not auth_code:
             raise CloudAuthError(
-                "Could not obtain authorization code. "
-                "Please ensure you have used the Philips HomeID app "
-                "with this account at least once."
+                "Browser OAuth did not produce an authorization code. "
+                "Make sure the account has logged in to the Philips HomeID "
+                "app at least once."
             )
+        return auth_code
 
-        gigya_code = auth_code[0] if isinstance(auth_code, tuple) else auth_code
-        return await self._exchange_code(gigya_code, code_verifier)
+    # ------------------------------------------------------------------ #
+    # Playwright install / uninstall helpers (only used when the user
+    # opts in to use_playwright=True).
+    # ------------------------------------------------------------------ #
+
+    async def async_install_playwright(self) -> bool:
+        """Install Playwright asynchronously (runs in executor)."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.install_playwright)
 
     @staticmethod
     def _is_musl() -> bool:
@@ -304,21 +425,18 @@ class PhilipsCloudAuth:
             libc_path = ctypes.util.find_library("c")
             if libc_path and "musl" in libc_path:
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
         try:
             if os.path.exists("/etc/alpine-release"):
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
         return False
 
     @staticmethod
     def check_playwright_platform() -> str | None:
-        """Check if the current platform supports Playwright.
-
-        Returns None if supported, or an error message if not.
-        """
+        """Return None if Playwright is supported, else an error message."""
         plat = sys.platform
         machine = platform.machine().lower()
 
@@ -327,13 +445,10 @@ class PhilipsCloudAuth:
                 return None
             return (
                 f"Playwright does not support Linux {machine}. "
-                "Cloud login requires Linux x86_64 or aarch64 (64-bit)."
+                "Cloud login via Playwright requires Linux x86_64 or aarch64."
             )
-        if plat == "darwin":
+        if plat in ("darwin", "win32"):
             return None
-        if plat == "win32":
-            return None
-
         return f"Playwright does not support platform {plat}/{machine}."
 
     def install_playwright(self) -> bool:
@@ -530,7 +645,7 @@ class PhilipsCloudAuth:
     ) -> str | None:
         """Run headless browser OAuth flow in a subprocess.
 
-        Returns the Gigya authorization code string.
+        Returns the Gigya authorization code string or None.
         """
         executable = _ALPINE_CHROMIUM if alpine else ""
         debug = _LOGGER.isEnabledFor(logging.DEBUG)
@@ -591,6 +706,10 @@ class PhilipsCloudAuth:
                 PhilipsCloudAuth._uninstall_playwright()
 
         return auth_code
+
+    # ------------------------------------------------------------------ #
+    # Token exchange (shared by both OAuth paths).
+    # ------------------------------------------------------------------ #
 
     async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
         """Exchange authorization code for OIDC tokens."""

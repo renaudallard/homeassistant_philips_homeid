@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Tijdelijke installatie van Playwright-browser voor cloudauthenticatie. Dit kan enkele minuten duren..."
-    },
     "step": {
       "user": {
         "title": "IP-adres van apparaat",
@@ -20,16 +17,13 @@
           "model": "Apparaatmodel"
         }
       },
-      "cloud_install": {
-        "title": "Cloudverbinding voorbereiden",
-        "description": "Playwright-browser installeren en verificatiecode verzenden..."
-      },
       "cloud_email": {
         "title": "Philips-account inloggen",
         "description": "Voer het e-mailadres van uw Philips HomeID-account in. Er wordt een verificatiecode naar dit adres gestuurd.",
         "data": {
           "email": "E-mail",
-          "manual_entry": "Inloggegevens handmatig invoeren"
+          "manual_entry": "Inloggegevens handmatig invoeren",
+          "use_playwright": "Gebruik headless browser voor login (geavanceerd, vereist playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-mail"
         }
       },
-      "reauth_install": {
-        "title": "Verificatiecode wordt verzonden..."
-      },
       "reauth_otp": {
         "title": "Voer verificatiecode in",
         "description": "Er is een verificatiecode verzonden naar {email}",
         "data": {
           "code": "Verificatiecode"
         }
+      },
+      "cloud_install": {
+        "title": "Cloud-login voorbereiden",
+        "description": "Playwright-browser installeren en verificatiecode versturen..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Voer de verificatiecode in",
       "otp_send_failed": "Verzenden van verificatiecode mislukt. Controleer uw e-mail en probeer het opnieuw.",
       "otp_failed": "Ongeldige verificatiecode. Probeer het opnieuw.",
-      "cloud_browser_failed": "Cloudauthenticatie mislukt: de browser kon de aanmelding niet voltooien. Controleer de Home Assistant-logs voor details. U kunt ook de cloud_key_fetcher.py-tool gebruiken of de inloggegevens handmatig invoeren.",
       "no_cloud_devices": "Geen apparaten gevonden in uw Philips-account.",
       "cloud_credentials_not_found": "Kan de inloggegevens niet ophalen uit de cloud. Probeer ze handmatig in te voeren.",
-      "cloud_no_ip": "IP-adres van apparaat niet beschikbaar via de cloud. Probeer het IP-adres handmatig in te voeren."
+      "cloud_no_ip": "IP-adres van apparaat niet beschikbaar via de cloud. Probeer het IP-adres handmatig in te voeren.",
+      "cloud_oauth_failed": "Cloud-authenticatie mislukt. Bekijk de Home Assistant logs voor details. U kunt ook de standalone cloud_key_fetcher.py gebruiken of de gegevens handmatig invoeren."
     },
     "abort": {
       "already_configured": "Apparaat is al geconfigureerd",
       "cannot_connect": "Kan geen verbinding maken met het apparaat",
       "unsupported_device": "Dit Philips-apparaat wordt niet ondersteund door de integratie en is genegeerd.",
-      "cloud_setup_failed": "Cloudverbinding mislukt: kan Playwright-browser niet installeren. Dit kan voorkomen in Docker-containers of beperkte omgevingen. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in.",
-      "playwright_unsupported": "Cloudverbinding wordt niet ondersteund op dit platform. Voer de cloud_key_fetcher.py-tool uit op een ondersteund systeem (Debian, Ubuntu, Fedora, macOS of Windows) om inloggegevens te verkrijgen en voer ze dan handmatig in.",
       "reauth_successful": "Cloud-aanmelding geslaagd. Druk opnieuw op Recepten vernieuwen.",
-      "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw."
+      "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw.",
+      "cloud_setup_failed": "Cloud-login mislukt: Playwright-browser kon niet worden geïnstalleerd. Gebruik de standalone cloud_key_fetcher.py of voer de gegevens handmatig in.",
+      "playwright_unsupported": "Playwright wordt niet ondersteund op dit platform. Voer cloud_key_fetcher.py uit op een ondersteund systeem en voer de gegevens handmatig in."
+    },
+    "progress": {
+      "cloud_install": "Playwright-browser wordt geïnstalleerd voor cloud-authenticatie. Dit kan enkele minuten duren en wordt na gebruik verwijderd..."
     }
   },
   "options": {

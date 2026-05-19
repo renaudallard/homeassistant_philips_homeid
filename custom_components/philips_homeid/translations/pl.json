@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Tymczasowa instalacja przegladarki Playwright do uwierzytelniania w chmurze..."
-    },
     "step": {
       "user": {
         "title": "Wprowadz IP urzadzenia",
@@ -20,16 +17,13 @@
           "model": "Model"
         }
       },
-      "cloud_install": {
-        "title": "Przygotowanie logowania",
-        "description": "Instalacja przegladarki Playwright i wysylanie kodu weryfikacyjnego..."
-      },
       "cloud_email": {
         "title": "Logowanie Philips",
         "description": "Wprowadz email konta Philips HomeID.",
         "data": {
           "email": "Email",
-          "manual_entry": "Wprowadz dane reczne"
+          "manual_entry": "Wprowadz dane reczne",
+          "use_playwright": "Użyj przeglądarki headless do logowania (zaawansowane, wymaga playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-mail"
         }
       },
-      "reauth_install": {
-        "title": "Wysyłanie kodu weryfikacyjnego..."
-      },
       "reauth_otp": {
         "title": "Wprowadź kod weryfikacyjny",
         "description": "Kod weryfikacyjny został wysłany na {email}",
         "data": {
           "code": "Kod weryfikacyjny"
         }
+      },
+      "cloud_install": {
+        "title": "Przygotowywanie logowania do chmury",
+        "description": "Instalowanie przeglądarki Playwright i wysyłanie kodu weryfikacyjnego..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Wprowadz kod weryfikacyjny",
       "otp_send_failed": "Blad wysylania kodu",
       "otp_failed": "Nieprawidlowy kod",
-      "cloud_browser_failed": "Uwierzytelnianie nie powiodlo sie",
       "no_cloud_devices": "Nie znaleziono urzadzen",
       "cloud_credentials_not_found": "Nie mozna pobrac danych z chmury",
-      "cloud_no_ip": "Adres IP niedostepny"
+      "cloud_no_ip": "Adres IP niedostepny",
+      "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też użyć narzędzia cloud_key_fetcher.py lub wprowadzić dane uwierzytelniające ręcznie."
     },
     "abort": {
       "already_configured": "Urzadzenie juz skonfigurowane",
       "cannot_connect": "Nie mozna polaczyc",
       "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
-      "cloud_setup_failed": "Logowanie nie powiodlo sie",
-      "playwright_unsupported": "Logowanie nieobslugiwane na tej platformie",
       "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",
-      "reauth_failed": "Logowanie do chmury nieudane. Spróbuj ponownie później."
+      "reauth_failed": "Logowanie do chmury nieudane. Spróbuj ponownie później.",
+      "cloud_setup_failed": "Logowanie do chmury nie powiodło się: nie można zainstalować przeglądarki Playwright. Użyj narzędzia cloud_key_fetcher.py lub wprowadź dane uwierzytelniające ręcznie.",
+      "playwright_unsupported": "Playwright nie jest obsługiwany na tej platformie. Uruchom cloud_key_fetcher.py na obsługiwanym systemie i wprowadź dane uwierzytelniające ręcznie."
+    },
+    "progress": {
+      "cloud_install": "Instalowanie przeglądarki Playwright dla uwierzytelniania w chmurze. Może to potrwać kilka minut, a następnie zostanie usunięta..."
     }
   },
   "options": {

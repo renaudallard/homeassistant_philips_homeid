@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Temporarily installing Playwright browser for cloud authentication. This may take a few minutes and will be removed after use..."
-    },
     "step": {
       "user": {
         "title": "Enter Device IP",
@@ -20,16 +17,13 @@
           "model": "Device Model"
         }
       },
-      "cloud_install": {
-        "title": "Preparing Cloud Login",
-        "description": "Installing Playwright browser and sending verification code..."
-      },
       "cloud_email": {
         "title": "Philips Account Login",
         "description": "Enter your Philips HomeID account email. A verification code will be sent to this address.",
         "data": {
           "email": "Email",
-          "manual_entry": "Enter credentials manually instead"
+          "manual_entry": "Enter credentials manually instead",
+          "use_playwright": "Use headless browser for login (advanced, requires playwright installed)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "Email"
         }
       },
-      "reauth_install": {
-        "title": "Sending verification code..."
-      },
       "reauth_otp": {
         "title": "Enter verification code",
         "description": "A verification code was sent to {email}",
         "data": {
           "code": "Verification code"
         }
+      },
+      "cloud_install": {
+        "title": "Preparing Cloud Login",
+        "description": "Installing Playwright browser and sending verification code..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Please enter the verification code",
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
-      "cloud_browser_failed": "Cloud authentication failed: the browser could not complete the login flow. Check Home Assistant logs for details. You can also use the standalone cloud_key_fetcher.py tool or enter credentials manually.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",
-      "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually."
+      "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually.",
+      "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also use the standalone cloud_key_fetcher.py tool or enter credentials manually."
     },
     "abort": {
       "already_configured": "Device already configured",
       "cannot_connect": "Cannot connect to device",
       "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
-      "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. This can happen in Docker containers or restricted environments. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
-      "playwright_unsupported": "Cloud login is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system (Debian, Ubuntu, Fedora, macOS, or Windows) to obtain credentials, then enter them manually.",
       "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",
-      "reauth_failed": "Cloud login failed. Try again later."
+      "reauth_failed": "Cloud login failed. Try again later.",
+      "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. Use the standalone cloud_key_fetcher.py tool or enter credentials manually.",
+      "playwright_unsupported": "Playwright is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system, then enter credentials manually."
+    },
+    "progress": {
+      "cloud_install": "Installing Playwright browser for cloud authentication. This may take a few minutes and will be removed after use..."
     }
   },
   "options": {

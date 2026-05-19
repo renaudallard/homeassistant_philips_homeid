@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Installerar tillfalligt Playwright-webblasare for molnautentisering..."
-    },
     "step": {
       "user": {
         "title": "Ange enhetens IP",
@@ -20,16 +17,13 @@
           "model": "Enhetsmodell"
         }
       },
-      "cloud_install": {
-        "title": "Forbereder molninloggning",
-        "description": "Installerar Playwright-webblasare och skickar verifieringskod..."
-      },
       "cloud_email": {
         "title": "Philips-kontoinloggning",
         "description": "Ange din Philips HomeID-kontoe-post.",
         "data": {
           "email": "E-post",
-          "manual_entry": "Ange uppgifter manuellt"
+          "manual_entry": "Ange uppgifter manuellt",
+          "use_playwright": "Använd huvudlös webbläsare för inloggning (avancerat, kräver playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-post"
         }
       },
-      "reauth_install": {
-        "title": "Skickar verifieringskod..."
-      },
       "reauth_otp": {
         "title": "Ange verifieringskod",
         "description": "En verifieringskod har skickats till {email}",
         "data": {
           "code": "Verifieringskod"
         }
+      },
+      "cloud_install": {
+        "title": "Förbereder molninloggning",
+        "description": "Installerar Playwright-webbläsare och skickar verifieringskod..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Ange verifieringskod",
       "otp_send_failed": "Kunde inte skicka verifieringskod",
       "otp_failed": "Ogiltig verifieringskod",
-      "cloud_browser_failed": "Molnautentisering misslyckades",
       "no_cloud_devices": "Inga enheter hittades",
       "cloud_credentials_not_found": "Kunde inte hamta uppgifter fran molnet",
-      "cloud_no_ip": "IP-adress inte tillganglig"
+      "cloud_no_ip": "IP-adress inte tillganglig",
+      "cloud_oauth_failed": "Molnautentisering misslyckades. Kontrollera Home Assistants loggar för detaljer. Du kan också använda verktyget cloud_key_fetcher.py eller ange uppgifterna manuellt."
     },
     "abort": {
       "already_configured": "Enheten ar redan konfigurerad",
       "cannot_connect": "Kan inte ansluta",
       "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
-      "cloud_setup_failed": "Molninloggning misslyckades",
-      "playwright_unsupported": "Molninloggning stods inte pa denna plattform",
       "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",
-      "reauth_failed": "Molninloggning misslyckades. Försök igen senare."
+      "reauth_failed": "Molninloggning misslyckades. Försök igen senare.",
+      "cloud_setup_failed": "Molninloggning misslyckades: kunde inte installera Playwright-webbläsaren. Använd verktyget cloud_key_fetcher.py eller ange uppgifterna manuellt.",
+      "playwright_unsupported": "Playwright stöds inte på den här plattformen. Kör cloud_key_fetcher.py på ett system som stöds och ange uppgifterna manuellt."
+    },
+    "progress": {
+      "cloud_install": "Installerar Playwright-webbläsare för molnautentisering. Detta kan ta några minuter och tas bort efter användning..."
     }
   },
   "options": {

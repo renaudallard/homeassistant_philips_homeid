@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "正在临时安装 Playwright 浏览器进行云端认证，可能需要几分钟..."
-    },
     "step": {
       "user": {
         "title": "输入设备IP",
@@ -20,16 +17,13 @@
           "model": "设备型号"
         }
       },
-      "cloud_install": {
-        "title": "准备云端登录",
-        "description": "正在安装 Playwright 浏览器并发送验证码..."
-      },
       "cloud_email": {
         "title": "飞利浦账号登录",
         "description": "输入您的飞利浦 HomeID 账号邮箱，验证码将发送到此地址。",
         "data": {
           "email": "邮箱",
-          "manual_entry": "手动输入凭据"
+          "manual_entry": "手动输入凭据",
+          "use_playwright": "使用无界面浏览器登录(高级,需要安装 playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "电子邮件"
         }
       },
-      "reauth_install": {
-        "title": "正在发送验证码..."
-      },
       "reauth_otp": {
         "title": "输入验证码",
         "description": "验证码已发送至 {email}",
         "data": {
           "code": "验证码"
         }
+      },
+      "cloud_install": {
+        "title": "正在准备云端登录",
+        "description": "正在安装 Playwright 浏览器并发送验证码..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "请输入验证码",
       "otp_send_failed": "发送验证码失败",
       "otp_failed": "验证码无效",
-      "cloud_browser_failed": "云端认证失败",
       "no_cloud_devices": "未找到设备",
       "cloud_credentials_not_found": "无法从云端获取凭据",
-      "cloud_no_ip": "IP地址不可用"
+      "cloud_no_ip": "IP地址不可用",
+      "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以使用 cloud_key_fetcher.py 工具,或手动输入凭据。"
     },
     "abort": {
       "already_configured": "设备已配置",
       "cannot_connect": "无法连接",
       "unsupported_device": "此 Philips 设备不受此集成支持，已被忽略。",
-      "cloud_setup_failed": "云端登录失败",
-      "playwright_unsupported": "此平台不支持云端登录",
       "reauth_successful": "云登录成功。请再次按刷新食谱。",
-      "reauth_failed": "云登录失败。请稍后重试。"
+      "reauth_failed": "云登录失败。请稍后重试。",
+      "cloud_setup_failed": "云端登录失败:无法安装 Playwright 浏览器。请使用 cloud_key_fetcher.py 工具或手动输入凭据。",
+      "playwright_unsupported": "此平台不支持 Playwright。请在受支持的系统上运行 cloud_key_fetcher.py 工具,然后手动输入凭据。"
+    },
+    "progress": {
+      "cloud_install": "正在安装 Playwright 浏览器以进行云端身份验证。这可能需要几分钟,使用后将被移除..."
     }
   },
   "options": {

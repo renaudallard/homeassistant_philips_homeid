@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Temporäre Installation des Playwright-Browsers für die Cloud-Authentifizierung. Dies kann einige Minuten dauern..."
-    },
     "step": {
       "user": {
         "title": "IP-Adresse des Geräts",
@@ -20,16 +17,13 @@
           "model": "Gerätemodell"
         }
       },
-      "cloud_install": {
-        "title": "Cloud-Anmeldung vorbereiten",
-        "description": "Playwright-Browser installieren und Bestätigungscode senden..."
-      },
       "cloud_email": {
         "title": "Philips-Konto anmelden",
         "description": "Geben Sie die E-Mail-Adresse Ihres Philips HomeID-Kontos ein. Ein Bestätigungscode wird an diese Adresse gesendet.",
         "data": {
           "email": "E-Mail",
-          "manual_entry": "Zugangsdaten manuell eingeben"
+          "manual_entry": "Zugangsdaten manuell eingeben",
+          "use_playwright": "Headless-Browser für Login verwenden (fortgeschritten, benötigt playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-Mail"
         }
       },
-      "reauth_install": {
-        "title": "Bestätigungscode wird gesendet..."
-      },
       "reauth_otp": {
         "title": "Bestätigungscode eingeben",
         "description": "Ein Bestätigungscode wurde an {email} gesendet",
         "data": {
           "code": "Bestätigungscode"
         }
+      },
+      "cloud_install": {
+        "title": "Cloud-Login wird vorbereitet",
+        "description": "Playwright-Browser wird installiert und Bestätigungscode wird gesendet..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Bitte geben Sie den Bestätigungscode ein",
       "otp_send_failed": "Senden des Bestätigungscodes fehlgeschlagen. Überprüfen Sie Ihre E-Mail und versuchen Sie es erneut.",
       "otp_failed": "Ungültiger Bestätigungscode. Bitte versuchen Sie es erneut.",
-      "cloud_browser_failed": "Cloud-Authentifizierung fehlgeschlagen: Der Browser konnte die Anmeldung nicht abschließen. Überprüfen Sie die Home Assistant-Logs für Details. Sie können auch das Tool cloud_key_fetcher.py verwenden oder die Zugangsdaten manuell eingeben.",
       "no_cloud_devices": "Keine Geräte in Ihrem Philips-Konto gefunden.",
       "cloud_credentials_not_found": "Zugangsdaten konnten nicht aus der Cloud abgerufen werden. Versuchen Sie, sie manuell einzugeben.",
-      "cloud_no_ip": "IP-Adresse des Geräts nicht über die Cloud verfügbar. Versuchen Sie, die IP-Adresse manuell einzugeben."
+      "cloud_no_ip": "IP-Adresse des Geräts nicht über die Cloud verfügbar. Versuchen Sie, die IP-Adresse manuell einzugeben.",
+      "cloud_oauth_failed": "Cloud-Authentifizierung fehlgeschlagen. Überprüfen Sie die Home Assistant-Logs für Details. Sie können auch das Tool cloud_key_fetcher.py verwenden oder die Zugangsdaten manuell eingeben."
     },
     "abort": {
       "already_configured": "Gerät bereits konfiguriert",
       "cannot_connect": "Verbindung zum Gerät nicht möglich",
       "unsupported_device": "Dieses Philips-Gerät wird von der Integration nicht unterstützt und wurde ignoriert.",
-      "cloud_setup_failed": "Cloud-Anmeldung fehlgeschlagen: Playwright-Browser konnte nicht installiert werden. Dies kann in Docker-Containern oder eingeschränkten Umgebungen passieren. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
-      "playwright_unsupported": "Cloud-Anmeldung wird auf dieser Plattform nicht unterstützt. Führen Sie das Tool cloud_key_fetcher.py auf einem unterstützten System (Debian, Ubuntu, Fedora, macOS oder Windows) aus, um die Zugangsdaten zu erhalten, und geben Sie sie dann manuell ein.",
       "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",
-      "reauth_failed": "Cloud-Anmeldung fehlgeschlagen. Versuchen Sie es später erneut."
+      "reauth_failed": "Cloud-Anmeldung fehlgeschlagen. Versuchen Sie es später erneut.",
+      "cloud_setup_failed": "Cloud-Anmeldung fehlgeschlagen: Playwright-Browser konnte nicht installiert werden. Verwenden Sie das Tool cloud_key_fetcher.py oder geben Sie die Zugangsdaten manuell ein.",
+      "playwright_unsupported": "Playwright wird auf dieser Plattform nicht unterstützt. Führen Sie cloud_key_fetcher.py auf einem unterstützten System aus und geben Sie die Zugangsdaten manuell ein."
+    },
+    "progress": {
+      "cloud_install": "Playwright-Browser wird für die Cloud-Authentifizierung installiert. Dies kann einige Minuten dauern und wird nach der Nutzung entfernt..."
     }
   },
   "options": {

@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Installazione temporanea del browser Playwright per l'autenticazione cloud. Potrebbe richiedere alcuni minuti..."
-    },
     "step": {
       "user": {
         "title": "Indirizzo IP del dispositivo",
@@ -20,16 +17,13 @@
           "model": "Modello del dispositivo"
         }
       },
-      "cloud_install": {
-        "title": "Preparazione accesso cloud",
-        "description": "Installazione del browser Playwright e invio del codice di verifica..."
-      },
       "cloud_email": {
         "title": "Accesso account Philips",
         "description": "Inserisci l'email del tuo account Philips HomeID. Un codice di verifica verrà inviato a questo indirizzo.",
         "data": {
           "email": "Email",
-          "manual_entry": "Inserisci le credenziali manualmente"
+          "manual_entry": "Inserisci le credenziali manualmente",
+          "use_playwright": "Usa browser headless per il login (avanzato, richiede playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-mail"
         }
       },
-      "reauth_install": {
-        "title": "Invio codice di verifica..."
-      },
       "reauth_otp": {
         "title": "Inserisci il codice di verifica",
         "description": "Un codice di verifica è stato inviato a {email}",
         "data": {
           "code": "Codice di verifica"
         }
+      },
+      "cloud_install": {
+        "title": "Preparazione del login cloud",
+        "description": "Installazione di Playwright e invio del codice di verifica..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Inserisci il codice di verifica",
       "otp_send_failed": "Invio del codice di verifica fallito. Controlla la tua email e riprova.",
       "otp_failed": "Codice di verifica non valido. Riprova.",
-      "cloud_browser_failed": "Autenticazione cloud fallita: il browser non ha potuto completare l'accesso. Controlla i log di Home Assistant per i dettagli. Puoi anche usare lo strumento cloud_key_fetcher.py o inserire le credenziali manualmente.",
       "no_cloud_devices": "Nessun dispositivo trovato nel tuo account Philips.",
       "cloud_credentials_not_found": "Impossibile recuperare le credenziali dal cloud. Prova a inserirle manualmente.",
-      "cloud_no_ip": "Indirizzo IP del dispositivo non disponibile dal cloud. Prova a inserire l'indirizzo IP manualmente."
+      "cloud_no_ip": "Indirizzo IP del dispositivo non disponibile dal cloud. Prova a inserire l'indirizzo IP manualmente.",
+      "cloud_oauth_failed": "Autenticazione cloud fallita. Controllare i log di Home Assistant per i dettagli. È anche possibile utilizzare lo strumento cloud_key_fetcher.py o inserire le credenziali manualmente."
     },
     "abort": {
       "already_configured": "Dispositivo già configurato",
       "cannot_connect": "Impossibile connettersi al dispositivo",
       "unsupported_device": "Questo dispositivo Philips non è supportato dall'integrazione ed è stato ignorato.",
-      "cloud_setup_failed": "Accesso cloud fallito: impossibile installare il browser Playwright. Questo può accadere in container Docker o ambienti limitati. Esegui lo strumento cloud_key_fetcher.py su un sistema supportato (Debian, Ubuntu, Fedora, macOS o Windows) per ottenere le credenziali, poi inseriscile manualmente.",
-      "playwright_unsupported": "L'accesso cloud non è supportato su questa piattaforma. Esegui lo strumento cloud_key_fetcher.py su un sistema supportato (Debian, Ubuntu, Fedora, macOS o Windows) per ottenere le credenziali, poi inseriscile manualmente.",
       "reauth_successful": "Accesso cloud riuscito. Premi di nuovo Aggiorna ricette.",
-      "reauth_failed": "Accesso cloud fallito. Riprova più tardi."
+      "reauth_failed": "Accesso cloud fallito. Riprova più tardi.",
+      "cloud_setup_failed": "Login cloud fallito: impossibile installare il browser Playwright. Usa lo strumento cloud_key_fetcher.py o inserisci le credenziali manualmente.",
+      "playwright_unsupported": "Playwright non è supportato su questa piattaforma. Esegui cloud_key_fetcher.py su un sistema supportato e inserisci le credenziali manualmente."
+    },
+    "progress": {
+      "cloud_install": "Installazione del browser Playwright per l'autenticazione cloud. Potrebbero volerci alcuni minuti e verrà rimosso dopo l'uso..."
     }
   },
   "options": {

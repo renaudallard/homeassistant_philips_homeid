@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Instalando temporariamente o navegador Playwright para autenticação na nuvem. Pode levar alguns minutos..."
-    },
     "step": {
       "user": {
         "title": "Inserir IP do dispositivo",
@@ -20,16 +17,13 @@
           "model": "Modelo"
         }
       },
-      "cloud_install": {
-        "title": "Preparando login na nuvem",
-        "description": "Instalando navegador Playwright e enviando código de verificação..."
-      },
       "cloud_email": {
         "title": "Login na conta Philips",
         "description": "Digite o e-mail da sua conta Philips HomeID. Um código de verificação será enviado.",
         "data": {
           "email": "Email",
-          "manual_entry": "Inserir credenciais manualmente"
+          "manual_entry": "Inserir credenciais manualmente",
+          "use_playwright": "Usar navegador sem interface para login (avançado, requer playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "E-mail"
         }
       },
-      "reauth_install": {
-        "title": "Enviando código de verificação..."
-      },
       "reauth_otp": {
         "title": "Digite o código de verificação",
         "description": "Um código de verificação foi enviado para {email}",
         "data": {
           "code": "Código de verificação"
         }
+      },
+      "cloud_install": {
+        "title": "Preparando o login em nuvem",
+        "description": "Instalando o navegador Playwright e enviando o código de verificação..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Digite o código de verificação",
       "otp_send_failed": "Falha ao enviar código de verificação",
       "otp_failed": "Código de verificação inválido",
-      "cloud_browser_failed": "Autenticação na nuvem falhou",
       "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
       "cloud_credentials_not_found": "Não foi possível obter credenciais da nuvem",
-      "cloud_no_ip": "Endereço IP não disponível"
+      "cloud_no_ip": "Endereço IP não disponível",
+      "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os logs do Home Assistant para mais detalhes. Você também pode usar a ferramenta cloud_key_fetcher.py ou inserir as credenciais manualmente."
     },
     "abort": {
       "already_configured": "Dispositivo já configurado",
       "cannot_connect": "Não é possível conectar ao dispositivo",
       "unsupported_device": "Este dispositivo Philips não é suportado pela integração e foi ignorado.",
-      "cloud_setup_failed": "Login na nuvem falhou",
-      "playwright_unsupported": "Login na nuvem não suportado nesta plataforma",
       "reauth_successful": "Login na nuvem bem-sucedido. Pressione Atualizar receitas novamente.",
-      "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde."
+      "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde.",
+      "cloud_setup_failed": "Falha no login em nuvem: não foi possível instalar o navegador Playwright. Use a ferramenta cloud_key_fetcher.py ou insira as credenciais manualmente.",
+      "playwright_unsupported": "Playwright não é suportado nesta plataforma. Execute cloud_key_fetcher.py em um sistema suportado e insira as credenciais manualmente."
+    },
+    "progress": {
+      "cloud_install": "Instalando o navegador Playwright para autenticação em nuvem. Isso pode demorar alguns minutos e será removido após o uso..."
     }
   },
   "options": {

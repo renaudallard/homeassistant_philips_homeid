@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "클라우드 인증을 위해 Playwright 브라우저를 임시 설치 중입니다..."
-    },
     "step": {
       "user": {
         "title": "기기 IP 입력",
@@ -20,16 +17,13 @@
           "model": "기기 모델"
         }
       },
-      "cloud_install": {
-        "title": "클라우드 로그인 준비",
-        "description": "Playwright 브라우저 설치 및 인증 코드 전송 중..."
-      },
       "cloud_email": {
         "title": "필립스 계정 로그인",
         "description": "필립스 HomeID 계정 이메일을 입력하세요.",
         "data": {
           "email": "이메일",
-          "manual_entry": "수동으로 자격 증명 입력"
+          "manual_entry": "수동으로 자격 증명 입력",
+          "use_playwright": "헤드리스 브라우저로 로그인 (고급, playwright 필요)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "이메일"
         }
       },
-      "reauth_install": {
-        "title": "인증 코드 전송 중..."
-      },
       "reauth_otp": {
         "title": "인증 코드 입력",
         "description": "{email}로 인증 코드가 전송되었습니다",
         "data": {
           "code": "인증 코드"
         }
+      },
+      "cloud_install": {
+        "title": "클라우드 로그인 준비 중",
+        "description": "Playwright 브라우저를 설치하고 인증 코드를 전송합니다..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "인증 코드를 입력하세요",
       "otp_send_failed": "인증 코드 전송 실패",
       "otp_failed": "인증 코드가 유효하지 않습니다",
-      "cloud_browser_failed": "클라우드 인증 실패",
       "no_cloud_devices": "기기를 찾을 수 없습니다",
       "cloud_credentials_not_found": "클라우드에서 자격 증명을 가져올 수 없습니다",
-      "cloud_no_ip": "IP 주소를 사용할 수 없습니다"
+      "cloud_no_ip": "IP 주소를 사용할 수 없습니다",
+      "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. cloud_key_fetcher.py 도구를 사용하거나 자격 증명을 수동으로 입력할 수도 있습니다."
     },
     "abort": {
       "already_configured": "이미 구성된 기기",
       "cannot_connect": "연결 불가",
       "unsupported_device": "이 Philips 기기는 이 통합에서 지원되지 않아 무시되었습니다.",
-      "cloud_setup_failed": "클라우드 로그인 실패",
-      "playwright_unsupported": "이 플랫폼에서 클라우드 로그인을 지원하지 않습니다",
       "reauth_successful": "클라우드 로그인 성공. 레시피 새로고침을 다시 누르세요.",
-      "reauth_failed": "클라우드 로그인 실패. 나중에 다시 시도하세요."
+      "reauth_failed": "클라우드 로그인 실패. 나중에 다시 시도하세요.",
+      "cloud_setup_failed": "클라우드 로그인 실패: Playwright 브라우저를 설치할 수 없습니다. cloud_key_fetcher.py 도구를 사용하거나 자격 증명을 수동으로 입력하세요.",
+      "playwright_unsupported": "이 플랫폼에서는 Playwright가 지원되지 않습니다. 지원되는 시스템에서 cloud_key_fetcher.py를 실행한 후 자격 증명을 수동으로 입력하세요."
+    },
+    "progress": {
+      "cloud_install": "클라우드 인증을 위해 Playwright 브라우저를 설치 중입니다. 몇 분 정도 걸릴 수 있으며 사용 후 제거됩니다..."
     }
   },
   "options": {

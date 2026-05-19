@@ -1,8 +1,5 @@
 {
   "config": {
-    "progress": {
-      "cloud_install": "Instalando temporalmente el navegador Playwright para la autenticación en la nube. Esto puede tardar unos minutos..."
-    },
     "step": {
       "user": {
         "title": "Dirección IP del dispositivo",
@@ -20,16 +17,13 @@
           "model": "Modelo del dispositivo"
         }
       },
-      "cloud_install": {
-        "title": "Preparando acceso a la nube",
-        "description": "Instalando el navegador Playwright y enviando el código de verificación..."
-      },
       "cloud_email": {
         "title": "Inicio de sesión en cuenta Philips",
         "description": "Introduce el correo de tu cuenta Philips HomeID. Se enviará un código de verificación a esta dirección.",
         "data": {
           "email": "Correo electrónico",
-          "manual_entry": "Introducir credenciales manualmente"
+          "manual_entry": "Introducir credenciales manualmente",
+          "use_playwright": "Usar navegador headless para iniciar sesión (avanzado, requiere playwright)"
         }
       },
       "cloud_otp": {
@@ -74,15 +68,16 @@
           "email": "Correo electrónico"
         }
       },
-      "reauth_install": {
-        "title": "Enviando código de verificación..."
-      },
       "reauth_otp": {
         "title": "Ingrese el código de verificación",
         "description": "Se envió un código de verificación a {email}",
         "data": {
           "code": "Código de verificación"
         }
+      },
+      "cloud_install": {
+        "title": "Preparando el inicio de sesión en la nube",
+        "description": "Instalando el navegador Playwright y enviando el código de verificación..."
       }
     },
     "error": {
@@ -95,19 +90,22 @@
       "missing_code": "Introduce el código de verificación",
       "otp_send_failed": "Error al enviar el código de verificación. Comprueba tu correo e inténtalo de nuevo.",
       "otp_failed": "Código de verificación no válido. Inténtalo de nuevo.",
-      "cloud_browser_failed": "La autenticación en la nube falló: el navegador no pudo completar el inicio de sesión. Consulta los logs de Home Assistant para más detalles. También puedes usar la herramienta cloud_key_fetcher.py o introducir las credenciales manualmente.",
       "no_cloud_devices": "No se encontraron dispositivos en tu cuenta Philips.",
       "cloud_credentials_not_found": "No se pudieron recuperar las credenciales de la nube. Intenta introducirlas manualmente.",
-      "cloud_no_ip": "La dirección IP del dispositivo no está disponible desde la nube. Intenta introducir la dirección IP manualmente."
+      "cloud_no_ip": "La dirección IP del dispositivo no está disponible desde la nube. Intenta introducir la dirección IP manualmente.",
+      "cloud_oauth_failed": "La autenticación en la nube falló. Consulta los registros de Home Assistant para más detalles. También puedes usar la herramienta cloud_key_fetcher.py o introducir las credenciales manualmente."
     },
     "abort": {
       "already_configured": "Dispositivo ya configurado",
       "cannot_connect": "No se puede conectar al dispositivo",
       "unsupported_device": "Este dispositivo Philips no es compatible con la integración y se ha ignorado.",
-      "cloud_setup_failed": "El acceso a la nube falló: no se pudo instalar el navegador Playwright. Esto puede ocurrir en contenedores Docker o entornos restringidos. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
-      "playwright_unsupported": "El acceso a la nube no está soportado en esta plataforma. Ejecuta la herramienta cloud_key_fetcher.py en un sistema compatible (Debian, Ubuntu, Fedora, macOS o Windows) para obtener las credenciales e introdúcelas manualmente.",
       "reauth_successful": "Inicio de sesión exitoso. Presione Actualizar recetas de nuevo.",
-      "reauth_failed": "Inicio de sesión fallido. Intente más tarde."
+      "reauth_failed": "Inicio de sesión fallido. Intente más tarde.",
+      "cloud_setup_failed": "Inicio de sesión en la nube fallido: no se pudo instalar el navegador Playwright. Usa la herramienta cloud_key_fetcher.py o introduce las credenciales manualmente.",
+      "playwright_unsupported": "Playwright no es compatible con esta plataforma. Ejecuta cloud_key_fetcher.py en un sistema compatible e introduce las credenciales manualmente."
+    },
+    "progress": {
+      "cloud_install": "Instalando el navegador Playwright para la autenticación en la nube. Esto puede tardar unos minutos y se eliminará después..."
     }
   },
   "options": {

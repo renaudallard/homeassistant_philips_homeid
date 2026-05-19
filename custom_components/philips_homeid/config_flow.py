@@ -144,6 +144,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_tokens: dict[str, Any] = {}
         self._cloud_devices: list[dict[str, Any]] = []
         self._cloud_source: str = ""  # "homeid" or "iot"
+        self._cloud_use_playwright: bool = False
         self._install_task: asyncio.Task[bool] | None = None
 
     async def _close_cloud_api(self) -> None:
@@ -186,52 +187,28 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_email(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle reauth - email entry."""
+        """Handle reauth - email entry. Sends the OTP inline."""
         errors: dict[str, str] = {}
         if user_input is not None:
             email = user_input.get("email", "").strip()
-            if email:
+            if not email:
+                errors["base"] = "missing_email"
+            else:
                 self._cloud_email = email
                 self._cloud_api = PhilipsCloudAPI()
-                return await self.async_step_reauth_install()
-            errors["base"] = "missing_email"
+                try:
+                    self._cloud_vtoken = await self._cloud_api.request_otp(email)
+                    return await self.async_step_reauth_otp()
+                except CloudAuthError:
+                    _LOGGER.exception("Reauth OTP send failed")
+                    await self._close_cloud_api()
+                    errors["base"] = "otp_send_failed"
 
         return self.async_show_form(
             step_id="reauth_email",
             data_schema=vol.Schema({vol.Required("email"): str}),
             errors=errors,
         )
-
-    async def async_step_reauth_install(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Install playwright and send OTP for reauth."""
-        if self._install_task is None:
-            platform_error = PhilipsCloudAPI.check_playwright_platform()
-            if platform_error:
-                return self.async_abort(reason="reauth_failed")
-            self._install_task = self.hass.async_create_task(
-                self._async_install_and_send_otp()
-            )
-
-        if not self._install_task.done():
-            return self.async_show_progress(
-                step_id="reauth_install",
-                progress_action="cloud_install",
-                progress_task=self._install_task,
-            )
-
-        try:
-            await self._install_task
-        except Exception:
-            _LOGGER.exception("Reauth OTP send failed")
-            self._install_task = None
-            await self._close_cloud_api()
-            return self.async_abort(reason="reauth_failed")
-        finally:
-            self._install_task = None
-
-        return self.async_show_progress_done(next_step_id="reauth_otp")
 
     async def async_step_reauth_otp(
         self, user_input: dict[str, Any] | None = None
@@ -426,7 +403,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_cloud_email(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle cloud login - email entry (default auth method)."""
+        """Handle cloud login - email entry.
+
+        If the user opts in to Playwright we route through cloud_install so
+        the install can run with a progress spinner. Otherwise OTP is sent
+        inline and we jump straight to cloud_otp.
+        """
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -434,18 +416,30 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_manual_credentials()
 
             email = user_input.get("email", "").strip()
-            if email:
-                self._cloud_email = email
-                self._cloud_api = PhilipsCloudAPI()
-                return await self.async_step_cloud_install()
-            else:
+            if not email:
                 errors["base"] = "missing_email"
+            else:
+                self._cloud_email = email
+                self._cloud_use_playwright = bool(user_input.get("use_playwright"))
+                self._cloud_api = PhilipsCloudAPI()
+
+                if self._cloud_use_playwright:
+                    return await self.async_step_cloud_install()
+
+                try:
+                    self._cloud_vtoken = await self._cloud_api.request_otp(email)
+                    return await self.async_step_cloud_otp()
+                except CloudAuthError:
+                    _LOGGER.exception("Cloud OTP send failed")
+                    await self._close_cloud_api()
+                    errors["base"] = "otp_send_failed"
 
         return self.async_show_form(
             step_id="cloud_email",
             data_schema=vol.Schema(
                 {
                     vol.Required("email"): str,
+                    vol.Optional("use_playwright", default=False): bool,
                     vol.Optional("manual_entry", default=False): bool,
                 }
             ),
@@ -453,31 +447,27 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_install_and_send_otp(self) -> bool:
-        """Install playwright and send OTP in one background task."""
+        """Install Playwright then send OTP. Run as a background task."""
         assert self._cloud_api is not None
         if not await self._cloud_api.async_install_playwright():
             raise CloudAuthError(
-                "Failed to install Playwright browser. "
-                "This can happen in Docker containers or restricted environments "
-                "where pip install is not allowed. "
-                "Use manual credential entry instead"
+                "Failed to install Playwright. This can happen in containers "
+                "or restricted environments where pip install is not allowed."
             )
-        vtoken = await self._cloud_api.request_otp(self._cloud_email)
-        self._cloud_vtoken = vtoken
+        self._cloud_vtoken = await self._cloud_api.request_otp(self._cloud_email)
         return True
 
     async def async_step_cloud_install(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Install playwright and send OTP with progress indicator."""
+        """Install Playwright + send OTP, with progress indicator."""
         if self._install_task is None:
-            # Check platform before attempting install
             platform_error = PhilipsCloudAPI.check_playwright_platform()
             if platform_error:
                 _LOGGER.warning(
-                    "%s Falling back to manual credential entry",
-                    platform_error,
+                    "%s Falling back to manual credential entry", platform_error
                 )
+                await self._close_cloud_api()
                 return await self.async_step_manual_credentials()
 
             self._install_task = self.hass.async_create_task(
@@ -495,17 +485,13 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._install_task
         except CloudAuthError as err:
             _LOGGER.error(
-                "Cloud login failed: %s. Falling back to manual credential entry",
-                err,
+                "Cloud login failed: %s. Falling back to manual credentials", err
             )
             self._install_task = None
             await self._close_cloud_api()
             return self.async_show_progress_done(next_step_id="cloud_install_failed")
         except Exception:
-            _LOGGER.exception(
-                "Unexpected error during cloud setup. "
-                "Falling back to manual credential entry"
-            )
+            _LOGGER.exception("Unexpected error during Playwright setup")
             self._install_task = None
             await self._close_cloud_api()
             return self.async_show_progress_done(next_step_id="cloud_install_failed")
@@ -517,7 +503,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_cloud_install_failed(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle cloud install/OTP failure - fall back to manual credentials."""
+        """Fall back to manual credentials after a Playwright install failure."""
         return await self.async_step_manual_credentials()
 
     async def async_step_cloud_otp(
@@ -541,8 +527,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if not errors:
                     try:
-                        # Headless browser OAuth (playwright already installed)
-                        tokens = await self._cloud_api.get_oidc_tokens(session_token)
+                        tokens = await self._cloud_api.get_oidc_tokens(
+                            session_token,
+                            use_playwright=self._cloud_use_playwright,
+                        )
                         self._cloud_tokens = tokens
 
                         # Try Home ID HAL API first (the app's primary backend)
@@ -597,7 +585,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                     except CloudAuthError as err:
                         _LOGGER.error("Cloud auth failed: %s", err)
-                        errors["base"] = "cloud_browser_failed"
+                        errors["base"] = "cloud_oauth_failed"
                         await self._close_cloud_api()
                     except Exception:
                         _LOGGER.exception("Unexpected error during cloud auth")

@@ -63,7 +63,7 @@ async def async_setup_entry(
 
     # Power switch for FUSION airfryers only (local HTTP devices don't need it)
     if (
-        device_type in ("airfryer", "airfryer_dual", "multicooker")
+        device_type in ("airfryer", "multicooker")
         and coordinator.has_property("status", "airfryer")
         and entry.data.get(CONF_IS_FUSION)
     ):
@@ -76,7 +76,6 @@ async def async_setup_entry(
     # Preheat toggle for airfryers
     if device_type in (
         "airfryer",
-        "airfryer_dual",
         "multicooker",
     ) and coordinator.has_property("status", "airfryer"):
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
@@ -97,7 +96,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
     # Dynamic creation for airfryer switches when properties arrive late
-    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+    if device_type in ("airfryer", "multicooker"):
         is_fusion = entry.data.get(CONF_IS_FUSION)
         created = set()
         if entities:

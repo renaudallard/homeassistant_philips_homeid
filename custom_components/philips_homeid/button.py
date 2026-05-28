@@ -159,7 +159,7 @@ async def async_setup_entry(
 
     button_descriptions: tuple[PhilipsHomeIDButtonEntityDescription, ...]
     watch_prop: tuple[str, str | None]
-    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+    if device_type in ("airfryer", "multicooker"):
         button_descriptions = AIRFRYER_BUTTONS
         watch_prop = ("status", "airfryer")
     elif device_type == "espresso":

@@ -54,7 +54,7 @@ class PhilipsHomeIDBinarySensorEntityDescription(BinarySensorEntityDescription):
 
     property_key: str | None = None
     nested_key: str | None = None  # For nested properties like airfryer.drawer_open
-    # Device types this sensor applies to: air_purifier, airfryer, airfryer_dual
+    # Device types this sensor applies to: air_purifier, airfryer, multicooker
     device_types: tuple[str, ...] | None = None
     # If True, invert the boolean value (problem when value is 0/False)
     invert: bool = False
@@ -99,7 +99,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="shake",
         nested_key="airfryer",
         icon="mdi:hand-wave",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_flip_reminder",
@@ -107,7 +107,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="flip",
         nested_key="airfryer",
         icon="mdi:rotate-3d-variant",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_preheat_active",
@@ -115,7 +115,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="preheat_active",
         nested_key="airfryer",
         icon="mdi:fire",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     # Venus-only sensors (HD9875, HD9876, HD9880)
     PhilipsHomeIDBinarySensorEntityDescription(
@@ -125,7 +125,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:thermometer-probe-off",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_probe_required",
@@ -133,7 +133,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="probe_required",
         nested_key="airfryer",
         icon="mdi:thermometer-probe",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_resting",
@@ -141,7 +141,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         property_key="resting",
         nested_key="airfryer",
         icon="mdi:sleep",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     # Multicooker-specific sensors (Nutrimax NX0960, Hermes NX0950)
     PhilipsHomeIDBinarySensorEntityDescription(
@@ -170,7 +170,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-up",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="airfryer_right_drawer_open",
@@ -179,7 +179,7 @@ AIRFRYER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] 
         nested_key="airfryer",
         device_class=BinarySensorDeviceClass.DOOR,
         icon="mdi:tray-arrow-down",
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
 )
 
@@ -192,7 +192,7 @@ COMMON_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, ...] = 
         nested_key="airfryer",
         icon="mdi:temperature-fahrenheit",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_types=("airfryer", "airfryer_dual", "multicooker"),
+        device_types=("airfryer", "multicooker"),
     ),
 )
 

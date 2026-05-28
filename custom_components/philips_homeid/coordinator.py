@@ -299,7 +299,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         from .sensor_descriptions import get_device_type
 
         device_type = get_device_type(self.device_info.model_name or "")
-        is_airfryer = device_type in ("airfryer", "airfryer_dual", "multicooker")
+        is_airfryer = device_type in ("airfryer", "multicooker")
 
         # FUSION airfryers: use NCP control port, not shadow update
         if self._is_fusion and is_airfryer:

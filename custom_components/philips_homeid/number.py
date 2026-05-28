@@ -250,7 +250,7 @@ async def async_setup_entry(
         nums.append(PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id))
         return nums
 
-    if device_type in ("airfryer", "airfryer_dual", "multicooker"):
+    if device_type in ("airfryer", "multicooker"):
         if coordinator.has_property("status", "airfryer"):
             entities.extend(_create_airfryer_numbers())
         else:

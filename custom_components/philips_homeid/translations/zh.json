@@ -93,7 +93,9 @@
       "no_cloud_devices": "未找到设备",
       "cloud_credentials_not_found": "无法从云端获取凭据",
       "cloud_no_ip": "IP地址不可用",
-      "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以使用 cloud_key_fetcher.py 工具,或手动输入凭据。"
+      "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以使用 cloud_key_fetcher.py 工具,或手动输入凭据。",
+      "cloud_unreachable": "Philips 云服务暂时无法访问，请稍后再试。",
+      "invalid_host": "请仅输入 IP 地址或主机名（不要包含协议、端口或路径）。"
     },
     "abort": {
       "already_configured": "设备已配置",
@@ -102,7 +104,8 @@
       "reauth_successful": "云登录成功。请再次按刷新食谱。",
       "reauth_failed": "云登录失败。请稍后重试。",
       "cloud_setup_failed": "云端登录失败:无法安装 Playwright 浏览器。请使用 cloud_key_fetcher.py 工具或手动输入凭据。",
-      "playwright_unsupported": "此平台不支持 Playwright。请在受支持的系统上运行 cloud_key_fetcher.py 工具,然后手动输入凭据。"
+      "playwright_unsupported": "此平台不支持 Playwright。请在受支持的系统上运行 cloud_key_fetcher.py 工具,然后手动输入凭据。",
+      "reauth_entry_missing": "找不到要重新认证的集成条目。请重新加载 Home Assistant 后再试。"
     },
     "progress": {
       "cloud_install": "正在安装 Playwright 浏览器以进行云端身份验证。这可能需要几分钟,使用后将被移除..."
@@ -383,6 +386,9 @@
       },
       "device_ctn": {
         "name": "型号"
+      },
+      "espresso_bean_level": {
+        "name": "咖啡豆余量"
       }
     },
     "binary_sensor": {
@@ -459,6 +465,15 @@
       },
       "rita_brew_hot_water": {
         "name": "热水"
+      },
+      "airfryer_autocook_send": {
+        "name": "发送 AutoCook 程序"
+      },
+      "espresso_brew_coffee": {
+        "name": "冲煮咖啡"
+      },
+      "espresso_brew_espresso": {
+        "name": "冲煮浓缩咖啡"
       }
     },
     "number": {
@@ -553,6 +568,9 @@
       },
       "rita_brew_recipe_select": {
         "name": "冲煮配方"
+      },
+      "autocook_program": {
+        "name": "AutoCook 程序"
       }
     },
     "switch": {
@@ -579,5 +597,8 @@
         "name": "空气净化器"
       }
     }
-  }
+  },
+  "button": {},
+  "select": {},
+  "sensor": {}
 }

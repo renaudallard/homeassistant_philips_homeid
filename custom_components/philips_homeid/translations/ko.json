@@ -93,7 +93,9 @@
       "no_cloud_devices": "기기를 찾을 수 없습니다",
       "cloud_credentials_not_found": "클라우드에서 자격 증명을 가져올 수 없습니다",
       "cloud_no_ip": "IP 주소를 사용할 수 없습니다",
-      "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. cloud_key_fetcher.py 도구를 사용하거나 자격 증명을 수동으로 입력할 수도 있습니다."
+      "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. cloud_key_fetcher.py 도구를 사용하거나 자격 증명을 수동으로 입력할 수도 있습니다.",
+      "cloud_unreachable": "Philips 클라우드에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "invalid_host": "스키마, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요."
     },
     "abort": {
       "already_configured": "이미 구성된 기기",
@@ -102,7 +104,8 @@
       "reauth_successful": "클라우드 로그인 성공. 레시피 새로고침을 다시 누르세요.",
       "reauth_failed": "클라우드 로그인 실패. 나중에 다시 시도하세요.",
       "cloud_setup_failed": "클라우드 로그인 실패: Playwright 브라우저를 설치할 수 없습니다. cloud_key_fetcher.py 도구를 사용하거나 자격 증명을 수동으로 입력하세요.",
-      "playwright_unsupported": "이 플랫폼에서는 Playwright가 지원되지 않습니다. 지원되는 시스템에서 cloud_key_fetcher.py를 실행한 후 자격 증명을 수동으로 입력하세요."
+      "playwright_unsupported": "이 플랫폼에서는 Playwright가 지원되지 않습니다. 지원되는 시스템에서 cloud_key_fetcher.py를 실행한 후 자격 증명을 수동으로 입력하세요.",
+      "reauth_entry_missing": "재인증할 통합 항목을 찾을 수 없습니다. Home Assistant를 다시 로드한 후 다시 시도해 주세요."
     },
     "progress": {
       "cloud_install": "클라우드 인증을 위해 Playwright 브라우저를 설치 중입니다. 몇 분 정도 걸릴 수 있으며 사용 후 제거됩니다..."
@@ -383,6 +386,9 @@
       },
       "device_ctn": {
         "name": "모델 번호"
+      },
+      "espresso_bean_level": {
+        "name": "원두 잔량"
       }
     },
     "binary_sensor": {
@@ -459,6 +465,15 @@
       },
       "rita_brew_hot_water": {
         "name": "뜨거운 물"
+      },
+      "airfryer_autocook_send": {
+        "name": "AutoCook 프로그램 전송"
+      },
+      "espresso_brew_coffee": {
+        "name": "커피 추출"
+      },
+      "espresso_brew_espresso": {
+        "name": "에스프레소 추출"
       }
     },
     "number": {
@@ -553,6 +568,9 @@
       },
       "rita_brew_recipe_select": {
         "name": "추출 레시피"
+      },
+      "autocook_program": {
+        "name": "AutoCook 프로그램"
       }
     },
     "switch": {
@@ -579,5 +597,8 @@
         "name": "공기청정기"
       }
     }
-  }
+  },
+  "button": {},
+  "select": {},
+  "sensor": {}
 }

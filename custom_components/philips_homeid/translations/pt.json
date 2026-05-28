@@ -93,7 +93,9 @@
       "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
       "cloud_credentials_not_found": "Nao foi possivel obter credenciais da cloud",
       "cloud_no_ip": "Endereco IP nao disponivel",
-      "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os registos do Home Assistant para mais detalhes. Também pode usar a ferramenta cloud_key_fetcher.py ou inserir as credenciais manualmente."
+      "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os registos do Home Assistant para mais detalhes. Também pode usar a ferramenta cloud_key_fetcher.py ou inserir as credenciais manualmente.",
+      "cloud_unreachable": "A cloud da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",
+      "invalid_host": "Indique apenas um endereço IP ou nome de host (sem esquema, porta ou caminho)."
     },
     "abort": {
       "already_configured": "Dispositivo ja configurado",
@@ -102,7 +104,8 @@
       "reauth_successful": "Login na nuvem bem-sucedido. Pressione Atualizar receitas novamente.",
       "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde.",
       "cloud_setup_failed": "Falha no início de sessão em nuvem: não foi possível instalar o navegador Playwright. Utilize a ferramenta cloud_key_fetcher.py ou insira as credenciais manualmente.",
-      "playwright_unsupported": "Playwright não é suportado nesta plataforma. Execute cloud_key_fetcher.py num sistema suportado e insira as credenciais manualmente."
+      "playwright_unsupported": "Playwright não é suportado nesta plataforma. Execute cloud_key_fetcher.py num sistema suportado e insira as credenciais manualmente.",
+      "reauth_entry_missing": "Não foi possível encontrar a entrada da integração para reautenticar. Recarregue o Home Assistant e tente novamente."
     },
     "progress": {
       "cloud_install": "A instalar o navegador Playwright para autenticação em nuvem. Pode demorar alguns minutos e será removido após o uso..."
@@ -383,6 +386,9 @@
       },
       "device_ctn": {
         "name": "Número do modelo"
+      },
+      "espresso_bean_level": {
+        "name": "Nível de grãos"
       }
     },
     "binary_sensor": {
@@ -459,6 +465,15 @@
       },
       "rita_brew_hot_water": {
         "name": "Água quente"
+      },
+      "airfryer_autocook_send": {
+        "name": "Enviar programa AutoCook"
+      },
+      "espresso_brew_coffee": {
+        "name": "Preparar café"
+      },
+      "espresso_brew_espresso": {
+        "name": "Preparar espresso"
       }
     },
     "number": {
@@ -553,6 +568,9 @@
       },
       "rita_brew_recipe_select": {
         "name": "Receita de preparação"
+      },
+      "autocook_program": {
+        "name": "Programa AutoCook"
       }
     },
     "switch": {
@@ -579,5 +597,8 @@
         "name": "Purificador de ar"
       }
     }
-  }
+  },
+  "button": {},
+  "select": {},
+  "sensor": {}
 }

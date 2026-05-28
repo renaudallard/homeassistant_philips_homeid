@@ -93,7 +93,9 @@
       "no_cloud_devices": "Keine Geräte in Ihrem Philips-Konto gefunden.",
       "cloud_credentials_not_found": "Zugangsdaten konnten nicht aus der Cloud abgerufen werden. Versuchen Sie, sie manuell einzugeben.",
       "cloud_no_ip": "IP-Adresse des Geräts nicht über die Cloud verfügbar. Versuchen Sie, die IP-Adresse manuell einzugeben.",
-      "cloud_oauth_failed": "Cloud-Authentifizierung fehlgeschlagen. Überprüfen Sie die Home Assistant-Logs für Details. Sie können auch das Tool cloud_key_fetcher.py verwenden oder die Zugangsdaten manuell eingeben."
+      "cloud_oauth_failed": "Cloud-Authentifizierung fehlgeschlagen. Überprüfen Sie die Home Assistant-Logs für Details. Sie können auch das Tool cloud_key_fetcher.py verwenden oder die Zugangsdaten manuell eingeben.",
+      "cloud_unreachable": "Die Philips-Cloud ist vorübergehend nicht erreichbar. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+      "invalid_host": "Geben Sie nur eine IP-Adresse oder einen Hostnamen ein (ohne Schema, Port oder Pfad)."
     },
     "abort": {
       "already_configured": "Gerät bereits konfiguriert",
@@ -102,7 +104,8 @@
       "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",
       "reauth_failed": "Cloud-Anmeldung fehlgeschlagen. Versuchen Sie es später erneut.",
       "cloud_setup_failed": "Cloud-Anmeldung fehlgeschlagen: Playwright-Browser konnte nicht installiert werden. Verwenden Sie das Tool cloud_key_fetcher.py oder geben Sie die Zugangsdaten manuell ein.",
-      "playwright_unsupported": "Playwright wird auf dieser Plattform nicht unterstützt. Führen Sie cloud_key_fetcher.py auf einem unterstützten System aus und geben Sie die Zugangsdaten manuell ein."
+      "playwright_unsupported": "Playwright wird auf dieser Plattform nicht unterstützt. Führen Sie cloud_key_fetcher.py auf einem unterstützten System aus und geben Sie die Zugangsdaten manuell ein.",
+      "reauth_entry_missing": "Der Integrationseintrag für die erneute Authentifizierung wurde nicht gefunden. Bitte Home Assistant neu laden und erneut versuchen."
     },
     "progress": {
       "cloud_install": "Playwright-Browser wird für die Cloud-Authentifizierung installiert. Dies kann einige Minuten dauern und wird nach der Nutzung entfernt..."
@@ -383,6 +386,9 @@
       },
       "device_ctn": {
         "name": "Modellnummer"
+      },
+      "espresso_bean_level": {
+        "name": "Bohnenstand"
       }
     },
     "binary_sensor": {
@@ -459,6 +465,15 @@
       },
       "rita_brew_hot_water": {
         "name": "Heißes Wasser"
+      },
+      "airfryer_autocook_send": {
+        "name": "AutoCook-Programm senden"
+      },
+      "espresso_brew_coffee": {
+        "name": "Kaffee zubereiten"
+      },
+      "espresso_brew_espresso": {
+        "name": "Espresso zubereiten"
       }
     },
     "number": {
@@ -553,6 +568,9 @@
       },
       "rita_brew_recipe_select": {
         "name": "Brührezept"
+      },
+      "autocook_program": {
+        "name": "AutoCook-Programm"
       }
     },
     "switch": {
@@ -579,5 +597,8 @@
         "name": "Luftreiniger"
       }
     }
-  }
+  },
+  "button": {},
+  "select": {},
+  "sensor": {}
 }

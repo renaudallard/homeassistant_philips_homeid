@@ -246,13 +246,16 @@ class PhilipsLocalAPI:
         if resp.status == 200:
             text = await resp.text()
 
-            # Decrypt if device uses AES encryption
+            # Decrypt if device uses AES encryption. A decryption failure on
+            # an encrypted device means the response is unusable - returning
+            # the ciphertext as {"raw": ...} would lie to write callers that
+            # treat any non-None result as success.
             if device.encryption_key:
                 decrypted = PhilipsCrypto.decrypt(text, device.encryption_key)
                 if decrypted is None:
-                    _LOGGER.warning("Failed to decrypt response, trying as plain JSON")
-                else:
-                    text = decrypted
+                    _LOGGER.warning("Failed to decrypt response from encrypted device")
+                    return None, False
+                text = decrypted
 
             try:
                 return json.loads(text), False

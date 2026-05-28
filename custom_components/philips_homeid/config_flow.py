@@ -42,7 +42,7 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from homeassistant.core import callback
 
-from .cloud_api import CloudAuthError, PhilipsCloudAPI
+from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
@@ -233,6 +233,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 try:
                     self._cloud_vtoken = await self._cloud_api.request_otp(email)
                     return await self.async_step_reauth_otp()
+                except CloudConnectionError:
+                    _LOGGER.warning("Reauth OTP send: cloud unreachable")
+                    await self._close_cloud_api()
+                    errors["base"] = "cloud_unreachable"
                 except CloudAuthError:
                     _LOGGER.exception("Reauth OTP send failed")
                     await self._close_cloud_api()
@@ -279,6 +283,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                     await self._close_cloud_api()
                     return self.async_abort(reason="reauth_successful")
+                except CloudConnectionError as err:
+                    _LOGGER.warning("Reauth OTP verify: cloud unreachable (%s)", err)
+                    errors["base"] = "cloud_unreachable"
                 except CloudAuthError as err:
                     _LOGGER.error("Reauth OTP failed: %s", err)
                     errors["base"] = "otp_failed"
@@ -474,6 +481,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 try:
                     self._cloud_vtoken = await self._cloud_api.request_otp(email)
                     return await self.async_step_cloud_otp()
+                except CloudConnectionError:
+                    _LOGGER.warning("Cloud OTP send: cloud unreachable")
+                    await self._close_cloud_api()
+                    errors["base"] = "cloud_unreachable"
                 except CloudAuthError:
                     _LOGGER.exception("Cloud OTP send failed")
                     await self._close_cloud_api()
@@ -565,6 +576,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._cloud_email, code, self._cloud_vtoken
                     )
                     self._cloud_session_token = session_token
+                except CloudConnectionError as err:
+                    _LOGGER.warning("OTP verify: cloud unreachable (%s)", err)
+                    errors["base"] = "cloud_unreachable"
+                    await self._close_cloud_api()
                 except CloudAuthError as err:
                     _LOGGER.error("OTP verification failed: %s", err)
                     errors["base"] = "otp_failed"
@@ -629,6 +644,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors["base"] = "no_cloud_devices"
                         await self._close_cloud_api()
 
+                    except CloudConnectionError as err:
+                        _LOGGER.warning("Cloud OAuth: cloud unreachable (%s)", err)
+                        errors["base"] = "cloud_unreachable"
+                        await self._close_cloud_api()
                     except CloudAuthError as err:
                         _LOGGER.error("Cloud auth failed: %s", err)
                         errors["base"] = "cloud_oauth_failed"

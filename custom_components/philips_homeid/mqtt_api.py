@@ -355,13 +355,22 @@ class PhilipsMQTTClient:
         client.on_log = _on_log
 
     def _wait_for_connection(self, client: mqtt.Client) -> None:
-        """Wait for MQTT CONNACK or raise on timeout."""
+        """Wait for MQTT CONNACK, stop event, or raise on timeout."""
         deadline = time.monotonic() + MQTT_CONNECT_TIMEOUT
         while not self._connected and time.monotonic() < deadline:
-            time.sleep(0.1)
+            remaining = deadline - time.monotonic()
+            if self._stop.wait(min(0.1, remaining)):
+                # disconnect() requested while waiting; abandon the connect
+                # so the reconnect lock can be released quickly.
+                client.loop_stop()
+                if self._client is client:
+                    self._client = None
+                raise ConnectionError("MQTT connect aborted by disconnect")
 
         if not self._connected:
             client.loop_stop()
+            if self._client is client:
+                self._client = None
             raise ConnectionError(
                 f"MQTT connection to {self._device.mqtt_host} timed out"
             )

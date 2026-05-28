@@ -169,6 +169,13 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         """Synchronous credential refresh for MQTT reconnection thread."""
         import asyncio as _asyncio
 
+        # Refuse to start a refresh once HA is on its way down: the event
+        # loop is being shut down, our coroutine would never resolve, and
+        # the MQTT thread would block until the future timed out 30s later,
+        # delaying async_unload_entry's loop_stop() join.
+        if hass.is_stopping:
+            raise RuntimeError("HA is stopping; aborting MQTT credential refresh")
+
         async def _do_refresh() -> tuple[str, str]:
             # Use coordinator's token lock to prevent race with recipe fetch
             async with coordinator._token_lock:
@@ -190,7 +197,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                     await api.close()
 
         future = _asyncio.run_coroutine_threadsafe(_do_refresh(), hass.loop)
-        return future.result(timeout=30)
+        # Keep the timeout short so a hung loop (e.g. shutdown started after
+        # we submitted) doesn't keep the MQTT thread parked. 10s is more than
+        # enough for the actual HTTP round trips.
+        return future.result(timeout=10)
 
     # Create and connect MQTT client
     mqtt_client = PhilipsMQTTClient(

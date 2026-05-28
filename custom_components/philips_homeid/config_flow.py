@@ -857,6 +857,16 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 
+        # FUSION entries require a refresh token; the setup path bails
+        # immediately without it. Surface the failure here so the user
+        # sees an actionable error instead of a silently broken entry.
+        if not self._cloud_tokens.get("refresh_token"):
+            _LOGGER.error(
+                "Cloud OAuth returned no refresh_token; cannot create FUSION entry"
+            )
+            errors["base"] = "cloud_oauth_failed"
+            return None
+
         # thingName != externalDeviceId: they are separate fields in the
         # IoT API. thingName is the AWS IoT thing name for MQTT topics.
         thing_name = None

@@ -234,7 +234,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception:
-        mqtt_client.disconnect()
+        # disconnect() runs loop_stop() which joins the paho thread; doing
+        # that synchronously on the event loop would freeze HA for the join
+        # duration. Mirror the unload path's executor wrapper.
+        await hass.async_add_executor_job(mqtt_client.disconnect)
         raise
 
     # Wait for NCP port data before entity setup. The first refresh

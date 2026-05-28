@@ -305,6 +305,7 @@ async def async_setup_entry(
                 for prop_key, nested_key in new_properties:
                     description = wanted.pop((prop_key, nested_key), None)
                     if description is not None:
+                        coordinator.mark_property_seen(prop_key, nested_key)
                         new_entities.append(
                             PhilipsHomeIDNumber(
                                 coordinator, description, coordinator.device_id
@@ -345,6 +346,7 @@ async def async_setup_entry(
                 for prop_key, nested_key in new_properties:
                     description = muji_wanted.pop((prop_key, nested_key), None)
                     if description is not None:
+                        coordinator.mark_property_seen(prop_key, nested_key)
                         new_entities.append(
                             PhilipsHomeIDNumber(
                                 coordinator, description, coordinator.device_id

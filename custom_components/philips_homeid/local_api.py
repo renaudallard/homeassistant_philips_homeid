@@ -896,23 +896,32 @@ class PhilipsLocalAPI:
 
         # Get status/air/filter for non-airfryer devices (air purifiers).
         # Airfryers don't have these endpoints (return 501), so skip to
-        # avoid noisy warnings every poll cycle.
-        if not airfryer:
+        # avoid noisy warnings every poll cycle. Cache a negative sentinel
+        # the same way as airfryer/espresso so espresso machines (which
+        # also fail these probes) stop hammering them after the first poll.
+        if not airfryer and device.purifier_port is not False:
+            purifier_found = False
             status = await self.get_status(device)
             if status:
                 got_data = True
+                purifier_found = True
                 state.power_on = status.get("pwr") == "1"
                 state.properties.update(status)
 
             air = await self.get_air_quality(device)
             if air:
                 got_data = True
+                purifier_found = True
                 state.properties.update(air)
 
             filters = await self.get_filter_status(device)
             if filters:
                 got_data = True
+                purifier_found = True
                 state.properties.update(filters)
+
+            if not purifier_found and has_auth:
+                device.purifier_port = False
 
         # Espresso machines (EP/SM models) expose their state on the
         # "machinestatus" and "configuration" ports. Probe once on non-airfryer

@@ -127,6 +127,9 @@ class LocalDeviceInfo:
     # Espresso ports probe result (cached after first probe)
     # None = not yet probed, False = not an espresso machine
     espresso_port: bool | None = None
+    # Air-purifier ports probe result (cached after first probe)
+    # None = not yet probed, False = not an air purifier
+    purifier_port: bool | None = None
 
 
 @dataclass

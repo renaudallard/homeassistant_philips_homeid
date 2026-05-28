@@ -406,14 +406,13 @@ class PhilipsMQTTClient:
             if self._client:
                 self._client.loop_stop()
                 self._client.disconnect()
-            # Clear discovered ports so they're re-fetched. Also drop the
-            # cached state so consumers don't observe stale power/status
-            # from before the reconnect; fresh shadow + port data will be
-            # requested by _on_connect and arrive within a few seconds.
+            # Clear discovered ports so they're re-fetched by getAllPorts.
+            # Keep the cached state in place so consumers don't see a brief
+            # unavailability gap while the new shadow + NCP messages arrive;
+            # the device's first push after CONNACK overwrites whatever
+            # fields it owns.
             self._discovered_ports = []
             self._discovered_write_ports = []
-            with self._lock:
-                self._state = None
             self.connect(access_token, signature)
 
     def request_state(self) -> None:

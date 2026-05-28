@@ -627,6 +627,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             return await self.async_step_cloud_devices()
 
                         errors["base"] = "no_cloud_devices"
+                        await self._close_cloud_api()
 
                     except CloudAuthError as err:
                         _LOGGER.error("Cloud auth failed: %s", err)

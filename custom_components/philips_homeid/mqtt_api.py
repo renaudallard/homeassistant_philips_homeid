@@ -191,6 +191,7 @@ class PhilipsMQTTClient:
         self._connected = False
         self._reconnecting = False
         self._refreshing = False  # True during proactive token refresh
+        self._stop = threading.Event()  # Set by disconnect() to stop reconnect loop
         self._connect_time: float = 0.0  # monotonic time of last connect
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
@@ -363,7 +364,8 @@ class PhilipsMQTTClient:
             )
 
     def disconnect(self) -> None:
-        """Disconnect from the MQTT broker."""
+        """Disconnect from the MQTT broker and stop any pending reconnects."""
+        self._stop.set()
         if self._client:
             self._client.loop_stop()
             self._client.disconnect()
@@ -592,30 +594,35 @@ class PhilipsMQTTClient:
         thread.start()
 
     def _reconnect_with_backoff(self) -> None:
-        """Reconnect with exponential backoff and fresh credentials."""
-        delay = 1.0
-        max_retries = 5
-        for attempt in range(max_retries):
-            time.sleep(delay)
-            _LOGGER.info("MQTT reconnect attempt %d/%d", attempt + 1, max_retries)
-            try:
-                assert self._credential_refresh is not None
-                access_token, signature = self._credential_refresh()
-                # Disconnect old client cleanly
-                if self._client:
-                    self._client.loop_stop()
-                    self._client.disconnect()
-                # Connect with fresh credentials
-                self.connect(access_token, signature)
-                _LOGGER.info("MQTT reconnected successfully")
-                self._reconnecting = False
-                return
-            except Exception:
-                _LOGGER.warning("MQTT reconnect attempt %d failed", attempt + 1)
-                delay = min(delay * 1.5, 60.0)
+        """Reconnect indefinitely with exponential backoff until disconnect().
 
-        _LOGGER.error("MQTT reconnection failed after %d attempts", max_retries)
-        self._reconnecting = False
+        A bounded retry count left the integration silently dead after a long
+        outage: _reconnecting was cleared, _connected stayed False, and the
+        proactive refresh path requires _connected=True to fire. Loop until
+        disconnect() sets _stop or the reconnect succeeds.
+        """
+        delay = 1.0
+        attempt = 0
+        try:
+            while not self._stop.is_set():
+                attempt += 1
+                if self._stop.wait(delay):
+                    return
+                _LOGGER.info("MQTT reconnect attempt %d", attempt)
+                try:
+                    assert self._credential_refresh is not None
+                    access_token, signature = self._credential_refresh()
+                    if self._client:
+                        self._client.loop_stop()
+                        self._client.disconnect()
+                    self.connect(access_token, signature)
+                    _LOGGER.info("MQTT reconnected successfully")
+                    return
+                except Exception:
+                    _LOGGER.warning("MQTT reconnect attempt %d failed", attempt)
+                    delay = min(delay * 1.5, 300.0)
+        finally:
+            self._reconnecting = False
 
     def _on_message(
         self,

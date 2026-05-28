@@ -469,12 +469,20 @@ def _cleanup_stale_entities(
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+    """Unload a config entry.
+
+    Tear down MQTT client and HTTP session regardless of whether the
+    platform unload succeeded so we don't leak the paho thread or aiohttp
+    session if HA reports an entity still in use.
+    """
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+    if coordinator is not None:
         if coordinator.mqtt_client:
             await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)
         await coordinator.api.close()
+
     _PREVIOUS_OPTIONS.pop(entry.entry_id, None)
 
     return unload_ok

@@ -150,6 +150,10 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         APK calls POST /user/self/get-id with the OIDC id_token.
         The returned userId is what the Custom Authorizer IoT policy
         expects as the MQTT client ID prefix.
+
+        Raises CloudAuthError on 401/403 (the caller must reauthenticate)
+        and CloudConnectionError on 5xx or non-JSON responses. Returns
+        None only when the response is a 200 with no userId field.
         """
         session = await self._get_session()
         url = f"https://{platform_rest_url}/api/{tenant}/user/self/get-id"
@@ -168,10 +172,16 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 resp.status,
                 text[:500],
             )
+            if resp.status in (401, 403):
+                raise CloudAuthError(f"MQTT get-id rejected: HTTP {resp.status}")
             if resp.status != 200:
-                _LOGGER.warning("MQTT get-id failed: HTTP %s", resp.status)
-                return None
-            data = json.loads(text)
+                raise CloudConnectionError(f"MQTT get-id failed: HTTP {resp.status}")
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as err:
+                raise CloudConnectionError(
+                    f"MQTT get-id response not JSON: {text[:200]}"
+                ) from err
             return data.get("userId")
 
     # --- IoT API ---

@@ -113,9 +113,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         # APK gets MQTT userId from POST /user/self/get-id with the id_token.
         # The Custom Authorizer IoT policy expects this as the client ID prefix
         # and rejects MQTT CONNECT (silently, after WS upgrade) when the prefix
-        # is anything else - notably the Gigya sub claim. Treat get-id failure
-        # as a transient setup error so HA retries instead of forcing reauth
-        # on every cloud blip.
+        # is anything else - notably the Gigya sub claim. get_mqtt_user_id now
+        # itself distinguishes 401/403 (raises CloudAuthError -> reauth) from
+        # 5xx (raises CloudConnectionError -> retry); the None check below
+        # only catches the rare 200-with-missing-userId response.
         id_token = tokens.get("id_token", "")
         user_id = None
         if id_token:

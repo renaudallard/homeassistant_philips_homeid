@@ -318,11 +318,45 @@ async def async_setup_entry(
             )
             entry.async_on_unload(unregister)
     elif device_type == "air_purifier":
+        seen_muji: set[str] = set()
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):
                 entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
+                seen_muji.add(description.key)
+
+        # MUJI hex properties (D03130/D0312C) can arrive after entity
+        # setup on first connect; register a callback so they appear
+        # dynamically instead of being missed forever.
+        if any(d.key not in seen_muji for d in MUJI_NUMBERS):
+            muji_wanted: dict[
+                tuple[str, str | None], PhilipsHomeIDNumberEntityDescription
+            ] = {
+                (d.property_key, None): d
+                for d in MUJI_NUMBERS
+                if d.key not in seen_muji and d.property_key is not None
+            }
+
+            def handle_new_muji_properties(
+                new_properties: list[tuple[str, str | None]],
+            ) -> None:
+                new_entities: list[NumberEntity] = []
+                for prop_key, nested_key in new_properties:
+                    description = muji_wanted.pop((prop_key, nested_key), None)
+                    if description is not None:
+                        new_entities.append(
+                            PhilipsHomeIDNumber(
+                                coordinator, description, coordinator.device_id
+                            )
+                        )
+                if new_entities:
+                    async_add_entities(new_entities, update_before_add=True)
+
+            unregister = coordinator.register_new_property_callback(
+                handle_new_muji_properties
+            )
+            entry.async_on_unload(unregister)
 
     if entities:
         async_add_entities(entities)

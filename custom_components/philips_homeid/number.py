@@ -278,6 +278,7 @@ async def async_setup_entry(
             entry.async_on_unload(unregister)
 
     elif device_type == "espresso":
+        seen_keys: set[str] = set()
         for description in ESPRESSO_NUMBERS:
             if coordinator.has_property(
                 description.property_key, description.nested_key
@@ -285,6 +286,37 @@ async def async_setup_entry(
                 entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
+                seen_keys.add(description.key)
+
+        # FUSION espresso machines receive basicrecipe via NCP push after
+        # MQTT connect, often arriving after entity setup finishes. Without
+        # a dynamic-creation hook the recipe numbers are never created.
+        if any(d.key not in seen_keys for d in ESPRESSO_NUMBERS):
+            wanted = {
+                (d.property_key, d.nested_key): d
+                for d in ESPRESSO_NUMBERS
+                if d.key not in seen_keys
+            }
+
+            def handle_new_espresso_properties(
+                new_properties: list[tuple[str, str | None]],
+            ) -> None:
+                new_entities: list[NumberEntity] = []
+                for prop_key, nested_key in new_properties:
+                    description = wanted.pop((prop_key, nested_key), None)
+                    if description is not None:
+                        new_entities.append(
+                            PhilipsHomeIDNumber(
+                                coordinator, description, coordinator.device_id
+                            )
+                        )
+                if new_entities:
+                    async_add_entities(new_entities, update_before_add=True)
+
+            unregister = coordinator.register_new_property_callback(
+                handle_new_espresso_properties
+            )
+            entry.async_on_unload(unregister)
     elif device_type == "air_purifier":
         for description in MUJI_NUMBERS:
             if coordinator.has_property(description.property_key):

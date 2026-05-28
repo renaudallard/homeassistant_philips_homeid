@@ -114,10 +114,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
-        # Event signaled when first MQTT data with properties arrives.
-        # Used to delay entity setup until NCP port data is available.
-        self._initial_data_event: asyncio.Event = asyncio.Event()
-        self._ncp_data_timestamp: float = 0.0  # monotonic time of last NCP data
+        # Monotonic time of the latest NCP port-data arrival; setup waits on
+        # this to defer entity creation until real device state is in hand.
+        self._ncp_data_timestamp: float = 0.0
         # Recipe name cache: recipe_id -> name, persisted in config entry.
         # Invalidate if HA language changed since cache was built.
         cached_lang = entry.data.get(CONF_RECIPE_LANGUAGE, "")
@@ -187,8 +186,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # shadow metadata like productState.
         if any(isinstance(v, dict) for v in state.properties.values()):
             self._ncp_data_timestamp = time.monotonic()
-            if not self._initial_data_event.is_set():
-                self._initial_data_event.set()
         self._inject_recipe_name()
         self.async_set_updated_data(state)
 

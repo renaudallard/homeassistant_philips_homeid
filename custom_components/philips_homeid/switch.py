@@ -73,6 +73,10 @@ async def async_setup_entry(
     if device_type == "espresso" and entry.data.get(CONF_IS_FUSION):
         entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
 
+    # Power switch for local EP/SM espresso machines (command port power enum)
+    if device_type == "espresso" and not entry.data.get(CONF_IS_FUSION):
+        entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
+
     # Preheat toggle for airfryers
     if device_type in (
         "airfryer",

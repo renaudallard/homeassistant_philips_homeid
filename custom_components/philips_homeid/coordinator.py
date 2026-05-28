@@ -319,6 +319,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if not power_on:
                 return await self.async_airfryer_stop()
             return True
+        # Local EP/SM espresso machines: command port power enum (2=on, 1=off)
+        if device_type == "espresso" and not self._is_fusion:
+            result = await self.api.set_espresso_power(self.device_info, power_on)
+            if result:
+                if self._state:
+                    self._state.power_on = power_on
+                await self.async_request_refresh()
+            return result
         result = await self.api.set_power(self.device_info, power_on)
         if result:
             if self._state:
@@ -644,6 +652,76 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return await self.async_rita_brew_builtin(
             self._rita_brew_profile_id, self.RITA_DRINK_HOT_WATER
         )
+
+    # Local EP/SM espresso machine brew (command/BasicRecipe port).
+    # Distinct from the Rita (FUSION/cloud) brew above. Built-in drinks
+    # confirmed on EP2520: espresso = recipe 2 (40 ml), coffee = recipe 6
+    # (120 ml). RecipeBookIds come from configuration.recipelist.
+    async def _ensure_espresso_ready(self, timeout: int = 90) -> bool:
+        """Power the espresso machine on and wait until ready (mainstate 2)."""
+        status = await self.api.get_espresso_status(self.device_info)
+        mainstate = (status or {}).get("mainstate", 0)
+        if mainstate == 2:
+            return True
+        if mainstate in (3, 5):  # already brewing / needs attention
+            _LOGGER.warning(
+                "Espresso machine not ready to brew (mainstate=%s)", mainstate
+            )
+            return False
+        if mainstate in (0, 1):  # off / standby -> power on
+            await self.api.set_espresso_power(self.device_info, True)
+        # Heating from cold can take a while; poll for the ready state.
+        elapsed = 0
+        while elapsed < timeout:
+            await asyncio.sleep(3)
+            elapsed += 3
+            status = await self.api.get_espresso_status(self.device_info)
+            mainstate = (status or {}).get("mainstate", 0)
+            if mainstate == 2:
+                return True
+            if mainstate == 5:
+                _LOGGER.warning("Espresso machine needs attention (mainstate=5)")
+                return False
+        _LOGGER.warning("Timed out waiting for espresso machine to be ready")
+        return False
+
+    async def async_espresso_brew(
+        self,
+        recipe_id: int,
+        prim_dose: int,
+        *,
+        gr_dose: int = 2,
+        sec_dose: int = 0,
+        temperature: int = 2,
+        nr_of_brews: int = 0,
+    ) -> bool:
+        """Brew a drink on a local EP/SM espresso machine.
+
+        Powers the machine on and waits for it to be ready before sending the
+        recipe, mirroring the HomeID app's behaviour.
+        """
+        if not await self._ensure_espresso_ready():
+            return False
+        result = await self.api.espresso_brew(
+            self.device_info,
+            recipe_id,
+            prim_dose,
+            gr_dose=gr_dose,
+            sec_dose=sec_dose,
+            temperature=temperature,
+            nr_of_brews=nr_of_brews,
+        )
+        if result:
+            await self.async_request_refresh()
+        return result
+
+    async def async_espresso_brew_espresso(self) -> bool:
+        """Brew a built-in espresso (RecipeBookId 2, 40 ml)."""
+        return await self.async_espresso_brew(2, 40)
+
+    async def async_espresso_brew_coffee(self) -> bool:
+        """Brew a built-in coffee (RecipeBookId 6, 120 ml)."""
+        return await self.async_espresso_brew(6, 120)
 
     def _rita_current_roast_level(self) -> int:
         """Return the roast level the machine last reported, or 0."""

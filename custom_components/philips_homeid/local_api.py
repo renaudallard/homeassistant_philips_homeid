@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import secrets
 from typing import Any
 
 import aiohttp
@@ -57,12 +58,15 @@ from .local_models import (  # noqa: F401
     PORT_AIR,
     PORT_AIRFRYER,
     PORT_AUTOCOOK,
+    PORT_COMMAND,
+    PORT_COMMAND_BASICRECIPE,
     PORT_CONTROL,
     PORT_DEVCURRSTATE,
     PORT_DEVICE,
     PORT_FIRMWARE,
     PORT_FLTSTS,
     PORT_HERMESAC,
+    PORT_MACHINESTATUS,
     PORT_NUTRIMAX,
     PORT_RECIPE,
     PORT_SECURITY,
@@ -370,6 +374,54 @@ class PhilipsLocalAPI:
         """Set child lock state."""
         data = {"cl": locked}
         result = await self._request(device, PORT_STATUS, method="PUT", data=data)
+        return result is not None
+
+    # EP/SM espresso machine methods (e.g. EP2520). The "command" port's
+    # "power" field is a mode enum, not a boolean: 2 = on, 1 = standby/off
+    # (0 is the idle readback value). Confirmed on a real EP2520 by capturing
+    # the HomeID app's local HTTPS traffic.
+    async def set_espresso_power(self, device: LocalDeviceInfo, power_on: bool) -> bool:
+        """Power an espresso machine on (2) or to standby (1)."""
+        data = {"power": 2 if power_on else 1}
+        result = await self._request(device, PORT_COMMAND, method="PUT", data=data)
+        return result is not None
+
+    async def get_espresso_status(
+        self, device: LocalDeviceInfo
+    ) -> dict[str, Any] | None:
+        """Read the espresso machinestatus port (contains mainstate)."""
+        return await self._request(device, PORT_MACHINESTATUS)
+
+    async def espresso_brew(
+        self,
+        device: LocalDeviceInfo,
+        recipe_id: int,
+        prim_dose: int,
+        *,
+        gr_dose: int = 2,
+        sec_dose: int = 0,
+        temperature: int = 2,
+        nr_of_brews: int = 0,
+    ) -> bool:
+        """Start a brew via the command/BasicRecipe sub-port.
+
+        The machine must already be powered on and ready (mainstate 2).
+        Confirmed drinks on EP2520: espresso = RecipeBookId 2 / PrimDose 40 ml,
+        coffee = RecipeBookId 6 / PrimDose 120 ml. PrimDose is the water volume
+        in ml; GrDose is the grind/coffee dose; randnr is a per-request nonce.
+        """
+        data = {
+            "RecipeBookId": recipe_id,
+            "GrDose": gr_dose,
+            "PrimDose": prim_dose,
+            "SecDose": sec_dose,
+            "Temperature": temperature,
+            "NrOfBrews": nr_of_brews,
+            "randnr": secrets.randbelow(2**31),
+        }
+        result = await self._request(
+            device, PORT_COMMAND_BASICRECIPE, method="PUT", data=data
+        )
         return result is not None
 
     # Airfryer-specific methods
@@ -951,8 +1003,9 @@ class PhilipsLocalAPI:
                     found_any = True
                     state.properties[port] = espresso_data
                     if port == "machinestatus":
+                        # mainstate 1 = standby (off); 2+ = ready/brewing/etc (on)
                         state.power_on = (
-                            state.power_on or espresso_data.get("mainstate", 0) != 0
+                            state.power_on or espresso_data.get("mainstate", 0) >= 2
                         )
             if not found_any:
                 device.espresso_port = False

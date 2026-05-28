@@ -148,6 +148,29 @@ AIRFRYER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
 )
 
 
+# Local EP/SM espresso machine brew buttons (command/BasicRecipe port).
+# Built-in drinks confirmed on EP2520; brewing first powers the machine on
+# and waits for it to be ready.
+ESPRESSO_BREW_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
+    PhilipsHomeIDButtonEntityDescription(
+        key="espresso_brew_espresso",
+        translation_key="espresso_brew_espresso",
+        icon="mdi:coffee",
+        press_fn=lambda c: c.async_espresso_brew_espresso(),
+        available_key="machinestatus",
+        local_only=True,
+    ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="espresso_brew_coffee",
+        translation_key="espresso_brew_coffee",
+        icon="mdi:coffee-outline",
+        press_fn=lambda c: c.async_espresso_brew_coffee(),
+        available_key="machinestatus",
+        local_only=True,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -165,8 +188,14 @@ async def async_setup_entry(
         button_descriptions = AIRFRYER_BUTTONS
         watch_prop = ("status", "airfryer")
     elif device_type == "espresso":
-        button_descriptions = RITA_BUTTONS
-        watch_prop = ("McState", "airfryer")
+        if coordinator.mqtt_client is None:
+            # Local EP/SM espresso machine (e.g. EP2520) via the command port
+            button_descriptions = ESPRESSO_BREW_BUTTONS
+            watch_prop = ("machinestatus", None)
+        else:
+            # Rita espresso machine (FUSION / cloud)
+            button_descriptions = RITA_BUTTONS
+            watch_prop = ("McState", "airfryer")
     else:
         _LOGGER.debug("Skipping button entities for device: %s", model_name)
         return

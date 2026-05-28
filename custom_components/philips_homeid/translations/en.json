@@ -102,6 +102,7 @@
       "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
       "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",
       "reauth_failed": "Cloud login failed. Try again later.",
+      "reauth_entry_missing": "Could not find the integration entry to reauthenticate. Reload Home Assistant and try again.",
       "cloud_setup_failed": "Cloud login failed: could not install Playwright browser. Use the standalone cloud_key_fetcher.py tool or enter credentials manually.",
       "playwright_unsupported": "Playwright is not supported on this platform. Run the standalone cloud_key_fetcher.py tool on a supported system, then enter credentials manually."
     },

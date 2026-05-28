@@ -458,6 +458,20 @@ def _cleanup_stale_entities(
                         should_remove = True
                     break
 
+        elif platform == "button":
+            from .button import AIRFRYER_BUTTONS, RITA_BUTTONS
+            from .local_models import VENUS_STYLE_PORTS
+
+            airfryer_port = coordinator.device_info.airfryer_port
+            for btn_desc in (*AIRFRYER_BUTTONS, *RITA_BUTTONS):
+                if btn_desc.key == entity_key:
+                    # Buttons gated on Venus-style ports must not linger on
+                    # SPECTRE devices where they would only ever be
+                    # "unavailable".
+                    if btn_desc.venus_only and airfryer_port not in VENUS_STYLE_PORTS:
+                        should_remove = True
+                    break
+
         if should_remove:
             _LOGGER.info(
                 "Removing stale entity %s (%s)",

@@ -83,7 +83,9 @@ def _sanitize_host(raw: str) -> str | None:
     Devices are reached as https://<host>/... so a user pasting
     "https://1.2.3.4/", "http://1.2.3.4:8080", or "1.2.3.4 " must not turn
     into a malformed URL like "https://https://1.2.3.4/...". Returns None
-    for input that cannot be coerced into a plausible hostname or IPv4.
+    for input that cannot be coerced into a plausible hostname/IP. IPv6
+    addresses (including link-local with %zone) are re-bracketed so the
+    downstream URL builder produces a valid URL.
     """
     if not raw:
         return None
@@ -99,8 +101,13 @@ def _sanitize_host(raw: str) -> str | None:
     host = host.strip()
     if not host:
         return None
-    if not all(c.isalnum() or c in ".-:" for c in host):
+    # Allow letters, digits, dot, dash, colon (IPv6) and percent (IPv6 zone id).
+    if not all(c.isalnum() or c in ".-:%" for c in host):
         return None
+    # Re-bracket bare IPv6 (anything with a colon) so f-string URL builders
+    # produce https://[...]/... instead of an unparseable URL.
+    if ":" in host:
+        return f"[{host}]"
     return host
 
 

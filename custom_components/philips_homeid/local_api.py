@@ -912,21 +912,25 @@ class PhilipsLocalAPI:
                 state.properties.update(filters)
 
         # Espresso machines (EP/SM models) expose their state on the
-        # "machinestatus" and "configuration" ports. These are queried for
-        # non-airfryer devices; non-espresso devices simply return 422 and are
-        # ignored. The responses populate the ESPRESSO_SENSORS descriptions
-        # (nested_key "machinestatus"/"configuration"). Confirmed on EP2520.
-        if not airfryer:
-            for espresso_port in ("machinestatus", "configuration"):
-                espresso_data = await self._request(device, espresso_port)
+        # "machinestatus" and "configuration" ports. Probe once on non-airfryer
+        # devices, then cache a negative sentinel so non-espresso devices (air
+        # purifiers, etc.) don't log warnings every poll cycle. Confirmed on
+        # EP2520. Skipped without auth, since unauthenticated probes only
+        # produce noise.
+        if not airfryer and device.espresso_port is not False and has_auth:
+            found_any = False
+            for port in ("machinestatus", "configuration"):
+                espresso_data = await self._request(device, port)
                 if espresso_data:
                     got_data = True
-                    state.properties[espresso_port] = espresso_data
-                    if espresso_port == "machinestatus":
+                    found_any = True
+                    state.properties[port] = espresso_data
+                    if port == "machinestatus":
                         state.power_on = (
-                            state.power_on
-                            or espresso_data.get("mainstate", 0) != 0
+                            state.power_on or espresso_data.get("mainstate", 0) != 0
                         )
+            if not found_any:
+                device.espresso_port = False
 
         # Get firmware version info
         firmware = await self.get_firmware_info(device)

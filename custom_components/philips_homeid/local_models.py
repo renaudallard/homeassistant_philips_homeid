@@ -124,6 +124,9 @@ class LocalDeviceInfo:
     # Discovered airfryer port name (cached after first successful request)
     # None = not yet probed, False = not an airfryer, str = port name
     airfryer_port: str | bool | None = None
+    # Espresso ports probe result (cached after first probe)
+    # None = not yet probed, False = not an espresso machine
+    espresso_port: bool | None = None
 
 
 @dataclass

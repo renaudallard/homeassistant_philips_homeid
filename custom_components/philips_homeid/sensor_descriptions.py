@@ -26,6 +26,8 @@
 
 from __future__ import annotations
 
+import re
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -68,11 +70,17 @@ def get_device_type(model_name: str) -> str:
     ):
         return "multicooker"
 
+    # Espresso machines. Some models report a marketing/codename prefix before
+    # the EPxxxx/SMxxxx model number (e.g. "Flash_Entry_P EP2520"), so a plain
+    # startswith("ep") is not enough — also match an EP/SM model token anywhere.
     if (
         model_lower.startswith("ep")
         or model_lower.startswith("sm")
         or "espresso" in model_lower
         or "coffee" in model_lower
+        or "flash_entry" in model_lower
+        or re.search(r"\bep\d", model_lower) is not None
+        or re.search(r"\bsm\d", model_lower) is not None
     ):
         return "espresso"
 

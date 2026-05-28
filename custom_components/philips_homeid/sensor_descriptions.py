@@ -47,6 +47,21 @@ from homeassistant.const import (
 )
 
 
+def is_spectre_model(model_name: str | None) -> bool:
+    """Return True for SPECTRE airfryers, which use inverted temp_unit semantics.
+
+    SPECTRE devices (HD9200/HD9255/HD9280/HD9285) report and accept
+    temp_unit=True as Celsius and False as Fahrenheit. Venus 1 (HD987x) and
+    Venus 2 (HD9880) use the standard semantics (True=Fahrenheit).
+    """
+    if not model_name:
+        return False
+    model_upper = model_name.upper()
+    if "SPECTRE" in model_upper:
+        return True
+    return model_upper.startswith(("HD9200", "HD9255", "HD9280", "HD9285"))
+
+
 # Device type detection based on model name patterns
 def get_device_type(model_name: str) -> str:
     """Determine device type from model name."""

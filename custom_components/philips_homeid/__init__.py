@@ -507,6 +507,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         persist_task = coordinator._recipe_cache_persist_task
         if persist_task is not None and not persist_task.done():
             persist_task.cancel()
+        # Cancel any in-flight espresso wake+brew so its long sleep doesn't
+        # hold a reference to the entry past teardown.
+        brew_task = coordinator._espresso_brew_task
+        if brew_task is not None and not brew_task.done():
+            brew_task.cancel()
         if coordinator.mqtt_client:
             try:
                 await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)

@@ -128,6 +128,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._failed_recipe_ids: set[str] = set()  # IDs that failed cloud lookup
         # Debounce task for persisting recipe-cache updates to entry data
         self._recipe_cache_persist_task: asyncio.Task[None] | None = None
+        # Background task for local-espresso wake+brew. The heat-up can take
+        # over a minute on a cold machine, so we run it off the button press
+        # rather than blocking the entity update path.
+        self._espresso_brew_task: asyncio.Task[None] | None = None
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
         self._catalog_fetch_running: bool = False
@@ -703,13 +707,42 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         temperature: int = 2,
         nr_of_brews: int = 0,
     ) -> bool:
-        """Brew a drink on a local EP/SM espresso machine.
+        """Kick off a brew on a local EP/SM espresso machine.
 
-        Powers the machine on and waits for it to be ready before sending the
-        recipe, mirroring the HomeID app's behaviour.
+        Returns immediately. The actual wake-up + ready-wait + brew runs as
+        a background task because a cold machine can take well over a minute
+        to reach mainstate 2; awaiting that from a button press handler
+        would freeze the entity for that whole time.
         """
-        if not await self._ensure_espresso_ready():
+        task = self._espresso_brew_task
+        if task is not None and not task.done():
+            _LOGGER.warning("Espresso brew already in progress; ignoring new request")
             return False
+        self._espresso_brew_task = self.hass.async_create_task(
+            self._do_espresso_brew(
+                recipe_id,
+                prim_dose,
+                gr_dose=gr_dose,
+                sec_dose=sec_dose,
+                temperature=temperature,
+                nr_of_brews=nr_of_brews,
+            )
+        )
+        return True
+
+    async def _do_espresso_brew(
+        self,
+        recipe_id: int,
+        prim_dose: int,
+        *,
+        gr_dose: int,
+        sec_dose: int,
+        temperature: int,
+        nr_of_brews: int,
+    ) -> None:
+        """Background body for async_espresso_brew."""
+        if not await self._ensure_espresso_ready():
+            return
         result = await self.api.espresso_brew(
             self.device_info,
             recipe_id,
@@ -721,7 +754,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         )
         if result:
             await self.async_request_refresh()
-        return result
 
     async def async_espresso_brew_espresso(self) -> bool:
         """Brew a built-in espresso."""

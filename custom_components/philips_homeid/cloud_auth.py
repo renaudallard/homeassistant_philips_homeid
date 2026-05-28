@@ -217,6 +217,8 @@ class PhilipsCloudAuth:
         """Request OTP code to be sent to the user's email.
 
         Returns the vToken needed for OTP verification.
+        Raises CloudConnectionError on transport / non-JSON failures and
+        CloudAuthError on Gigya-side error codes.
         """
         session = await self._get_session()
         url = f"{GIGYA_API_URL}/accounts.auth.otp.email.sendCode"
@@ -226,8 +228,20 @@ class PhilipsCloudAuth:
             "format": "json",
         }
 
-        async with session.post(url, data=params) as resp:
-            data = await resp.json(content_type=None)
+        try:
+            async with session.post(url, data=params) as resp:
+                status = resp.status
+                try:
+                    data = await resp.json(content_type=None)
+                except (json.JSONDecodeError, ValueError) as err:
+                    raise CloudConnectionError(
+                        f"OTP send endpoint returned non-JSON (HTTP {status})"
+                    ) from err
+        except aiohttp.ClientError as err:
+            raise CloudConnectionError(f"OTP send endpoint unreachable: {err}") from err
+
+        if status >= 500:
+            raise CloudConnectionError(f"OTP send failed: HTTP {status}")
 
         error_code = data.get("errorCode", -1)
         if error_code != 0:
@@ -244,7 +258,8 @@ class PhilipsCloudAuth:
     async def verify_otp(self, email: str, code: str, vtoken: str) -> str:
         """Verify the OTP code entered by the user.
 
-        Returns the Gigya session token.
+        Returns the Gigya session token. Raises CloudConnectionError on
+        transport / non-JSON failures and CloudAuthError on Gigya errors.
         """
         session = await self._get_session()
         url = f"{GIGYA_API_URL}/accounts.auth.otp.email.login"
@@ -256,8 +271,22 @@ class PhilipsCloudAuth:
             "format": "json",
         }
 
-        async with session.post(url, data=params) as resp:
-            data = await resp.json(content_type=None)
+        try:
+            async with session.post(url, data=params) as resp:
+                status = resp.status
+                try:
+                    data = await resp.json(content_type=None)
+                except (json.JSONDecodeError, ValueError) as err:
+                    raise CloudConnectionError(
+                        f"OTP verify endpoint returned non-JSON (HTTP {status})"
+                    ) from err
+        except aiohttp.ClientError as err:
+            raise CloudConnectionError(
+                f"OTP verify endpoint unreachable: {err}"
+            ) from err
+
+        if status >= 500:
+            raise CloudConnectionError(f"OTP verify failed: HTTP {status}")
 
         error_code = data.get("errorCode", -1)
         if error_code != 0:
@@ -326,10 +355,15 @@ class PhilipsCloudAuth:
         auth_url = f"{OIDC_AUTH_ENDPOINT}?{urllib.parse.urlencode(auth_params)}"
 
         async with session.get(auth_url, allow_redirects=False) as resp:
-            if resp.status not in (301, 302, 303, 307, 308):
+            status = resp.status
+            if status not in (301, 302, 303, 307, 308):
                 body = (await resp.text())[:300]
+                if status >= 500:
+                    raise CloudConnectionError(
+                        f"/authorize unreachable: HTTP {status}: {body}"
+                    )
                 raise CloudAuthError(
-                    f"/authorize: expected redirect, got HTTP {resp.status}: {body}"
+                    f"/authorize: expected redirect, got HTTP {status}: {body}"
                 )
             location = resp.headers.get("Location", "")
 
@@ -364,11 +398,15 @@ class PhilipsCloudAuth:
             f"{OIDC_ISSUER}/authorize/continue?{urllib.parse.urlencode(cont_params)}"
         )
         async with session.get(cont_url, allow_redirects=False) as resp:
-            if resp.status not in (301, 302, 303, 307, 308):
+            status = resp.status
+            if status not in (301, 302, 303, 307, 308):
                 body = (await resp.text())[:300]
+                if status >= 500:
+                    raise CloudConnectionError(
+                        f"/authorize/continue unreachable: HTTP {status}: {body}"
+                    )
                 raise CloudAuthError(
-                    f"/authorize/continue: expected redirect, "
-                    f"got HTTP {resp.status}: {body}"
+                    f"/authorize/continue: expected redirect, got HTTP {status}: {body}"
                 )
             location = resp.headers.get("Location", "")
 

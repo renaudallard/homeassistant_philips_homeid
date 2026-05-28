@@ -252,12 +252,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 self._inject_recipe_name()
                 return state
 
-            # No response: track consecutive failures. Drop the polling
-            # interval back to idle so we don't keep hammering the device at
-            # the active rate after cooking is interrupted by network loss.
+            # No response: track consecutive failures. Only drop the
+            # polling interval back to idle once we have hit the failure
+            # threshold, so a single lost packet mid-cook doesn't widen
+            # the cur_time/status gap from 10s to 60s for the next poll.
             self._consecutive_failures += 1
-            self._update_polling_interval(None)
             if self._consecutive_failures >= self._max_failures:
+                self._update_polling_interval(None)
                 raise UpdateFailed(
                     f"No response from device at {self.device_info.ip_address} "
                     f"after {self._consecutive_failures} attempts"

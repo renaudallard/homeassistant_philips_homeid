@@ -77,6 +77,33 @@ from .sensor_descriptions import get_device_type
 _LOGGER = logging.getLogger(__name__)
 
 
+def _sanitize_host(raw: str) -> str | None:
+    """Strip scheme, path, port and whitespace from user-entered host.
+
+    Devices are reached as https://<host>/... so a user pasting
+    "https://1.2.3.4/", "http://1.2.3.4:8080", or "1.2.3.4 " must not turn
+    into a malformed URL like "https://https://1.2.3.4/...". Returns None
+    for input that cannot be coerced into a plausible hostname or IPv4.
+    """
+    if not raw:
+        return None
+    host = raw.strip()
+    if "://" in host:
+        host = host.split("://", 1)[1]
+    host = host.split("/", 1)[0]
+    host = host.split("?", 1)[0]
+    if host.startswith("[") and "]" in host:
+        host = host[1 : host.index("]")]
+    elif host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    host = host.strip()
+    if not host:
+        return None
+    if not all(c.isalnum() or c in ".-:" for c in host):
+        return None
+    return host
+
+
 def _normalize_unique_id(raw_id: str) -> str:
     """Normalize a device identifier to a consistent format.
 
@@ -261,36 +288,39 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            host = user_input[CONF_HOST]
+            host = _sanitize_host(user_input[CONF_HOST])
             model = user_input.get("model", "auto")
 
-            try:
-                # Probe the device
-                self._local_api = PhilipsLocalAPI()
-                device = await self._local_api.probe_device(host)
+            if host is None:
+                errors["base"] = "invalid_host"
+            else:
+                try:
+                    # Probe the device
+                    self._local_api = PhilipsLocalAPI()
+                    device = await self._local_api.probe_device(host)
 
-                if device:
-                    # Apply user-selected model if not auto-detect
-                    if model != "auto":
-                        device.model_name = model
+                    if device:
+                        # Apply user-selected model if not auto-detect
+                        if model != "auto":
+                            device.model_name = model
 
-                    self._discovered_device = device
+                        self._discovered_device = device
 
-                    # Set unique ID based on device ID
-                    unique_id = _normalize_unique_id(device.cpp_id or host)
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+                        # Set unique ID based on device ID
+                        unique_id = _normalize_unique_id(device.cpp_id or host)
+                        await self.async_set_unique_id(unique_id)
+                        self._abort_if_unique_id_configured(updates={CONF_HOST: host})
 
-                    return await self.async_step_confirm()
-                else:
-                    errors["base"] = "cannot_connect"
+                        return await self.async_step_confirm()
+                    else:
+                        errors["base"] = "cannot_connect"
 
-            except Exception:
-                _LOGGER.exception("Unexpected exception during device probe")
-                errors["base"] = "unknown"
-            finally:
-                if self._local_api:
-                    await self._local_api.close()
+                except Exception:
+                    _LOGGER.exception("Unexpected exception during device probe")
+                    errors["base"] = "unknown"
+                finally:
+                    if self._local_api:
+                        await self._local_api.close()
 
         return self.async_show_form(
             step_id="manual_host",

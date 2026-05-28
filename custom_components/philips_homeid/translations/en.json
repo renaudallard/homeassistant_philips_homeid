@@ -82,6 +82,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to device",
+      "invalid_host": "Enter a bare IP address or hostname (no scheme, port, or path)",
       "missing_credentials": "Both Client ID and Client Secret are required",
       "invalid_credentials": "The credentials are invalid or the device rejected them",
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",

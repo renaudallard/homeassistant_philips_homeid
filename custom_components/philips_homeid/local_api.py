@@ -849,15 +849,14 @@ class PhilipsLocalAPI:
 
             return None
         finally:
-            # Always cancel any task still running and drain it so we don't
-            # leak an orphan that logs "Task exception was never retrieved".
+            # Always cancel any task still running and drain them with
+            # return_exceptions=True so individual task failures don't raise
+            # here. If our own coroutine was cancelled, the gather receives
+            # that cancellation and re-raises it so the caller sees it.
             for task in (https_task, http_task):
                 if not task.done():
                     task.cancel()
-                    try:
-                        await task
-                    except (asyncio.CancelledError, Exception):
-                        pass
+            await asyncio.gather(https_task, http_task, return_exceptions=True)
 
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""

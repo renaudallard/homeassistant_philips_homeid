@@ -74,22 +74,6 @@ PLATFORMS: list[Platform] = [
 ]
 
 
-def _extract_jwt_sub(token: str) -> str | None:
-    """Extract the 'sub' claim from a JWT access token without validation."""
-    import base64
-    import json as _json
-
-    try:
-        # JWT is header.payload.signature; decode the payload (2nd part)
-        payload_b64 = token.split(".")[1]
-        # Add padding
-        payload_b64 += "=" * (4 - len(payload_b64) % 4)
-        payload = _json.loads(base64.urlsafe_b64decode(payload_b64))
-        return payload.get("sub")
-    except Exception:
-        return None
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
@@ -127,7 +111,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             hass.config_entries.async_update_entry(entry, data=new_data)
 
         # APK gets MQTT userId from POST /user/self/get-id with the id_token.
-        # The Custom Authorizer IoT policy expects this as the client ID prefix.
+        # The Custom Authorizer IoT policy expects this as the client ID prefix
+        # and rejects MQTT CONNECT (silently, after WS upgrade) when the prefix
+        # is anything else - notably the Gigya sub claim. Treat get-id failure
+        # as fatal rather than degrading into an obscure disconnect loop.
         id_token = tokens.get("id_token", "")
         user_id = None
         if id_token:
@@ -135,8 +122,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 access_token, id_token, platform_rest_url, tenant
             )
         if not user_id:
-            user_id = _extract_jwt_sub(access_token)
-            _LOGGER.warning("get-id failed, falling back to JWT sub claim")
+            raise CloudAuthError(
+                "Could not obtain MQTT user_id from /user/self/get-id; "
+                "the IoT policy will reject this connection."
+            )
         _LOGGER.debug("MQTT user_id resolved: %s", bool(user_id))
 
         sig_data = await cloud_api.get_mqtt_signature(

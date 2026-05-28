@@ -83,7 +83,22 @@ _ALPINE_CHROMIUM = "/usr/bin/chromium-browser"
 
 
 class CloudAuthError(Exception):
-    """Raised on cloud authentication failures."""
+    """Raised on permanent cloud authentication failures (reauth needed).
+
+    Examples: refresh_token rejected with invalid_grant, OTP failed,
+    HTTP 401 from a token-protected endpoint. The caller is expected
+    to convert this into a reauth prompt.
+    """
+
+
+class CloudConnectionError(CloudAuthError):
+    """Raised on transient cloud failures that the caller should retry.
+
+    Examples: HTTP 5xx, network errors, malformed responses. Subclasses
+    CloudAuthError so existing broad ``except CloudAuthError`` blocks
+    keep handling it as before, but specific callers can catch this
+    first to retry instead of triggering reauth.
+    """
 
 
 # Script run in an isolated Python subprocess so Playwright's child
@@ -744,7 +759,14 @@ class PhilipsCloudAuth:
         return result
 
     async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
-        """Refresh OIDC tokens using the refresh token."""
+        """Refresh OIDC tokens using the refresh token.
+
+        Raises CloudAuthError only when the refresh token is permanently
+        rejected (invalid_grant / invalid_token / HTTP 401). Any other
+        failure (5xx, malformed response, network) raises
+        CloudConnectionError so the caller retries instead of forcing
+        the user into reauth.
+        """
         session = await self._get_session()
         data = {
             "client_id": OAUTH_CLIENT_ID,
@@ -753,10 +775,19 @@ class PhilipsCloudAuth:
         }
 
         async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            result = await resp.json(content_type=None)
+            status = resp.status
+            try:
+                result = await resp.json(content_type=None)
+            except (json.JSONDecodeError, ValueError) as err:
+                raise CloudConnectionError(
+                    f"Token endpoint returned non-JSON (HTTP {status})"
+                ) from err
 
-        if "access_token" not in result:
-            error = result.get("error_description", result.get("error", "Unknown"))
-            raise CloudAuthError(f"Token refresh failed: {error}")
+        if "access_token" in result:
+            return result
 
-        return result
+        error_code = result.get("error", "")
+        error_msg = result.get("error_description", error_code or f"HTTP {status}")
+        if status == 401 or error_code in ("invalid_grant", "invalid_token"):
+            raise CloudAuthError(f"Token refresh rejected: {error_msg}")
+        raise CloudConnectionError(f"Token refresh failed (HTTP {status}): {error_msg}")

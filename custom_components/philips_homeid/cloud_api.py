@@ -32,9 +32,9 @@ import re
 import time
 from typing import Any
 
-from .cloud_auth import CloudAuthError, PhilipsCloudAuth
+from .cloud_auth import CloudAuthError, CloudConnectionError, PhilipsCloudAuth
 
-__all__ = ["CloudAuthError", "PhilipsCloudAPI"]
+__all__ = ["CloudAuthError", "CloudConnectionError", "PhilipsCloudAPI"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,8 +130,10 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 resp.status,
                 text[:500],
             )
+            if resp.status == 401:
+                raise CloudAuthError(f"MQTT signature rejected: HTTP {resp.status}")
             if resp.status != 200:
-                raise CloudAuthError(
+                raise CloudConnectionError(
                     f"MQTT signature request failed: HTTP {resp.status}"
                 )
             return json.loads(text)
@@ -213,12 +215,18 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             _LOGGER.debug(
                 "User profile response: HTTP %s, body: %s", resp.status, text[:500]
             )
+            if resp.status == 401:
+                raise CloudAuthError(f"User profile rejected: HTTP {resp.status}")
             if resp.status != 200:
-                raise CloudAuthError(f"User profile request failed: {resp.status}")
+                raise CloudConnectionError(
+                    f"User profile request failed: HTTP {resp.status}"
+                )
             try:
                 data = json.loads(text)
-            except json.JSONDecodeError:
-                raise CloudAuthError(f"User profile response not JSON: {text[:200]}")
+            except json.JSONDecodeError as err:
+                raise CloudConnectionError(
+                    f"User profile response not JSON: {text[:200]}"
+                ) from err
             _LOGGER.debug("Cloud user ID: %s", data.get("id", "unknown"))
             return data
 
@@ -235,14 +243,20 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             _LOGGER.debug(
                 "Device list response: HTTP %s, body: %s", resp.status, text[:1000]
             )
-            if resp.status != 200:
+            if resp.status == 401:
                 raise CloudAuthError(
+                    f"Device list rejected: HTTP {resp.status}, body: {text[:200]}"
+                )
+            if resp.status != 200:
+                raise CloudConnectionError(
                     f"Device list request failed: HTTP {resp.status}, body: {text[:200]}"
                 )
             try:
                 data = json.loads(text)
-            except json.JSONDecodeError:
-                raise CloudAuthError(f"Device list response not JSON: {text[:200]}")
+            except json.JSONDecodeError as err:
+                raise CloudConnectionError(
+                    f"Device list response not JSON: {text[:200]}"
+                ) from err
 
         if isinstance(data, list):
             devices = data

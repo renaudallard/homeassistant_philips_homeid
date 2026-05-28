@@ -911,6 +911,23 @@ class PhilipsLocalAPI:
                 got_data = True
                 state.properties.update(filters)
 
+        # Espresso machines (EP/SM models) expose their state on the
+        # "machinestatus" and "configuration" ports. These are queried for
+        # non-airfryer devices; non-espresso devices simply return 422 and are
+        # ignored. The responses populate the ESPRESSO_SENSORS descriptions
+        # (nested_key "machinestatus"/"configuration"). Confirmed on EP2520.
+        if not airfryer:
+            for espresso_port in ("machinestatus", "configuration"):
+                espresso_data = await self._request(device, espresso_port)
+                if espresso_data:
+                    got_data = True
+                    state.properties[espresso_port] = espresso_data
+                    if espresso_port == "machinestatus":
+                        state.power_on = (
+                            state.power_on
+                            or espresso_data.get("mainstate", 0) != 0
+                        )
+
         # Get firmware version info
         firmware = await self.get_firmware_info(device)
         if firmware:

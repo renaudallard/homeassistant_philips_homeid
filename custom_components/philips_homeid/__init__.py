@@ -465,10 +465,16 @@ def _cleanup_stale_entities(
             airfryer_port = coordinator.device_info.airfryer_port
             for btn_desc in (*AIRFRYER_BUTTONS, *RITA_BUTTONS):
                 if btn_desc.key == entity_key:
-                    # Buttons gated on Venus-style ports must not linger on
-                    # SPECTRE devices where they would only ever be
-                    # "unavailable".
-                    if btn_desc.venus_only and airfryer_port not in VENUS_STYLE_PORTS:
+                    # Only remove a venus_only button when we know the device
+                    # is non-Venus. If airfryer_port hasn't been discovered
+                    # yet (None or False), keep the entity to avoid stripping
+                    # it from a Venus device whose first refresh hasn't
+                    # completed.
+                    if (
+                        btn_desc.venus_only
+                        and isinstance(airfryer_port, str)
+                        and airfryer_port not in VENUS_STYLE_PORTS
+                    ):
                         should_remove = True
                     break
 

@@ -463,11 +463,15 @@ def _cleanup_stale_entities(
                     break
 
         elif platform == "button":
-            from .button import AIRFRYER_BUTTONS, RITA_BUTTONS
+            from .button import AIRFRYER_BUTTONS, ESPRESSO_BREW_BUTTONS, RITA_BUTTONS
             from .local_models import VENUS_STYLE_PORTS
 
             airfryer_port = coordinator.device_info.airfryer_port
-            for btn_desc in (*AIRFRYER_BUTTONS, *RITA_BUTTONS):
+            for btn_desc in (
+                *AIRFRYER_BUTTONS,
+                *RITA_BUTTONS,
+                *ESPRESSO_BREW_BUTTONS,
+            ):
                 if btn_desc.key == entity_key:
                     # Only remove a venus_only button when we know the device
                     # is non-Venus. If airfryer_port hasn't been discovered

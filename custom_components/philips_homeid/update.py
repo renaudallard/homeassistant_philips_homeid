@@ -75,8 +75,21 @@ class PhilipsHomeIDUpdate(PhilipsHomeIDEntity, UpdateEntity):
 
     @property
     def latest_version(self) -> str | None:
-        """Return the latest available firmware version."""
+        """Return the latest available firmware version.
+
+        Devices report the new version in different shapes: most send a
+        plain version string, some send a dict containing the version
+        under one of a few keys. Only accept actual version-like strings;
+        anything else (booleans, ints, empty payloads) falls through to
+        the installed version so HA shows "up to date" instead of
+        rendering nonsense like "True" as the latest version.
+        """
         upgrade = self._get_property_value("upgrade", "firmware")
-        if upgrade:
-            return str(upgrade)
+        if isinstance(upgrade, str) and upgrade:
+            return upgrade
+        if isinstance(upgrade, dict):
+            for key in ("version", "new_version", "fw_version"):
+                value = upgrade.get(key)
+                if isinstance(value, str) and value:
+                    return value
         return self.installed_version

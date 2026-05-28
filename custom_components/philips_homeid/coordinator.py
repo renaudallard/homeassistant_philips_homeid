@@ -130,6 +130,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
         self._catalog_fetch_running: bool = False
+        # Snapshot of entry.options used by the update listener to skip
+        # reloads triggered by data-only entry updates (recipe cache, etc.).
+        self.previous_options: dict[str, Any] = dict(entry.options)
 
     def _is_airfryer_active(self, state: LocalDeviceState) -> bool:
         """Check if airfryer is actively cooking."""

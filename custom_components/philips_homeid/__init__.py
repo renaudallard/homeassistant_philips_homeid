@@ -247,7 +247,6 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
 
     _cleanup_stale_entities(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _PREVIOUS_OPTIONS[entry.entry_id] = dict(entry.options)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     return True
@@ -347,13 +346,9 @@ async def _async_setup_local_entry(hass: HomeAssistant, entry: ConfigEntry) -> b
 
     _cleanup_stale_entities(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _PREVIOUS_OPTIONS[entry.entry_id] = dict(entry.options)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     return True
-
-
-_PREVIOUS_OPTIONS: dict[str, dict] = {}
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -363,11 +358,13 @@ async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> Non
     Only reload when options actually changed, not on data-only
     updates (recipe cache, token refresh).
     """
-    prev = _PREVIOUS_OPTIONS.get(entry.entry_id, {})
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is None:
+        return
     current = dict(entry.options)
-    if prev == current:
+    if coordinator.previous_options == current:
         return  # Data-only change, no reload needed
-    _PREVIOUS_OPTIONS[entry.entry_id] = current
+    coordinator.previous_options = current
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -471,8 +468,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if coordinator.mqtt_client:
             await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)
         await coordinator.api.close()
-
-    _PREVIOUS_OPTIONS.pop(entry.entry_id, None)
 
     return unload_ok
 

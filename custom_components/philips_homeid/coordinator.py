@@ -669,7 +669,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     # Distinct from the Rita (FUSION/cloud) brew above. Built-in drinks
     # confirmed on EP2520: espresso = recipe 2 (40 ml), coffee = recipe 6
     # (120 ml). RecipeBookIds come from configuration.recipelist.
-    async def _ensure_espresso_ready(self, timeout: int = 90) -> bool:
+    async def _ensure_espresso_ready(self, timeout: float = 90.0) -> bool:
         """Power the espresso machine on and wait until ready (mainstate 2)."""
         status = await self.api.get_espresso_status(self.device_info)
         mainstate = (status or {}).get("mainstate", 0)
@@ -682,11 +682,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return False
         if mainstate in (0, 1):  # off / standby -> power on
             await self.api.set_espresso_power(self.device_info, True)
-        # Heating from cold can take a while; poll for the ready state.
-        elapsed = 0
-        while elapsed < timeout:
+        # Heating from cold can take a while; poll for the ready state until
+        # the monotonic deadline so this is unaffected by wall-clock changes.
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             await asyncio.sleep(3)
-            elapsed += 3
             status = await self.api.get_espresso_status(self.device_info)
             mainstate = (status or {}).get("mainstate", 0)
             if mainstate == 2:

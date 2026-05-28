@@ -469,8 +469,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
     if coordinator is not None:
         if coordinator.mqtt_client:
-            await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)
-        await coordinator.api.close()
+            try:
+                await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)
+            except Exception:
+                _LOGGER.exception("MQTT disconnect raised during unload")
+        try:
+            await coordinator.api.close()
+        except Exception:
+            _LOGGER.exception("Local API close raised during unload")
 
     return unload_ok
 

@@ -774,14 +774,17 @@ class PhilipsCloudAuth:
             "refresh_token": refresh_token,
         }
 
-        async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            status = resp.status
-            try:
-                result = await resp.json(content_type=None)
-            except (json.JSONDecodeError, ValueError) as err:
-                raise CloudConnectionError(
-                    f"Token endpoint returned non-JSON (HTTP {status})"
-                ) from err
+        try:
+            async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
+                status = resp.status
+                try:
+                    result = await resp.json(content_type=None)
+                except (json.JSONDecodeError, ValueError) as err:
+                    raise CloudConnectionError(
+                        f"Token endpoint returned non-JSON (HTTP {status})"
+                    ) from err
+        except aiohttp.ClientError as err:
+            raise CloudConnectionError(f"Token endpoint unreachable: {err}") from err
 
         if "access_token" in result:
             return result

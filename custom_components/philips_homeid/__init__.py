@@ -501,6 +501,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
     if coordinator is not None:
+        # Cancel the debounced recipe-cache persist before tearing down so
+        # it can't fire async_update_entry against a half-unloaded entry.
+        persist_task = coordinator._recipe_cache_persist_task
+        if persist_task is not None and not persist_task.done():
+            persist_task.cancel()
         if coordinator.mqtt_client:
             try:
                 await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)

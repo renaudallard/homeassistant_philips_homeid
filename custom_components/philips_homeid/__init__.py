@@ -32,7 +32,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
@@ -144,7 +144,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         )
         _LOGGER.info("MQTT signature response keys: %s", list(sig_data.keys()))
     except CloudAuthError as err:
-        raise ConfigEntryNotReady(
+        raise ConfigEntryAuthFailed(
             f"FUSION auth failed: {err}. Re-authenticate via config flow."
         ) from err
     except Exception as err:

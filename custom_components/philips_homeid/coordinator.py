@@ -1170,7 +1170,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return
 
         _LOGGER.debug("New properties discovered: %s", new_properties)
-        for callback in self._new_properties_callbacks:
+        # Snapshot the callback list so a callback that registers or
+        # unregisters another (e.g. an entity being removed) does not
+        # mutate the iterator we're stepping through.
+        for callback in list(self._new_properties_callbacks):
             try:
                 callback(new_properties)
             except Exception:

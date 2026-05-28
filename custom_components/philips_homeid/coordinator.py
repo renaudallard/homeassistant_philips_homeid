@@ -325,6 +325,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return True
         # Local EP/SM espresso machines: command port power enum (2=on, 1=off)
         if device_type == "espresso" and not self._is_fusion:
+            # Powering off cancels a pending brew so its 90s ready-wait
+            # doesn't keep polling against a machine the user just told
+            # to go to standby.
+            if not power_on:
+                brew_task = self._espresso_brew_task
+                if brew_task is not None and not brew_task.done():
+                    _LOGGER.info(
+                        "Cancelling pending espresso brew because of power-off"
+                    )
+                    brew_task.cancel()
             result = await self.api.set_espresso_power(self.device_info, power_on)
             if result:
                 if self._state:

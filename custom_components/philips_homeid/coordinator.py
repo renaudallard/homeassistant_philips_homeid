@@ -126,6 +126,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._recipe_cache = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
         self._pending_recipe_fetch: str | None = None
         self._failed_recipe_ids: set[str] = set()  # IDs that failed cloud lookup
+        # Debounce task for persisting recipe-cache updates to entry data
+        self._recipe_cache_persist_task: asyncio.Task[None] | None = None
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
         self._catalog_fetch_running: bool = False
@@ -892,6 +894,34 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             finally:
                 await cloud_api.close()
 
+    def _schedule_recipe_cache_persist(self) -> None:
+        """Debounce recipe-cache persistence to one write per ~5s window.
+
+        Without this, fetching recipe names one at a time produced one
+        disk write to the config entry per recipe, with the full cache
+        dict copied each time and the update listener fanned out
+        through HA core every time.
+        """
+        task = self._recipe_cache_persist_task
+        if task is not None and not task.done():
+            return
+
+        async def _persist() -> None:
+            try:
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                return
+            new_data = {
+                **self.config_entry.data,
+                CONF_RECIPE_CACHE: dict(self._recipe_cache),
+                CONF_RECIPE_LANGUAGE: self.hass.config.language,
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+
+        self._recipe_cache_persist_task = self.hass.async_create_task(_persist())
+
     async def _fetch_and_inject_recipe(self, recipe_id: str) -> None:
         """Fetch a recipe name from the cloud and inject into state."""
         from .cloud_api import PhilipsCloudAPI
@@ -913,14 +943,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await cloud_api.close()
             if name:
                 self._recipe_cache[recipe_id] = name
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_RECIPE_CACHE: dict(self._recipe_cache),
-                    CONF_RECIPE_LANGUAGE: self.hass.config.language,
-                }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
+                self._schedule_recipe_cache_persist()
                 if self._state:
                     airfryer = self._state.properties.get("airfryer")
                     if airfryer and isinstance(airfryer, dict):

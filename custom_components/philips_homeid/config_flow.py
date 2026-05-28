@@ -257,16 +257,13 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._cloud_email, code, self._cloud_vtoken
                     )
                     tokens = await self._cloud_api.get_oidc_tokens(session_token)
-                    # Store refresh token in existing entry. HA exposes the
-                    # source entry id in self.context, but older releases
-                    # used different keys; fall back to source_entry_id and
-                    # abort gracefully if neither is present rather than
-                    # KeyError'ing after the user has already typed the OTP.
-                    entry_id = self.context.get("entry_id") or self.context.get(
-                        "source_entry_id"
-                    )
+                    # Store refresh token in existing entry. Use .get() so a
+                    # missing context["entry_id"] surfaces as a clean abort
+                    # rather than a KeyError after the user has already
+                    # typed the OTP.
+                    entry_id = self.context.get("entry_id")
                     reauth_entry = (
-                        self.hass.config_entries.async_get_entry(str(entry_id))
+                        self.hass.config_entries.async_get_entry(entry_id)
                         if isinstance(entry_id, str) and entry_id
                         else None
                     )

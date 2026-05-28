@@ -28,7 +28,8 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
-| **Espresso Machines** | EP3546, EP2520, SM series | | Legacy HSDP / Condor, needs tester |
+| **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, read-only support |
+| **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -47,7 +48,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Dynamic Entities** | Sensors created only when device reports data |
 | **Firmware Updates** | Shows installed and available firmware versions |
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
-| **Cloud Login** | Retrieve credentials from Philips cloud via your account |
+| **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
 
 ### Air Purifiers
@@ -132,9 +133,8 @@ Devices discovered via Zeroconf or SSDP appear automatically as a notification. 
 2. Search for **Philips HomeID**
 3. Enter the device's IP address and select your device model from the dropdown
 4. Enter your Philips HomeID account email
-5. Wait while required components are installed (first run only)
-6. Enter the verification code sent to your email
-7. Select your device from the list and credentials are retrieved automatically
+5. Enter the verification code sent to your email
+6. Select your device from the list and credentials are retrieved automatically
 
 > **Important:** Select the correct device model. Auto-detect probes multiple endpoints which can overwhelm and crash the device's web server. Use auto-detect only if your model is not listed.
 
@@ -144,32 +144,32 @@ If cloud login is not available on your platform, or you prefer to enter credent
 
 #### Cloud Login
 
-After confirming the discovered device, the integration uses cloud login to retrieve credentials. The cloud login flow:
+After confirming the discovered device, the integration uses cloud login to retrieve credentials. Since v3.1.0 this is a pure-HTTP flow — no browser binaries, no extra installs. The cloud login flow:
 
 1. Authenticates with Philips via email OTP (one-time password)
-2. Installs a headless Chromium browser (Playwright) to complete OAuth authentication
-   - On glibc systems: standard pip install
-   - On Alpine/Docker: uses system Chromium and Node.js via apk
+2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
-4. Cleans up Playwright after use (only if it was not already installed)
 
-> **Platform requirements:** Cloud login uses Playwright (headless Chromium) for the OAuth step. Supported platforms:
+If the pure-HTTP path fails on your account, the integration can optionally fall back to a headless Chromium browser (Playwright). This fallback is opt-in and only triggered when explicitly enabled — it installs Playwright on demand and cleans up after itself.
+
+> **Platform requirements:** The pure-HTTP path works on every HA installation type. The optional Playwright fallback adds these platform constraints:
 > - Linux x86_64 (Intel/AMD 64-bit)
 > - Linux aarch64 (ARM 64-bit, e.g., Raspberry Pi 4/5 with 64-bit OS)
 > - macOS (Intel and Apple Silicon)
 > - Windows (x86, x64, ARM64)
 > - Home Assistant Docker containers (Alpine Linux): uses system Chromium and Node.js via apk
 >
-> **Not supported:** Linux armv7 (32-bit ARM, e.g., Raspberry Pi with 32-bit OS). On unsupported platforms, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
+> **Not supported (Playwright only):** Linux armv7 (32-bit ARM). The pure-HTTP path still works there.
 
-If cloud login fails with "Cloud authentication failed: the browser could not complete the login flow", check the Home Assistant logs for Chromium errors. The integration includes workarounds for container environments (seccomp filters, GPU unavailability), but some setups may still have issues. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
+If cloud login fails with an authentication error, check the Home Assistant logs. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
-To debug cloud login issues, enable debug logging. This also enables full Playwright and Chromium debug output to `/tmp/playwright_debug.log`:
+To debug cloud login issues, enable debug logging:
 ```yaml
 logger:
   default: warning
   logs:
     custom_components.philips_homeid.cloud_api: debug
+    custom_components.philips_homeid.cloud_auth: debug
     custom_components.philips_homeid.config_flow: debug
 ```
 
@@ -231,7 +231,7 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 ### Method 2: Cloud Key Fetcher (Standalone Tool)
 
-A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. Uses the same authentication flow as the built-in cloud login.
+A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. It uses the Playwright OAuth flow (the same one that powers the integration's opt-in fallback) and works well for one-off credential extraction.
 
 <details>
 <summary><b>Step-by-step instructions</b></summary>
@@ -380,9 +380,9 @@ All air fryer entities above (including target/current temperature and total coo
 </details>
 
 <details>
-<summary><b>Espresso Machine Entities (EP/SM series, needs tester)</b></summary>
+<summary><b>Espresso Machine Entities (EP/SM series)</b></summary>
 
-Rita-class machines (EP8757 and similar):
+Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 
 | Type | Entity | Description |
 |------|--------|-------------|
@@ -411,7 +411,7 @@ Rita-class machines (EP8757 and similar):
 | Sensor | Product Error | Device error code from shadow (diagnostic) |
 | Sensor | Device Name / Serial Number / Model Number | Config port identifiers (diagnostic) |
 
-Legacy mappings (older/untested firmwares):
+Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 
 | Type | Entity | Description |
 |------|--------|-------------|

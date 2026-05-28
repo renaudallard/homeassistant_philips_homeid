@@ -288,8 +288,13 @@ class PhilipsMQTTClient:
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=client_id,
             transport="websockets",
-            # APK uses cleanSession=false (persistent session)
-            clean_session=False,
+            # The client_id rotates every connect (fresh UUID), so the
+            # broker cannot resume a prior session anyway. Setting
+            # clean_session=True tells the broker the truth and avoids
+            # leaving orphaned session state behind. The APK reuses one
+            # client_id and sets clean_session=false; we don't, so we
+            # shouldn't pretend to.
+            clean_session=True,
         )
 
         # TLS for WSS

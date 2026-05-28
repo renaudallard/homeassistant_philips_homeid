@@ -821,6 +821,15 @@ ESPRESSO_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_types=("espresso",),
     ),
     PhilipsHomeIDSensorEntityDescription(
+        key="espresso_bean_level",
+        translation_key="espresso_bean_level",
+        property_key="beanlevel",
+        nested_key="machinestatus",
+        icon="mdi:seed-outline",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("espresso",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
         key="espresso_descale_status",
         translation_key="espresso_descale_status",
         property_key="Descalestat",

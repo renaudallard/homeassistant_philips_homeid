@@ -61,6 +61,11 @@ PORT_RECIPE = "recipe"  # VENUS recipe status
 # Multicooker ports
 PORT_NUTRIMAX = "nutrimax"  # Nutrimax multicooker (NX0960)
 PORT_HERMESAC = "hermesac"  # Hermes appliance (NX0950)
+# EP/SM espresso machine ports (e.g. EP2520 "Flash_Entry_P")
+PORT_MACHINESTATUS = "machinestatus"  # espresso state (mainstate, brewstat, ...)
+PORT_CONFIGURATION = "configuration"  # espresso config (recipelist, remotectrl, ...)
+PORT_COMMAND = "command"  # espresso command port: {"power": 2=on/1=off}
+PORT_COMMAND_BASICRECIPE = "command/BasicRecipe"  # espresso brew sub-port
 
 # Model-to-port mapping: avoids probing all ports and overwhelming
 # the device's limited web server.

@@ -306,6 +306,9 @@
       "espresso_water_level": {
         "name": "Water Level"
       },
+      "espresso_bean_level": {
+        "name": "Bean Level"
+      },
       "espresso_descale_status": {
         "name": "Descale Status"
       },
@@ -462,6 +465,12 @@
       },
       "rita_brew_hot_water": {
         "name": "Brew Hot Water"
+      },
+      "espresso_brew_espresso": {
+        "name": "Brew Espresso"
+      },
+      "espresso_brew_coffee": {
+        "name": "Brew Coffee"
       }
     },
     "number": {

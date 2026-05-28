@@ -28,7 +28,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Multicookers** | NX0960 | NUTRIMAX | Port `nutrimax` |
 | **Multicookers** | NX0950 | HERMES | Port `hermesac` |
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
-| **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, read-only support |
+| **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
@@ -418,6 +418,7 @@ Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 | Sensor | Machine State | Current state (standby, ready, brewing, etc.) |
 | Sensor | Brewing Progress | Brew cycle progress |
 | Sensor | Water Level | Water tank level |
+| Sensor | Bean Level | Bean hopper level |
 | Sensor | Descale Status | Descaling needed indicator |
 | Sensor | Filter Status | AquaClean filter state |
 | Sensor | Filter Number | Current filter number |
@@ -427,6 +428,9 @@ Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 | Sensor | Active User | Selected user profile |
 | Sensor | Water Hardness | Configured water hardness (diagnostic) |
 | Sensor | Auto Standby Time | Auto-off timer setting (diagnostic) |
+| Switch | Power | Turn the machine on or off (command port power enum) |
+| Button | Brew Espresso | Wake the machine and brew the built-in espresso (recipe 2, 40 ml) |
+| Button | Brew Coffee | Wake the machine and brew the built-in coffee (recipe 6, 120 ml) |
 | Number | Grinder Dose | Coffee grinder amount |
 | Number | Brew Temperature | Brewing temperature |
 | Number | Number of Brews | Cups per session |

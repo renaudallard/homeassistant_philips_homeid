@@ -58,11 +58,23 @@ def test_multicooker_codename_models():
     assert get_device_type("HERMES") == "multicooker"
 
 
+def test_espresso_models():
+    """EP/SM models and espresso codenames should be detected as espresso."""
+    assert get_device_type("EP2520") == "espresso"
+    assert get_device_type("EP3546") == "espresso"
+    assert get_device_type("EP8757") == "espresso"
+    assert get_device_type("SM5400") == "espresso"
+    assert get_device_type("Flash_Entry_P EP2520") == "espresso"
+    assert get_device_type("flash_entry_p ep2520") == "espresso"
+    assert get_device_type("espresso machine") == "espresso"
+    assert get_device_type("Coffee Maker") == "espresso"
+
+
 def test_unknown_models():
     """Unknown models should return unknown."""
-    assert get_device_type("EP2520") == "unknown"
     assert get_device_type("") == "unknown"
     assert get_device_type("random") == "unknown"
+    assert get_device_type("XY1234") == "unknown"
 
 
 def test_none_model():

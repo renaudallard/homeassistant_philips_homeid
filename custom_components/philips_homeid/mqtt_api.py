@@ -192,6 +192,9 @@ class PhilipsMQTTClient:
         self._reconnecting = False
         self._refreshing = False  # True during proactive token refresh
         self._stop = threading.Event()  # Set by disconnect() to stop reconnect loop
+        # Serializes the actual reconnect dance so a proactive refresh and a
+        # reactive backoff-reconnect can never produce two live paho clients.
+        self._reconnect_lock = threading.Lock()
         self._connect_time: float = 0.0  # monotonic time of last connect
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
@@ -383,13 +386,16 @@ class PhilipsMQTTClient:
 
     def _do_reconnect(self, access_token: str, signature: str) -> None:
         """Disconnect old client and connect with new credentials (blocking)."""
-        if self._client:
-            self._client.loop_stop()
-            self._client.disconnect()
-        # Clear discovered ports so they're re-fetched
-        self._discovered_ports = []
-        self._discovered_write_ports = []
-        self.connect(access_token, signature)
+        with self._reconnect_lock:
+            if self._stop.is_set():
+                return
+            if self._client:
+                self._client.loop_stop()
+                self._client.disconnect()
+            # Clear discovered ports so they're re-fetched
+            self._discovered_ports = []
+            self._discovered_write_ports = []
+            self.connect(access_token, signature)
 
     def request_state(self) -> None:
         """Request the device shadow state.
@@ -612,10 +618,13 @@ class PhilipsMQTTClient:
                 try:
                     assert self._credential_refresh is not None
                     access_token, signature = self._credential_refresh()
-                    if self._client:
-                        self._client.loop_stop()
-                        self._client.disconnect()
-                    self.connect(access_token, signature)
+                    with self._reconnect_lock:
+                        if self._stop.is_set():
+                            return
+                        if self._client:
+                            self._client.loop_stop()
+                            self._client.disconnect()
+                        self.connect(access_token, signature)
                     _LOGGER.info("MQTT reconnected successfully")
                     return
                 except Exception:

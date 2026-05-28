@@ -533,6 +533,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     # of built-in drinks (BrewRitaRegularDrinkUseCase).
     RITA_DRINK_HOT_WATER = 21
 
+    # Built-in recipe IDs and PrimDose (water volume in ml) for the local
+    # EP/SM espresso command/BasicRecipe port. Captured from the HomeID app
+    # against a real EP2520.
+    ESPRESSO_RECIPE_ID_ESPRESSO = 2
+    ESPRESSO_PRIM_DOSE_ESPRESSO = 40
+    ESPRESSO_RECIPE_ID_COFFEE = 6
+    ESPRESSO_PRIM_DOSE_COFFEE = 120
+
     def _rita_session_id(self) -> int:
         """Generate a new Rita session owner id (APK RitaSessionIdGenerator)."""
         return secrets.randbelow(2**31 - 10) + 10
@@ -716,12 +724,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return result
 
     async def async_espresso_brew_espresso(self) -> bool:
-        """Brew a built-in espresso (RecipeBookId 2, 40 ml)."""
-        return await self.async_espresso_brew(2, 40)
+        """Brew a built-in espresso."""
+        return await self.async_espresso_brew(
+            self.ESPRESSO_RECIPE_ID_ESPRESSO,
+            self.ESPRESSO_PRIM_DOSE_ESPRESSO,
+        )
 
     async def async_espresso_brew_coffee(self) -> bool:
-        """Brew a built-in coffee (RecipeBookId 6, 120 ml)."""
-        return await self.async_espresso_brew(6, 120)
+        """Brew a built-in coffee."""
+        return await self.async_espresso_brew(
+            self.ESPRESSO_RECIPE_ID_COFFEE,
+            self.ESPRESSO_PRIM_DOSE_COFFEE,
+        )
 
     def _rita_current_roast_level(self) -> int:
         """Return the roast level the machine last reported, or 0."""

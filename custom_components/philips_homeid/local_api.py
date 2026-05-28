@@ -823,27 +823,41 @@ class PhilipsLocalAPI:
         https_task = asyncio.ensure_future(self._probe_with_protocol(https_device))
         http_task = asyncio.ensure_future(self._probe_with_protocol(http_device))
 
-        done, pending = await asyncio.wait(
-            [https_task, http_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+        try:
+            done, pending = await asyncio.wait(
+                [https_task, http_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
 
-        # Check completed tasks for a result
-        for task in done:
-            result = task.result()
-            if result:
-                for p in pending:
-                    p.cancel()
-                return result
+            # Check completed tasks for a result. Use exception() so a raised
+            # exception in either task does not skip the cancellation below.
+            for task in done:
+                exc = task.exception()
+                if exc is not None:
+                    _LOGGER.debug("Probe task raised: %s", exc)
+                    continue
+                result = task.result()
+                if result:
+                    return result
 
-        # First completed task returned None, wait for the other
-        if pending:
-            remaining = await asyncio.gather(*pending, return_exceptions=True)
-            for item in remaining:
-                if isinstance(item, LocalDeviceInfo):
-                    return item
+            # First completed task returned None or raised; wait for the other.
+            if pending:
+                remaining = await asyncio.gather(*pending, return_exceptions=True)
+                for item in remaining:
+                    if isinstance(item, LocalDeviceInfo):
+                        return item
 
-        return None
+            return None
+        finally:
+            # Always cancel any task still running and drain it so we don't
+            # leak an orphan that logs "Task exception was never retrieved".
+            for task in (https_task, http_task):
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except (asyncio.CancelledError, Exception):
+                        pass
 
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""

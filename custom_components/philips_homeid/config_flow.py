@@ -457,9 +457,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle cloud login - email entry.
 
-        If the user opts in to Playwright we route through cloud_install so
-        the install can run with a progress spinner. Otherwise OTP is sent
-        inline and we jump straight to cloud_otp.
+        OTP is sent inline, then we jump straight to cloud_otp.
         """
         errors: dict[str, str] = {}
 
@@ -472,11 +470,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "missing_email"
             else:
                 self._cloud_email = email
-                self._cloud_use_playwright = bool(user_input.get("use_playwright"))
                 self._cloud_api = PhilipsCloudAPI()
-
-                if self._cloud_use_playwright:
-                    return await self.async_step_cloud_install()
 
                 try:
                     self._cloud_vtoken = await self._cloud_api.request_otp(email)
@@ -495,7 +489,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("email"): str,
-                    vol.Optional("use_playwright", default=False): bool,
                     vol.Optional("manual_entry", default=False): bool,
                 }
             ),

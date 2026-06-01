@@ -150,16 +150,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
 
-If the pure-HTTP path fails on your account, the integration can optionally fall back to a headless Chromium browser (Playwright). This fallback is opt-in and only triggered when explicitly enabled — it installs Playwright on demand and cleans up after itself.
-
-> **Platform requirements:** The pure-HTTP path works on every HA installation type. The optional Playwright fallback adds these platform constraints:
-> - Linux x86_64 (Intel/AMD 64-bit)
-> - Linux aarch64 (ARM 64-bit, e.g., Raspberry Pi 4/5 with 64-bit OS)
-> - macOS (Intel and Apple Silicon)
-> - Windows (x86, x64, ARM64)
-> - Home Assistant Docker containers (Alpine Linux): uses system Chromium and Node.js via apk
->
-> **Not supported (Playwright only):** Linux armv7 (32-bit ARM). The pure-HTTP path still works there.
+The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 
 If cloud login fails with an authentication error, check the Home Assistant logs. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
@@ -231,7 +222,7 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 ### Method 2: Cloud Key Fetcher (Standalone Tool)
 
-A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. It uses the Playwright OAuth flow (the same one that powers the integration's opt-in fallback) and works well for one-off credential extraction.
+A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. It uses a headless Chromium (Playwright) OAuth flow and works well for one-off credential extraction. Playwright supports Linux x86_64/aarch64, macOS, and Windows, but not 32-bit ARM (armv7).
 
 <details>
 <summary><b>Step-by-step instructions</b></summary>

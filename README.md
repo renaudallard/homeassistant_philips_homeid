@@ -154,6 +154,8 @@ The pure-HTTP path works on every Home Assistant installation type and CPU archi
 
 If cloud login fails with an authentication error, check the Home Assistant logs. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
 
+If setup reports that the email is not a fully registered Philips HomeID account, the verification code was correct but the account cannot be used for email login. This happens when the account was created through a social provider (Google, Apple, Facebook) or registration was never completed. Sign in once in the Philips HomeID app with that email to finish registration, then retry, or enter credentials manually.
+
 To debug cloud login issues, enable debug logging:
 ```yaml
 logger:

@@ -90,6 +90,7 @@
       "missing_code": "Introduce el código de verificación",
       "otp_send_failed": "Error al enviar el código de verificación. Comprueba tu correo e inténtalo de nuevo.",
       "otp_failed": "Código de verificación no válido. Inténtalo de nuevo.",
+      "account_not_registered": "Este correo electrónico no es una cuenta de Philips HomeID totalmente registrada. Inicia sesión una vez en la app Philips HomeID con este correo y vuelve a intentarlo, o reinicia e introduce las credenciales manualmente.",
       "no_cloud_devices": "No se encontraron dispositivos en tu cuenta Philips.",
       "cloud_credentials_not_found": "No se pudieron recuperar las credenciales de la nube. Intenta introducirlas manualmente.",
       "cloud_no_ip": "La dirección IP del dispositivo no está disponible desde la nube. Intenta introducir la dirección IP manualmente.",

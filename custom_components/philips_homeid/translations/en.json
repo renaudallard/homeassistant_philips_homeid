@@ -91,6 +91,7 @@
       "missing_code": "Please enter the verification code",
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
+      "account_not_registered": "This email is not a fully registered Philips HomeID account. Sign in once in the Philips HomeID app with this email, then try again, or restart and use manual credential entry.",
       "cloud_unreachable": "The Philips cloud is temporarily unreachable. Please wait a moment and try again.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",

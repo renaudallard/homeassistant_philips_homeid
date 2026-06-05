@@ -90,6 +90,7 @@
       "missing_code": "인증 코드를 입력하세요",
       "otp_send_failed": "인증 코드 전송 실패",
       "otp_failed": "인증 코드가 유효하지 않습니다",
+      "account_not_registered": "이 이메일은 완전히 등록된 Philips HomeID 계정이 아닙니다. 이 이메일로 Philips HomeID 앱에 한 번 로그인한 후 다시 시도하거나, 처음부터 다시 시작하여 자격 증명을 수동으로 입력하세요.",
       "no_cloud_devices": "기기를 찾을 수 없습니다",
       "cloud_credentials_not_found": "클라우드에서 자격 증명을 가져올 수 없습니다",
       "cloud_no_ip": "IP 주소를 사용할 수 없습니다",

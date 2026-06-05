@@ -101,6 +101,19 @@ class CloudConnectionError(CloudAuthError):
     """
 
 
+class CloudNotRegisteredError(CloudAuthError):
+    """Raised when the OTP code is accepted but the account is not usable.
+
+    Gigya returns errorCode 206001 ("Account Pending Registration") when
+    the verification code was correct but the email is not a fully
+    registered Philips HomeID account (required registration/consent
+    fields are missing, e.g. the user signed up via a social provider or
+    never finished registration). Email-OTP login cannot complete it, so
+    the caller should tell the user to register in the app or fall back
+    to manual credential entry rather than report a wrong code.
+    """
+
+
 # Script run in an isolated Python subprocess so Playwright's child
 # processes and signal handlers don't fight Home Assistant's process
 # manager. The subprocess writes the auth code (or nothing) to stdout.
@@ -289,9 +302,18 @@ class PhilipsCloudAuth:
             raise CloudConnectionError(f"OTP verify failed: HTTP {status}")
 
         error_code = data.get("errorCode", -1)
+        if error_code == 206001:
+            # The code was accepted, but this email is not a fully
+            # registered Philips HomeID account (Gigya "Account Pending
+            # Registration"). Completing it needs consent fields the
+            # integration cannot grant, so steer the user accordingly.
+            raise CloudNotRegisteredError(
+                "Account pending registration: this email is not a fully "
+                "registered Philips HomeID account"
+            )
         if error_code != 0:
             msg = data.get("errorMessage", "Unknown error")
-            raise CloudAuthError(f"OTP verification failed: {msg}")
+            raise CloudAuthError(msg)
 
         session_token = data.get("sessionInfo", {}).get("cookieValue")
         if not session_token:

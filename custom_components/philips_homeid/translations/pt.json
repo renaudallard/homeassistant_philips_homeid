@@ -90,6 +90,7 @@
       "missing_code": "Introduza o codigo de verificacao",
       "otp_send_failed": "Falha ao enviar codigo de verificacao",
       "otp_failed": "Codigo de verificacao invalido",
+      "account_not_registered": "Este email não é uma conta Philips HomeID totalmente registada. Inicie sessão uma vez na aplicação Philips HomeID com este email e tente novamente, ou recomece e introduza as credenciais manualmente.",
       "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
       "cloud_credentials_not_found": "Nao foi possivel obter credenciais da cloud",
       "cloud_no_ip": "Endereco IP nao disponivel",

@@ -42,7 +42,12 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from homeassistant.core import callback
 
-from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
+from .cloud_api import (
+    CloudAuthError,
+    CloudConnectionError,
+    CloudNotRegisteredError,
+    PhilipsCloudAPI,
+)
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
@@ -286,6 +291,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except CloudConnectionError as err:
                     _LOGGER.warning("Reauth OTP verify: cloud unreachable (%s)", err)
                     errors["base"] = "cloud_unreachable"
+                except CloudNotRegisteredError as err:
+                    _LOGGER.error("Reauth OTP login: %s", err)
+                    errors["base"] = "account_not_registered"
                 except CloudAuthError as err:
                     _LOGGER.error("Reauth OTP failed: %s", err)
                     errors["base"] = "otp_failed"
@@ -572,6 +580,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except CloudConnectionError as err:
                     _LOGGER.warning("OTP verify: cloud unreachable (%s)", err)
                     errors["base"] = "cloud_unreachable"
+                    await self._close_cloud_api()
+                except CloudNotRegisteredError as err:
+                    _LOGGER.error("OTP login: %s", err)
+                    errors["base"] = "account_not_registered"
                     await self._close_cloud_api()
                 except CloudAuthError as err:
                     _LOGGER.error("OTP verification failed: %s", err)

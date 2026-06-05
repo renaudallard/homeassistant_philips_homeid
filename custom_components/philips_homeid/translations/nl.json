@@ -90,6 +90,7 @@
       "missing_code": "Voer de verificatiecode in",
       "otp_send_failed": "Verzenden van verificatiecode mislukt. Controleer uw e-mail en probeer het opnieuw.",
       "otp_failed": "Ongeldige verificatiecode. Probeer het opnieuw.",
+      "account_not_registered": "Dit e-mailadres is geen volledig geregistreerd Philips HomeID-account. Meld u eenmaal aan in de Philips HomeID-app met dit e-mailadres en probeer het opnieuw, of begin opnieuw en voer de inloggegevens handmatig in.",
       "no_cloud_devices": "Geen apparaten gevonden in uw Philips-account.",
       "cloud_credentials_not_found": "Kan de inloggegevens niet ophalen uit de cloud. Probeer ze handmatig in te voeren.",
       "cloud_no_ip": "IP-adres van apparaat niet beschikbaar via de cloud. Probeer het IP-adres handmatig in te voeren.",

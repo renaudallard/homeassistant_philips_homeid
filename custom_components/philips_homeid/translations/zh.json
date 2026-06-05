@@ -90,6 +90,7 @@
       "missing_code": "请输入验证码",
       "otp_send_failed": "发送验证码失败",
       "otp_failed": "验证码无效",
+      "account_not_registered": "此电子邮件不是完整注册的 Philips HomeID 账户。请使用此电子邮件在 Philips HomeID 应用中登录一次，然后重试，或者重新开始并手动输入凭据。",
       "no_cloud_devices": "未找到设备",
       "cloud_credentials_not_found": "无法从云端获取凭据",
       "cloud_no_ip": "IP地址不可用",

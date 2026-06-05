@@ -32,9 +32,19 @@ import re
 import time
 from typing import Any
 
-from .cloud_auth import CloudAuthError, CloudConnectionError, PhilipsCloudAuth
+from .cloud_auth import (
+    CloudAuthError,
+    CloudConnectionError,
+    CloudNotRegisteredError,
+    PhilipsCloudAuth,
+)
 
-__all__ = ["CloudAuthError", "CloudConnectionError", "PhilipsCloudAPI"]
+__all__ = [
+    "CloudAuthError",
+    "CloudConnectionError",
+    "CloudNotRegisteredError",
+    "PhilipsCloudAPI",
+]
 
 _LOGGER = logging.getLogger(__name__)
 

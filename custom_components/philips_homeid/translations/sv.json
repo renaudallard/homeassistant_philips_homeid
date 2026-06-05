@@ -90,6 +90,7 @@
       "missing_code": "Ange verifieringskod",
       "otp_send_failed": "Kunde inte skicka verifieringskod",
       "otp_failed": "Ogiltig verifieringskod",
+      "account_not_registered": "Den här e-postadressen är inte ett fullständigt registrerat Philips HomeID-konto. Logga in en gång i Philips HomeID-appen med den här e-postadressen och försök igen, eller börja om och ange uppgifterna manuellt.",
       "no_cloud_devices": "Inga enheter hittades",
       "cloud_credentials_not_found": "Kunde inte hamta uppgifter fran molnet",
       "cloud_no_ip": "IP-adress inte tillganglig",

@@ -90,6 +90,7 @@
       "missing_code": "Wprowadz kod weryfikacyjny",
       "otp_send_failed": "Blad wysylania kodu",
       "otp_failed": "Nieprawidlowy kod",
+      "account_not_registered": "Ten adres e-mail nie jest w pełni zarejestrowanym kontem Philips HomeID. Zaloguj się raz w aplikacji Philips HomeID przy użyciu tego adresu e-mail i spróbuj ponownie albo zacznij od nowa i wprowadź dane logowania ręcznie.",
       "no_cloud_devices": "Nie znaleziono urzadzen",
       "cloud_credentials_not_found": "Nie mozna pobrac danych z chmury",
       "cloud_no_ip": "Adres IP niedostepny",

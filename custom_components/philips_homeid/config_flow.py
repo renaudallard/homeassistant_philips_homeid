@@ -577,18 +577,18 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._cloud_email, code, self._cloud_vtoken
                     )
                     self._cloud_session_token = session_token
+                # Keep the cloud API (and its vToken) alive on these
+                # errors so the user can re-enter the code without
+                # restarting the whole flow, matching the reauth step.
                 except CloudConnectionError as err:
                     _LOGGER.warning("OTP verify: cloud unreachable (%s)", err)
                     errors["base"] = "cloud_unreachable"
-                    await self._close_cloud_api()
                 except CloudNotRegisteredError as err:
                     _LOGGER.error("OTP login: %s", err)
                     errors["base"] = "account_not_registered"
-                    await self._close_cloud_api()
                 except CloudAuthError as err:
                     _LOGGER.error("OTP verification failed: %s", err)
                     errors["base"] = "otp_failed"
-                    await self._close_cloud_api()
 
                 if not errors:
                     try:

@@ -548,6 +548,9 @@
           "easy_clean": "Limpeza fácil"
         }
       },
+      "my_preset": {
+        "name": "As minhas predefinições"
+      },
       "rita_roast_level_select": {
         "name": "Nível de torra",
         "state": {

@@ -634,6 +634,7 @@ class PhilipsLocalAPI:
         preset: int | None = None,
         airspeed: int | None = None,
         probe_temp: int | None = None,
+        recipe_id: str | None = None,
     ) -> bool:
         """Set airfryer cooking settings.
 
@@ -644,6 +645,7 @@ class PhilipsLocalAPI:
             preset: Preset program number
             airspeed: Air speed (1=LOW, 2=HIGH, Venus only)
             probe_temp: Target probe temperature (Venus only)
+            recipe_id: Recipe/custom-preset id carried with a preset cook
         """
         port = self._airfryer_port(device)
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
@@ -658,6 +660,8 @@ class PhilipsLocalAPI:
             data["probe_required"] = True
         if preset is not None:
             data["preset"] = preset
+        if recipe_id is not None:
+            data["recipe_id"] = recipe_id
         if port in VENUS_STYLE_PORTS:
             # Venus: temp_unit True=Fahrenheit, False=Celsius (standard)
             data["temp_unit"] = temp_unit_fahrenheit

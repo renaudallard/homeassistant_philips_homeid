@@ -41,8 +41,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     ACTIVE_SCAN_INTERVAL,
     CONF_ACTIVE_SCAN_INTERVAL,
+    CONF_APPLIANCE_ID,
     CONF_AUTOCOOK_CATALOG_FETCHED,
     CONF_CLOUD_REFRESH_TOKEN,
+    CONF_DEVICE_ID,
+    CONF_MY_PRESETS,
+    CONF_MY_PRESETS_FETCHED,
+    CONF_MY_PRESETS_LANGUAGE,
     CONF_PLATFORM_REST_URL,
     CONF_RECIPE_CACHE,
     CONF_RECIPE_LANGUAGE,
@@ -126,6 +131,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._recipe_cache = dict(entry.data.get(CONF_RECIPE_CACHE, {}))
         self._pending_recipe_fetch: str | None = None
         self._failed_recipe_ids: set[str] = set()  # IDs that failed cloud lookup
+        # Custom "My Presets" from the cloud account. Invalidate if the HA
+        # language changed since they were fetched (names are localized).
+        presets_lang = entry.data.get(CONF_MY_PRESETS_LANGUAGE, "")
+        if presets_lang and presets_lang != hass.config.language:
+            self._my_presets: list[dict[str, Any]] = []
+        else:
+            self._my_presets = list(entry.data.get(CONF_MY_PRESETS, []))
+        self._my_presets_fetch_running = False
         # Debounce task for persisting recipe-cache updates to entry data
         self._recipe_cache_persist_task: asyncio.Task[None] | None = None
         # Background task for local-espresso wake+brew. The heat-up can take
@@ -461,6 +474,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         preset: int | None = None,
         airspeed: int | None = None,
         probe_temp: int | None = None,
+        recipe_id: str | None = None,
     ) -> bool:
         """Set airfryer cooking settings (APK SpectreCookingSettingsSetConverter).
 
@@ -479,6 +493,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["airspeed"] = airspeed
             if probe_temp is not None:
                 props["probe_temp"] = probe_temp
+            if recipe_id is not None:
+                props["recipe_id"] = recipe_id
             if temp_unit_fahrenheit:
                 props["temp_unit"] = False  # SPECTRE: True=C, False=F
             if props:
@@ -499,6 +515,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             preset,
             airspeed,
             probe_temp,
+            recipe_id,
         )
         if result:
             await self.async_request_refresh()
@@ -983,6 +1000,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         ):
             self._catalog_fetch_running = True
             self.hass.async_create_task(self._populate_autocook_catalog())
+        presets_fresh = (
+            self.config_entry.data.get(CONF_MY_PRESETS_FETCHED)
+            and self.config_entry.data.get(CONF_MY_PRESETS_LANGUAGE, "")
+            == self.hass.config.language
+        )
+        if (
+            not presets_fresh
+            and not self._my_presets_fetch_running
+            and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
+        ):
+            self._my_presets_fetch_running = True
+            self.hass.async_create_task(self._populate_my_presets())
         recipe_id = str(airfryer.get("recipe_id", ""))
         if not recipe_id or recipe_id == "0":
             recipe = self._state.properties.get("recipe")
@@ -1131,6 +1160,117 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         finally:
             self._catalog_fetch_running = False
 
+    def my_preset_options(self) -> dict[str, dict[str, Any]]:
+        """Return the user's custom presets keyed by display name."""
+        return {p["name"]: p for p in self._my_presets if p.get("name")}
+
+    async def async_apply_my_preset(self, name: str) -> bool:
+        """Apply a custom preset (APK SpectreUserPresetSetConverter).
+
+        A custom preset is sent as a manual cook (preset 0) carrying the
+        preset's shortId in recipe_id plus its default temperature and
+        time. As with the built-in cooking method, the device enters the
+        setting state and the user presses Start to begin cooking.
+        """
+        preset = self.my_preset_options().get(name)
+        if not preset:
+            return False
+        return await self.async_airfryer_set_settings(
+            preset=0,
+            temp=preset.get("temp"),
+            time_seconds=preset.get("time"),
+            temp_unit_fahrenheit=bool(preset.get("fahrenheit")),
+            recipe_id=preset.get("short_id"),
+        )
+
+    async def _resolve_appliance_id(
+        self, cloud_api: Any, access_token: str
+    ) -> str | None:
+        """Find this device's cloud appliance id, cached in the entry.
+
+        The id is the last path segment of the appliance self link (APK
+        UiDevice.applianceId = StringUtils.b(applianceSelfLink)). The right
+        appliance is matched by MAC / external id / serial.
+        """
+        cached = self.config_entry.data.get(CONF_APPLIANCE_ID, "")
+        if cached:
+            return str(cached)
+
+        items = await cloud_api.get_appliances_via_homeid(
+            {"access_token": access_token}
+        )
+        targets = {
+            v.lower()
+            for v in (
+                self.device_info.cpp_id,
+                self.config_entry.data.get(CONF_DEVICE_ID, ""),
+                self.device_info.serial_number,
+            )
+            if v
+        }
+        for item in items:
+            keys = {
+                str(item.get(k, "")).lower()
+                for k in ("macAddress", "externalDeviceId", "serialNumber")
+            }
+            if not targets & keys:
+                continue
+            href = (
+                ((item.get("_links") or {}).get("self") or {}).get("href")
+                or item.get("id")
+                or ""
+            )
+            if not href:
+                continue
+            appliance_id = str(href).rsplit("/", 1)[-1].split("?")[0]
+            new_data = {**self.config_entry.data, CONF_APPLIANCE_ID: appliance_id}
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+            return appliance_id
+        return None
+
+    async def _populate_my_presets(self) -> None:
+        """Fetch and cache the user's custom presets from the cloud."""
+        from .cloud_api import PhilipsCloudAPI
+
+        try:
+            access_token = await self._get_access_token()
+            if not access_token:
+                return
+            cloud_api = PhilipsCloudAPI()
+            try:
+                appliance_id = await self._resolve_appliance_id(cloud_api, access_token)
+                presets: list[dict[str, Any]] = []
+                if appliance_id:
+                    presets = await cloud_api.get_my_presets(
+                        access_token, appliance_id, self.hass.config.language
+                    )
+                else:
+                    _LOGGER.debug("My Presets: no matching cloud appliance found")
+            finally:
+                await cloud_api.close()
+            self._my_presets = presets
+            new_data = {
+                **self.config_entry.data,
+                CONF_MY_PRESETS: presets,
+                CONF_MY_PRESETS_LANGUAGE: self.hass.config.language,
+                CONF_MY_PRESETS_FETCHED: True,
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=new_data
+            )
+            _LOGGER.info("My Presets cached: %d preset(s)", len(presets))
+            if presets:
+                # Re-run platform setup so the select appears on first fetch.
+                self._notify_new_properties([("my_preset", "airfryer")])
+                if self._state:
+                    self.async_set_updated_data(self._state)
+        except Exception:
+            _LOGGER.warning("My Presets fetch failed", exc_info=True)
+        finally:
+            self._my_presets_fetch_running = False
+
     async def async_refresh_recipe_cache(self) -> bool:
         """Clear cache and re-fetch current recipe from the cloud API."""
         refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
@@ -1143,10 +1283,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             **self.config_entry.data,
             CONF_RECIPE_CACHE: {},
             CONF_AUTOCOOK_CATALOG_FETCHED: False,
+            CONF_MY_PRESETS_FETCHED: False,
         }
         self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
         self._catalog_fetch_running = True
         await self._populate_autocook_catalog()
+        self._my_presets_fetch_running = True
+        await self._populate_my_presets()
         # Re-fetch current recipe if active
         if self._state:
             airfryer = self._state.properties.get("airfryer")

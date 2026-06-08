@@ -415,6 +415,9 @@
           "user_preset": "User Preset",
           "easy_clean": "Easy Clean"
         }
+      },
+      "my_preset": {
+        "name": "My Presets"
       }
     },
     "switch": {

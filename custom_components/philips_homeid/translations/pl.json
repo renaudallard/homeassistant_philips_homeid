@@ -548,6 +548,9 @@
           "easy_clean": "Łatwe czyszczenie"
         }
       },
+      "my_preset": {
+        "name": "Moje ustawienia"
+      },
       "rita_roast_level_select": {
         "name": "Stopień palenia",
         "state": {

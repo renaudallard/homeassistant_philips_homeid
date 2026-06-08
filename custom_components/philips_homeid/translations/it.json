@@ -548,6 +548,9 @@
           "easy_clean": "Pulizia facile"
         }
       },
+      "my_preset": {
+        "name": "Le mie preimpostazioni"
+      },
       "rita_roast_level_select": {
         "name": "Livello di tostatura",
         "state": {

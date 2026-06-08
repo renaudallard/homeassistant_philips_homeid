@@ -548,6 +548,9 @@
           "easy_clean": "간편 세척"
         }
       },
+      "my_preset": {
+        "name": "내 프리셋"
+      },
       "rita_roast_level_select": {
         "name": "로스팅 레벨",
         "state": {

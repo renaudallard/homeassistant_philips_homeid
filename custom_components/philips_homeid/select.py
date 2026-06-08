@@ -133,6 +133,11 @@ async def async_setup_entry(
                     PhilipsHomeIDCookingMethodSelect(coordinator, coordinator.device_id)
                 )
                 created_keys.add("cooking_method")
+            if "my_preset" not in created_keys and coordinator.my_preset_options():
+                entities.append(
+                    PhilipsHomeIDMyPresetSelect(coordinator, coordinator.device_id)
+                )
+                created_keys.add("my_preset")
             if (
                 "autocook_program" not in created_keys
                 and coordinator.mqtt_client is None
@@ -242,6 +247,42 @@ class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
         preset_id = self._name_to_id.get(option)
         if preset_id is not None:
             await self.coordinator.async_airfryer_set_settings(preset=preset_id)
+
+
+class PhilipsHomeIDMyPresetSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Custom "My Presets" created by the user in the Philips HomeID app.
+
+    The options come from the cloud account, so the list is dynamic.
+    Selecting one applies its saved temperature and time; the device
+    enters the setting state and the user presses Start to begin cooking.
+    """
+
+    _attr_translation_key = "my_preset"
+    _attr_icon = "mdi:star-cog"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the select entity."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_my_preset"
+
+    @property
+    def options(self) -> list[str]:
+        return list(self.coordinator.my_preset_options().keys())
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the preset matching the active recipe id, if any."""
+        recipe_id = self._get_property_value("recipe_id", "airfryer")
+        if not recipe_id or str(recipe_id) == "0":
+            return None
+        for name, preset in self.coordinator.my_preset_options().items():
+            if preset.get("short_id") == str(recipe_id):
+                return name
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        """Apply the selected custom preset."""
+        await self.coordinator.async_apply_my_preset(option)
 
 
 class PhilipsHomeIDRitaRoastLevelSelect(PhilipsHomeIDEntity, SelectEntity):

@@ -548,6 +548,9 @@
           "easy_clean": "Makkelijk schoonmaken"
         }
       },
+      "my_preset": {
+        "name": "Mijn presets"
+      },
       "rita_roast_level_select": {
         "name": "Brandingsniveau",
         "state": {

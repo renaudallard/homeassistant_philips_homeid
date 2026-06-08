@@ -63,6 +63,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 - Cooking status, temperature (target/current), time remaining
 - Controls: start, pause, stop, keep warm, temperature, cook time, preheat toggle
 - Cooking method select (architecture-specific presets)
+- Custom "My Presets" select (presets created in the Philips HomeID app; cloud login required)
 - Sensors: drawer state, preheat status, shake/flip reminders
 - Venus devices: air speed, probe temperature, dialog, voltage, previous status
 - AutoCook program tracking (UUID, doneness, amount, weight, thickness)
@@ -344,6 +345,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Set Probe Temperature | Target probe temp (Venus only) |
 | Number | Keep Warm Duration / Temperature | Keep warm settings |
 | Select | Cooking Method | Preset selection (architecture-specific) |
+| Select | My Presets | Apply a custom preset created in the Philips HomeID app (cloud login required; SPECTRE airfryers) |
 | Select | AutoCook Program | Pick a built-in AutoCook program by name (Venus local only; names come from the cached cloud catalog) |
 | Switch | Power | Power status indicator, sends standby on off (FUSION only) |
 | Switch | Preheat | Enable preheat for next cooking start |
@@ -462,7 +464,13 @@ The integration automatically detects FUSION devices during setup. When a device
 - Recipe names are fetched in the Home Assistant configured language and cached locally
 - Cache auto-invalidates when the HA language changes
 - For airfryers, the full built-in AutoCook catalog is fetched once (on first startup after cloud login) and kept in the persistent cache, so recipe names appear immediately without waiting for the first cook
-- A "Refresh Recipes" button allows manual re-fetch of both the catalog and the active recipe; for local-only devices, pressing it triggers a one-time cloud login (email + OTP) to get tokens
+- A "Refresh Recipes" button allows manual re-fetch of the catalog, the active recipe and the custom presets; for local-only devices, pressing it triggers a one-time cloud login (email + OTP) to get tokens
+
+**My Presets (custom presets):**
+- Custom presets created in the Philips HomeID app live in the cloud account, not on the device, so a cloud login is required
+- They are fetched once per appliance and cached locally (re-fetched on language change or via the Refresh Recipes button)
+- A "My Presets" select lists them by name; picking one applies its saved temperature and time and puts the device in the setting state, then press Start to cook (same flow as the built-in cooking method)
+- Supported on SPECTRE airfryers; the apply matches the app, which sends the preset as a manual cook carrying the preset id
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)

@@ -52,6 +52,14 @@ CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
 CONF_RECIPE_CACHE = "recipe_cache"
 CONF_RECIPE_LANGUAGE = "recipe_language"
 CONF_AUTOCOOK_CATALOG_FETCHED = "autocook_catalog_fetched"
+# Custom "My Presets" created by the user in the Philips HomeID app. These
+# live in the cloud account, are fetched per appliance and cached here.
+CONF_MY_PRESETS = "my_presets"
+CONF_MY_PRESETS_LANGUAGE = "my_presets_language"
+CONF_MY_PRESETS_FETCHED = "my_presets_fetched"
+# Cloud appliance id (last path segment of the appliance self link), needed
+# to resolve the per-appliance My Presets endpoint.
+CONF_APPLIANCE_ID = "appliance_id"
 
 # FUSION (cloud MQTT relay) configuration keys
 CONF_IS_FUSION = "is_fusion"

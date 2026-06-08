@@ -627,13 +627,15 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         visit(data)
         return result
 
-    async def _get_autocook_template(self, access_token: str) -> str | None:
-        """Return the AutoCook programs URL template from the root API.
+    async def _get_root_links(self, access_token: str) -> dict[str, Any]:
+        """Return the root API _links map, cached after first discovery.
 
-        Cached on the instance after first successful discovery.
+        Chain: GET /.well-known/tenant/oneka -> spaces[].backendBaseUrl ->
+        root document _links. The same root document holds every templated
+        link (autocookPrograms, profileSelfApplianceCookingMethods, ...).
         """
-        cached = getattr(self, "_autocook_template_cache", None)
-        if cached:
+        cached = getattr(self, "_root_links_cache", None)
+        if cached is not None:
             return cached
 
         session = await self._get_session()
@@ -641,14 +643,13 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(discovery_url) as resp:
                 if resp.status != 200:
-                    _LOGGER.debug("AutoCook discovery failed: HTTP %s", resp.status)
-                    return None
+                    _LOGGER.debug("Root API discovery failed: HTTP %s", resp.status)
+                    return {}
                 discovery = await resp.json(content_type=None)
         except Exception:
-            _LOGGER.debug("AutoCook discovery request failed", exc_info=True)
-            return None
+            _LOGGER.debug("Root API discovery request failed", exc_info=True)
+            return {}
 
-        spaces = discovery.get("spaces") or []
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": HOMEID_ACCEPT,
@@ -656,11 +657,11 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
-        for space in spaces:
+        for space in discovery.get("spaces") or []:
             base_url = space.get("backendBaseUrl", "")
             if not base_url:
                 continue
-            _LOGGER.debug("AutoCook root API: GET %s", base_url)
+            _LOGGER.debug("Root API: GET %s", base_url)
             try:
                 async with session.get(base_url, headers=headers) as resp:
                     if resp.status != 200:
@@ -668,17 +669,113 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                     root = await resp.json(content_type=None)
             except Exception:
                 continue
-            links = root.get("_links") or {}
-            link = links.get("autocookPrograms") or {}
-            if isinstance(link, list):
-                link = link[0] if link else {}
-            href = link.get("href") if isinstance(link, dict) else None
-            if href:
-                self._autocook_template_cache = href
-                _LOGGER.debug("AutoCook template discovered: %s", href)
-                return href
-        _LOGGER.debug("AutoCook template not found in any space")
-        return None
+            links = root.get("_links")
+            if isinstance(links, dict) and links:
+                self._root_links_cache = links
+                return links
+        _LOGGER.debug("Root API links not found in any space")
+        return {}
+
+    @staticmethod
+    def _root_link_href(links: dict[str, Any], key: str) -> str | None:
+        """Return the templated href for a named root API link."""
+        link = links.get(key) or {}
+        if isinstance(link, list):
+            link = link[0] if link else {}
+        return link.get("href") if isinstance(link, dict) else None
+
+    async def _get_autocook_template(self, access_token: str) -> str | None:
+        """Return the AutoCook programs URL template from the root API."""
+        cached = getattr(self, "_autocook_template_cache", None)
+        if cached:
+            return cached
+        links = await self._get_root_links(access_token)
+        href = self._root_link_href(links, "autocookPrograms")
+        if href:
+            self._autocook_template_cache = href
+            _LOGGER.debug("AutoCook template discovered: %s", href)
+        return href
+
+    async def get_my_presets(
+        self, access_token: str, appliance_id: str, language: str = "en-GB"
+    ) -> list[dict[str, Any]]:
+        """Fetch the user's custom cooking presets for one appliance.
+
+        Resolves the root API link profileSelfApplianceCookingMethods,
+        expands {id} with the appliance id and GETs the collection. Each
+        returned preset is a dict with name, short_id, temp, time and
+        fahrenheit keys. Returns an empty list on any failure.
+        """
+        links = await self._get_root_links(access_token)
+        template = self._root_link_href(links, "profileSelfApplianceCookingMethods")
+        if not template:
+            _LOGGER.debug("My Presets link not in root API")
+            return []
+        url = template.replace("{id}", appliance_id)
+        url = re.sub(r"\{[^}]*\}", "", url)
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}ts={int(time.time() * 1000)}"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.oneka.v2.0+json",
+            "Accept-Language": _expand_language_tag(language),
+            "User-Agent": HOMEID_USER_AGENT,
+            "X-USER-AGENT": HOMEID_X_USER_AGENT,
+        }
+        _LOGGER.debug("My Presets: GET %s", url)
+        session = await self._get_session()
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning("My Presets fetch failed: HTTP %s", resp.status)
+                    return []
+                data = await resp.json(content_type=None)
+        except Exception:
+            _LOGGER.exception("My Presets request failed")
+            return []
+        return self._parse_my_presets(data)
+
+    @staticmethod
+    def _parse_my_presets(data: dict[str, Any]) -> list[dict[str, Any]]:
+        """Parse a CookingMethodsResponse into preset dicts.
+
+        Mirrors the APK SpectreUserPresetSetConverter: a custom preset is a
+        manual cook identified by its shortId, carrying a default
+        temperature (with unit) and time.
+        """
+        out: list[dict[str, Any]] = []
+        embedded = data.get("_embedded") or {}
+        items: Any = None
+        for key in ("item", "cookingMethods", "cookingMethod"):
+            if embedded.get(key) is not None:
+                items = embedded.get(key)
+                break
+        if isinstance(items, dict):
+            items = [items]
+        if not isinstance(items, list):
+            return out
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            short_id = it.get("shortId")
+            name = it.get("name")
+            if not short_id or not name:
+                continue
+            temperature = it.get("temperature") or {}
+            time_obj = it.get("time") or {}
+            temp_default = temperature.get("default")
+            time_default = time_obj.get("default")
+            unit = str(temperature.get("unit") or "").upper()
+            out.append(
+                {
+                    "name": str(name),
+                    "short_id": str(short_id),
+                    "temp": int(temp_default) if temp_default is not None else None,
+                    "time": int(time_default) if time_default is not None else None,
+                    "fahrenheit": unit.startswith("F"),
+                }
+            )
+        return out
 
     @staticmethod
     def _extract_autocook_food_item(data: dict[str, Any]) -> str | None:

@@ -551,6 +551,9 @@
           "easy_clean": "Easy Clean"
         }
       },
+      "my_preset": {
+        "name": "My Presets"
+      },
       "rita_roast_level_select": {
         "name": "Roast Level",
         "state": {

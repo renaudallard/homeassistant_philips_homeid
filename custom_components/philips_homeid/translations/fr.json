@@ -548,6 +548,9 @@
           "easy_clean": "Nettoyage facile"
         }
       },
+      "my_preset": {
+        "name": "Mes préréglages"
+      },
       "rita_roast_level_select": {
         "name": "Niveau de torréfaction",
         "state": {

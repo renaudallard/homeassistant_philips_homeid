@@ -548,6 +548,9 @@
           "easy_clean": "简易清洁"
         }
       },
+      "my_preset": {
+        "name": "我的预设"
+      },
       "rita_roast_level_select": {
         "name": "烘焙程度",
         "state": {

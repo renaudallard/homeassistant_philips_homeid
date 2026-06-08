@@ -548,6 +548,9 @@
           "easy_clean": "Enkel rengöring"
         }
       },
+      "my_preset": {
+        "name": "Mina förinställningar"
+      },
       "rita_roast_level_select": {
         "name": "Rostnivå",
         "state": {

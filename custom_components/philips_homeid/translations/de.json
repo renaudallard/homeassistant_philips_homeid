@@ -548,6 +548,9 @@
           "easy_clean": "Einfache Reinigung"
         }
       },
+      "my_preset": {
+        "name": "Meine Voreinstellungen"
+      },
       "rita_roast_level_select": {
         "name": "Röststufe",
         "state": {

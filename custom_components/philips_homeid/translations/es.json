@@ -548,6 +548,9 @@
           "easy_clean": "Limpieza fácil"
         }
       },
+      "my_preset": {
+        "name": "Mis preajustes"
+      },
       "rita_roast_level_select": {
         "name": "Nivel de tueste",
         "state": {

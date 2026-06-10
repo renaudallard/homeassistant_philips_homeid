@@ -669,6 +669,11 @@ class PhilipsLocalAPI:
         else:
             # SPECTRE: temp_unit True=Celsius, False=Fahrenheit (inverted)
             data["temp_unit"] = not temp_unit_fahrenheit
+            if recipe_id is not None:
+                # SPECTRE user presets (My Presets) carry an empty step id;
+                # the recipe command is incomplete without it (APK
+                # SpectreUserPresetSetConverter -> WifiAirfryerPortProperties).
+                data["step_id"] = ""
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 

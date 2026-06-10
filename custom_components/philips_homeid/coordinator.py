@@ -516,7 +516,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     )
                     await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
                 props["status"] = self._fusion_setting_status
-                return await self._mqtt_command("control", props)
+                # My Presets go to the dedicated SPECTRE recipe control port
+                # (recipe_c); the regular Control port has no recipe_id/step_id
+                # fields and rejects them with NCP port_error (APK
+                # FusionSpectreCookingCommandGeneratorBridge routes
+                # setUserPreset to SpectreRecipeControlPort).
+                port = "recipe_control" if recipe_id is not None else "control"
+                return await self._mqtt_command(port, props)
             return True
         result = await self.api.airfryer_set_settings(
             self.device_info,

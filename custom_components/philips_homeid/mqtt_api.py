@@ -53,6 +53,10 @@ _NCP_PORT_MAP: dict[str, str] = {
     "Config": "config",
     "Control": "control",  # SPECTRE + Venus 1
     "venusaf_c": "control",  # Venus 2 (HD9880)
+    # SPECTRE recipe/user-preset control port (APK SpectreRecipeControlPortKt).
+    # Distinct from Control: it carries recipe_id/step_id; the Control port has
+    # no such fields and rejects them with NCP port_error.
+    "recipe_c": "recipe_control",
     # Venus device state (APK VenusDeviceCurrentStatePortKt)
     # Merged into airfryer dict, same as local API does with devcurrstate
     "devcurst_s": "airfryer",

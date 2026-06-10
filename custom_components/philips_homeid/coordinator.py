@@ -487,16 +487,27 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["temp"] = temp
             if time_seconds is not None:
                 props["time"] = time_seconds
-            if preset is not None:
-                props["preset"] = preset
-            if airspeed is not None:
-                props["airspeed"] = airspeed
-            if probe_temp is not None:
-                props["probe_temp"] = probe_temp
             if recipe_id is not None:
+                # My Presets use the SPECTRE recipe control port, whose
+                # required shape is time, temp, temp_unit, status, step_id
+                # and recipe_id, with no preset (APK
+                # SpectreUserPresetSettingsSetConverter ->
+                # SpectreRecipeControlPortProperties). The device answers
+                # NCP port_error when preset is present or temp_unit or
+                # step_id are missing. temp_unit here is standard
+                # (Celsius=False) to match that converter.
+                props["temp_unit"] = temp_unit_fahrenheit
+                props["step_id"] = ""
                 props["recipe_id"] = recipe_id
-            if temp_unit_fahrenheit:
-                props["temp_unit"] = False  # SPECTRE: True=C, False=F
+            else:
+                if preset is not None:
+                    props["preset"] = preset
+                if airspeed is not None:
+                    props["airspeed"] = airspeed
+                if probe_temp is not None:
+                    props["probe_temp"] = probe_temp
+                if temp_unit_fahrenheit:
+                    props["temp_unit"] = False  # SPECTRE: True=C, False=F
             if props:
                 await self._ensure_fusion_control_port()
                 if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:

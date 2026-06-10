@@ -470,7 +470,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Custom presets created in the Philips HomeID app live in the cloud account, not on the device, so a cloud login is required
 - They are fetched once per appliance and cached locally (re-fetched on language change or via the Refresh Recipes button)
 - A "My Presets" select lists them by name; picking one applies its saved temperature and time and puts the device in the setting state, then press Start to cook (same flow as the built-in cooking method)
-- Supported on SPECTRE airfryers; the apply matches the app, which sends the preset as a manual cook carrying the preset id
+- Supported on SPECTRE airfryers; the apply matches the Philips app's preset command for both cloud (FUSION) and local devices
 
 **Limitations:**
 - Requires internet connectivity (cloud-dependent)

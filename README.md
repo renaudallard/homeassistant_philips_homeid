@@ -153,7 +153,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 
 The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 
-If cloud login fails with an authentication error, check the Home Assistant logs. If the problem persists, use the standalone [cloud key fetcher](tools/cloud_key_fetcher.py) on a supported machine or enter credentials manually.
+If cloud login fails with an authentication error, check the Home Assistant logs. If the problem persists, enter credentials manually.
 
 If setup reports that the email is not a fully registered Philips HomeID account, the verification code was correct but the account cannot be used for email login. This happens when the account was created through a social provider (Google, Apple, Facebook) or registration was never completed. Sign in once in the Philips HomeID app with that email to finish registration, then retry, or enter credentials manually.
 
@@ -223,36 +223,7 @@ See [tools/credential_extractor/README.md](tools/credential_extractor/README.md)
 
 </details>
 
-### Method 2: Cloud Key Fetcher (Standalone Tool)
-
-A standalone command-line version of the cloud login is available for use outside Home Assistant or for debugging. It uses a headless Chromium (Playwright) OAuth flow and works well for one-off credential extraction. Playwright supports Linux x86_64/aarch64, macOS, and Windows, but not 32-bit ARM (armv7).
-
-<details>
-<summary><b>Step-by-step instructions</b></summary>
-
-1. **Install dependencies**
-   ```sh
-   pip install playwright && playwright install chromium
-   ```
-
-2. **Run the tool** (interactive mode, prompts for everything)
-   ```sh
-   python3 tools/cloud_key_fetcher.py
-   ```
-   Or with arguments:
-   ```sh
-   python3 tools/cloud_key_fetcher.py your@email.com          # sends OTP, prompts for code
-   python3 tools/cloud_key_fetcher.py your@email.com 123456    # non-interactive
-   python3 tools/cloud_key_fetcher.py --resume                  # reuse saved tokens
-   ```
-
-3. **Check results** - the tool queries both the Home ID backend API (primary) and IoT API (fallback), and prints any registered devices with their credentials.
-
-See [`tools/cloud_key_fetcher.py`](tools/cloud_key_fetcher.py) for details.
-
-</details>
-
-### Method 3: SQLite Database (manual alternative)
+### Method 2: SQLite Database (manual alternative)
 
 On older firmwares, the app stores credentials in an unencrypted SQLite database. You can read them manually if you prefer not to use the extractor tool.
 

@@ -22,8 +22,7 @@
         "description": "Inserisci l'email del tuo account Philips HomeID. Un codice di verifica verrà inviato a questo indirizzo.",
         "data": {
           "email": "Email",
-          "manual_entry": "Inserisci le credenziali manualmente",
-          "use_playwright": "Usa browser headless per il login (avanzato, richiede playwright)"
+          "manual_entry": "Inserisci le credenziali manualmente"
         }
       },
       "cloud_otp": {
@@ -74,10 +73,6 @@
         "data": {
           "code": "Codice di verifica"
         }
-      },
-      "cloud_install": {
-        "title": "Preparazione del login cloud",
-        "description": "Installazione di Playwright e invio del codice di verifica..."
       }
     },
     "error": {
@@ -94,7 +89,7 @@
       "no_cloud_devices": "Nessun dispositivo trovato nel tuo account Philips.",
       "cloud_credentials_not_found": "Impossibile recuperare le credenziali dal cloud. Prova a inserirle manualmente.",
       "cloud_no_ip": "Indirizzo IP del dispositivo non disponibile dal cloud. Prova a inserire l'indirizzo IP manualmente.",
-      "cloud_oauth_failed": "Autenticazione cloud fallita. Controllare i log di Home Assistant per i dettagli. È anche possibile utilizzare lo strumento cloud_key_fetcher.py o inserire le credenziali manualmente.",
+      "cloud_oauth_failed": "Autenticazione cloud fallita. Controllare i log di Home Assistant per i dettagli. È anche possibile inserire le credenziali manualmente.",
       "cloud_unreachable": "Il cloud Philips è temporaneamente irraggiungibile. Attendere un momento e riprovare.",
       "invalid_host": "Inserisci solo un indirizzo IP o un nome host (senza schema, porta o percorso)."
     },
@@ -104,12 +99,7 @@
       "unsupported_device": "Questo dispositivo Philips non è supportato dall'integrazione ed è stato ignorato.",
       "reauth_successful": "Accesso cloud riuscito. Premi di nuovo Aggiorna ricette.",
       "reauth_failed": "Accesso cloud fallito. Riprova più tardi.",
-      "cloud_setup_failed": "Login cloud fallito: impossibile installare il browser Playwright. Usa lo strumento cloud_key_fetcher.py o inserisci le credenziali manualmente.",
-      "playwright_unsupported": "Playwright non è supportato su questa piattaforma. Esegui cloud_key_fetcher.py su un sistema supportato e inserisci le credenziali manualmente.",
       "reauth_entry_missing": "Impossibile trovare la voce di integrazione da riautenticare. Ricarica Home Assistant e riprova."
-    },
-    "progress": {
-      "cloud_install": "Installazione del browser Playwright per l'autenticazione cloud. Potrebbero volerci alcuni minuti e verrà rimosso dopo l'uso..."
     }
   },
   "options": {

@@ -22,8 +22,7 @@
         "description": "Ange din Philips HomeID-kontoe-post.",
         "data": {
           "email": "E-post",
-          "manual_entry": "Ange uppgifter manuellt",
-          "use_playwright": "Använd huvudlös webbläsare för inloggning (avancerat, kräver playwright)"
+          "manual_entry": "Ange uppgifter manuellt"
         }
       },
       "cloud_otp": {
@@ -74,10 +73,6 @@
         "data": {
           "code": "Verifieringskod"
         }
-      },
-      "cloud_install": {
-        "title": "Förbereder molninloggning",
-        "description": "Installerar Playwright-webbläsare och skickar verifieringskod..."
       }
     },
     "error": {
@@ -94,7 +89,7 @@
       "no_cloud_devices": "Inga enheter hittades",
       "cloud_credentials_not_found": "Kunde inte hamta uppgifter fran molnet",
       "cloud_no_ip": "IP-adress inte tillganglig",
-      "cloud_oauth_failed": "Molnautentisering misslyckades. Kontrollera Home Assistants loggar för detaljer. Du kan också använda verktyget cloud_key_fetcher.py eller ange uppgifterna manuellt.",
+      "cloud_oauth_failed": "Molnautentisering misslyckades. Kontrollera Home Assistants loggar för detaljer. Du kan också ange uppgifterna manuellt.",
       "cloud_unreachable": "Philips-molnet är tillfälligt onåbart. Vänta en stund och försök igen.",
       "invalid_host": "Ange enbart en IP-adress eller ett värdnamn (utan schema, port eller sökväg)."
     },
@@ -104,12 +99,7 @@
       "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
       "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",
       "reauth_failed": "Molninloggning misslyckades. Försök igen senare.",
-      "cloud_setup_failed": "Molninloggning misslyckades: kunde inte installera Playwright-webbläsaren. Använd verktyget cloud_key_fetcher.py eller ange uppgifterna manuellt.",
-      "playwright_unsupported": "Playwright stöds inte på den här plattformen. Kör cloud_key_fetcher.py på ett system som stöds och ange uppgifterna manuellt.",
       "reauth_entry_missing": "Det gick inte att hitta integrationsposten för att autentisera om. Ladda om Home Assistant och försök igen."
-    },
-    "progress": {
-      "cloud_install": "Installerar Playwright-webbläsare för molnautentisering. Detta kan ta några minuter och tas bort efter användning..."
     }
   },
   "options": {

@@ -26,7 +26,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Mapping
 from typing import Any
@@ -183,8 +182,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_tokens: dict[str, Any] = {}
         self._cloud_devices: list[dict[str, Any]] = []
         self._cloud_source: str = ""  # "homeid" or "iot"
-        self._cloud_use_playwright: bool = False
-        self._install_task: asyncio.Task[bool] | None = None
 
     async def _close_cloud_api(self) -> None:
         """Close cloud API session if open."""
@@ -503,66 +500,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def _async_install_and_send_otp(self) -> bool:
-        """Install Playwright then send OTP. Run as a background task."""
-        assert self._cloud_api is not None
-        if not await self._cloud_api.async_install_playwright():
-            raise CloudAuthError(
-                "Failed to install Playwright. This can happen in containers "
-                "or restricted environments where pip install is not allowed."
-            )
-        self._cloud_vtoken = await self._cloud_api.request_otp(self._cloud_email)
-        return True
-
-    async def async_step_cloud_install(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Install Playwright + send OTP, with progress indicator."""
-        if self._install_task is None:
-            platform_error = PhilipsCloudAPI.check_playwright_platform()
-            if platform_error:
-                _LOGGER.warning(
-                    "%s Falling back to manual credential entry", platform_error
-                )
-                await self._close_cloud_api()
-                return await self.async_step_manual_credentials()
-
-            self._install_task = self.hass.async_create_task(
-                self._async_install_and_send_otp()
-            )
-
-        if not self._install_task.done():
-            return self.async_show_progress(
-                step_id="cloud_install",
-                progress_action="cloud_install",
-                progress_task=self._install_task,
-            )
-
-        try:
-            await self._install_task
-        except CloudAuthError as err:
-            _LOGGER.error(
-                "Cloud login failed: %s. Falling back to manual credentials", err
-            )
-            self._install_task = None
-            await self._close_cloud_api()
-            return self.async_show_progress_done(next_step_id="cloud_install_failed")
-        except Exception:
-            _LOGGER.exception("Unexpected error during Playwright setup")
-            self._install_task = None
-            await self._close_cloud_api()
-            return self.async_show_progress_done(next_step_id="cloud_install_failed")
-        finally:
-            self._install_task = None
-
-        return self.async_show_progress_done(next_step_id="cloud_otp")
-
-    async def async_step_cloud_install_failed(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Fall back to manual credentials after a Playwright install failure."""
-        return await self.async_step_manual_credentials()
-
     async def async_step_cloud_otp(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -592,10 +529,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if not errors:
                     try:
-                        tokens = await self._cloud_api.get_oidc_tokens(
-                            session_token,
-                            use_playwright=self._cloud_use_playwright,
-                        )
+                        tokens = await self._cloud_api.get_oidc_tokens(session_token)
                         self._cloud_tokens = tokens
 
                         # Try Home ID HAL API first (the app's primary backend)

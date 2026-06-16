@@ -22,8 +22,7 @@
         "description": "Entrez l'adresse email de votre compte Philips HomeID. Un code de vérification sera envoyé à cette adresse.",
         "data": {
           "email": "Email",
-          "manual_entry": "Saisir les identifiants manuellement",
-          "use_playwright": "Utiliser un navigateur sans interface pour la connexion (avancé, playwright requis)"
+          "manual_entry": "Saisir les identifiants manuellement"
         }
       },
       "cloud_otp": {
@@ -74,10 +73,6 @@
         "data": {
           "code": "Code de vérification"
         }
-      },
-      "cloud_install": {
-        "title": "Préparation de la connexion cloud",
-        "description": "Installation du navigateur Playwright et envoi du code de vérification..."
       }
     },
     "error": {
@@ -94,7 +89,7 @@
       "no_cloud_devices": "Aucun appareil trouvé dans votre compte Philips.",
       "cloud_credentials_not_found": "Impossible de récupérer les identifiants depuis le cloud. Essayez de les saisir manuellement.",
       "cloud_no_ip": "Adresse IP de l'appareil non disponible depuis le cloud. Essayez de saisir l'adresse IP manuellement.",
-      "cloud_oauth_failed": "L'authentification cloud a échoué. Consultez les logs de Home Assistant pour plus de détails. Vous pouvez aussi utiliser l'outil cloud_key_fetcher.py ou saisir les identifiants manuellement.",
+      "cloud_oauth_failed": "L'authentification cloud a échoué. Consultez les logs de Home Assistant pour plus de détails. Vous pouvez aussi saisir les identifiants manuellement.",
       "cloud_unreachable": "Le cloud Philips est temporairement injoignable. Patientez un instant et réessayez.",
       "invalid_host": "Entrez uniquement une adresse IP ou un nom d'hôte (sans schéma, port, ni chemin)."
     },
@@ -104,12 +99,7 @@
       "unsupported_device": "Cet appareil Philips n'est pas supporté par l'intégration et a été ignoré.",
       "reauth_successful": "Connexion cloud réussie. Appuyez à nouveau sur Actualiser les recettes.",
       "reauth_failed": "Connexion cloud échouée. Réessayez plus tard.",
-      "cloud_setup_failed": "Échec de la connexion cloud : impossible d'installer le navigateur Playwright. Utilisez l'outil cloud_key_fetcher.py ou saisissez les identifiants manuellement.",
-      "playwright_unsupported": "Playwright n'est pas pris en charge sur cette plateforme. Lancez l'outil cloud_key_fetcher.py sur un système compatible, puis saisissez les identifiants manuellement.",
       "reauth_entry_missing": "Impossible de trouver l'entrée d'intégration à réauthentifier. Rechargez Home Assistant et réessayez."
-    },
-    "progress": {
-      "cloud_install": "Installation du navigateur Playwright pour l'authentification cloud. Cela peut prendre quelques minutes et sera supprimé après utilisation..."
     }
   },
   "options": {

@@ -22,8 +22,7 @@
         "description": "Wprowadz email konta Philips HomeID.",
         "data": {
           "email": "Email",
-          "manual_entry": "Wprowadz dane reczne",
-          "use_playwright": "Użyj przeglądarki headless do logowania (zaawansowane, wymaga playwright)"
+          "manual_entry": "Wprowadz dane reczne"
         }
       },
       "cloud_otp": {
@@ -74,10 +73,6 @@
         "data": {
           "code": "Kod weryfikacyjny"
         }
-      },
-      "cloud_install": {
-        "title": "Przygotowywanie logowania do chmury",
-        "description": "Instalowanie przeglądarki Playwright i wysyłanie kodu weryfikacyjnego..."
       }
     },
     "error": {
@@ -94,7 +89,7 @@
       "no_cloud_devices": "Nie znaleziono urzadzen",
       "cloud_credentials_not_found": "Nie mozna pobrac danych z chmury",
       "cloud_no_ip": "Adres IP niedostepny",
-      "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też użyć narzędzia cloud_key_fetcher.py lub wprowadzić dane uwierzytelniające ręcznie.",
+      "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też wprowadzić dane uwierzytelniające ręcznie.",
       "cloud_unreachable": "Chmura Philips jest tymczasowo niedostępna. Poczekaj chwilę i spróbuj ponownie.",
       "invalid_host": "Podaj sam adres IP lub nazwę hosta (bez schematu, portu ani ścieżki)."
     },
@@ -104,12 +99,7 @@
       "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
       "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",
       "reauth_failed": "Logowanie do chmury nieudane. Spróbuj ponownie później.",
-      "cloud_setup_failed": "Logowanie do chmury nie powiodło się: nie można zainstalować przeglądarki Playwright. Użyj narzędzia cloud_key_fetcher.py lub wprowadź dane uwierzytelniające ręcznie.",
-      "playwright_unsupported": "Playwright nie jest obsługiwany na tej platformie. Uruchom cloud_key_fetcher.py na obsługiwanym systemie i wprowadź dane uwierzytelniające ręcznie.",
       "reauth_entry_missing": "Nie znaleziono wpisu integracji do ponownego uwierzytelnienia. Załaduj ponownie Home Assistant i spróbuj jeszcze raz."
-    },
-    "progress": {
-      "cloud_install": "Instalowanie przeglądarki Playwright dla uwierzytelniania w chmurze. Może to potrwać kilka minut, a następnie zostanie usunięta..."
     }
   },
   "options": {

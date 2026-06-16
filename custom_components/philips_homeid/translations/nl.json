@@ -22,8 +22,7 @@
         "description": "Voer het e-mailadres van uw Philips HomeID-account in. Er wordt een verificatiecode naar dit adres gestuurd.",
         "data": {
           "email": "E-mail",
-          "manual_entry": "Inloggegevens handmatig invoeren",
-          "use_playwright": "Gebruik headless browser voor login (geavanceerd, vereist playwright)"
+          "manual_entry": "Inloggegevens handmatig invoeren"
         }
       },
       "cloud_otp": {
@@ -74,10 +73,6 @@
         "data": {
           "code": "Verificatiecode"
         }
-      },
-      "cloud_install": {
-        "title": "Cloud-login voorbereiden",
-        "description": "Playwright-browser installeren en verificatiecode versturen..."
       }
     },
     "error": {
@@ -94,7 +89,7 @@
       "no_cloud_devices": "Geen apparaten gevonden in uw Philips-account.",
       "cloud_credentials_not_found": "Kan de inloggegevens niet ophalen uit de cloud. Probeer ze handmatig in te voeren.",
       "cloud_no_ip": "IP-adres van apparaat niet beschikbaar via de cloud. Probeer het IP-adres handmatig in te voeren.",
-      "cloud_oauth_failed": "Cloud-authenticatie mislukt. Bekijk de Home Assistant logs voor details. U kunt ook de standalone cloud_key_fetcher.py gebruiken of de gegevens handmatig invoeren.",
+      "cloud_oauth_failed": "Cloud-authenticatie mislukt. Bekijk de Home Assistant logs voor details. U kunt ook de gegevens handmatig invoeren.",
       "cloud_unreachable": "De Philips-cloud is tijdelijk onbereikbaar. Wacht een moment en probeer het opnieuw.",
       "invalid_host": "Voer alleen een IP-adres of hostnaam in (zonder schema, poort of pad)."
     },
@@ -104,12 +99,7 @@
       "unsupported_device": "Dit Philips-apparaat wordt niet ondersteund door de integratie en is genegeerd.",
       "reauth_successful": "Cloud-aanmelding geslaagd. Druk opnieuw op Recepten vernieuwen.",
       "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw.",
-      "cloud_setup_failed": "Cloud-login mislukt: Playwright-browser kon niet worden geïnstalleerd. Gebruik de standalone cloud_key_fetcher.py of voer de gegevens handmatig in.",
-      "playwright_unsupported": "Playwright wordt niet ondersteund op dit platform. Voer cloud_key_fetcher.py uit op een ondersteund systeem en voer de gegevens handmatig in.",
       "reauth_entry_missing": "De integratie-invoer voor herauthenticatie is niet gevonden. Herstart Home Assistant en probeer het opnieuw."
-    },
-    "progress": {
-      "cloud_install": "Playwright-browser wordt geïnstalleerd voor cloud-authenticatie. Dit kan enkele minuten duren en wordt na gebruik verwijderd..."
     }
   },
   "options": {

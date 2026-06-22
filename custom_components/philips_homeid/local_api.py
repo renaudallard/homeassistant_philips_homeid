@@ -557,12 +557,13 @@ class PhilipsLocalAPI:
         port = self._airfryer_port(device)
 
         if port in VENUS_STYLE_PORTS:
-            # Venus 3-step start: precook → settings → cooking
+            # Venus 3-step start: precook → settings → cooking. The Venus
+            # control port has no writable temp_unit field, so the command
+            # never carries one (APK VenusCookingIdleConverter, issue #27).
             precook: dict[str, Any] = {
                 "status": AIRFRYER_STATUS_PRECOOK,
                 "probe_required": False,
                 "method": 0,
-                "temp_unit": False,
             }
             await self._request(device, port, method="PUT", data=precook)
 

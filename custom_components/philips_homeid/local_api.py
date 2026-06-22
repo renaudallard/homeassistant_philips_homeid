@@ -635,6 +635,7 @@ class PhilipsLocalAPI:
         airspeed: int | None = None,
         probe_temp: int | None = None,
         recipe_id: str | None = None,
+        raw_temp_unit: bool | None = None,
     ) -> bool:
         """Set airfryer cooking settings.
 
@@ -646,6 +647,9 @@ class PhilipsLocalAPI:
             airspeed: Air speed (1=LOW, 2=HIGH, Venus only)
             probe_temp: Target probe temperature (Venus only)
             recipe_id: Recipe/custom-preset id carried with a preset cook
+            raw_temp_unit: Device's current raw temp_unit, echoed verbatim
+                to preserve the displayed unit (issue #27). Overrides
+                temp_unit_fahrenheit when set.
         """
         port = self._airfryer_port(device)
         data: dict[str, Any] = {"status": AIRFRYER_STATUS_SETTING}
@@ -664,11 +668,15 @@ class PhilipsLocalAPI:
             data["recipe_id"] = recipe_id
         if port in VENUS_STYLE_PORTS:
             # Venus: temp_unit True=Fahrenheit, False=Celsius (standard)
-            data["temp_unit"] = temp_unit_fahrenheit
+            data["temp_unit"] = (
+                raw_temp_unit if raw_temp_unit is not None else temp_unit_fahrenheit
+            )
             data = self._normalize_venus_command(data)
         else:
             # SPECTRE: temp_unit True=Celsius, False=Fahrenheit (inverted)
-            data["temp_unit"] = not temp_unit_fahrenheit
+            data["temp_unit"] = (
+                raw_temp_unit if raw_temp_unit is not None else not temp_unit_fahrenheit
+            )
             if recipe_id is not None:
                 # SPECTRE user presets (My Presets) carry an empty step id;
                 # the recipe command is incomplete without it (APK
@@ -721,12 +729,17 @@ class PhilipsLocalAPI:
         time_seconds: int | None = None,
         temp_unit_fahrenheit: bool = False,
         is_cooking: bool = False,
+        raw_temp_unit: bool | None = None,
     ) -> bool:
         """Update airfryer settings without changing cooking state.
 
         For SPECTRE: sends only temp/time/temp_unit (no status field).
         For Venus while cooking: pause → set values → resume.
         For Venus while not cooking: send values directly.
+
+        raw_temp_unit is the device's current raw temp_unit, echoed
+        verbatim to preserve the displayed unit (issue #27); it overrides
+        temp_unit_fahrenheit when set.
         """
         port = self._airfryer_port(device)
         data: dict[str, Any] = {}
@@ -736,7 +749,9 @@ class PhilipsLocalAPI:
             data["time"] = time_seconds
 
         if port in VENUS_STYLE_PORTS:
-            data["temp_unit"] = temp_unit_fahrenheit
+            data["temp_unit"] = (
+                raw_temp_unit if raw_temp_unit is not None else temp_unit_fahrenheit
+            )
             data = self._normalize_venus_command(data)
             if is_cooking:
                 # Venus: pause → set → resume (always try to resume)
@@ -757,7 +772,9 @@ class PhilipsLocalAPI:
                     )
                 return result is not None
         else:
-            data["temp_unit"] = not temp_unit_fahrenheit
+            data["temp_unit"] = (
+                raw_temp_unit if raw_temp_unit is not None else not temp_unit_fahrenheit
+            )
 
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None

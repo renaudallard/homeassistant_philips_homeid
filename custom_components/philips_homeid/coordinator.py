@@ -506,8 +506,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     props["airspeed"] = airspeed
                 if probe_temp is not None:
                     props["probe_temp"] = probe_temp
-                if temp_unit_fahrenheit:
-                    props["temp_unit"] = False  # SPECTRE: True=C, False=F
+                # Echo the unit the appliance currently shows; omitting it
+                # makes the device reset to Fahrenheit (issue #27).
+                raw_unit = self._current_raw_temp_unit()
+                if raw_unit is not None:
+                    props["temp_unit"] = raw_unit
             if props:
                 await self._ensure_fusion_control_port()
                 if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
@@ -524,6 +527,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 port = "recipe_control" if recipe_id is not None else "control"
                 return await self._mqtt_command(port, props)
             return True
+        # My Presets carry their own unit; everything else preserves the
+        # appliance's current one (issue #27).
+        raw_unit = None if recipe_id is not None else self._current_raw_temp_unit()
         result = await self.api.airfryer_set_settings(
             self.device_info,
             temp,
@@ -533,6 +539,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             airspeed,
             probe_temp,
             recipe_id,
+            raw_temp_unit=raw_unit,
         )
         if result:
             await self.async_request_refresh()
@@ -918,6 +925,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if time_seconds is not None:
                 props["time"] = time_seconds
             if props:
+                # Echo the current unit so a temp or time change never
+                # resets it (issue #27).
+                raw_unit = self._current_raw_temp_unit()
+                if raw_unit is not None:
+                    props["temp_unit"] = raw_unit
                 # Pre-cooking: include setting status so device accepts values.
                 # Mid-cooking: send without status (APK behavior).
                 if not self.is_airfryer_cooking():
@@ -926,7 +938,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return True
         cooking = self.is_airfryer_cooking()
         result = await self.api.airfryer_update_settings(
-            self.device_info, temp, time_seconds, temp_unit_fahrenheit, cooking
+            self.device_info,
+            temp,
+            time_seconds,
+            temp_unit_fahrenheit,
+            cooking,
+            raw_temp_unit=self._current_raw_temp_unit(),
         )
         if result:
             await self.async_request_refresh()
@@ -1391,6 +1408,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if not airfryer or not isinstance(airfryer, dict):
             return ""
         return airfryer.get("status", "")
+
+    def _current_raw_temp_unit(self) -> bool | None:
+        """Return the device's current raw temp_unit, or None if unknown.
+
+        Cook and setting commands echo this value back unchanged so the
+        appliance never resets its temperature unit (issue #27). The raw
+        value is sent verbatim, so this stays correct regardless of a
+        model's inverted or standard temp_unit semantics.
+        """
+        if not self._state:
+            return None
+        airfryer = self._state.properties.get("airfryer")
+        if not airfryer or not isinstance(airfryer, dict):
+            return None
+        value = airfryer.get("temp_unit")
+        return bool(value) if value is not None else None
 
     def is_airfryer_cooking(self) -> bool:
         """Check if airfryer is actively cooking (not paused)."""

@@ -305,8 +305,17 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle initial step - go to manual host entry."""
-        return await self.async_step_manual_host(user_input)
+        """Handle initial step - choose local IP entry or cloud login.
+
+        Cloud-only (FUSION) devices have no local HTTP server, so a local
+        probe can never succeed for them. Offering cloud login as a
+        first-class choice lets those devices be onboarded manually instead
+        of dead-ending on a failed probe.
+        """
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["manual_host", "cloud_email"],
+        )
 
     async def async_step_manual_host(
         self, user_input: dict[str, Any] | None = None
@@ -467,7 +476,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            if user_input.get("manual_entry"):
+            if user_input.get("manual_entry") and self._discovered_device is not None:
                 return await self.async_step_manual_credentials()
 
             email = user_input.get("email", "").strip()
@@ -489,14 +498,17 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await self._close_cloud_api()
                     errors["base"] = "otp_send_failed"
 
+        # "Enter credentials manually" tests credentials against the
+        # device's local IP, so it only works when a device was discovered
+        # or probed first. Hide it on the cloud-first path (no discovered
+        # device) where it would dead-end at cannot_connect.
+        schema_dict: dict[Any, Any] = {vol.Required("email"): str}
+        if self._discovered_device is not None:
+            schema_dict[vol.Optional("manual_entry", default=False)] = bool
+
         return self.async_show_form(
             step_id="cloud_email",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("email"): str,
-                    vol.Optional("manual_entry", default=False): bool,
-                }
-            ),
+            data_schema=vol.Schema(schema_dict),
             errors=errors,
         )
 

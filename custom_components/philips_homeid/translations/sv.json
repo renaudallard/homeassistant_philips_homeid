@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ange enhetens IP",
-        "description": "Ange IP-adressen for din Philips-enhet.",
-        "data": {
-          "host": "IP-adress",
-          "model": "Enhetsmodell"
+        "title": "Lägg till Philips-enhet",
+        "description": "Välj hur du vill konfigurera enheten. Ange en lokal IP-adress för enheter i ditt nätverk, eller logga in med ditt Philips-konto för enheter med molnrelä (FUSION) utan lokal anslutning.",
+        "menu_options": {
+          "manual_host": "Konfigurera en lokal enhet via IP-adress",
+          "cloud_email": "Logga in med Philips-konto (molnrelä / FUSION-enheter)"
         }
       },
       "manual_host": {

@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "IP-adres van apparaat",
-        "description": "Voer het IP-adres in van uw Philips-apparaat dat verbonden is met uw netwerk.",
-        "data": {
-          "host": "IP-adres",
-          "model": "Apparaatmodel"
+        "title": "Philips-apparaat toevoegen",
+        "description": "Kies hoe u uw apparaat wilt instellen. Voer een lokaal IP-adres in voor apparaten in uw netwerk, of meld u aan met uw Philips-account voor cloud-relay (FUSION)-apparaten zonder lokale verbinding.",
+        "menu_options": {
+          "manual_host": "Een lokaal apparaat instellen via IP-adres",
+          "cloud_email": "Aanmelden met Philips-account (cloud relay / FUSION-apparaten)"
         }
       },
       "manual_host": {

@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "기기 IP 입력",
-        "description": "네트워크에 연결된 필립스 기기의 IP 주소를 입력하세요.",
-        "data": {
-          "host": "IP 주소",
-          "model": "기기 모델"
+        "title": "필립스 기기 추가",
+        "description": "기기를 설정할 방법을 선택하세요. 네트워크에 있는 기기는 로컬 IP 주소를 입력하고, 로컬 연결이 없는 클라우드 릴레이(FUSION) 기기는 필립스 계정으로 로그인하세요.",
+        "menu_options": {
+          "manual_host": "IP 주소로 로컬 기기 설정",
+          "cloud_email": "필립스 계정으로 로그인 (클라우드 릴레이 / FUSION 기기)"
         }
       },
       "manual_host": {

@@ -132,16 +132,18 @@ Devices discovered via Zeroconf or SSDP appear automatically as a notification. 
 #### Manual setup
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **Philips HomeID**
-3. Enter the device's IP address and select your device model from the dropdown
+3. Choose how to set up:
+   - **Set up a local device by IP address** — enter the device's IP and select the model, then confirm the discovered device (most air purifiers and local airfryers)
+   - **Sign in with Philips account** — for cloud-relay (FUSION) devices that have no local connection
 4. Enter your Philips HomeID account email
 5. Enter the verification code sent to your email
-6. Select your device from the list and credentials are retrieved automatically
+6. Select your device from the list; credentials (or cloud-relay configuration) are retrieved automatically
 
 > **Important:** Select the correct device model. Auto-detect probes multiple endpoints which can overwhelm and crash the device's web server. Use auto-detect only if your model is not listed.
 
 > **Note:** All entities may take a few minutes to appear after setup. The integration needs one polling cycle to establish authentication with the device before all sensors become available.
 
-If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
+If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form (shown when setting up a local device by IP). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 #### Cloud Login
 

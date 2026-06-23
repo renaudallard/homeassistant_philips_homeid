@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Adresse IP de l'appareil",
-        "description": "Entrez l'adresse IP de votre appareil Philips connecté à votre réseau.",
-        "data": {
-          "host": "Adresse IP",
-          "model": "Modèle de l'appareil"
+        "title": "Ajouter un appareil Philips",
+        "description": "Choisissez comment configurer votre appareil. Saisissez une adresse IP locale pour les appareils de votre réseau, ou connectez-vous avec votre compte Philips pour les appareils en relais cloud (FUSION) sans connexion locale.",
+        "menu_options": {
+          "manual_host": "Configurer un appareil local par adresse IP",
+          "cloud_email": "Se connecter avec un compte Philips (relais cloud / appareils FUSION)"
         }
       },
       "manual_host": {

@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "输入设备IP",
-        "description": "输入已连接到网络的飞利浦设备IP地址。",
-        "data": {
-          "host": "IP地址",
-          "model": "设备型号"
+        "title": "添加飞利浦设备",
+        "description": "选择设备的设置方式。为网络中的设备输入本地 IP 地址，或使用飞利浦账号登录以设置没有本地连接的云中继 (FUSION) 设备。",
+        "menu_options": {
+          "manual_host": "通过 IP 地址设置本地设备",
+          "cloud_email": "使用飞利浦账号登录（云中继 / FUSION 设备）"
         }
       },
       "manual_host": {

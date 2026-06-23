@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "IP-Adresse des Geräts",
-        "description": "Geben Sie die IP-Adresse Ihres Philips-Geräts ein, das mit Ihrem Netzwerk verbunden ist.",
-        "data": {
-          "host": "IP-Adresse",
-          "model": "Gerätemodell"
+        "title": "Philips-Gerät hinzufügen",
+        "description": "Wählen Sie, wie Ihr Gerät eingerichtet werden soll. Geben Sie eine lokale IP-Adresse für Geräte in Ihrem Netzwerk ein oder melden Sie sich mit Ihrem Philips-Konto für Cloud-Relay-Geräte (FUSION) ohne lokale Verbindung an.",
+        "menu_options": {
+          "manual_host": "Lokales Gerät über IP-Adresse einrichten",
+          "cloud_email": "Mit Philips-Konto anmelden (Cloud-Relay / FUSION-Geräte)"
         }
       },
       "manual_host": {

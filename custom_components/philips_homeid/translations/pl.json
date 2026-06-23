@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wprowadz IP urzadzenia",
-        "description": "Wprowadz adres IP urzadzenia Philips.",
-        "data": {
-          "host": "Adres IP",
-          "model": "Model"
+        "title": "Dodaj urządzenie Philips",
+        "description": "Wybierz sposób konfiguracji urządzenia. Wprowadź lokalny adres IP dla urządzeń w sieci lub zaloguj się kontem Philips dla urządzeń z przekazywaniem w chmurze (FUSION) bez połączenia lokalnego.",
+        "menu_options": {
+          "manual_host": "Skonfiguruj urządzenie lokalne za pomocą adresu IP",
+          "cloud_email": "Zaloguj się kontem Philips (przekazywanie w chmurze / urządzenia FUSION)"
         }
       },
       "manual_host": {

@@ -2,11 +2,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Inserir IP do dispositivo",
-        "description": "Digite o endereço IP do seu dispositivo Philips.",
-        "data": {
-          "host": "Endereço IP",
-          "model": "Modelo"
+        "title": "Adicionar dispositivo Philips",
+        "description": "Escolha como configurar seu dispositivo. Insira um IP local para dispositivos na sua rede ou faça login com sua conta Philips para dispositivos com relay na nuvem (FUSION) sem conexão local.",
+        "menu_options": {
+          "manual_host": "Configurar um dispositivo local por endereço IP",
+          "cloud_email": "Fazer login com conta Philips (relay na nuvem / dispositivos FUSION)"
         }
       },
       "manual_host": {

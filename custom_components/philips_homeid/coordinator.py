@@ -494,9 +494,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 # SpectreUserPresetSettingsSetConverter ->
                 # SpectreRecipeControlPortProperties). The device answers
                 # NCP port_error when preset is present or temp_unit or
-                # step_id are missing. temp_unit here is standard
-                # (Celsius=False) to match that converter.
-                props["temp_unit"] = temp_unit_fahrenheit
+                # step_id are missing. The SPECTRE recipe port uses inverted
+                # temp_unit semantics on the real firmware (True=Celsius,
+                # False=Fahrenheit): issue #27 showed a Celsius preset that
+                # sent False flipped the device to Fahrenheit. My Presets are
+                # SPECTRE only, so send the preset's own unit with that
+                # inversion, mirroring the local path.
+                props["temp_unit"] = not temp_unit_fahrenheit
                 props["step_id"] = ""
                 props["recipe_id"] = recipe_id
             else:

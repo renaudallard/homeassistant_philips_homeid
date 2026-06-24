@@ -43,7 +43,6 @@ from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
-from .sensor_descriptions import is_spectre_model
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -323,13 +322,6 @@ class PhilipsHomeIDBinarySensor(PhilipsHomeIDEntity, BinarySensorEntity):
         if value is None:
             return None
         result = bool(value)
-        # SPECTRE airfryers report temp_unit with inverted semantics
-        # (True=Celsius, False=Fahrenheit). Normalize so the entity reads
-        # as "Fahrenheit on/off" consistently across device variants.
-        if desc.property_key == "temp_unit" and is_spectre_model(
-            self.coordinator.device_info.model_name
-        ):
-            result = not result
         return not result if desc.invert else result
 
     @property

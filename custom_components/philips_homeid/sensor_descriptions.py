@@ -48,11 +48,11 @@ from homeassistant.const import (
 
 
 def is_spectre_model(model_name: str | None) -> bool:
-    """Return True for SPECTRE airfryers, which use inverted temp_unit semantics.
+    """Return True for SPECTRE-class airfryers (HD9200/HD9255/HD9280/HD9285).
 
-    SPECTRE devices (HD9200/HD9255/HD9280/HD9285) report and accept
-    temp_unit=True as Celsius and False as Fahrenheit. Venus 1 (HD987x) and
-    Venus 2 (HD9880) use the standard semantics (True=Fahrenheit).
+    These use STANDARD temp_unit semantics (True=Fahrenheit, False=Celsius),
+    same as Venus, APK-verified and confirmed on a real HD9280 in issue #27.
+    Currently unused: kept for SPECTRE model detection if needed later.
     """
     if not model_name:
         return False

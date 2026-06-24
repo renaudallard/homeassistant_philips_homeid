@@ -553,6 +553,32 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         if appliances:
                             self._cloud_devices = appliances
                             self._cloud_source = "homeid"
+                            # An appliance set up outside the HomeID app pairing
+                            # flow (e.g. via the machine's own screen) can show up
+                            # here without credentials and without an
+                            # externalDeviceId, so it cannot route to the FUSION
+                            # relay. When that happens, also log the IoT device
+                            # registry so we can tell whether a matching thingName
+                            # exists for it.
+                            if any(
+                                not a.get("clientId")
+                                and not a.get("clientSecret")
+                                and not a.get("externalDeviceId")
+                                for a in appliances
+                            ):
+                                _LOGGER.debug(
+                                    "Incomplete HomeID appliance found, querying "
+                                    "IoT device registry for diagnostics"
+                                )
+                                try:
+                                    await self._cloud_api.get_devices(
+                                        tokens["access_token"]
+                                    )
+                                except Exception:
+                                    _LOGGER.debug(
+                                        "IoT device registry lookup failed (non-fatal)",
+                                        exc_info=True,
+                                    )
                             return await self.async_step_cloud_devices()
 
                         # Fall back to IoT API

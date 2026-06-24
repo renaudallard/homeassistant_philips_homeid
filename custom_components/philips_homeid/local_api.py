@@ -674,9 +674,12 @@ class PhilipsLocalAPI:
             )
             data = self._normalize_venus_command(data)
         else:
-            # SPECTRE: temp_unit True=Celsius, False=Fahrenheit (inverted)
+            # SPECTRE: temp_unit True=Fahrenheit, False=Celsius (standard,
+            # APK-verified and confirmed on a real HD9280 in issue #27).
+            # Echo the device's raw unit when known, else send the preset's
+            # own unit.
             data["temp_unit"] = (
-                raw_temp_unit if raw_temp_unit is not None else not temp_unit_fahrenheit
+                raw_temp_unit if raw_temp_unit is not None else temp_unit_fahrenheit
             )
             if recipe_id is not None:
                 # SPECTRE user presets (My Presets) carry an empty step id;
@@ -773,8 +776,9 @@ class PhilipsLocalAPI:
                     )
                 return result is not None
         else:
+            # SPECTRE: temp_unit True=Fahrenheit, False=Celsius (standard).
             data["temp_unit"] = (
-                raw_temp_unit if raw_temp_unit is not None else not temp_unit_fahrenheit
+                raw_temp_unit if raw_temp_unit is not None else temp_unit_fahrenheit
             )
 
         result = await self._request(device, port, method="PUT", data=data)

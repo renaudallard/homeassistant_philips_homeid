@@ -205,6 +205,7 @@ class PhilipsMQTTClient:
         self._lock = threading.Lock()
         self._discovered_ports: list[str] = []  # NCP read port names from getAllPorts
         self._discovered_write_ports: list[str] = []  # NCP write port names
+        self._device_type: str | None = None  # Cached get_device_type() result
 
         # Build topic names
         tn = device.thing_name
@@ -475,6 +476,18 @@ class PhilipsMQTTClient:
             qos=QOS_AT_LEAST_ONCE,
         )
         _LOGGER.debug("Shadow power update: %s", power_on)
+
+    def _is_air_purifier(self) -> bool:
+        """Return True for MUJI air purifiers (AC0650/AC0651/AC1715).
+
+        Deferred import of get_device_type avoids a circular import with
+        sensor_descriptions, matching the coordinator's convention.
+        """
+        if self._device_type is None:
+            from .sensor_descriptions import get_device_type
+
+            self._device_type = get_device_type(self._device.model_name or "")
+        return self._device_type == "air_purifier"
 
     def _resolve_ncp_port(self, local_port: str) -> str:
         """Resolve local API port name to the NCP port name for this device.
@@ -791,36 +804,53 @@ class PhilipsMQTTClient:
         with self._lock:
             if self._state is None:
                 self._state = LocalDeviceState(device_info=device_info)
-
-            # Merge port properties (NCP push updates only send changed fields)
-            existing = self._state.properties.get(port_name)
-            if existing and isinstance(existing, dict):
-                existing.update(properties)
-            else:
-                self._state.properties[port_name] = properties
             self._state.connection_state = "connected"
 
-            # Update power state from device port data
-            # Only update when status is actually present (devcurst_s merges
-            # into airfryer but has no status field).
-            if port_name == "airfryer" and "status" in properties:
-                port_status = properties["status"]
-                self._state.power_on = port_status in (
-                    "cooking",
-                    "pause",
-                    "setting",
-                    "precook",
-                    "parasetting",
-                    "maintain",
-                    "user_action",
-                    "idle",
-                    "finish",
-                )
-            elif port_name == "machinestatus":
-                # Espresso: mainstate != 0 means active
-                mainstate = properties.get("mainstate")
-                if mainstate is not None:
-                    self._state.power_on = mainstate != 0
+            # MUJI air purifiers report flat D-code properties on the Status and
+            # filter-read (filtRd) ports. Store those at top level so the air
+            # purifier entities (keyed on the raw D-code) resolve, and sidestep
+            # the Status->airfryer remap collision in _NCP_PORT_MAP. Other ports
+            # (Config, firmware) keep their nested layout for the diagnostic
+            # sensors that read nested_key="config"/"firmware".
+            if self._is_air_purifier() and ncp_port in ("Status", "filtRd"):
+                self._state.properties.update(properties)
+                # Power flag: D0310D fanSpeed, 0=off / non-zero=on
+                # (APK MUJI AirStatusPortProperties).
+                power_raw = properties.get("D0310D")
+                if power_raw is not None:
+                    try:
+                        self._state.power_on = int(power_raw) != 0
+                    except (TypeError, ValueError):
+                        pass
+            else:
+                # Merge port properties (NCP push updates only send changed fields)
+                existing = self._state.properties.get(port_name)
+                if existing and isinstance(existing, dict):
+                    existing.update(properties)
+                else:
+                    self._state.properties[port_name] = properties
+
+                # Update power state from device port data
+                # Only update when status is actually present (devcurst_s merges
+                # into airfryer but has no status field).
+                if port_name == "airfryer" and "status" in properties:
+                    port_status = properties["status"]
+                    self._state.power_on = port_status in (
+                        "cooking",
+                        "pause",
+                        "setting",
+                        "precook",
+                        "parasetting",
+                        "maintain",
+                        "user_action",
+                        "idle",
+                        "finish",
+                    )
+                elif port_name == "machinestatus":
+                    # Espresso: mainstate != 0 means active
+                    mainstate = properties.get("mainstate")
+                    if mainstate is not None:
+                        self._state.power_on = mainstate != 0
 
             snapshot = copy.deepcopy(self._state)
 

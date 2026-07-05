@@ -261,6 +261,10 @@ class PhilipsAirPurifierFan(PhilipsHomeIDEntity, FanEntity):
         """Set the preset mode of the fan."""
         if self._is_muji:
             if self._mode_map and preset_mode in self._mode_map:
+                # The device ignores an operationMode write while off
+                # (APK IdleState), so power it on first.
+                if not self.is_on:
+                    await self.coordinator.async_set_power(True)
                 # MUJI operationMode is written to the Control port (D0310C).
                 await self.coordinator.async_set_control_property(
                     MUJI_MODE_KEY, self._mode_map[preset_mode]

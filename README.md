@@ -21,7 +21,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 | Category | Models | Architecture | Notes |
 |----------|--------|--------------|-------|
-| **Air Purifiers** | AC0650, AC0651, AC series | | Local network connectivity required |
+| **Air Purifiers** | AC0650, AC0651 | MUJI | Cloud relay (FUSION MQTT) |
 | **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
 | **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
@@ -34,6 +34,8 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
 > **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
+
+> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the Philips air devices that use the local encrypted **CoAP** protocol (the models controlled by the Air+ or Clean Home+ apps). Only air purifiers that register in the Philips cloud as FUSION devices work here, such as the AC0650/AC0651 above. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
 ---
 
@@ -133,7 +135,7 @@ Devices discovered via Zeroconf or SSDP appear automatically as a notification. 
 1. Go to **Settings** > **Devices & Services** > **Add Integration**
 2. Search for **Philips HomeID**
 3. Choose how to set up:
-   - **Set up a local device by IP address** — enter the device's IP and select the model, then confirm the discovered device (most air purifiers and local airfryers)
+   - **Set up a local device by IP address** — enter the device's IP and select the model, then confirm the discovered device (local airfryers, espresso machines, and similar local-network devices)
    - **Sign in with Philips account** — for cloud-relay (FUSION) devices that have no local connection
 4. Enter your Philips HomeID account email
 5. Enter the verification code sent to your email

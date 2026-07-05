@@ -254,8 +254,8 @@ class PhilipsHomeIDSensorMonitorSwitch(PhilipsHomeIDEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable sensor monitor in standby."""
-        await self.coordinator.async_set_status_property("D03134", 1)
+        await self.coordinator.async_set_control_property("D03134", 1)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable sensor monitor in standby."""
-        await self.coordinator.async_set_status_property("D03134", 0)
+        await self.coordinator.async_set_control_property("D03134", 0)

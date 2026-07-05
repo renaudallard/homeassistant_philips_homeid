@@ -971,6 +971,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self.async_request_refresh()
         return result
 
+    async def async_set_control_property(self, key: str, value: Any) -> bool:
+        """Set a property on the device control port.
+
+        MUJI air purifiers accept property writes (mode, beep volume, air
+        quality threshold, sensor monitor) on their Control NCP port, not the
+        read-only Status port (APK AirControlPort). Non-FUSION devices fall
+        back to the local status-property call.
+        """
+        if self._is_fusion:
+            return await self._mqtt_command("control", {key: value})
+        result = await self.api.set_status_property(self.device_info, key, value)
+        if result:
+            await self.async_request_refresh()
+        return result
+
     # --- Recipe cache ---
 
     async def _proactive_mqtt_refresh(self) -> None:

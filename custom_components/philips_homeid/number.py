@@ -131,7 +131,7 @@ MUJI_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:volume-medium",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("D03130", int(v)),
+        set_fn=lambda c, v: c.async_set_control_property("D03130", int(v)),
     ),
     PhilipsHomeIDNumberEntityDescription(
         key="set_air_quality_threshold",
@@ -142,7 +142,7 @@ MUJI_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_step=1,
         icon="mdi:air-filter",
         mode=NumberMode.BOX,
-        set_fn=lambda c, v: c.async_set_status_property("D0312C", int(v)),
+        set_fn=lambda c, v: c.async_set_control_property("D0312C", int(v)),
     ),
 )
 

@@ -21,7 +21,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 | Category | Models | Architecture | Notes |
 |----------|--------|--------------|-------|
-| **Air Purifiers** | AC0650, AC0651 | MUJI | Cloud relay (FUSION MQTT) |
+| **Air Purifiers** | AC0650, AC0651, AC1715 | MUJI | Cloud relay (FUSION MQTT) |
 | **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
 | **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
@@ -35,7 +35,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 >
 > **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
 
-> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the Philips air devices that use the local encrypted **CoAP** protocol (the models controlled by the Air+ or Clean Home+ apps). Only air purifiers that register in the Philips cloud as FUSION devices work here, such as the AC0650/AC0651 above. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
+> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC1715 above); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
 ---
 
@@ -54,12 +54,11 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
 
 ### Air Purifiers
-- Fan speed and preset modes (auto, manual, sleep, turbo, allergen, bacteria, night)
-- Air quality sensors: PM1, PM2.5, PM10, TVOC, gas, allergen index
-- Environment sensors: humidity, temperature
-- Filter status: pre-filter, HEPA, carbon, humidifier wick
-- Controls: power, child lock
-- MUJI devices (AC0650/AC0651): beep volume, sensor monitor, air quality threshold, filter lifetime tracking
+The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay:
+- Fan control: power on/off and preset modes (per model, for example gentle/sleep/turbo on AC0650, auto/medium/sleep/turbo on AC0651, plus fast on AC1715)
+- Air quality sensors: PM2.5 and indoor air quality index
+- Settings: beep volume, air quality threshold, sensor monitor in standby
+- Filter tracking: lifetime and remaining hours for the clean and replace filters
 
 ### Air Fryers
 - Cooking status, temperature (target/current), time remaining
@@ -263,7 +262,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 
 | Type | Entity | Description |
 |------|--------|-------------|
-| Fan | Air Purifier | Main control with speed and preset modes |
+| Fan | Air Purifier | Power on/off and preset modes (MUJI uses preset modes, not a percentage speed) |
 | Sensor | PM1.0 / PM2.5 / PM10 | Particulate matter readings |
 | Sensor | Air Quality Index | Indoor air quality (IAQL) |
 | Sensor | Total VOC | Volatile organic compounds |

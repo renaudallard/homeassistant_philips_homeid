@@ -42,15 +42,18 @@ def test_air_purifier_status_flattened_to_top_level():
     assert props["D03120"] == 3
     # Must not collide with the airfryer port mapping.
     assert "airfryer" not in props
-    # Power flag: D0310D non-zero means on.
+
+
+def test_air_purifier_power_from_shadow_not_fanspeed():
+    """Power is the shadow powerOn; a zero D0310D fan speed must not flip it off."""
+    client = _make_client("AC0651/10")
+    client._handle_shadow({"state": {"reported": {"powerOn": True}}})
     assert client._state.power_on is True
 
-
-def test_air_purifier_power_flag_off():
-    """A zero D0310D fan-speed flag means the purifier is off."""
-    client = _make_client("AC0651/10")
-    client._handle_ncp_response(_ncp("Status", {"D0310D": 0}))
-    assert client._state.power_on is False
+    # Auto-mode idle: fan speed drops to 0 but the device is still on.
+    client._handle_ncp_response(_ncp("Status", {"D0310C": 0, "D0310D": 0}))
+    assert client._state.power_on is True
+    assert client._state.properties["D0310D"] == 0
 
 
 def test_air_purifier_filter_port_flattened():

@@ -169,18 +169,15 @@ class PhilipsAirPurifierFan(PhilipsHomeIDEntity, FanEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Return true if the fan is on."""
+        """Return true if the fan is on.
+
+        Power is the AWS-IoT shadow powerOn (state.power_on) for both MUJI and
+        legacy devices. MUJI fan speed (D0310D) idles to 0 while the device is
+        still on (auto mode, clean air), so it must not be used as the on flag.
+        """
         state = self.device_state
         if not state:
             return None
-        if self._is_muji:
-            power = state.properties.get(MUJI_POWER_KEY)
-            if power is None:
-                return state.power_on
-            try:
-                return int(power) != 0
-            except (TypeError, ValueError):
-                return None
         return state.power_on
 
     @property

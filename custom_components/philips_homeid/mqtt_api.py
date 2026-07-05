@@ -813,15 +813,12 @@ class PhilipsMQTTClient:
             # (Config, firmware) keep their nested layout for the diagnostic
             # sensors that read nested_key="config"/"firmware".
             if self._is_air_purifier() and ncp_port in ("Status", "filtRd"):
+                # Air purifier power state comes from the AWS-IoT shadow
+                # (powerOn) in _handle_shadow, not from a D-code. The Status
+                # port only carries D-code readings (fan speed, pm2.5, filters,
+                # ...) that idle to 0 while the device is still on, so merge them
+                # at top level and leave power_on to the shadow.
                 self._state.properties.update(properties)
-                # Power flag: D0310D fanSpeed, 0=off / non-zero=on
-                # (APK MUJI AirStatusPortProperties).
-                power_raw = properties.get("D0310D")
-                if power_raw is not None:
-                    try:
-                        self._state.power_on = int(power_raw) != 0
-                    except (TypeError, ValueError):
-                        pass
             else:
                 # Merge port properties (NCP push updates only send changed fields)
                 existing = self._state.properties.get(port_name)

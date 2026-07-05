@@ -252,7 +252,8 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     PhilipsHomeIDSensorEntityDescription(
         key="pm25",
         translation_key="pm25",
-        property_key="pm25",
+        # FUSION MUJI air purifiers report PM2.5 on D03221 (APK AirStatusPort).
+        property_key="D03221",
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM25,
         state_class=SensorStateClass.MEASUREMENT,
@@ -279,7 +280,9 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     PhilipsHomeIDSensorEntityDescription(
         key="air_quality_index",
         translation_key="air_quality_index",
-        property_key="iaql",
+        # FUSION MUJI reports the indoor air-quality index on D03120
+        # (APK AirStatusPortProperties.indoorAirIndex).
+        property_key="D03120",
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),

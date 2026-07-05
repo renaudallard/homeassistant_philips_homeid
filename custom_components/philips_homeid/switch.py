@@ -129,6 +129,31 @@ async def async_setup_entry(
         unregister = coordinator.register_new_property_callback(handle_new_properties)
         entry.async_on_unload(unregister)
 
+    # Dynamic creation for the MUJI sensor-monitor switch: its Status-port
+    # D-code (D03134) can arrive after platform setup, and unlike the airfryer
+    # switches above it has no other fallback.
+    if device_type == "air_purifier":
+        muji_switch_created = coordinator.has_property("D03134")
+
+        def handle_new_muji_switch(
+            new_properties: list[tuple[str, str | None]],
+        ) -> None:
+            nonlocal muji_switch_created
+            if muji_switch_created:
+                return
+            if coordinator.has_property("D03134"):
+                muji_switch_created = True
+                async_add_entities(
+                    [
+                        PhilipsHomeIDSensorMonitorSwitch(
+                            coordinator, coordinator.device_id
+                        )
+                    ]
+                )
+
+        unregister = coordinator.register_new_property_callback(handle_new_muji_switch)
+        entry.async_on_unload(unregister)
+
 
 class PhilipsHomeIDChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     """Child lock switch for Philips HomeID devices."""

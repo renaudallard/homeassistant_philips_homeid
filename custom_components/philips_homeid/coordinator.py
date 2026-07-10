@@ -72,6 +72,7 @@ from .local_api import (
     PhilipsLocalAPI,
 )
 from .mqtt_api import PhilipsMQTTClient
+from .rita_protobuf import decode_profile_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -658,36 +659,68 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             }
         )
 
-    async def async_rita_brew_builtin(self, profile_id: int, drink_id: int) -> bool:
+    def _rita_profile_wire_id(self, slot: int) -> int | None:
+        """Resolve a Profiles-port slot to the profile's real profileId.
+
+        The brew command carries the profile's own profileId (tag 1 of the
+        RitaProfileData blob in ``Profiles.profile{slot}``), not the storage
+        slot index the dropdown uses. An empty slot, a missing blob or a
+        profileId of 0 all mean "no usable profile"; a warning is logged and
+        None is returned so the caller can skip a brew the machine would
+        reject with INVALID_PROFILE_ID (106).
+        """
+        wire_id: int | None = None
+        if self._state and 0 <= slot <= 7:
+            profiles = self._state.properties.get("Profiles")
+            if isinstance(profiles, dict):
+                blob = profiles.get(f"profile{slot}")
+                if isinstance(blob, str) and blob:
+                    wire_id = decode_profile_id(blob)
+        if wire_id is None:
+            _LOGGER.warning(
+                "Cannot brew: profile slot %s has no usable saved profile", slot
+            )
+        return wire_id
+
+    async def async_rita_brew_builtin(self, profile_slot: int, drink_id: int) -> bool:
         """Brew a built-in drink (APK BrewRitaRegularDrinkUseCase, REMOTE_BREW)."""
+        wire_id = self._rita_profile_wire_id(profile_slot)
+        if wire_id is None:
+            return False
         return await self._rita_control(
             {
                 "CtrlCmd": self.RITA_CMD_REMOTE_BREW,
                 "SesOwnId": self._rita_session_id(),
-                "Profile_id": profile_id,
+                "Profile_id": wire_id,
                 "Recipe_id": drink_id,
             }
         )
 
-    async def async_rita_brew(self, profile_id: int, slot: int = 0) -> bool:
+    async def async_rita_brew(self, profile_slot: int, slot: int = 0) -> bool:
         """Brew the recipe saved in a profile's slot if present, else fall back.
 
         If the slot holds a user-saved recipe (base64 RitaBrewCommand in
         Recipes_p1/p2), brew it via REMOTE_BREW_CUSTOM so the machine
         applies the saved customization. Otherwise treat ``slot`` as a
         built-in drink id and route through REMOTE_BREW.
+
+        ``profile_slot`` is the Profiles-port dropdown slot; it is resolved to
+        the profile's real profileId before the command is sent.
         """
         blob = self._rita_recipe_blob(slot)
         if blob:
+            wire_id = self._rita_profile_wire_id(profile_slot)
+            if wire_id is None:
+                return False
             return await self._rita_control(
                 {
                     "CtrlCmd": self.RITA_CMD_REMOTE_BREW_CUSTOM,
                     "SesOwnId": self._rita_session_id(),
-                    "Profile_id": profile_id,
+                    "Profile_id": wire_id,
                     "RcpBinData": blob,
                 }
             )
-        return await self.async_rita_brew_builtin(profile_id, slot)
+        return await self.async_rita_brew_builtin(profile_slot, slot)
 
     def _rita_recipe_blob(self, slot: int) -> str | None:
         """Return the base64 RitaBrewCommand blob for a recipe slot, if any.

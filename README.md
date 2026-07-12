@@ -79,7 +79,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 
 ### Espresso Machines (Rita)
 - Power on/off via shadow
-- Brew a saved profile recipe or a built-in drink id
+- Brew a saved profile recipe or a built-in drink (espresso, cappuccino, and so on)
 - One-tap Brew Hot Water using the active profile
 - Abort, resume and skip step during a brew
 - Select roast level (light/medium/dark) and bean type (arabica/mix/other)
@@ -367,7 +367,7 @@ Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 | Sensor | Coffee Autonomy | Coffee autonomy percentage |
 | Sensor | Brew Group Autonomy | Brew group cleaning autonomy percentage |
 | Switch | Power | Turn the machine on or off (shadow `powerOn`) |
-| Button | Brew Selected Recipe | Brew the selected slot (saved recipe) or the built-in drink at that id |
+| Button | Brew Selected Recipe | Brew the selected saved recipe or built-in drink |
 | Button | Brew Hot Water | Dispense hot water using the selected profile |
 | Button | Abort Brew | Stop the current brew |
 | Button | Resume Brew | Resume a suspended brew |
@@ -375,7 +375,7 @@ Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 | Select | Roast Level | Set bean roast level |
 | Select | Bean Type | Set bean type |
 | Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
-| Select | Brew Recipe | Recipe used by Brew, filtered to the selected profile's saved recipes |
+| Select | Brew Recipe | Drink used by Brew: the profile's saved recipes plus the built-in drinks (espresso, cappuccino, ...) |
 | Sensor | NCP / Host Firmware Version | Reported firmware versions (diagnostic) |
 | Sensor | Product Error | Device error code from shadow (diagnostic) |
 | Sensor | Device Name / Serial Number / Model Number | Config port identifiers (diagnostic) |

@@ -85,3 +85,45 @@ FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
 FUSION_PLATFORM_REST_URL = "prod.eu-da.iot.versuni.com"
 FUSION_TENANT = "da"
 FUSION_MQTT_HOST = "ats.prod.eu-da.iot.versuni.com"
+
+# Rita espresso machine built-in drinks (RitaDrinkId -> name, from APK
+# RitaDrinkKt). A built-in drink is brewed via REMOTE_BREW with Recipe_id set
+# to the drink id. Only the hot drinks are listed; iced and cold-brew variants
+# are omitted, and Hot Water (id 21) has its own dedicated button. The machine
+# advertises the drinks it actually supports only through the cloud catalog, so
+# a drink the model lacks is simply rejected with a control-status error.
+RITA_BUILTIN_DRINKS: dict[int, str] = {
+    1: "Ristretto",
+    2: "Espresso",
+    4: "Espresso Lungo",
+    5: "Double Espresso",
+    7: "Caffè Crema",
+    8: "Americano",
+    10: "Espresso Macchiato",
+    11: "Cortado",
+    13: "Mélange",
+    14: "Cappuccino",
+    15: "Flat White",
+    16: "Caffè Latte",
+    17: "Café au Lait",
+    19: "Latte Macchiato",
+    20: "Froth Milk",
+    23: "Galão",
+    24: "Italian Cappuccino",
+    35: "Long Black",
+    38: "Cut",
+    39: "Red Eye",
+    40: "Black Eye",
+    41: "Dripped Eye",
+    42: "Piccolo Latte",
+    43: "Magic",
+    54: "Babyccino",
+    61: "Cappuccino XL",
+}
+
+# The Rita brew-recipe dropdown mixes per-profile custom recipes (slots 0-79)
+# with the global built-in drinks above. Built-in drinks are offset past the
+# recipe slot range so a single integer selection can name either without a
+# collision; the brew path routes any value at or above the offset to a
+# built-in-drink brew after subtracting it.
+RITA_BUILTIN_DRINK_OFFSET = 1000

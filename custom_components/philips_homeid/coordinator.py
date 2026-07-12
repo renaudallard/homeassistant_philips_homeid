@@ -56,6 +56,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FUSION_HEARTBEAT_INTERVAL,
+    RITA_BUILTIN_DRINK_OFFSET,
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
@@ -696,18 +697,24 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             }
         )
 
-    async def async_rita_brew(self, profile_slot: int, slot: int = 0) -> bool:
-        """Brew the recipe saved in a profile's slot if present, else fall back.
+    async def async_rita_brew(self, profile_slot: int, selection: int = 0) -> bool:
+        """Brew the recipe or built-in drink chosen in the recipe dropdown.
 
-        If the slot holds a user-saved recipe (base64 RitaBrewCommand in
-        Recipes_p1/p2), brew it via REMOTE_BREW_CUSTOM so the machine
-        applies the saved customization. Otherwise treat ``slot`` as a
-        built-in drink id and route through REMOTE_BREW.
+        ``selection`` is the recipe-select value. Values at or above
+        RITA_BUILTIN_DRINK_OFFSET name a built-in drink (offset removed) and
+        brew via REMOTE_BREW. A lower value is a saved-recipe slot: if it holds
+        a user recipe (base64 RitaBrewCommand in Recipes_p1/p2) it brews via
+        REMOTE_BREW_CUSTOM so the machine applies the saved customization,
+        otherwise it falls back to a built-in-drink brew by that id.
 
         ``profile_slot`` is the Profiles-port dropdown slot; it is resolved to
         the profile's real profileId before the command is sent.
         """
-        blob = self._rita_recipe_blob(slot)
+        if selection >= RITA_BUILTIN_DRINK_OFFSET:
+            return await self.async_rita_brew_builtin(
+                profile_slot, selection - RITA_BUILTIN_DRINK_OFFSET
+            )
+        blob = self._rita_recipe_blob(selection)
         if blob:
             wire_id = self._rita_profile_wire_id(profile_slot)
             if wire_id is None:
@@ -720,7 +727,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     "RcpBinData": blob,
                 }
             )
-        return await self.async_rita_brew_builtin(profile_slot, slot)
+        return await self.async_rita_brew_builtin(profile_slot, selection)
 
     def _rita_recipe_blob(self, slot: int) -> str | None:
         """Return the base64 RitaBrewCommand blob for a recipe slot, if any.

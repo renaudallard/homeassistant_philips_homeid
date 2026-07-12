@@ -33,7 +33,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, RITA_BUILTIN_DRINK_OFFSET, RITA_BUILTIN_DRINKS
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
@@ -468,10 +468,13 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
 class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
     """Recipe selector for Rita espresso machines (APK RitaRecipesPort).
 
-    Shown slots are filtered to the active profile by matching each rcp
-    blob's recipeId (field 1 of RitaBrewCommand) against the selected
-    profile's recipeIdOrderList (field 4 of RitaProfileData), the same
-    approach the APK uses in DefaultGetDrinksForActiveProfileUseCase.
+    The dropdown lists the active profile's saved recipes followed by the
+    machine's built-in drinks. Saved recipes are filtered to the profile by
+    matching each rcp blob's recipeId (field 1 of RitaBrewCommand) against the
+    profile's recipeIdOrderList (field 4 of RitaProfileData), the same approach
+    the APK uses in DefaultGetDrinksForActiveProfileUseCase. Built-in drinks are
+    global (not profile specific) and keyed past the recipe slot range with
+    RITA_BUILTIN_DRINK_OFFSET so both share one integer selection.
     """
 
     _attr_translation_key = "rita_brew_recipe_select"
@@ -510,23 +513,28 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
                 if isinstance(profile_blob, str) and profile_blob:
                     profile_ids = decode_profile_recipe_ids(profile_blob)
 
-        if not profile_ids:
-            # Empty profile: keep the numeric fallback so users can still
-            # trigger a built-in-drink brew via slot id (the brew path
-            # falls through to REMOTE_BREW when the slot has no blob).
-            return _build_named_options([""] * 80, 80, "Recipe")
+        labels: dict[int, str] = {}
 
-        filtered = [""] * 80
-        for i in range(80):
-            if not names[i] or not blobs[i]:
-                continue
-            rid = decode_recipe_id(blobs[i])
-            if rid is not None and rid in profile_ids:
-                filtered[i] = names[i]
+        # The active profile's saved recipes come first.
+        if profile_ids:
+            filtered = [""] * 80
+            for i in range(80):
+                if not names[i] or not blobs[i]:
+                    continue
+                rid = decode_recipe_id(blobs[i])
+                if rid is not None and rid in profile_ids:
+                    filtered[i] = names[i]
+            if any(filtered):
+                labels.update(_build_named_options(filtered, 80, "Recipe"))
 
-        if not any(filtered):
-            return {}
-        return _build_named_options(filtered, 80, "Recipe")
+        # The built-in drinks are always brewable; append the ones whose name
+        # is not already taken by a saved recipe so option labels stay unique.
+        taken = set(labels.values())
+        for drink_id, name in RITA_BUILTIN_DRINKS.items():
+            if name not in taken:
+                labels[RITA_BUILTIN_DRINK_OFFSET + drink_id] = name
+
+        return labels
 
     @callback
     def _handle_coordinator_update(self) -> None:

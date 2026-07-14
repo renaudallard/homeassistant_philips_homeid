@@ -57,6 +57,11 @@ class PhilipsHomeIDBinarySensorEntityDescription(BinarySensorEntityDescription):
     device_types: tuple[str, ...] | None = None
     # If True, invert the boolean value (problem when value is 0/False)
     invert: bool = False
+    # Optional property to read the on/off value from when it differs from
+    # property_key (which still drives creation and availability). Lets one
+    # field keep the entity alive while another supplies its state, without
+    # colliding with a different platform that reads that state field.
+    state_key: str | None = None
 
 
 # Air purifier binary sensors
@@ -64,10 +69,19 @@ AIR_PURIFIER_BINARY_SENSORS: tuple[PhilipsHomeIDBinarySensorEntityDescription, .
     PhilipsHomeIDBinarySensorEntityDescription(
         key="filter_replace_required",
         translation_key="filter_replace_required",
+        # Created and kept available by fltt1 (the HEPA filter type label,
+        # always present on the filter port), but the replace-required state
+        # comes from fltsts1, the HEPA filter life remaining: 0 = replace
+        # required. Keying creation on fltt1 rather than fltsts1 avoids
+        # colliding with the filter_hepa sensor, which also reads fltsts1, in
+        # the shared seen-property tracker. fltt1 on its own is always truthy
+        # and could never signal a replacement.
         property_key="fltt1",
+        state_key="fltsts1",
         device_class=BinarySensorDeviceClass.PROBLEM,
         icon="mdi:air-filter",
         device_types=("air_purifier",),
+        invert=True,
     ),
     PhilipsHomeIDBinarySensorEntityDescription(
         key="water_tank_empty",
@@ -318,7 +332,9 @@ class PhilipsHomeIDBinarySensor(PhilipsHomeIDEntity, BinarySensorEntity):
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
         desc = self.entity_description
-        value = self._get_property_value(desc.property_key, desc.nested_key)
+        value = self._get_property_value(
+            desc.state_key or desc.property_key, desc.nested_key
+        )
         if value is None:
             return None
         result = bool(value)

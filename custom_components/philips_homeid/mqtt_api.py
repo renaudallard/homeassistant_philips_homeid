@@ -715,7 +715,11 @@ class PhilipsMQTTClient:
             if self._state is None:
                 self._state = LocalDeviceState(device_info=device_info)
 
-            self._state.power_on = reported.get("powerOn", False)
+            # shadow/update/accepted only carries the fields that changed in
+            # that update, so a partial device report that omits powerOn must
+            # not be read as power off. Only update when the key is present.
+            if "powerOn" in reported:
+                self._state.power_on = reported["powerOn"]
             self._state.connection_state = "connected"
 
             # Merge reported properties into state

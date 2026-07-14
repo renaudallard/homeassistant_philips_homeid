@@ -91,6 +91,11 @@ class PhilipsLocalAPI:
         """Initialize the local API client."""
         self._session = session
         self._own_session = session is None
+        # Set during get_full_state when a probe hits a transient failure
+        # (429/timeout/connection error) rather than an authoritative
+        # "not supported" response, so a momentary glitch cannot cache a
+        # permanent negative device-type verdict.
+        self._probe_transient = False
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -232,9 +237,11 @@ class PhilipsLocalAPI:
 
         except aiohttp.ClientError as err:
             _LOGGER.error("Request failed for %s: %s", url, err)
+            self._probe_transient = True
             return None
         except Exception as err:
             _LOGGER.error("Unexpected error for %s: %s", url, err)
+            self._probe_transient = True
             return None
 
     async def _handle_response(
@@ -291,6 +298,7 @@ class PhilipsLocalAPI:
 
         elif resp.status == 429:
             _LOGGER.warning("Device busy (429)")
+            self._probe_transient = True
             return None, False
 
         else:
@@ -945,6 +953,7 @@ class PhilipsLocalAPI:
         """Get the full state of a device."""
         state = LocalDeviceState(device_info=device)
         got_data = False
+        self._probe_transient = False
 
         # Try airfryer endpoint (skip if device is known to be non-airfryer)
         # Skip probing if we have no auth material at all (no client_id/secret),
@@ -983,11 +992,14 @@ class PhilipsLocalAPI:
                     recipe = await self.get_recipe_status(device)
                     if recipe:
                         state.properties["recipe"] = recipe
-            elif device.airfryer_port is None and has_auth:
+            elif (
+                device.airfryer_port is None and has_auth and not self._probe_transient
+            ):
                 # No port responded after successful auth; not an airfryer.
                 # Only cache this if we have auth material (credentials or
-                # client_id/secret), otherwise timeouts could be from
-                # pre-auth state.
+                # client_id/secret) and no transient failure (429/timeout/
+                # connection error) occurred, otherwise a momentary glitch
+                # could permanently misclassify the device until restart.
                 device.airfryer_port = False
 
         # Get status/air/filter for non-airfryer devices (air purifiers).
@@ -1016,7 +1028,7 @@ class PhilipsLocalAPI:
                 purifier_found = True
                 state.properties.update(filters)
 
-            if not purifier_found and has_auth:
+            if not purifier_found and has_auth and not self._probe_transient:
                 device.purifier_port = False
 
         # Espresso machines (EP/SM models) expose their state on the
@@ -1038,7 +1050,7 @@ class PhilipsLocalAPI:
                         state.power_on = (
                             state.power_on or espresso_data.get("mainstate", 0) >= 2
                         )
-            if not found_any:
+            if not found_any and not self._probe_transient:
                 device.espresso_port = False
 
         # Get firmware version info

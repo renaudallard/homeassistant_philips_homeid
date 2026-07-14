@@ -250,8 +250,10 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
 
     refresh_time = _time.monotonic()
     deadline = asyncio.get_event_loop().time() + 15
+    ncp_data_ready = False
     while asyncio.get_event_loop().time() < deadline:
         if coordinator._ncp_data_timestamp > refresh_time:
+            ncp_data_ready = True
             break
         await asyncio.sleep(0.2)
     else:
@@ -262,7 +264,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    _cleanup_stale_entities(hass, entry, coordinator)
+    # Only prune stale entities once the device's port data has arrived. On a
+    # slow or unstable startup the NCP wait above times out with incomplete
+    # state; running cleanup then would wrongly remove valid FUSION entities
+    # (and their registry customizations) for properties not yet reported.
+    if ncp_data_ready:
+        _cleanup_stale_entities(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 

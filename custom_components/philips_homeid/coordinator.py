@@ -44,6 +44,7 @@ from .const import (
     CONF_APPLIANCE_ID,
     CONF_AUTOCOOK_CATALOG_FETCHED,
     CONF_CLOUD_REFRESH_TOKEN,
+    CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_MY_PRESETS,
     CONF_MY_PRESETS_FETCHED,
@@ -53,9 +54,11 @@ from .const import (
     CONF_RECIPE_LANGUAGE,
     CONF_SCAN_INTERVAL,
     CONF_TENANT,
+    CONF_THING_NAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FUSION_HEARTBEAT_INTERVAL,
+    RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
 )
 from .local_api import (
@@ -119,6 +122,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
         self._rita_brew_recipe_id: int = 0  # Rita espresso: saved recipe slot to brew
         self._rita_brew_drink_id: int = 0  # Rita espresso: built-in drink id to brew
+        self._rita_drink_catalog: dict[int, str] = {}  # live per-model drink list
+        self._rita_drinks_fetched: bool = False  # one-shot fetch guard (per session)
+        self._rita_drinks_fetch_running: bool = False  # in-flight guard
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
@@ -209,6 +215,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if any(isinstance(v, dict) for v in state.properties.values()):
             self._ncp_data_timestamp = time.monotonic()
         self._inject_recipe_name()
+        self._maybe_fetch_rita_drinks()
         self.async_set_updated_data(state)
 
     async def _async_update_data(self) -> LocalDeviceState | None:
@@ -950,6 +957,47 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Update the built-in drink id selected for the next manual brew."""
         self._rita_brew_drink_id = value
 
+    def rita_builtin_drinks(self) -> dict[int, str]:
+        """Return the machine's live drink catalog, or the built-in fallback.
+
+        The per-model list is fetched from the cloud once per session; until it
+        arrives (or if the fetch fails) the hardcoded RITA_BUILTIN_DRINKS is
+        used so the dropdown always has sensible options.
+        """
+        return self._rita_drink_catalog or dict(RITA_BUILTIN_DRINKS)
+
+    @staticmethod
+    def _parse_rita_capabilities(
+        items: list[dict[str, Any]], ctn: str
+    ) -> dict[int, str]:
+        """Build a {drinkID: drinkName} map from a capabilities response.
+
+        Keeps only drinks whose ctnNumbers include this machine's CTN, with a
+        valid integer id and a non-empty name, and drops hot water (id 21,
+        which has its own button). Malformed entries are skipped.
+        """
+        catalog: dict[int, str] = {}
+        if not isinstance(items, list):
+            return catalog
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            drink_id = item.get("drinkID")
+            name = item.get("drinkName")
+            ctns = item.get("ctnNumbers")
+            if (
+                not isinstance(drink_id, int)
+                or isinstance(drink_id, bool)
+                or drink_id == PhilipsHomeIDCoordinator.RITA_DRINK_HOT_WATER
+                or not isinstance(name, str)
+                or not name.strip()
+                or not isinstance(ctns, list)
+                or ctn not in ctns
+            ):
+                continue
+            catalog[drink_id] = name.strip()
+        return catalog
+
     @property
     def keep_warm_time(self) -> int:
         """Return keep warm time in seconds."""
@@ -1376,6 +1424,82 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             _LOGGER.warning("My Presets fetch failed", exc_info=True)
         finally:
             self._my_presets_fetch_running = False
+
+    def _maybe_fetch_rita_drinks(self) -> None:
+        """Kick a one-shot fetch of the per-model Rita drink catalog."""
+        if (
+            not self._is_fusion
+            or self._rita_drinks_fetched
+            or self._rita_drinks_fetch_running
+            or not self._state
+        ):
+            return
+        props = self._state.properties
+        # Rita machines expose a Profiles port; the capabilities call also
+        # needs the host firmware version (a shadow field) and cloud creds.
+        if (
+            "Profiles" not in props
+            or not props.get("hostFirmwareVersion")
+            or not self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
+        ):
+            return
+        self._rita_drinks_fetch_running = True
+        self.hass.async_create_task(self._populate_rita_drinks())
+
+    async def _populate_rita_drinks(self) -> None:
+        """Fetch the machine's supported drink catalog from the cloud once."""
+        from .cloud_api import PhilipsCloudAPI
+
+        self._rita_drinks_fetched = True
+        try:
+            device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
+            firmware = ""
+            if self._state:
+                firmware = str(self._state.properties.get("hostFirmwareVersion", ""))
+            if not device_id or not firmware:
+                return
+            access_token = await self._get_access_token()
+            if not access_token:
+                return
+            cloud_api = PhilipsCloudAPI()
+            try:
+                # The IoT device list may key a device by id, thingName or MAC;
+                # externalDeviceId (CONF_DEVICE_ID) is not guaranteed to equal
+                # dev["id"], so match on any of the identifiers we hold (as
+                # get_thing_name does) to find this machine's CTN.
+                thing_name = self.config_entry.data.get(CONF_THING_NAME, "")
+                mac = self.config_entry.data.get(CONF_CPP_ID, "")
+                ctn = ""
+                for dev in await cloud_api.get_devices(access_token):
+                    if not dev.get("ctn"):
+                        continue
+                    if (
+                        (device_id and dev.get("id") == device_id)
+                        or (thing_name and dev.get("thingName") == thing_name)
+                        or (mac and dev.get("macAddress") == mac)
+                    ):
+                        ctn = str(dev["ctn"])
+                        break
+                if not ctn:
+                    _LOGGER.debug("Rita drinks: no CTN for device %s", device_id)
+                    return
+                items = await cloud_api.get_rita_capabilities(
+                    access_token, device_id, ctn, firmware
+                )
+            finally:
+                await cloud_api.close()
+            catalog = self._parse_rita_capabilities(items, ctn)
+            if catalog:
+                self._rita_drink_catalog = catalog
+                _LOGGER.info(
+                    "Rita drink catalog: %d drink(s) for %s", len(catalog), ctn
+                )
+                if self._state:
+                    self.async_set_updated_data(self._state)
+        except Exception:
+            _LOGGER.warning("Rita drink catalog fetch failed", exc_info=True)
+        finally:
+            self._rita_drinks_fetch_running = False
 
     async def async_refresh_recipe_cache(self) -> bool:
         """Clear cache and re-fetch current recipe from the cloud API."""

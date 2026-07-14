@@ -33,7 +33,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, RITA_BUILTIN_DRINKS
+from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
@@ -568,10 +568,12 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
 class PhilipsHomeIDRitaBuiltinDrinkSelect(PhilipsHomeIDEntity, SelectEntity):
     """Built-in drink selector for Rita espresso machines.
 
-    Lists the machine's factory drinks (Espresso, Cappuccino, ...) from the
-    RITA_BUILTIN_DRINKS catalog. Unlike saved recipes these are global rather
-    than profile specific, and are brewed via REMOTE_BREW with the raw
-    RitaDrinkId. Hot water has its own dedicated button and is not listed here.
+    Lists the machine's factory drinks (Espresso, Cappuccino, ...). The list
+    comes from the coordinator, which fetches the exact per-model catalog from
+    the cloud and falls back to the built-in RITA_BUILTIN_DRINKS list. Unlike
+    saved recipes these are global rather than profile specific, and are brewed
+    via REMOTE_BREW with the raw RitaDrinkId. Hot water has its own dedicated
+    button and is not listed here.
     """
 
     _attr_translation_key = "rita_builtin_drink_select"
@@ -582,7 +584,7 @@ class PhilipsHomeIDRitaBuiltinDrinkSelect(PhilipsHomeIDEntity, SelectEntity):
         self._attr_unique_id = f"{device_id}_rita_builtin_drink_select"
 
     def _drink_labels(self) -> dict[int, str]:
-        return dict(RITA_BUILTIN_DRINKS)
+        return self.coordinator.rita_builtin_drinks()
 
     @callback
     def _handle_coordinator_update(self) -> None:

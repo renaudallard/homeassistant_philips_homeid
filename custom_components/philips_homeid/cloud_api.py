@@ -302,6 +302,44 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             )
         return devices
 
+    async def get_rita_capabilities(
+        self,
+        access_token: str,
+        device_id: str,
+        ctn: str,
+        firmware_version: str,
+    ) -> list[dict[str, Any]]:
+        """Fetch a Rita machine's supported drink catalog (best effort).
+
+        Returns the raw drink list from the DaConnect device-capabilities
+        endpoint, or an empty list on any failure so the caller can fall back
+        to the built-in list.
+        """
+        try:
+            session = await self._get_session()
+            url = (
+                f"{IOT_BASE}/device/{device_id}/capabilities"
+                f"?proposition={ctn}&version={firmware_version}"
+            )
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json",
+            }
+            async with session.get(url, headers=headers) as resp:
+                text = await resp.text()
+                _LOGGER.debug(
+                    "Rita capabilities response: HTTP %s, body: %s",
+                    resp.status,
+                    text[:500],
+                )
+                if resp.status != 200:
+                    return []
+                data = json.loads(text)
+        except Exception:
+            _LOGGER.debug("Rita capabilities fetch failed", exc_info=True)
+            return []
+        return data if isinstance(data, list) else []
+
     async def get_homes(self, access_token: str) -> list[dict[str, Any]]:
         """List homes from IoT API (for debugging)."""
         session = await self._get_session()

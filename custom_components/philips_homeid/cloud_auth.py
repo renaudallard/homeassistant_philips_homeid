@@ -229,9 +229,11 @@ class PhilipsCloudAuth:
             .decode()
         )
 
-        auth_code = await self._http_oauth(session_token, code_challenge)
-
-        return await self._exchange_code(auth_code, code_verifier)
+        try:
+            auth_code = await self._http_oauth(session_token, code_challenge)
+            return await self._exchange_code(auth_code, code_verifier)
+        except aiohttp.ClientError as err:
+            raise CloudConnectionError(f"OAuth flow unreachable: {err}") from err
 
     async def _http_oauth(self, session_token: str, code_challenge: str) -> str:
         """Pure-HTTP OAuth flow. Returns the authorization code."""
@@ -281,7 +283,12 @@ class PhilipsCloudAuth:
                 "format": "json",
             },
         ) as resp:
-            ids_data = await resp.json(content_type=None)
+            try:
+                ids_data = await resp.json(content_type=None)
+            except (json.JSONDecodeError, ValueError) as json_err:
+                raise CloudConnectionError(
+                    f"socialize.getIDs returned non-JSON (HTTP {resp.status})"
+                ) from json_err
         gmid_ticket = ids_data.get("gmidTicket")
         if not gmid_ticket:
             err = ids_data.get("errorMessage") or ids_data.get("errorCode")

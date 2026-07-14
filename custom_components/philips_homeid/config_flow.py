@@ -790,8 +790,6 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception:
             _LOGGER.exception("Error fetching credentials")
             cred_list = []
-        finally:
-            await self._close_cloud_api()
 
         creds = None
         for cred_dev in cred_list:
@@ -812,6 +810,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return None
 
         unique_id = _normalize_unique_id(device_data.get("id", host))
+        # Past the recoverable-error returns above, every remaining path is
+        # terminal (abort if already configured, otherwise create the entry)
+        # and no longer needs the cloud API, so close it here. This covers the
+        # abort and success paths without leaking the session, while the earlier
+        # error returns keep it open so the device picker can retry.
+        await self._close_cloud_api()
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured()
 

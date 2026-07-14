@@ -189,6 +189,24 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._cloud_api.close()
             self._cloud_api = None
 
+    async def _set_unique_id_or_abort(self, unique_id: str) -> None:
+        """Set the flow unique id and abort if the device is already set up.
+
+        Closes the cloud API before aborting so onboarding a device that is
+        already configured, or whose discovery flow is already in progress,
+        does not leak the open cloud session. Both async_set_unique_id
+        (already_in_progress) and _abort_if_unique_id_configured
+        (already_configured) can raise AbortFlow, so guard both.
+        """
+        from homeassistant.data_entry_flow import AbortFlow
+
+        try:
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+        except AbortFlow:
+            await self._close_cloud_api()
+            raise
+
     def _abort_if_device_already_configured(
         self, cpp_id: str, ip_address: str = ""
     ) -> None:
@@ -744,8 +762,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Use MAC as unique ID (normalized to match discovery format)
         unique_id = _normalize_unique_id(mac or host)
-        await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
+        await self._set_unique_id_or_abort(unique_id)
 
         # Use discovered device model if available, fall back to cloud data
         # Include model_number (e.g., "HD9280/9x") for port lookup
@@ -810,14 +827,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return None
 
         unique_id = _normalize_unique_id(device_data.get("id", host))
-        # Past the recoverable-error returns above, every remaining path is
-        # terminal (abort if already configured, otherwise create the entry)
-        # and no longer needs the cloud API, so close it here. This covers the
-        # abort and success paths without leaking the session, while the earlier
-        # error returns keep it open so the device picker can retry.
-        await self._close_cloud_api()
-        await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
+        await self._set_unique_id_or_abort(unique_id)
 
         use_https = True
         if self._discovered_device:
@@ -838,6 +848,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             entry_data[CONF_ENCRYPTION_KEY] = enc_key
 
         name = device_data.get("friendlyName", ctn) or ctn or host
+        await self._close_cloud_api()
         return self.async_create_entry(title=name, data=entry_data)
 
     async def _create_fusion_entry(
@@ -855,8 +866,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             mac = self._discovered_device.cpp_id
 
         unique_id = _normalize_unique_id(mac or external_id)
-        await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
+        await self._set_unique_id_or_abort(unique_id)
 
         # FUSION entries require a refresh token; the setup path bails
         # immediately without it. Surface the failure here so the user

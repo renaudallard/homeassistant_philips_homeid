@@ -443,7 +443,10 @@
         "name": "Rezepte aktualisieren"
       },
       "rita_brew": {
-        "name": "Ausgewähltes Rezept brühen"
+        "name": "Gespeichertes Rezept brühen"
+      },
+      "rita_brew_builtin": {
+        "name": "Integriertes Getränk brühen"
       },
       "rita_abort_brew": {
         "name": "Brühvorgang abbrechen"
@@ -561,7 +564,10 @@
         "name": "Brühprofil"
       },
       "rita_brew_recipe_select": {
-        "name": "Brührezept"
+        "name": "Gespeichertes Rezept"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Integriertes Getränk"
       },
       "autocook_program": {
         "name": "AutoCook-Programm"

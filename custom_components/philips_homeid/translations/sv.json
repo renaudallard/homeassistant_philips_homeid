@@ -443,7 +443,10 @@
         "name": "Uppdatera recept"
       },
       "rita_brew": {
-        "name": "Brygg valt recept"
+        "name": "Brygg sparat recept"
+      },
+      "rita_brew_builtin": {
+        "name": "Brygg inbyggd dryck"
       },
       "rita_abort_brew": {
         "name": "Avbryt bryggning"
@@ -561,7 +564,10 @@
         "name": "Bryggprofil"
       },
       "rita_brew_recipe_select": {
-        "name": "Bryggrecept"
+        "name": "Sparat recept"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Inbyggd dryck"
       },
       "autocook_program": {
         "name": "AutoCook-program"

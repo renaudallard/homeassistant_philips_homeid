@@ -33,7 +33,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, RITA_BUILTIN_DRINK_OFFSET, RITA_BUILTIN_DRINKS
+from .const import DOMAIN, RITA_BUILTIN_DRINKS
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
@@ -176,6 +176,7 @@ async def async_setup_entry(
                 PhilipsHomeIDRitaBeanTypeSelect(coordinator, coordinator.device_id),
                 PhilipsHomeIDRitaBrewProfileSelect(coordinator, coordinator.device_id),
                 PhilipsHomeIDRitaBrewRecipeSelect(coordinator, coordinator.device_id),
+                PhilipsHomeIDRitaBuiltinDrinkSelect(coordinator, coordinator.device_id),
             ]
 
         if coordinator.has_property(
@@ -474,15 +475,13 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
 
 
 class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
-    """Recipe selector for Rita espresso machines (APK RitaRecipesPort).
+    """Saved-recipe selector for Rita espresso machines (APK RitaRecipesPort).
 
-    The dropdown lists the active profile's saved recipes followed by the
-    machine's built-in drinks. Saved recipes are filtered to the profile by
+    Lists only the active profile's saved recipes, filtered to the profile by
     matching each rcp blob's recipeId (field 1 of RitaBrewCommand) against the
     profile's recipeIdOrderList (field 4 of RitaProfileData), the same approach
-    the APK uses in DefaultGetDrinksForActiveProfileUseCase. Built-in drinks are
-    global (not profile specific) and keyed past the recipe slot range with
-    RITA_BUILTIN_DRINK_OFFSET so both share one integer selection.
+    the APK uses in DefaultGetDrinksForActiveProfileUseCase. The machine's
+    built-in drinks live in the separate PhilipsHomeIDRitaBuiltinDrinkSelect.
     """
 
     _attr_translation_key = "rita_brew_recipe_select"
@@ -535,21 +534,19 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
             if any(filtered):
                 labels.update(_build_named_options(filtered, 80, "Recipe"))
 
-        # The built-in drinks are always brewable; append the ones whose name
-        # is not already taken by a saved recipe so option labels stay unique.
-        taken = set(labels.values())
-        for drink_id, name in RITA_BUILTIN_DRINKS.items():
-            if name not in taken:
-                labels[RITA_BUILTIN_DRINK_OFFSET + drink_id] = name
-
         return labels
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Auto-select first recipe when current selection is not in the list."""
+        """Keep the selection valid as the profile's recipes change.
+
+        Pick the first saved recipe, or clear to -1 when the active profile has
+        no saved recipes, so the Brew Saved Recipe button never brews a stale
+        slot left over from a previously selected profile.
+        """
         labels = self._slot_labels()
-        if labels and self.coordinator.rita_brew_recipe_id not in labels:
-            self.coordinator.set_rita_brew_recipe_id(next(iter(labels)))
+        if self.coordinator.rita_brew_recipe_id not in labels:
+            self.coordinator.set_rita_brew_recipe_id(next(iter(labels), -1))
         super()._handle_coordinator_update()
 
     @property
@@ -565,4 +562,47 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         if slot is None:
             return
         self.coordinator.set_rita_brew_recipe_id(slot)
+        self.async_write_ha_state()
+
+
+class PhilipsHomeIDRitaBuiltinDrinkSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Built-in drink selector for Rita espresso machines.
+
+    Lists the machine's factory drinks (Espresso, Cappuccino, ...) from the
+    RITA_BUILTIN_DRINKS catalog. Unlike saved recipes these are global rather
+    than profile specific, and are brewed via REMOTE_BREW with the raw
+    RitaDrinkId. Hot water has its own dedicated button and is not listed here.
+    """
+
+    _attr_translation_key = "rita_builtin_drink_select"
+    _attr_icon = "mdi:coffee"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_rita_builtin_drink_select"
+
+    def _drink_labels(self) -> dict[int, str]:
+        return dict(RITA_BUILTIN_DRINKS)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Auto-select the first drink when none is selected yet."""
+        labels = self._drink_labels()
+        if labels and self.coordinator.rita_brew_drink_id not in labels:
+            self.coordinator.set_rita_brew_drink_id(next(iter(labels)))
+        super()._handle_coordinator_update()
+
+    @property
+    def options(self) -> list[str]:
+        return list(self._drink_labels().values())
+
+    @property
+    def current_option(self) -> str | None:
+        return self._drink_labels().get(self.coordinator.rita_brew_drink_id)
+
+    async def async_select_option(self, option: str) -> None:
+        drink_id = _label_to_slot(self._drink_labels(), option)
+        if drink_id is None:
+            return
+        self.coordinator.set_rita_brew_drink_id(drink_id)
         self.async_write_ha_state()

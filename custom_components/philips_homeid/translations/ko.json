@@ -443,7 +443,10 @@
         "name": "레시피 새로고침"
       },
       "rita_brew": {
-        "name": "선택한 레시피 추출"
+        "name": "저장된 레시피 추출"
+      },
+      "rita_brew_builtin": {
+        "name": "기본 음료 추출"
       },
       "rita_abort_brew": {
         "name": "추출 중지"
@@ -561,7 +564,10 @@
         "name": "추출 프로파일"
       },
       "rita_brew_recipe_select": {
-        "name": "추출 레시피"
+        "name": "저장된 레시피"
+      },
+      "rita_builtin_drink_select": {
+        "name": "기본 음료"
       },
       "autocook_program": {
         "name": "AutoCook 프로그램"

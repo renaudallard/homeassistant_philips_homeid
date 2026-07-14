@@ -443,7 +443,10 @@
         "name": "刷新食谱"
       },
       "rita_brew": {
-        "name": "冲煮所选配方"
+        "name": "冲煮已保存配方"
+      },
+      "rita_brew_builtin": {
+        "name": "冲煮内置饮品"
       },
       "rita_abort_brew": {
         "name": "中止冲煮"
@@ -561,7 +564,10 @@
         "name": "冲煮配置文件"
       },
       "rita_brew_recipe_select": {
-        "name": "冲煮配方"
+        "name": "已保存配方"
+      },
+      "rita_builtin_drink_select": {
+        "name": "内置饮品"
       },
       "autocook_program": {
         "name": "AutoCook 程序"

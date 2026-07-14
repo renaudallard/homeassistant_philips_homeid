@@ -446,7 +446,10 @@
         "name": "Send AutoCook Program"
       },
       "rita_brew": {
-        "name": "Brew Selected Recipe"
+        "name": "Brew Saved Recipe"
+      },
+      "rita_brew_builtin": {
+        "name": "Brew Built-in Drink"
       },
       "rita_abort_brew": {
         "name": "Abort Brew"
@@ -564,7 +567,10 @@
         "name": "Brew Profile"
       },
       "rita_brew_recipe_select": {
-        "name": "Brew Recipe"
+        "name": "Saved Recipe"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Built-in Drink"
       }
     },
     "switch": {

@@ -443,7 +443,10 @@
         "name": "Actualiser les recettes"
       },
       "rita_brew": {
-        "name": "Préparer la recette sélectionnée"
+        "name": "Préparer la recette enregistrée"
+      },
+      "rita_brew_builtin": {
+        "name": "Préparer la boisson prédéfinie"
       },
       "rita_abort_brew": {
         "name": "Annuler la préparation"
@@ -561,7 +564,10 @@
         "name": "Profil de préparation"
       },
       "rita_brew_recipe_select": {
-        "name": "Recette"
+        "name": "Recette enregistrée"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Boisson prédéfinie"
       },
       "autocook_program": {
         "name": "Programme AutoCook"

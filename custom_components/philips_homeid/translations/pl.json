@@ -443,7 +443,10 @@
         "name": "Odśwież przepisy"
       },
       "rita_brew": {
-        "name": "Zaparz wybrany przepis"
+        "name": "Zaparz zapisany przepis"
+      },
+      "rita_brew_builtin": {
+        "name": "Zaparz napój wbudowany"
       },
       "rita_abort_brew": {
         "name": "Przerwij parzenie"
@@ -561,7 +564,10 @@
         "name": "Profil parzenia"
       },
       "rita_brew_recipe_select": {
-        "name": "Przepis parzenia"
+        "name": "Zapisany przepis"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Napój wbudowany"
       },
       "autocook_program": {
         "name": "Program AutoCook"

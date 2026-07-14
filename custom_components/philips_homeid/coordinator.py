@@ -117,7 +117,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
         self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
-        self._rita_brew_recipe_id: int = 0  # Rita espresso: recipe id to brew
+        self._rita_brew_recipe_id: int = 0  # Rita espresso: saved recipe slot to brew
+        self._rita_brew_drink_id: int = 0  # Rita espresso: built-in drink id to brew
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
@@ -710,6 +711,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         ``profile_slot`` is the Profiles-port dropdown slot; it is resolved to
         the profile's real profileId before the command is sent.
         """
+        if selection < 0:
+            _LOGGER.warning("Cannot brew: no saved recipe selected")
+            return False
         if selection >= RITA_BUILTIN_DRINK_OFFSET:
             return await self.async_rita_brew_builtin(
                 profile_slot, selection - RITA_BUILTIN_DRINK_OFFSET
@@ -936,6 +940,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def set_rita_brew_recipe_id(self, value: int) -> None:
         """Update the recipe id selected for the next manual brew."""
         self._rita_brew_recipe_id = value
+
+    @property
+    def rita_brew_drink_id(self) -> int:
+        """Return the built-in drink id selected for the next manual brew."""
+        return self._rita_brew_drink_id
+
+    def set_rita_brew_drink_id(self, value: int) -> None:
+        """Update the built-in drink id selected for the next manual brew."""
+        self._rita_brew_drink_id = value
 
     @property
     def keep_warm_time(self) -> int:

@@ -443,7 +443,10 @@
         "name": "Recepten vernieuwen"
       },
       "rita_brew": {
-        "name": "Gekozen recept zetten"
+        "name": "Opgeslagen recept zetten"
+      },
+      "rita_brew_builtin": {
+        "name": "Ingebouwde drank zetten"
       },
       "rita_abort_brew": {
         "name": "Zetten annuleren"
@@ -561,7 +564,10 @@
         "name": "Zetprofiel"
       },
       "rita_brew_recipe_select": {
-        "name": "Zetrecept"
+        "name": "Opgeslagen recept"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Ingebouwde drank"
       },
       "autocook_program": {
         "name": "AutoCook-programma"

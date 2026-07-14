@@ -449,6 +449,14 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
                 names = _split_names(profiles.get("Pr_Names"), 8)
         return _build_named_options(names, 8, "Profile")
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Auto-select first profile when current selection is not in the list."""
+        labels = self._slot_labels()
+        if labels and self.coordinator.rita_brew_profile_id not in labels:
+            self.coordinator.set_rita_brew_profile_id(next(iter(labels)))
+        super()._handle_coordinator_update()
+
     @property
     def options(self) -> list[str]:
         return list(self._slot_labels().values())

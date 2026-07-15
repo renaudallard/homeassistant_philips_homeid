@@ -54,8 +54,9 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
-    device = coordinator.device_info
+    coordinator: PhilipsHomeIDCoordinator | None = hass.data.get(DOMAIN, {}).get(
+        entry.entry_id
+    )
 
     # Redact sensitive config data
     config_data = {}
@@ -64,6 +65,20 @@ async def async_get_config_entry_diagnostics(
             config_data[key] = "**REDACTED**"
         else:
             config_data[key] = value
+
+    # An entry that failed setup has no coordinator, and that is exactly when
+    # someone reaches for diagnostics. Report the config rather than raising,
+    # which the diagnostics view would surface as an HTTP 500.
+    if coordinator is None:
+        return {
+            "config": config_data,
+            "device": {},
+            "state": {},
+            "coordinator": {},
+            "loaded": False,
+        }
+
+    device = coordinator.device_info
 
     # Device info
     device_data = {
@@ -103,4 +118,5 @@ async def async_get_config_entry_diagnostics(
         "device": device_data,
         "state": state_data,
         "coordinator": coordinator_data,
+        "loaded": True,
     }

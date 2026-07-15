@@ -30,3 +30,6 @@ log.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Scratch space for local analysis
+tmp/

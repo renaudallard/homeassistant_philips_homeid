@@ -290,6 +290,13 @@ class PhilipsLocalAPI:
                 return {"raw": text}, False
 
         elif resp.status == 401:
+            # A refused request says nothing about whether the port exists, so
+            # it must not let get_full_state cache a negative device-type
+            # verdict. A 401 that the retry below settles costs at most one
+            # poll cycle of probing; one that doesn't would otherwise decide
+            # the device is not an airfryer for good.
+            self._probe_transient = True
+
             # Handle authentication challenge
             challenge = resp.headers.get("WWW-Authenticate")
             _LOGGER.debug(

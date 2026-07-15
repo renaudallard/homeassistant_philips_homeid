@@ -1170,19 +1170,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
                 if not refresh_token:
                     return
+                tokens = await asyncio.shield(self._refresh_cloud_tokens(refresh_token))
+                access_token = tokens.get("access_token", "")
                 cloud_api = PhilipsCloudAPI()
                 try:
-                    tokens = await cloud_api.refresh_tokens(refresh_token)
-                    new_refresh = tokens.get("refresh_token", refresh_token)
-                    if new_refresh != refresh_token:
-                        new_data = {
-                            **self.config_entry.data,
-                            CONF_CLOUD_REFRESH_TOKEN: new_refresh,
-                        }
-                        self.hass.config_entries.async_update_entry(
-                            self.config_entry, data=new_data
-                        )
-                    access_token = tokens.get("access_token", "")
                     sig = await cloud_api.get_mqtt_signature(
                         access_token,
                         self.config_entry.data.get(CONF_PLATFORM_REST_URL, ""),
@@ -1278,29 +1269,41 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._pending_recipe_fetch = recipe_id
             self._create_tracked_task(self._fetch_and_inject_recipe(recipe_id))
 
-    async def _get_access_token(self) -> str | None:
-        """Get a fresh access token, coordinated with MQTT credential refresh."""
+    async def _refresh_cloud_tokens(self, refresh_token: str) -> dict[str, Any]:
+        """Refresh the cloud tokens, persisting a rotated refresh token.
+
+        Owns its own session so a caller can shield the whole exchange. The
+        cloud hands back a new refresh token as part of it and retires the one
+        we sent, so a cancel landing between the response and the write would
+        leave the entry holding a dead token, and re-login would be the only
+        way back. Unload cancels the tasks that call this.
+        """
         from .cloud_api import PhilipsCloudAPI
 
+        cloud_api = PhilipsCloudAPI()
+        try:
+            tokens = await cloud_api.refresh_tokens(refresh_token)
+            new_refresh = tokens.get("refresh_token", refresh_token)
+            if new_refresh != refresh_token:
+                new_data = {
+                    **self.config_entry.data,
+                    CONF_CLOUD_REFRESH_TOKEN: new_refresh,
+                }
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+            return tokens
+        finally:
+            await cloud_api.close()
+
+    async def _get_access_token(self) -> str | None:
+        """Get a fresh access token, coordinated with MQTT credential refresh."""
         async with self._token_lock:
             refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
             if not refresh_token:
                 return None
-            cloud_api = PhilipsCloudAPI()
-            try:
-                tokens = await cloud_api.refresh_tokens(refresh_token)
-                new_refresh = tokens.get("refresh_token", refresh_token)
-                if new_refresh != refresh_token:
-                    new_data = {
-                        **self.config_entry.data,
-                        CONF_CLOUD_REFRESH_TOKEN: new_refresh,
-                    }
-                    self.hass.config_entries.async_update_entry(
-                        self.config_entry, data=new_data
-                    )
-                return tokens.get("access_token", "")
-            finally:
-                await cloud_api.close()
+            tokens = await asyncio.shield(self._refresh_cloud_tokens(refresh_token))
+            return tokens.get("access_token", "")
 
     def _schedule_recipe_cache_persist(self) -> None:
         """Debounce recipe-cache persistence to one write per ~5s window.

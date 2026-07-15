@@ -1094,10 +1094,13 @@ class PhilipsLocalAPI:
                     found_any = True
                     state.properties[port] = espresso_data
                     if port == "machinestatus":
-                        # mainstate 1 = standby (off); 2+ = ready/brewing/etc (on)
-                        state.power_on = (
-                            state.power_on or espresso_data.get("mainstate", 0) >= 2
-                        )
+                        # mainstate 1 = standby (off); 2+ = ready/brewing/etc (on).
+                        # The default only covers a missing key, so a reported
+                        # null still has to be checked or the comparison raises
+                        # and takes the whole poll down with it.
+                        mainstate = espresso_data.get("mainstate")
+                        if mainstate is not None:
+                            state.power_on = state.power_on or mainstate >= 2
             if not found_any and not self._probe_transient:
                 device.espresso_port = False
 

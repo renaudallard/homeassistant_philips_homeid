@@ -18,9 +18,11 @@ from custom_components.philips_homeid.select import (
 )
 
 
-def _coordinator(airfryer_port=None, mqtt_is_venus=None):
+def _coordinator(airfryer_port=None, model="", mqtt_is_venus=None):
     coordinator = PhilipsHomeIDCoordinator.__new__(PhilipsHomeIDCoordinator)
-    coordinator.device_info = LocalDeviceInfo(ip_address="", cpp_id="aabb")
+    coordinator.device_info = LocalDeviceInfo(
+        ip_address="", cpp_id="aabb", model_name=model
+    )
     coordinator.device_info.airfryer_port = airfryer_port
     if mqtt_is_venus is None:
         coordinator.mqtt_client = None
@@ -60,11 +62,32 @@ def test_fusion_venus_uses_the_venus_table():
     different cooking methods: preset 1 showed as frozen_snacks instead of
     auto_cook, and picking chicken wrote 3, which Venus reads as recipe.
     """
-    assert _presets(_coordinator(mqtt_is_venus=True)) is VENUS_PRESETS
+    assert _presets(_coordinator(model="HD9880", mqtt_is_venus=True)) is VENUS_PRESETS
 
 
 def test_fusion_spectre_still_uses_the_spectre_table():
-    assert _presets(_coordinator(mqtt_is_venus=False)) is SPECTRE_PRESETS
+    assert (
+        _presets(_coordinator(model="HD9280", mqtt_is_venus=False)) is SPECTRE_PRESETS
+    )
+
+
+def test_fusion_nutrimax_uses_the_nutrimax_table():
+    """Nutrimax carries the Venus extras, so the ports alone would say Venus.
+
+    The model is the only thing that tells it apart on FUSION.
+    """
+    assert (
+        _presets(_coordinator(model="NX0960", mqtt_is_venus=True)) is NUTRIMAX_PRESETS
+    )
+
+
+def test_fusion_hermes_uses_the_hermes_table():
+    assert _presets(_coordinator(model="NX0950", mqtt_is_venus=True)) is HERMES_PRESETS
+
+
+def test_an_unknown_fusion_model_falls_back_to_the_ports():
+    """Venus is still worth recognising for a model we do not have listed."""
+    assert _presets(_coordinator(model="HD9999", mqtt_is_venus=True)) is VENUS_PRESETS
 
 
 def test_venus_and_spectre_disagree_about_preset_one():

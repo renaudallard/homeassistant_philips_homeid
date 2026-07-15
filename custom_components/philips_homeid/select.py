@@ -36,7 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .local_api import PORT_HERMESAC, PORT_NUTRIMAX
+from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
 from .rita_protobuf import decode_profile_recipe_ids, decode_recipe_id
 from .sensor import get_device_type
 
@@ -223,18 +223,17 @@ class PhilipsHomeIDCookingMethodSelect(PhilipsHomeIDEntity, SelectEntity):
     def _get_presets(self) -> dict[int, str]:
         """Return the correct preset list for this device's architecture.
 
-        Nutrimax and Hermes are recognised by the port that answered them,
-        which only the local API discovers. Venus has to be asked of the
-        coordinator, because a Venus on FUSION has no port to read and would
-        otherwise fall through to the SPECTRE table, whose ids mean different
+        The port is asked of the coordinator rather than read off the device:
+        on FUSION there is no discovered port, and reading the field directly
+        sent every appliance to the SPECTRE table, whose ids name different
         cooking methods.
         """
-        port = self.coordinator.device_info.airfryer_port
+        port = self.coordinator.airfryer_style_port()
         if port == PORT_NUTRIMAX:
             return NUTRIMAX_PRESETS
         if port == PORT_HERMESAC:
             return HERMES_PRESETS
-        if self.coordinator.is_venus_airfryer():
+        if port in VENUS_STYLE_PORTS:
             return VENUS_PRESETS
         return SPECTRE_PRESETS
 

@@ -580,15 +580,24 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         return self._extract_recipe_title(data)
 
     @staticmethod
-    def _extract_recipe_title(data: dict[str, Any]) -> str | None:
-        """Extract recipe title from a JSON:API response."""
-        attrs = data.get("data", {}).get("attributes", {})
+    def _extract_recipe_title(data: Any) -> str | None:
+        """Extract recipe title from a JSON:API response.
+
+        A 200 carrying null, a list, or a null member is still a real answer
+        and has to come back as "no title" rather than raise: the caller
+        reads an exception here as a permanent miss.
+        """
+        if not isinstance(data, dict):
+            return None
+        attrs = (data.get("data") or {}).get("attributes") or {}
         title = attrs.get("title")
         if title:
             return str(title)
-        for item in data.get("included", []):
+        for item in data.get("included") or []:
+            if not isinstance(item, dict):
+                continue
             if item.get("type") in ("recipeTranslations", "recipeTranslation"):
-                t = item.get("attributes", {}).get("title")
+                t = (item.get("attributes") or {}).get("title")
                 if t:
                     return str(t)
         return None

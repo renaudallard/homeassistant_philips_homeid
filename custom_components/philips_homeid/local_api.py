@@ -84,6 +84,10 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 _LOGGER = logging.getLogger(__name__)
 
 
+class EncryptionError(Exception):
+    """Raised when a command for an encrypted device cannot be encrypted."""
+
+
 class PhilipsLocalAPI:
     """Local API client for Philips HomeID devices."""
 
@@ -150,9 +154,16 @@ class PhilipsLocalAPI:
 
         if device.encryption_key:
             encrypted = PhilipsCrypto.encrypt(json_str, device.encryption_key)
-            if encrypted:
-                return encrypted, True
-            _LOGGER.warning("Encryption failed, sending as plain JSON")
+            if encrypted is None:
+                # Falling back to plaintext would put the command on the wire
+                # in the clear for a device that mandates encryption, and it
+                # would be rejected anyway. The read path refuses to hand back
+                # undecryptable data for the same reason.
+                raise EncryptionError(
+                    f"Cannot encrypt command for {device.ip_address}: "
+                    "the encryption key is not usable"
+                )
+            return encrypted, True
 
         return json_str, False
 
@@ -180,7 +191,11 @@ class PhilipsLocalAPI:
             _LOGGER.debug("Using cached credentials")
 
         # Prepare body (encrypt if device has encryption_key)
-        body, _ = self._prepare_body(device, data)
+        try:
+            body, _ = self._prepare_body(device, data)
+        except EncryptionError as err:
+            _LOGGER.error("%s", err)
+            return None
 
         try:
             _LOGGER.debug("Request: %s %s", method, url)

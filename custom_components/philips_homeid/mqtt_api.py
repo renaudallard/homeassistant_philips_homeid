@@ -300,6 +300,12 @@ class PhilipsMQTTClient:
             # client_id and sets clean_session=false; we don't, so we
             # shouldn't pretend to.
             clean_session=True,
+            # Paho's own auto-reconnect replays the WS upgrade headers it
+            # captured at connect time, i.e. the expired access token, and it
+            # races _reconnect_with_backoff for the same client. The backoff
+            # loop is the only path that mints fresh credentials, so it owns
+            # reconnection and Paho's engine stays off.
+            reconnect_on_failure=False,
         )
 
         # TLS for WSS
@@ -325,9 +331,6 @@ class PhilipsMQTTClient:
             return default_headers
 
         client.ws_set_options(path="/mqtt", headers=_apply_ws_headers)
-
-        # APK enables Paho's built-in auto-reconnect
-        client.reconnect_delay_set(min_delay=1, max_delay=60)
 
         self._setup_callbacks(client)
 

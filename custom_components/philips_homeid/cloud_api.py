@@ -309,11 +309,13 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         ctn: str,
         firmware_version: str,
     ) -> list[dict[str, Any]]:
-        """Fetch a Rita machine's supported drink catalog (best effort).
+        """Fetch a Rita machine's supported drink catalog.
 
         Returns the raw drink list from the DaConnect device-capabilities
-        endpoint, or an empty list on any failure so the caller can fall back
-        to the built-in list.
+        endpoint. An empty list means the machine reported no drinks, so the
+        caller may fall back to the built-in list and stop asking. A retryable
+        failure raises CloudConnectionError instead, so the caller can tell
+        the two apart and ask again later.
         """
         try:
             session = await self._get_session()
@@ -333,11 +335,17 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                     text[:500],
                 )
                 if resp.status != 200:
+                    self._raise_if_retryable(
+                        resp.status, f"Rita capabilities for {device_id}"
+                    )
                     return []
                 data = json.loads(text)
-        except Exception:
-            _LOGGER.debug("Rita capabilities fetch failed", exc_info=True)
-            return []
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(
+                f"Rita capabilities fetch failed for {device_id}: {err}"
+            ) from err
         return data if isinstance(data, list) else []
 
     async def get_homes(self, access_token: str) -> list[dict[str, Any]]:

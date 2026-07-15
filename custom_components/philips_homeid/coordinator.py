@@ -60,6 +60,7 @@ from .const import (
     FUSION_HEARTBEAT_INTERVAL,
     RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
+    RITA_DRINKS_RETRY_DELAY,
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
@@ -125,6 +126,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._rita_drink_catalog: dict[int, str] = {}  # live per-model drink list
         self._rita_drinks_fetched: bool = False  # one-shot fetch guard (per session)
         self._rita_drinks_fetch_running: bool = False  # in-flight guard
+        self._rita_drinks_retry_after: float = 0.0  # monotonic gate after a failure
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
@@ -1462,6 +1464,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             or self._rita_drinks_fetched
             or self._rita_drinks_fetch_running
             or not self._state
+            or time.monotonic() < self._rita_drinks_retry_after
         ):
             return
         props = self._state.properties
@@ -1478,7 +1481,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def _populate_rita_drinks(self) -> None:
         """Fetch the machine's supported drink catalog from the cloud once."""
-        from .cloud_api import PhilipsCloudAPI
+        from .cloud_api import CloudConnectionError, PhilipsCloudAPI
 
         try:
             device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
@@ -1509,17 +1512,19 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     ):
                         ctn = str(dev["ctn"])
                         break
-                # get_devices reached the cloud, so this is a real attempt: mark
-                # it done now (a transient token/network failure would have
-                # returned or raised earlier, leaving the guard unset to retry
-                # on a later heartbeat).
-                self._rita_drinks_fetched = True
                 if not ctn:
+                    # The cloud answered and this device has no CTN. That is a
+                    # stable fact, not a bad moment, so stop asking.
+                    self._rita_drinks_fetched = True
                     _LOGGER.debug("Rita drinks: no CTN for device %s", device_id)
                     return
                 items = await cloud_api.get_rita_capabilities(
                     access_token, device_id, ctn, firmware
                 )
+                # The catalog call came back, so the attempt was real and
+                # final: an empty list means this machine has no cloud drinks
+                # and the built-in list stands.
+                self._rita_drinks_fetched = True
             finally:
                 await cloud_api.close()
             catalog = self._parse_rita_capabilities(items, ctn)
@@ -1530,7 +1535,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 )
                 if self._state:
                     self.async_set_updated_data(self._state)
+        except CloudConnectionError as err:
+            # Leave the guard unset so a later push tries again rather than
+            # falling back to the built-in drinks for the whole session. This
+            # runs on every push, so hold off a while first.
+            self._rita_drinks_retry_after = time.monotonic() + RITA_DRINKS_RETRY_DELAY
+            _LOGGER.debug("Rita drink catalog fetch deferred: %s", err)
         except Exception:
+            self._rita_drinks_retry_after = time.monotonic() + RITA_DRINKS_RETRY_DELAY
             _LOGGER.warning("Rita drink catalog fetch failed", exc_info=True)
         finally:
             self._rita_drinks_fetch_running = False

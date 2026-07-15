@@ -243,43 +243,59 @@ async def async_setup_entry(
 
     entities: list[NumberEntity] = []
 
-    def _create_airfryer_numbers() -> list[NumberEntity]:
-        nums: list[NumberEntity] = []
+    if device_type in ("airfryer", "multicooker"):
+        created_keys: set[str] = set()
         for description in AIRFRYER_NUMBERS:
             if coordinator.has_property(
                 description.property_key, description.nested_key
             ):
-                nums.append(
+                entities.append(
                     PhilipsHomeIDNumber(coordinator, description, coordinator.device_id)
                 )
-        nums.append(PhilipsHomeIDKeepWarmTimeNumber(coordinator, coordinator.device_id))
-        nums.append(PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id))
-        return nums
+                created_keys.add(description.key)
+        # These two are settings kept on this side with no device property
+        # behind them, so they do not wait on the appliance.
+        entities.append(
+            PhilipsHomeIDKeepWarmTimeNumber(coordinator, coordinator.device_id)
+        )
+        entities.append(
+            PhilipsHomeIDKeepWarmTempNumber(coordinator, coordinator.device_id)
+        )
 
-    if device_type in ("airfryer", "multicooker"):
-        if coordinator.has_property("status", "airfryer"):
-            entities.extend(_create_airfryer_numbers())
-        else:
-            # Dynamic creation when airfryer properties arrive late
-            created = False
+        # Airfryer properties arrive as deltas: temp_probe only shows up once
+        # a probe is attached, and airspeed only on models that have one.
+        # Watch per description so a late arrival still gets its entity; the
+        # matching sensors are created this way already.
+        if any(d.key not in created_keys for d in AIRFRYER_NUMBERS):
+            wanted = {
+                (d.property_key, d.nested_key): d
+                for d in AIRFRYER_NUMBERS
+                if d.key not in created_keys
+            }
 
-            def handle_new_properties(
+            def handle_new_airfryer_properties(
                 new_properties: list[tuple[str, str | None]],
             ) -> None:
-                nonlocal created
-                if created:
-                    return
+                new_entities: list[NumberEntity] = []
                 for prop_key, nested_key in new_properties:
-                    if prop_key == "status" and nested_key == "airfryer":
-                        created = True
-                        _LOGGER.info("Creating numbers for newly discovered airfryer")
-                        async_add_entities(
-                            _create_airfryer_numbers(), update_before_add=True
+                    description = wanted.pop((prop_key, nested_key), None)
+                    if description is not None:
+                        _LOGGER.info(
+                            "Creating number %s for newly discovered property %s",
+                            description.key,
+                            prop_key,
                         )
-                        return
+                        coordinator.mark_property_seen(prop_key, nested_key)
+                        new_entities.append(
+                            PhilipsHomeIDNumber(
+                                coordinator, description, coordinator.device_id
+                            )
+                        )
+                if new_entities:
+                    async_add_entities(new_entities, update_before_add=True)
 
             unregister = coordinator.register_new_property_callback(
-                handle_new_properties
+                handle_new_airfryer_properties
             )
             entry.async_on_unload(unregister)
 

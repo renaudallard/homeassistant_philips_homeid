@@ -198,9 +198,11 @@ async def async_setup_entry(
         watch_prop = ("status", "airfryer")
     elif device_type == "espresso":
         if coordinator.mqtt_client is None:
-            # Local EP/SM espresso machine (e.g. EP2520) via the command port
+            # Local EP/SM espresso machine (e.g. EP2520) via the command port.
+            # machinestatus is a port dict, and a port is only ever announced
+            # by its members, so watch for one of those rather than the port.
             button_descriptions = ESPRESSO_BREW_BUTTONS
-            watch_prop = ("machinestatus", None)
+            watch_prop = ("mainstate", "machinestatus")
         else:
             # Rita espresso machine (FUSION / cloud)
             button_descriptions = RITA_BUTTONS

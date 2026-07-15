@@ -240,6 +240,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
             sig_data.get("signature", ""),
         )
     except Exception as err:
+        # A broker that accepts the WS upgrade and then rejects the MQTT
+        # CONNECT leaves a live client behind, and its on_disconnect has
+        # already started the reconnect thread. Only disconnect() sets the
+        # stop event, so without this the thread outlives the failed setup
+        # and every retry adds another one.
+        await hass.async_add_executor_job(mqtt_client.disconnect)
         raise ConfigEntryNotReady(f"MQTT connection failed: {err}") from err
 
     # Initial data fetch via shadow/get

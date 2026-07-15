@@ -251,6 +251,16 @@ def _seconds_to_minutes(value: Any) -> int | None:
         return None
 
 
+def _seconds_to_hours(value: Any) -> int | None:
+    """Convert seconds to hours."""
+    if value is None:
+        return None
+    try:
+        return int(value) // 3600
+    except (ValueError, TypeError):
+        return None
+
+
 # Air purifier sensors
 AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
     PhilipsHomeIDSensorEntityDescription(
@@ -394,7 +404,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.HOURS,
         icon="mdi:clock-outline",
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda x: x // 3600 if x is not None else None,
+        value_fn=_seconds_to_hours,
         device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(

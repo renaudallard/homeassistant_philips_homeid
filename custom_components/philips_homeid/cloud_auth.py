@@ -65,6 +65,13 @@ OAUTH_SCOPES = (
 
 _SOCIALIZE_GET_IDS = f"{GIGYA_API_URL}/socialize.getIDs"
 
+# aiohttp defaults to a 5 minute total and no connect bound. Every cloud call
+# runs under the coordinator's token lock, and the MQTT credential refresh
+# gives up waiting after 10s without cancelling the request, so an endpoint
+# that black-holes would hold the lock long after the caller stopped caring
+# and stall every other cloud fetch behind it.
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30, connect=10)
+
 
 class CloudAuthError(Exception):
     """Raised on permanent cloud authentication failures (reauth needed).
@@ -108,7 +115,7 @@ class PhilipsCloudAuth:
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self._session is None:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(timeout=REQUEST_TIMEOUT)
         return self._session
 
     async def close(self) -> None:
@@ -141,7 +148,7 @@ class PhilipsCloudAuth:
                     raise CloudConnectionError(
                         f"OTP send endpoint returned non-JSON (HTTP {status})"
                     ) from err
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(f"OTP send endpoint unreachable: {err}") from err
 
         if status >= 500:
@@ -184,7 +191,7 @@ class PhilipsCloudAuth:
                     raise CloudConnectionError(
                         f"OTP verify endpoint returned non-JSON (HTTP {status})"
                     ) from err
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(
                 f"OTP verify endpoint unreachable: {err}"
             ) from err
@@ -232,7 +239,7 @@ class PhilipsCloudAuth:
         try:
             auth_code = await self._http_oauth(session_token, code_challenge)
             return await self._exchange_code(auth_code, code_verifier)
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(f"OAuth flow unreachable: {err}") from err
 
     async def _http_oauth(self, session_token: str, code_challenge: str) -> str:
@@ -360,7 +367,7 @@ class PhilipsCloudAuth:
                         f"Token exchange returned non-JSON (HTTP {status}): "
                         f"{text[:200]}"
                     ) from err
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(f"Token endpoint unreachable: {err}") from err
 
         if "access_token" not in result:
@@ -405,7 +412,7 @@ class PhilipsCloudAuth:
                     raise CloudConnectionError(
                         f"Token endpoint returned non-JSON (HTTP {status})"
                     ) from err
-        except aiohttp.ClientError as err:
+        except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(f"Token endpoint unreachable: {err}") from err
 
         if "access_token" in result:

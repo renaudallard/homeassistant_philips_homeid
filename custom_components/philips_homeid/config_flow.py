@@ -314,6 +314,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except CloudAuthError as err:
                     _LOGGER.error("Reauth OTP failed: %s", err)
                     errors["base"] = "otp_failed"
+            else:
+                errors["base"] = "missing_code"
 
         return self.async_show_form(
             step_id="reauth_otp",

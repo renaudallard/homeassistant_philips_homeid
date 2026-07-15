@@ -373,14 +373,11 @@ class PhilipsLocalAPI:
         """
         result = await self._request(device, PORT_SECURITY, product_id=0)
         if result:
-            # The response may be the key directly as a string,
-            # or a JSON object containing the key
-            if isinstance(result, dict):
-                key = result.get("raw", result.get("key", ""))
-                if isinstance(key, str):
-                    key = key.strip()
-            else:
-                key = str(result).strip()
+            # The response carries the key either raw or wrapped in JSON. A
+            # device that reports it as a number has to end up as a string
+            # too, or it gets stored as one and breaks the first write.
+            raw = result.get("raw", result.get("key", ""))
+            key = "" if raw is None else str(raw).strip()
 
             if key:
                 device.encryption_key = key

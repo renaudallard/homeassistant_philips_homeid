@@ -283,16 +283,28 @@ class PhilipsCrypto:
             return None
 
 
+def bracket_ipv6(host: str) -> str:
+    """Bracket a bare IPv6 address so an f-string URL builder can use it.
+
+    ip_address is carried in the form a URL wants, which is what
+    config_flow._sanitize_host already produces for a typed-in host and what
+    local_api._build_url interpolates straight into the URL.
+    """
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
 def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
     """Parse SSDP discovery info into LocalDeviceInfo."""
     try:
         location = discovery_info.get("location", "")
         udn = discovery_info.get("udn", "")
 
-        # hostname strips the port and the brackets an IPv6 location carries,
-        # which splitting on ":" cannot do: it would cut "[fd00::1]:80" down
-        # to "[fd00" and every request to the device would then fail.
-        ip_address = urlsplit(location).hostname or ""
+        # hostname strips the port and the brackets, which splitting on ":"
+        # cannot do: it would cut "[fd00::1]:80" down to "[fd00". The brackets
+        # go back on because that is the form the URL builders want.
+        ip_address = bracket_ipv6(urlsplit(location).hostname or "")
         if not ip_address:
             return None
 
@@ -347,7 +359,9 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
     2. _http._tcp.local. - name like PHILIPS_HD9285_2_21D740, uses HTTP
     """
     try:
-        host = discovery_info.get("host", "")
+        # Zeroconf hands over a bare address; the URL builders want an IPv6
+        # one bracketed.
+        host = bracket_ipv6(discovery_info.get("host", ""))
         name = discovery_info.get("name", "")
         properties = discovery_info.get("properties", {})
         service_type = discovery_info.get("type", "")

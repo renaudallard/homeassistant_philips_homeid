@@ -598,8 +598,5 @@
         "name": "Purificatore d'aria"
       }
     }
-  },
-  "button": {},
-  "select": {},
-  "sensor": {}
+  }
 }

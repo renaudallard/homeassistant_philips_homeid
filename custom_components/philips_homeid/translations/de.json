@@ -598,8 +598,5 @@
         "name": "Luftreiniger"
       }
     }
-  },
-  "button": {},
-  "select": {},
-  "sensor": {}
+  }
 }

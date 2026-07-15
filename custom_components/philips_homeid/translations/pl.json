@@ -598,8 +598,5 @@
         "name": "Oczyszczacz powietrza"
       }
     }
-  },
-  "button": {},
-  "select": {},
-  "sensor": {}
+  }
 }

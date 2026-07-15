@@ -263,12 +263,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # time. Without this, entities are created before airfryer properties are
     # available, resulting in 0 sensors/controls. Wait for every discovered
     # port rather than the first one to answer: the arrival of, say, Config
-    # says nothing about whether Status has reported yet.
+    # says nothing about whether Status has reported yet. A port that replies
+    # busy ends the wait but not the pruning question below, so a slow
+    # appliance costs no extra startup time.
     deadline = asyncio.get_event_loop().time() + 15
-    ncp_data_ready = False
     while asyncio.get_event_loop().time() < deadline:
-        if coordinator.ncp_ports_complete:
-            ncp_data_ready = True
+        if coordinator.ncp_ports_replied:
             break
         await asyncio.sleep(0.2)
     else:
@@ -279,11 +279,12 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Only prune stale entities once the device's port data has arrived. On a
-    # slow or unstable startup the NCP wait above times out with incomplete
-    # state; running cleanup then would wrongly remove valid FUSION entities
-    # (and their registry customizations) for properties not yet reported.
-    if ncp_data_ready:
+    # Only prune stale entities once every port has reported. On a slow or
+    # unstable startup the wait above times out with incomplete state, and a
+    # port can reply busy without saying what it holds; running cleanup on
+    # either would wrongly remove valid FUSION entities and their registry
+    # customizations for properties that simply have not arrived.
+    if coordinator.ncp_ports_complete:
         _cleanup_stale_entities(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))

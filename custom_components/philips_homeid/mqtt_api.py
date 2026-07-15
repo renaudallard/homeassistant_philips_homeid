@@ -218,10 +218,12 @@ class PhilipsMQTTClient:
         self._lock = threading.Lock()
         self._discovered_ports: list[str] = []  # NCP read port names from getAllPorts
         self._discovered_write_ports: list[str] = []  # NCP write port names
-        # NCP read ports that have answered their getPort. The answers arrive
-        # one message at a time, so this is what tells a caller the state is
-        # whole rather than merely started. See ports_complete.
-        self._answered_ports: set[str] = set()
+        # NCP read ports the device has replied about, and the subset that
+        # actually reported. The answers arrive one message at a time, so
+        # these are what tell a caller the state is whole rather than merely
+        # started. See ports_replied and ports_complete.
+        self._replied_ports: set[str] = set()
+        self._reported_ports: set[str] = set()
         self._device_type: str | None = None  # Cached get_device_type() result
 
         # Build topic names
@@ -269,18 +271,32 @@ class PhilipsMQTTClient:
             self._reconnecting = False
 
     @property
-    def ports_complete(self) -> bool:
-        """Return whether every discovered read port has answered its getPort.
+    def ports_replied(self) -> bool:
+        """Return whether every discovered read port has replied to its getPort.
 
-        getAllPorts is followed by one getPort per port and the appliance
-        answers them one message at a time, so the arrival of the first port
-        says nothing about the rest. A caller that judges a property missing
-        before this is True is really just reading a half-filled state.
+        Includes ports that replied busy or with nothing to say, so a caller
+        waiting on the appliance stops as soon as it has heard from all of
+        them rather than sitting out its whole deadline.
         """
         if not self._discovered_ports:
             return False
         with self._lock:
-            return all(port in self._answered_ports for port in self._discovered_ports)
+            return all(port in self._replied_ports for port in self._discovered_ports)
+
+    @property
+    def ports_complete(self) -> bool:
+        """Return whether every discovered read port has reported its state.
+
+        getAllPorts is followed by one getPort per port and the appliance
+        answers them one message at a time, so the arrival of the first port
+        says nothing about the rest. A caller that judges a property missing
+        before this is True is really just reading a half-filled state. A port
+        that replied busy does not count: what it holds is still unknown.
+        """
+        if not self._discovered_ports:
+            return False
+        with self._lock:
+            return all(port in self._reported_ports for port in self._discovered_ports)
 
     @property
     def is_venus(self) -> bool:
@@ -855,11 +871,16 @@ class PhilipsMQTTClient:
                 self._discovered_ports = read_ports
                 self._discovered_write_ports = write_ports
                 # A fresh discovery re-asks every port, so nothing has
-                # answered this round yet.
-                self._answered_ports = set()
+                # replied this round yet.
+                with self._lock:
+                    self._replied_ports = set()
+                    self._reported_ports = set()
                 for pname in read_ports:
                     self.send_port_command(pname, command_name="getPort")
             return
+
+        data = payload.get("data", {})
+        ncp_port = data.get("portName", "") if isinstance(data, dict) else ""
 
         if status is not None and status != 0:
             status_name = (
@@ -868,14 +889,30 @@ class PhilipsMQTTClient:
                 else status
             )
             _LOGGER.debug("NCP %s (%s) for %s", status_name, status, command)
+            # The device replied but declined to report, so a caller waiting
+            # on the port set is not left waiting for a message that already
+            # came. It is not recorded as reported: a busy port's properties
+            # are still unknown, and pruning on that would be a guess.
+            if ncp_port:
+                with self._lock:
+                    self._replied_ports.add(ncp_port)
             return
 
-        data = payload.get("data", {})
-        ncp_port = data.get("portName", "") if isinstance(data, dict) else ""
         properties = data.get("properties", {}) if isinstance(data, dict) else {}
 
-        if not ncp_port or not properties:
-            _LOGGER.debug("NCP message without port/properties: %s", payload)
+        if not ncp_port:
+            _LOGGER.debug("NCP message without a port name: %s", payload)
+            return
+
+        # A port with nothing to say has still reported: acp_s and recipe_s
+        # answer empty whenever no program or recipe is running. Recording it
+        # only when properties arrive left the port set never complete.
+        with self._lock:
+            self._replied_ports.add(ncp_port)
+            self._reported_ports.add(ncp_port)
+
+        if not properties:
+            _LOGGER.debug("NCP port %s reported no properties", ncp_port)
             return
 
         # Map NCP port name to local API port name
@@ -909,7 +946,6 @@ class PhilipsMQTTClient:
             if self._state is None:
                 self._state = LocalDeviceState(device_info=device_info)
             self._state.connection_state = "connected"
-            self._answered_ports.add(ncp_port)
 
             # MUJI air purifiers report flat D-code properties on the Status and
             # filter-read (filtRd) ports. Store those at top level so the air

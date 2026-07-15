@@ -1789,6 +1789,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 task.cancel()
 
     @property
+    def ncp_ports_replied(self) -> bool:
+        """Return whether a FUSION device has replied about all of its ports."""
+        if self.mqtt_client is None:
+            return False
+        return self.mqtt_client.ports_replied
+
+    @property
     def ncp_ports_complete(self) -> bool:
         """Return whether a FUSION device has reported all of its ports."""
         if self.mqtt_client is None:

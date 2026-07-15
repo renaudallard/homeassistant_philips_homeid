@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "Device already configured",
+      "already_in_progress": "Configuration flow is already in progress",
       "cannot_connect": "Cannot connect to device",
       "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
       "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",

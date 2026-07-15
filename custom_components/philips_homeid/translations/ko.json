@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "이미 구성된 기기",
+      "already_in_progress": "기기 구성이 이미 진행 중입니다",
       "cannot_connect": "연결 불가",
       "unsupported_device": "이 Philips 기기는 이 통합에서 지원되지 않아 무시되었습니다.",
       "reauth_successful": "클라우드 로그인 성공. 레시피 새로고침을 다시 누르세요.",

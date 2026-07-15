@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "设备已配置",
+      "already_in_progress": "配置流程已在进行中",
       "cannot_connect": "无法连接",
       "unsupported_device": "此 Philips 设备不受此集成支持，已被忽略。",
       "reauth_successful": "云登录成功。请再次按刷新食谱。",

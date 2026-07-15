@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "Dispositivo già configurato",
+      "already_in_progress": "Il flusso di configurazione è già in corso",
       "cannot_connect": "Impossibile connettersi al dispositivo",
       "unsupported_device": "Questo dispositivo Philips non è supportato dall'integrazione ed è stato ignorato.",
       "reauth_successful": "Accesso cloud riuscito. Premi di nuovo Aggiorna ricette.",

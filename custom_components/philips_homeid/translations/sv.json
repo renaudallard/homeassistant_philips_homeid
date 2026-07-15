@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "Enheten ar redan konfigurerad",
+      "already_in_progress": "Konfigurationsflödet pågår redan",
       "cannot_connect": "Kan inte ansluta",
       "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
       "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",

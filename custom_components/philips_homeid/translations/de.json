@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "Gerät bereits konfiguriert",
+      "already_in_progress": "Konfigurationsablauf wird bereits ausgeführt",
       "cannot_connect": "Verbindung zum Gerät nicht möglich",
       "unsupported_device": "Dieses Philips-Gerät wird von der Integration nicht unterstützt und wurde ignoriert.",
       "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",

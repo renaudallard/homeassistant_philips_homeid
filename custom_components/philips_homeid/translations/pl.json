@@ -95,6 +95,7 @@
     },
     "abort": {
       "already_configured": "Urzadzenie juz skonfigurowane",
+      "already_in_progress": "Konfiguracja jest już w toku",
       "cannot_connect": "Nie mozna polaczyc",
       "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
       "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",

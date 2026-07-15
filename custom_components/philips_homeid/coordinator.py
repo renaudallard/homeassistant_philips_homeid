@@ -1298,6 +1298,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     airfryer = self._state.properties.get("airfryer")
                     if airfryer and isinstance(airfryer, dict):
                         airfryer["recipeName"] = name
+                        # recipeName is injected into the state that was
+                        # already scanned, and every later state is a fresh
+                        # object that never carries it, so the scan can never
+                        # see it. Announce it once so the sensor appears
+                        # without waiting for a restart to warm the cache.
+                        if not self.is_property_seen("recipeName", "airfryer"):
+                            self._notify_new_properties([("recipeName", "airfryer")])
                     self.async_set_updated_data(self._state)
             else:
                 self._failed_recipe_ids.add(recipe_id)

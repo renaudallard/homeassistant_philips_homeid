@@ -32,6 +32,7 @@ import logging
 
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
@@ -288,10 +289,11 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         location = discovery_info.get("location", "")
         udn = discovery_info.get("udn", "")
 
-        if "://" in location:
-            host_part = location.split("://")[1].split("/")[0]
-            ip_address = host_part.split(":")[0]
-        else:
+        # hostname strips the port and the brackets an IPv6 location carries,
+        # which splitting on ":" cannot do: it would cut "[fd00::1]:80" down
+        # to "[fd00" and every request to the device would then fail.
+        ip_address = urlsplit(location).hostname or ""
+        if not ip_address:
             return None
 
         cpp_id = discovery_info.get("cppId", "")

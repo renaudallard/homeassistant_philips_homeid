@@ -1132,7 +1132,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def _proactive_mqtt_refresh(self) -> None:
         """Refresh MQTT credentials and reconnect before token expiry."""
         assert self.mqtt_client is not None
-        from .cloud_api import PhilipsCloudAPI
+        from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
 
         # The heartbeat and the push path both reach here, and the reactive
         # backoff loop sets the same flag: only one reconnect may own the
@@ -1142,6 +1142,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return
         self.mqtt_client._reconnecting = True
         self.mqtt_client._refreshing = True
+        token_rejected = False
         try:
             async with self._token_lock:
                 refresh_token = self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
@@ -1173,9 +1174,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 self.mqtt_client._do_reconnect, access_token, signature
             )
             _LOGGER.info("Proactive MQTT reconnect successful")
-        except Exception:
+        except CloudConnectionError as err:
+            # Checked before CloudAuthError, which it subclasses.
             _LOGGER.warning(
-                "Proactive MQTT reconnect failed, will retry on next heartbeat"
+                "Proactive MQTT reconnect failed (%s), will retry on next heartbeat",
+                err,
+            )
+        except CloudAuthError as err:
+            # The account rejected the refresh token, so no amount of retrying
+            # brings this device back. Ask the user to log in again.
+            _LOGGER.error("Proactive MQTT reconnect: token rejected (%s)", err)
+            token_rejected = True
+            self.config_entry.async_start_reauth(self.hass)
+        except Exception as err:
+            _LOGGER.warning(
+                "Proactive MQTT reconnect failed (%s), will retry on next heartbeat",
+                err,
             )
         finally:
             self.mqtt_client._reconnecting = False
@@ -1183,8 +1197,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # A failed reconnect leaves no live client to emit on_disconnect, so
         # nothing else restarts the connection and needs_token_refresh() stays
         # False while disconnected. Kick the reactive backoff loop so the device
-        # recovers instead of staying dead until a reload.
-        if not self.mqtt_client.connected:
+        # recovers instead of staying dead until a reload. A rejected token is
+        # the exception: the loop would only rediscover the same rejection.
+        if not token_rejected and not self.mqtt_client.connected:
             self.mqtt_client.start_reconnect()
 
     def _inject_recipe_name(self) -> None:

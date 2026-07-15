@@ -56,7 +56,7 @@ from .const import (
 )
 from .coordinator import PhilipsHomeIDCoordinator
 from .local_api import LocalDeviceInfo, PhilipsLocalAPI
-from .mqtt_api import FusionDeviceInfo, PhilipsMQTTClient
+from .mqtt_api import FusionDeviceInfo, MqttCredentialsRejected, PhilipsMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -201,7 +201,18 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         # Keep the timeout short so a hung loop (e.g. shutdown started after
         # we submitted) doesn't keep the MQTT thread parked. 10s is more than
         # enough for the actual HTTP round trips.
-        return future.result(timeout=10)
+        try:
+            return future.result(timeout=10)
+        except CloudConnectionError:
+            # The cloud is unreachable, which the reconnect loop should ride
+            # out. Checked before CloudAuthError, which it subclasses.
+            raise
+        except CloudAuthError as err:
+            # The refresh token is dead (password change, revoked session).
+            # Nothing the reconnect loop does can recover it, so ask the user
+            # to log in again and let the loop stop.
+            hass.loop.call_soon_threadsafe(entry.async_start_reauth, hass)
+            raise MqttCredentialsRejected(str(err)) from err
 
     # Create and connect MQTT client
     mqtt_client = PhilipsMQTTClient(

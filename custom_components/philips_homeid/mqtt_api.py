@@ -166,6 +166,15 @@ class FusionDeviceInfo:
     user_id: str = ""
 
 
+class MqttCredentialsRejected(Exception):
+    """The cloud refused to mint MQTT credentials for this account.
+
+    Raised by the credential_refresh callable when the refresh token is no
+    longer accepted (password change, revoked session). Retrying cannot fix
+    that, so the reconnect loop gives up instead of backing off forever.
+    """
+
+
 class PhilipsMQTTClient:
     """MQTT client for FUSION device communication via AWS IoT.
 
@@ -678,8 +687,16 @@ class PhilipsMQTTClient:
                         self.connect(access_token, signature)
                     _LOGGER.info("MQTT reconnected successfully")
                     return
-                except Exception:
-                    _LOGGER.warning("MQTT reconnect attempt %d failed", attempt)
+                except MqttCredentialsRejected as err:
+                    # The account itself is the problem; the caller has asked
+                    # the user to re-authenticate. Backing off would only hide
+                    # that behind an endless retry.
+                    _LOGGER.error("MQTT reconnect abandoned: %s", err)
+                    return
+                except Exception as err:
+                    _LOGGER.warning(
+                        "MQTT reconnect attempt %d failed: %s", attempt, err
+                    )
                     delay = min(delay * 1.5, 300.0)
         finally:
             self._reconnecting = False

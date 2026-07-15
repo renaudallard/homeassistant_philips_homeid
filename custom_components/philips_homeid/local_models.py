@@ -86,6 +86,26 @@ _MODEL_PORT_MAP: dict[str, str] = {
 VENUS_STYLE_PORTS = frozenset(
     {PORT_VENUSAF, PORT_VENUS1AF, PORT_NUTRIMAX, PORT_HERMESAC}
 )
+
+
+def keep_warm_method_for_port(port: str | None) -> int:
+    """Return the keep warm cooking-method id for a port's architecture.
+
+    The id is the appliance's own cooking-method enum, which differs per
+    family (APK CookingMethodCategoryKt, one per family: SPECTRE 8, Venus 2,
+    Nutrimax 9, Hermes 50). SPECTRE names the field preset and Venus-style
+    ports name it method; the FUSION send path translates preset to method,
+    so both transports use this same id.
+    """
+    if port == PORT_NUTRIMAX:
+        return 9
+    if port == PORT_HERMESAC:
+        return 50
+    if port in VENUS_STYLE_PORTS:
+        return 2
+    return 8  # SPECTRE
+
+
 # VENUS device current state (voltage, internal temp)
 PORT_DEVCURRSTATE = "devcurrstate"
 

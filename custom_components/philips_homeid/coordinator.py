@@ -79,6 +79,7 @@ from .local_api import (
     LocalDeviceInfo,
     LocalDeviceState,
     PhilipsLocalAPI,
+    keep_warm_method_for_port,
 )
 from .mqtt_api import PhilipsMQTTClient
 from .rita_protobuf import decode_profile_id
@@ -615,10 +616,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
                 await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
                 await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
-            # Two-step flow: configure keep warm, then start
+            # Two-step flow: configure keep warm, then start. The method id is
+            # the appliance's own, not SPECTRE's: the send path translates
+            # preset to method for a Venus, whose enum has no 8 and would
+            # reject the command outright.
             props: dict[str, Any] = {
                 "status": self._fusion_setting_status,
-                "preset": 8,
+                "preset": keep_warm_method_for_port(self.airfryer_style_port()),
                 "time": self._keep_warm_time,
                 "temp": self.keep_warm_temp,
             }

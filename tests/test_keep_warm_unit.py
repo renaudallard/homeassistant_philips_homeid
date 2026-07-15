@@ -71,7 +71,7 @@ async def test_venus_keep_warm_carries_no_unit():
     assert api._sent[0]["method"] == 2
 
 
-def _fusion_coordinator(temp_unit):
+def _fusion_coordinator(temp_unit, model="HD9280", is_venus=False):
     """A FUSION coordinator with just enough state to read the temp unit."""
     from unittest.mock import MagicMock
 
@@ -80,6 +80,9 @@ def _fusion_coordinator(temp_unit):
 
     coordinator = PhilipsHomeIDCoordinator.__new__(PhilipsHomeIDCoordinator)
     coordinator._is_fusion = True
+    coordinator.device_info = LocalDeviceInfo(
+        ip_address="", cpp_id="aabb", model_name=model
+    )
     coordinator._keep_warm_temp = None
     coordinator._keep_warm_time = 3600
     coordinator._state = LocalDeviceState(
@@ -103,7 +106,7 @@ def _fusion_coordinator(temp_unit):
     # _fusion_setting_status derives from the transport, so supply one rather
     # than override the property.
     client = MagicMock()
-    client.is_venus = False
+    client.is_venus = is_venus
     coordinator.mqtt_client = client
     coordinator._sent = sent
     return coordinator
@@ -134,3 +137,22 @@ async def test_fusion_keep_warm_omits_an_unknown_unit():
     await coordinator.async_airfryer_keep_warm()
     assert "temp_unit" not in coordinator._sent[0]
     assert coordinator._sent[0]["temp"] == 65
+
+
+@pytest.mark.asyncio
+async def test_fusion_spectre_keep_warm_uses_the_spectre_method():
+    """APK fusion spectre CookingMethodCategoryKt: 8 = KEEP_WARM."""
+    coordinator = _fusion_coordinator(False, model="HD9280")
+    await coordinator.async_airfryer_keep_warm()
+    assert coordinator._sent[0]["preset"] == 8
+
+
+@pytest.mark.asyncio
+async def test_fusion_venus_keep_warm_uses_the_venus_method():
+    """APK fusion venus CookingMethodCategoryKt: 2 = KEEP_WARM, and its enum
+    has no 8. The send path renames preset to method for a Venus, so 8 went
+    out as a cooking method the appliance does not have and was rejected.
+    """
+    coordinator = _fusion_coordinator(False, model="HD9880", is_venus=True)
+    await coordinator.async_airfryer_keep_warm()
+    assert coordinator._sent[0]["preset"] == 2

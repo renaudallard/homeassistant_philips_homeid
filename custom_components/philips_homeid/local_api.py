@@ -76,6 +76,7 @@ from .local_models import (  # noqa: F401
     VENUS_STYLE_PORTS,
     _MODEL_PORT_MAP,
     bracket_ipv6,
+    keep_warm_method_for_port,
     parse_ssdp_device,
     parse_zeroconf_device,
 )
@@ -779,18 +780,11 @@ class PhilipsLocalAPI:
         """
         port = self._airfryer_port(device)
         if port in VENUS_STYLE_PORTS:
-            # Keep warm method ID varies by device architecture
-            if port == PORT_NUTRIMAX:
-                keep_warm_method = 9
-            elif port == PORT_HERMESAC:
-                keep_warm_method = 50
-            else:
-                keep_warm_method = 2  # Venus airfryers
             # No temp_unit: the command carries no temperature, and the Venus
             # control port has no writable temp_unit field anyway.
             data: dict[str, Any] = {
                 "total_time": time_seconds,
-                "method": keep_warm_method,
+                "method": keep_warm_method_for_port(port),
                 "status": AIRFRYER_STATUS_MAINTAIN,
             }
         else:
@@ -798,7 +792,7 @@ class PhilipsLocalAPI:
             data = {
                 "time": time_seconds,
                 "temp": temp,
-                "preset": 8,
+                "preset": keep_warm_method_for_port(port),
                 "status": AIRFRYER_STATUS_COOKING,
             }
             # Echo the unit the appliance currently shows; omitting it next to

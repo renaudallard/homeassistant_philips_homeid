@@ -189,6 +189,20 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._cloud_api.close()
             self._cloud_api = None
 
+    @callback
+    def async_remove(self) -> None:
+        """Close the cloud session when the flow goes away.
+
+        The cloud API owns an aiohttp session from the moment the OTP is
+        requested, and a user who closes the dialog without finishing leaves
+        no other chance to release it. This hook is synchronous, so the close
+        is handed to the loop.
+        """
+        if self._cloud_api is not None:
+            api = self._cloud_api
+            self._cloud_api = None
+            self.hass.async_create_task(api.close())
+
     async def _set_unique_id_or_abort(self, unique_id: str) -> None:
         """Set the flow unique id and abort if the device is already set up.
 

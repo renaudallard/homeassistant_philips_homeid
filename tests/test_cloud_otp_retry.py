@@ -68,3 +68,30 @@ async def test_missing_code_is_still_reported_before_any_verify():
     result = await flow.async_step_cloud_otp({"code": ""})
 
     assert result["errors"] == {"base": "missing_code"}
+
+
+def test_abandoned_flow_closes_the_cloud_session():
+    """Dropping the dialog mid-login must not leak the aiohttp session."""
+    flow, api = _flow(AsyncMock())
+    api.close = AsyncMock()
+    created = []
+    flow.hass = MagicMock()
+    flow.hass.async_create_task = lambda coro: created.append(coro)
+
+    flow.async_remove()
+
+    assert flow._cloud_api is None
+    assert len(created) == 1
+    # Close the coroutine we intercepted so it isn't reported as un-awaited.
+    created[0].close()
+
+
+def test_remove_without_a_cloud_session_is_a_no_op():
+    """A local-only flow has nothing to close."""
+    flow, _api = _flow(AsyncMock())
+    flow._cloud_api = None
+    flow.hass = MagicMock()
+
+    flow.async_remove()
+
+    flow.hass.async_create_task.assert_not_called()

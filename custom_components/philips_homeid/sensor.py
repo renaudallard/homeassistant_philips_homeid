@@ -82,6 +82,11 @@ async def async_setup_entry(
             property_to_description[key] = description
 
     entities: list[PhilipsHomeIDSensor] = []
+    # Track property keys this platform has created, so dynamic creation dedups
+    # per-platform. The coordinator's shared seen-set would let another platform
+    # that reads the same property (sensor water_level and binary_sensor
+    # water_tank_empty both use "wl") suppress this platform's entity.
+    created_keys: set[str] = set()
 
     # Only add sensors that match the device type AND have data
     for description in SENSORS:
@@ -101,10 +106,15 @@ async def async_setup_entry(
             )
             continue
 
-        # Mark property as seen
+        # Mark seen (coordinator dedup) and track locally for dynamic creation
         if description.property_key:
             coordinator.mark_property_seen(
                 description.property_key, description.nested_key
+            )
+            created_keys.add(
+                coordinator.get_property_key(
+                    description.property_key, description.nested_key
+                )
             )
 
         entities.append(
@@ -123,15 +133,14 @@ async def async_setup_entry(
             key = coordinator.get_property_key(property_key, nested_key)
             description = property_to_description.get(key)
 
-            if description and not coordinator.is_property_seen(
-                property_key, nested_key
-            ):
+            if description and key not in created_keys:
                 _LOGGER.info(
                     "Creating sensor %s for newly discovered property %s",
                     description.key,
                     property_key,
                 )
                 coordinator.mark_property_seen(property_key, nested_key)
+                created_keys.add(key)
                 new_entities.append(
                     PhilipsHomeIDSensor(coordinator, description, coordinator.device_id)
                 )

@@ -331,7 +331,13 @@ class PhilipsCloudAuth:
     # ------------------------------------------------------------------ #
 
     async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
-        """Exchange authorization code for OIDC tokens."""
+        """Exchange authorization code for OIDC tokens.
+
+        Raises CloudAuthError only when the code is permanently rejected. Any
+        other failure (5xx, malformed response, network) raises
+        CloudConnectionError, so the user is told the cloud is unreachable
+        rather than that their verification code was wrong.
+        """
         session = await self._get_session()
         data = {
             "client_id": OAUTH_CLIENT_ID,
@@ -342,18 +348,30 @@ class PhilipsCloudAuth:
         }
 
         _LOGGER.debug("Exchanging auth code for tokens at %s", OIDC_TOKEN_ENDPOINT)
-        async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
-            text = await resp.text()
-            _LOGGER.debug("Token exchange response: HTTP %s", resp.status)
-            try:
-                result = json.loads(text)
-            except json.JSONDecodeError:
-                raise CloudAuthError(f"Token exchange response not JSON: {text[:200]}")
+        try:
+            async with session.post(OIDC_TOKEN_ENDPOINT, data=data) as resp:
+                status = resp.status
+                text = await resp.text()
+                _LOGGER.debug("Token exchange response: HTTP %s", status)
+                try:
+                    result = json.loads(text)
+                except json.JSONDecodeError as err:
+                    raise CloudConnectionError(
+                        f"Token exchange returned non-JSON (HTTP {status}): "
+                        f"{text[:200]}"
+                    ) from err
+        except aiohttp.ClientError as err:
+            raise CloudConnectionError(f"Token endpoint unreachable: {err}") from err
 
         if "access_token" not in result:
-            error = result.get("error_description", result.get("error", "Unknown"))
+            error_code = result.get("error", "")
+            error = result.get("error_description", error_code or f"HTTP {status}")
             _LOGGER.debug("Token exchange error response: %s", text[:500])
-            raise CloudAuthError(f"Token exchange failed: {error}")
+            if status == 401 or error_code in ("invalid_grant", "invalid_token"):
+                raise CloudAuthError(f"Token exchange rejected: {error}")
+            raise CloudConnectionError(
+                f"Token exchange failed (HTTP {status}): {error}"
+            )
 
         _LOGGER.debug(
             "OIDC tokens obtained (scopes: %s, expires_in: %s)",

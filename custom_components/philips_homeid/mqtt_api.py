@@ -403,14 +403,26 @@ class PhilipsMQTTClient:
             _LOGGER.debug("MQTT token age: %.0f seconds", age)
         return age > 3000  # 50 minutes
 
+    def _teardown_client(self) -> None:
+        """Stop the current client and mark the link down.
+
+        Neither loop_stop() nor disconnect() dispatches on_disconnect: the
+        callback is only ever fired from the network thread that loop_stop()
+        just joined. So _connected has to be cleared by hand here. Leaving it
+        set makes _wait_for_connection() return before the new CONNACK lands
+        and hides a failed reconnect behind a connected-looking client.
+        """
+        if self._client:
+            self._client.loop_stop()
+            self._client.disconnect()
+        self._connected = False
+
     def _do_reconnect(self, access_token: str, signature: str) -> None:
         """Disconnect old client and connect with new credentials (blocking)."""
         with self._reconnect_lock:
             if self._stop.is_set():
                 return
-            if self._client:
-                self._client.loop_stop()
-                self._client.disconnect()
+            self._teardown_client()
             # Clear discovered ports so they're re-fetched by getAllPorts.
             # Keep the cached state in place so consumers don't see a brief
             # unavailability gap while the new shadow + NCP messages arrive;
@@ -656,9 +668,7 @@ class PhilipsMQTTClient:
                     with self._reconnect_lock:
                         if self._stop.is_set():
                             return
-                        if self._client:
-                            self._client.loop_stop()
-                            self._client.disconnect()
+                        self._teardown_client()
                         self.connect(access_token, signature)
                     _LOGGER.info("MQTT reconnected successfully")
                     return

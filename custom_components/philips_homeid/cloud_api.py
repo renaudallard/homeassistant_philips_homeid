@@ -709,11 +709,15 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         return result
 
     async def _get_root_links(self, access_token: str) -> dict[str, Any]:
-        """Return the root API _links map, cached after first discovery.
+        """Return the root API _links map.
 
         Chain: GET /.well-known/tenant/oneka -> spaces[].backendBaseUrl ->
         root document _links. The same root document holds every templated
         link (autocookPrograms, profileSelfApplianceCookingMethods, ...).
+
+        The result is memoized, but callers build a client per fetch and
+        close it, so today nothing calls this twice on one instance and the
+        memo never pays off. It is kept for a caller that reuses a client.
 
         An empty map means the tenant genuinely exposes no links. A retryable
         failure raises CloudConnectionError, so a caller can tell a bad moment

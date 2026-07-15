@@ -845,15 +845,22 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         return self._parse_my_presets(data)
 
     @staticmethod
-    def _parse_my_presets(data: dict[str, Any]) -> list[dict[str, Any]]:
+    def _parse_my_presets(data: Any) -> list[dict[str, Any]]:
         """Parse a CookingMethodsResponse into preset dicts.
 
         Mirrors the APK SpectreUserPresetSetConverter: a custom preset is a
         manual cook identified by its shortId, carrying a default
         temperature (with unit) and time.
+
+        A 200 whose shape is not the expected object means no presets, not an
+        exception: the caller treats a raise as a reason to stop asking.
         """
         out: list[dict[str, Any]] = []
-        embedded = data.get("_embedded") or {}
+        if not isinstance(data, dict):
+            return out
+        embedded = data.get("_embedded")
+        if not isinstance(embedded, dict):
+            embedded = {}
         items: Any = None
         for key in ("item", "cookingMethods", "cookingMethod"):
             if embedded.get(key) is not None:
@@ -870,29 +877,51 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             name = it.get("name")
             if not short_id or not name:
                 continue
-            temperature = it.get("temperature") or {}
-            time_obj = it.get("time") or {}
-            temp_default = temperature.get("default")
-            time_default = time_obj.get("default")
+            temperature = it.get("temperature")
+            time_obj = it.get("time")
+            if not isinstance(temperature, dict):
+                temperature = {}
+            if not isinstance(time_obj, dict):
+                time_obj = {}
             unit = str(temperature.get("unit") or "").upper()
+            try:
+                temp_default = temperature.get("default")
+                time_default = time_obj.get("default")
+                temp = int(temp_default) if temp_default is not None else None
+                cook_time = int(time_default) if time_default is not None else None
+            except (TypeError, ValueError):
+                # A preset whose numbers are unreadable is not worth taking the
+                # rest of the set down for.
+                _LOGGER.debug("Skipping My Preset with unreadable values: %s", name)
+                continue
             out.append(
                 {
                     "name": str(name),
                     "short_id": str(short_id),
-                    "temp": int(temp_default) if temp_default is not None else None,
-                    "time": int(time_default) if time_default is not None else None,
+                    "temp": temp,
+                    "time": cook_time,
                     "fahrenheit": unit.startswith("F"),
                 }
             )
         return out
 
     @staticmethod
-    def _extract_autocook_food_item(data: dict[str, Any]) -> str | None:
-        """Extract foodItem from an AutoCook HAL collection response."""
-        embedded = data.get("_embedded") or {}
+    def _extract_autocook_food_item(data: Any) -> str | None:
+        """Extract foodItem from an AutoCook HAL collection response.
+
+        A 200 carrying null, a list, or a null member is still a real answer
+        and has to come back as "no food item" rather than raise: the caller
+        reads an exception here as a permanent miss and stops asking for that
+        recipe. Mirrors _extract_recipe_title.
+        """
+        if not isinstance(data, dict):
+            return None
+        embedded = data.get("_embedded")
+        if not isinstance(embedded, dict):
+            embedded = {}
         for key in ("item", "autocookProgram", "autocookPrograms"):
             items = embedded.get(key)
-            if isinstance(items, list) and items:
+            if isinstance(items, list) and items and isinstance(items[0], dict):
                 food = items[0].get("foodItem")
                 if food:
                     return str(food)

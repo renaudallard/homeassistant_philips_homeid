@@ -114,6 +114,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self.device_info = device_info
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
+        # Baseline the cook countdown extrapolates from, and the cur_time it
+        # was taken at. Kept apart from _last_update_time because a message
+        # can refresh the state without carrying a new cur_time.
+        self._countdown_baseline: float = 0.0
+        self._countdown_value: Any = None
         self._seen_properties: set[str] = set()  # Track all properties ever seen
         self._new_properties_callbacks: list[
             Callable[[list[tuple[str, str | None]]], None]
@@ -208,6 +213,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         loop.call_soon_threadsafe.
         """
         new_properties = self._check_for_new_properties(state)
+        self._update_countdown_baseline(state)
         self._state = state
         self._last_update_time = time.monotonic()
         self._consecutive_failures = 0
@@ -223,6 +229,20 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._maybe_fetch_rita_drinks()
         self._maybe_refresh_mqtt_token()
         self.async_set_updated_data(state)
+
+    def _update_countdown_baseline(self, state: LocalDeviceState) -> None:
+        """Re-baseline the cook countdown only when the device moves it.
+
+        The countdown sensor reads cur_time and subtracts the time since this
+        baseline. Pushes are deltas and most carry no cur_time, so taking a
+        new baseline on every message would restart the subtraction from a
+        stale value and the countdown would jump back up.
+        """
+        airfryer = state.properties.get("airfryer")
+        cur_time = airfryer.get("cur_time") if isinstance(airfryer, dict) else None
+        if cur_time != self._countdown_value:
+            self._countdown_value = cur_time
+            self._countdown_baseline = time.monotonic()
 
     def _maybe_refresh_mqtt_token(self) -> None:
         """Refresh the MQTT token from the push path if it is near expiry.
@@ -282,6 +302,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 # Check for new properties before updating state
                 new_properties = self._check_for_new_properties(state)
 
+                self._update_countdown_baseline(state)
                 self._state = state
                 self._last_update_time = time.monotonic()
                 _LOGGER.debug(
@@ -1635,6 +1656,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             # proactive token refresh, so entities do not flap during one.
             return self.mqtt_client.connected
         return True
+
+    @property
+    def countdown_baseline(self) -> float:
+        """Monotonic time the device last reported a new cook countdown."""
+        return self._countdown_baseline
 
     @property
     def last_update_time(self) -> float:

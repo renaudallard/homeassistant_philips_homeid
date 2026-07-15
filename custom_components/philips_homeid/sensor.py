@@ -222,7 +222,7 @@ class PhilipsHomeIDSensor(PhilipsHomeIDEntity, SensorEntity):
         if not self.coordinator.is_airfryer_cooking():
             return value
 
-        last_update = self.coordinator.last_update_time
+        last_update = self.coordinator.countdown_baseline
         if last_update == 0:
             return value
 

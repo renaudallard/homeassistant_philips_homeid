@@ -348,33 +348,33 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if host is None:
                 errors["base"] = "invalid_host"
             else:
+                device = None
                 try:
                     # Probe the device
                     self._local_api = PhilipsLocalAPI()
                     device = await self._local_api.probe_device(host)
-
-                    if device:
-                        # Apply user-selected model if not auto-detect
-                        if model != "auto":
-                            device.model_name = model
-
-                        self._discovered_device = device
-
-                        # Set unique ID based on device ID
-                        unique_id = _normalize_unique_id(device.cpp_id or host)
-                        await self.async_set_unique_id(unique_id)
-                        self._abort_if_unique_id_configured(updates={CONF_HOST: host})
-
-                        return await self.async_step_confirm()
-                    else:
-                        errors["base"] = "cannot_connect"
-
                 except Exception:
                     _LOGGER.exception("Unexpected exception during device probe")
                     errors["base"] = "unknown"
                 finally:
                     if self._local_api:
                         await self._local_api.close()
+
+                # async_set_unique_id / _abort_if_unique_id_configured raise
+                # AbortFlow (already_configured / already_in_progress), which
+                # must propagate to the flow manager. Keep them outside the
+                # try above so the broad except does not swallow the abort into
+                # a generic "unknown" error.
+                if device:
+                    if model != "auto":
+                        device.model_name = model
+                    self._discovered_device = device
+                    unique_id = _normalize_unique_id(device.cpp_id or host)
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+                    return await self.async_step_confirm()
+                elif not errors:
+                    errors["base"] = "cannot_connect"
 
         return self.async_show_form(
             step_id="manual_host",

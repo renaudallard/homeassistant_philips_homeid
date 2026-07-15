@@ -1134,6 +1134,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         finally:
             self.mqtt_client._reconnecting = False
             self.mqtt_client._refreshing = False
+        # A failed reconnect leaves no live client to emit on_disconnect, so
+        # nothing else restarts the connection and needs_token_refresh() stays
+        # False while disconnected. Kick the reactive backoff loop so the device
+        # recovers instead of staying dead until a reload.
+        if not self.mqtt_client.connected:
+            self.mqtt_client.start_reconnect()
 
     def _inject_recipe_name(self) -> None:
         """Inject cached recipe name into airfryer state."""

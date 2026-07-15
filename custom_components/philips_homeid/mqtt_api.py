@@ -668,6 +668,21 @@ class PhilipsMQTTClient:
         finally:
             self._reconnecting = False
 
+    def start_reconnect(self) -> None:
+        """Start the reactive reconnect loop if disconnected and idle.
+
+        Used to recover after a failed proactive token-refresh reconnect: at
+        that point no client is alive to emit on_disconnect, so nothing else
+        would restart the connection.
+        """
+        if self._stop.is_set() or self._connected or self._reconnecting:
+            return
+        if not self._credential_refresh:
+            return
+        self._reconnecting = True
+        thread = threading.Thread(target=self._reconnect_with_backoff, daemon=True)
+        thread.start()
+
     def _on_message(
         self,
         client: mqtt.Client,

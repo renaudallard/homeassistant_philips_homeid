@@ -533,16 +533,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
     if coordinator is not None:
-        # Cancel the debounced recipe-cache persist before tearing down so
-        # it can't fire async_update_entry against a half-unloaded entry.
-        persist_task = coordinator._recipe_cache_persist_task
-        if persist_task is not None and not persist_task.done():
-            persist_task.cancel()
-        # Cancel any in-flight espresso wake+brew so its long sleep doesn't
-        # hold a reference to the entry past teardown.
-        brew_task = coordinator._espresso_brew_task
-        if brew_task is not None and not brew_task.done():
-            brew_task.cancel()
+        # Stop every background task before tearing down: they write back to
+        # the entry, and the cloud fetches serialise on a per-coordinator
+        # token lock, so one left running would refresh the token alongside
+        # the coordinator that replaces it on a reload.
+        coordinator.cancel_background_tasks()
         if coordinator.mqtt_client:
             try:
                 await hass.async_add_executor_job(coordinator.mqtt_client.disconnect)

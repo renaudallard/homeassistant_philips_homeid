@@ -31,7 +31,7 @@ from datetime import timedelta
 import logging
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -168,6 +168,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         # over a minute on a cold machine, so we run it off the button press
         # rather than blocking the entity update path.
         self._espresso_brew_task: asyncio.Task[None] | None = None
+        # Every background task this coordinator starts, so unload can stop
+        # them all. They write back to the config entry and serialise on
+        # _token_lock, which is per coordinator, so one that outlives its
+        # coordinator would race the reloaded one over the refresh token.
+        self._background_tasks: set[asyncio.Task[None]] = set()
         # Lock to prevent simultaneous token refreshes (recipe fetch vs MQTT reconnect)
         self._token_lock: asyncio.Lock = asyncio.Lock()
         self._catalog_fetch_running: bool = False
@@ -254,7 +259,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         broker drops the link.
         """
         if self.mqtt_client and self.mqtt_client.needs_token_refresh():
-            self.hass.async_create_task(self._proactive_mqtt_refresh())
+            self._create_tracked_task(self._proactive_mqtt_refresh())
 
     async def _async_update_data(self) -> LocalDeviceState | None:
         """Fetch data from device."""
@@ -863,7 +868,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if task is not None and not task.done():
             _LOGGER.warning("Espresso brew already in progress; ignoring new request")
             return False
-        self._espresso_brew_task = self.hass.async_create_task(
+        self._espresso_brew_task = self._create_tracked_task(
             self._do_espresso_brew(
                 recipe_id,
                 prim_dose,
@@ -1239,7 +1244,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         ):
             self._catalog_fetch_running = True
-            self.hass.async_create_task(self._populate_autocook_catalog())
+            self._create_tracked_task(self._populate_autocook_catalog())
         presets_fresh = (
             self.config_entry.data.get(CONF_MY_PRESETS_FETCHED)
             and self.config_entry.data.get(CONF_MY_PRESETS_LANGUAGE, "")
@@ -1252,7 +1257,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         ):
             self._my_presets_fetch_running = True
-            self.hass.async_create_task(self._populate_my_presets())
+            self._create_tracked_task(self._populate_my_presets())
         recipe_id = str(airfryer.get("recipe_id", ""))
         if not recipe_id or recipe_id == "0":
             recipe = self._state.properties.get("recipe")
@@ -1272,7 +1277,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             and recipe_id not in self._failed_recipe_ids
         ):
             self._pending_recipe_fetch = recipe_id
-            self.hass.async_create_task(self._fetch_and_inject_recipe(recipe_id))
+            self._create_tracked_task(self._fetch_and_inject_recipe(recipe_id))
 
     async def _get_access_token(self) -> str | None:
         """Get a fresh access token, coordinated with MQTT credential refresh."""
@@ -1324,7 +1329,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 self.config_entry, data=new_data
             )
 
-        self._recipe_cache_persist_task = self.hass.async_create_task(_persist())
+        self._recipe_cache_persist_task = self._create_tracked_task(_persist())
 
     async def _fetch_and_inject_recipe(self, recipe_id: str) -> None:
         """Fetch a recipe name from the cloud and inject into state."""
@@ -1559,7 +1564,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         ):
             return
         self._rita_drinks_fetch_running = True
-        self.hass.async_create_task(self._populate_rita_drinks())
+        self._create_tracked_task(self._populate_rita_drinks())
 
     async def _populate_rita_drinks(self) -> None:
         """Fetch the machine's supported drink catalog from the cloud once."""
@@ -1759,6 +1764,26 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return None
         value = airfryer.get("temp_unit")
         return bool(value) if value is not None else None
+
+    def _create_tracked_task(
+        self, coro: Coroutine[Any, Any, None]
+    ) -> asyncio.Task[None]:
+        """Start a background task that unload can cancel."""
+        task = self.hass.async_create_task(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task
+
+    def cancel_background_tasks(self) -> None:
+        """Cancel every background task still in flight.
+
+        Called from unload so nothing writes to a half-unloaded entry, and so
+        a task from the old coordinator cannot refresh the cloud token
+        alongside the one that replaces it.
+        """
+        for task in list(self._background_tasks):
+            if not task.done():
+                task.cancel()
 
     @property
     def ncp_ports_complete(self) -> bool:

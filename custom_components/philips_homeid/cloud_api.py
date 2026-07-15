@@ -525,6 +525,17 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
     # --- Recipe lookup ---
 
+    @staticmethod
+    def _raise_if_retryable(status: int, what: str) -> None:
+        """Raise CloudConnectionError when a lookup failed for a retryable reason.
+
+        A 5xx or a 429 is the cloud having a bad moment. The caller has to be
+        able to tell that apart from a genuine "no such recipe" so it does not
+        give up on the id for the rest of the session.
+        """
+        if status >= 500 or status == 429:
+            raise CloudConnectionError(f"{what}: HTTP {status}")
+
     async def get_recipe_name(
         self, access_token: str, recipe_id: str, language: str = "en-GB"
     ) -> str | None:
@@ -543,14 +554,20 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
+                    self._raise_if_retryable(
+                        resp.status, f"Recipe lookup for {recipe_id}"
+                    )
                     _LOGGER.warning(
                         "Recipe lookup failed: HTTP %s for %s", resp.status, recipe_id
                     )
                     return None
                 data = await resp.json(content_type=None)
-        except Exception:
-            _LOGGER.exception("Recipe lookup request failed for %s", recipe_id)
-            return None
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(
+                f"Recipe lookup request failed for {recipe_id}: {err}"
+            ) from err
 
         return self._extract_recipe_title(data)
 
@@ -595,6 +612,9 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
+                    self._raise_if_retryable(
+                        resp.status, f"AutoCook lookup for referenceId={reference_id}"
+                    )
                     _LOGGER.warning(
                         "AutoCook lookup failed: HTTP %s for referenceId=%s",
                         resp.status,
@@ -602,11 +622,12 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                     )
                     return None
                 data = await resp.json(content_type=None)
-        except Exception:
-            _LOGGER.exception(
-                "AutoCook lookup request failed for referenceId=%s", reference_id
-            )
-            return None
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(
+                f"AutoCook lookup request failed for referenceId={reference_id}: {err}"
+            ) from err
         return self._extract_autocook_food_item(data)
 
     async def get_autocook_programs(

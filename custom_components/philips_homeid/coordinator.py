@@ -1267,7 +1267,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def _fetch_and_inject_recipe(self, recipe_id: str) -> None:
         """Fetch a recipe name from the cloud and inject into state."""
-        from .cloud_api import PhilipsCloudAPI
+        from .cloud_api import CloudConnectionError, PhilipsCloudAPI
 
         try:
             access_token = await self._get_access_token()
@@ -1294,6 +1294,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     self.async_set_updated_data(self._state)
             else:
                 self._failed_recipe_ids.add(recipe_id)
+        except CloudConnectionError as err:
+            # The cloud is having a bad moment. Leave the id out of the failed
+            # set so a later poll retries instead of never naming it again.
+            _LOGGER.debug("Recipe name fetch for %s deferred: %s", recipe_id, err)
         except Exception:
             _LOGGER.warning("Failed to fetch recipe name for %s", recipe_id)
             self._failed_recipe_ids.add(recipe_id)

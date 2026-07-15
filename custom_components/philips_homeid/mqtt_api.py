@@ -463,11 +463,17 @@ class PhilipsMQTTClient:
     def _teardown_client(self) -> None:
         """Stop the current client and mark the link down.
 
-        Neither loop_stop() nor disconnect() dispatches on_disconnect: the
-        callback is only ever fired from the network thread that loop_stop()
-        just joined. So _connected has to be cleared by hand here. Leaving it
-        set makes _wait_for_connection() return before the new CONNACK lands
-        and hides a failed reconnect behind a connected-looking client.
+        disconnect() does dispatch on_disconnect, synchronously on this
+        thread: loop_stop() joins the network thread and clears paho's
+        _thread, so the DISCONNECT packet is written by loop_write() right
+        here, which fires the callback itself. It is harmless because a
+        client-initiated disconnect carries reason code 0 and on_disconnect
+        returns early on that, without claiming a reconnect. Anything that
+        relaxes that early return has to account for being called from here.
+
+        It does not clear _connected, so that is done by hand. Leaving it set
+        makes _wait_for_connection() return before the new CONNACK lands and
+        hides a failed reconnect behind a connected-looking client.
         """
         if self._client:
             self._client.loop_stop()

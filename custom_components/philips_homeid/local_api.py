@@ -573,7 +573,12 @@ class PhilipsLocalAPI:
                 "probe_required": False,
                 "method": 0,
             }
-            await self._request(device, port, method="PUT", data=precook)
+            # probe_required is the SPECTRE spelling; the Venus port calls it
+            # probe_rqrd, so this has to go through the same normalization
+            # airfryer_set_settings uses or the field is silently dropped.
+            await self._request(
+                device, port, method="PUT", data=self._normalize_venus_command(precook)
+            )
 
             if temp is not None or time_seconds is not None:
                 settings: dict[str, Any] = {}

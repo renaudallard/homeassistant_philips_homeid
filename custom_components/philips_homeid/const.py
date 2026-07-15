@@ -81,9 +81,10 @@ DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking
 FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
 
-# The Rita drink-catalog fetch is kicked from the MQTT push path, so a cloud
+# The best-effort cloud fetches (AutoCook catalog, My Presets, Rita drinks)
+# are kicked from the state-update path, which runs on every push, so a cloud
 # outage must not turn every push into a retry.
-RITA_DRINKS_RETRY_DELAY = 600  # 10 minutes before retrying a failed fetch
+CLOUD_FETCH_RETRY_DELAY = 600  # 10 minutes before retrying a failed fetch
 
 # FUSION / DaConnect platform defaults (from APK DomainConfig)
 FUSION_PLATFORM_REST_URL = "prod.eu-da.iot.versuni.com"

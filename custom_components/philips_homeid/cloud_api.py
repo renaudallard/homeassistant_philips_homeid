@@ -643,8 +643,9 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
     ) -> dict[str, str]:
         """Fetch the full AutoCook program catalog as referenceId -> foodItem.
 
-        Hits the root AutoCook link with no referenceId filter. Returns an
-        empty dict on any failure so callers can treat it as best-effort.
+        Hits the root AutoCook link with no referenceId filter. An empty dict
+        means this account genuinely has no AutoCook catalog; a retryable
+        failure raises CloudConnectionError.
         """
         template = await self._get_autocook_template(access_token)
         if not template:
@@ -662,12 +663,16 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
+                    self._raise_if_retryable(resp.status, "AutoCook catalog")
                     _LOGGER.warning("AutoCook catalog failed: HTTP %s", resp.status)
                     return {}
                 data = await resp.json(content_type=None)
-        except Exception:
-            _LOGGER.exception("AutoCook catalog request failed")
-            return {}
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(
+                f"AutoCook catalog request failed: {err}"
+            ) from err
         return self._walk_autocook_catalog(data)
 
     @staticmethod
@@ -700,6 +705,10 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         Chain: GET /.well-known/tenant/oneka -> spaces[].backendBaseUrl ->
         root document _links. The same root document holds every templated
         link (autocookPrograms, profileSelfApplianceCookingMethods, ...).
+
+        An empty map means the tenant genuinely exposes no links. A retryable
+        failure raises CloudConnectionError, so a caller can tell a bad moment
+        apart from a real answer instead of caching "nothing" for good.
         """
         cached = getattr(self, "_root_links_cache", None)
         if cached is not None:
@@ -710,12 +719,16 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(discovery_url) as resp:
                 if resp.status != 200:
+                    self._raise_if_retryable(resp.status, "Root API discovery")
                     _LOGGER.debug("Root API discovery failed: HTTP %s", resp.status)
                     return {}
                 discovery = await resp.json(content_type=None)
-        except Exception:
-            _LOGGER.debug("Root API discovery request failed", exc_info=True)
-            return {}
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(
+                f"Root API discovery request failed: {err}"
+            ) from err
 
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -724,6 +737,10 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             "User-Agent": HOMEID_USER_AGENT,
             "X-USER-AGENT": HOMEID_X_USER_AGENT,
         }
+        # A space that fails for a retryable reason must not be mistaken for a
+        # space that has no links: keep trying the others, but if none of them
+        # produced links, say so rather than caching an empty map.
+        deferred: Exception | None = None
         for space in discovery.get("spaces") or []:
             base_url = space.get("backendBaseUrl", "")
             if not base_url:
@@ -732,14 +749,23 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             try:
                 async with session.get(base_url, headers=headers) as resp:
                     if resp.status != 200:
+                        self._raise_if_retryable(resp.status, f"Root API {base_url}")
                         continue
                     root = await resp.json(content_type=None)
-            except Exception:
+            except CloudConnectionError as err:
+                deferred = err
+                continue
+            except Exception as err:
+                deferred = err
                 continue
             links = root.get("_links")
             if isinstance(links, dict) and links:
                 self._root_links_cache = links
                 return links
+        if deferred is not None:
+            raise CloudConnectionError(
+                f"Root API links unreachable: {deferred}"
+            ) from deferred
         _LOGGER.debug("Root API links not found in any space")
         return {}
 
@@ -771,7 +797,8 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         Resolves the root API link profileSelfApplianceCookingMethods,
         expands {id} with the appliance id and GETs the collection. Each
         returned preset is a dict with name, short_id, temp, time and
-        fahrenheit keys. Returns an empty list on any failure.
+        fahrenheit keys. An empty list means the user has no presets; a
+        retryable failure raises CloudConnectionError.
         """
         links = await self._get_root_links(access_token)
         template = self._root_link_href(links, "profileSelfApplianceCookingMethods")
@@ -794,12 +821,14 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         try:
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
+                    self._raise_if_retryable(resp.status, "My Presets fetch")
                     _LOGGER.warning("My Presets fetch failed: HTTP %s", resp.status)
                     return []
                 data = await resp.json(content_type=None)
-        except Exception:
-            _LOGGER.exception("My Presets request failed")
-            return []
+        except CloudConnectionError:
+            raise
+        except Exception as err:
+            raise CloudConnectionError(f"My Presets request failed: {err}") from err
         return self._parse_my_presets(data)
 
     @staticmethod

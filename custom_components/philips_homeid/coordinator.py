@@ -40,6 +40,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     ACTIVE_SCAN_INTERVAL,
+    CLOUD_FETCH_RETRY_DELAY,
     CONF_ACTIVE_SCAN_INTERVAL,
     CONF_APPLIANCE_ID,
     CONF_AUTOCOOK_CATALOG_FETCHED,
@@ -60,7 +61,6 @@ from .const import (
     FUSION_HEARTBEAT_INTERVAL,
     RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
-    RITA_DRINKS_RETRY_DELAY,
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
@@ -127,6 +127,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._rita_drinks_fetched: bool = False  # one-shot fetch guard (per session)
         self._rita_drinks_fetch_running: bool = False  # in-flight guard
         self._rita_drinks_retry_after: float = 0.0  # monotonic gate after a failure
+        self._catalog_retry_after: float = 0.0  # same, for the AutoCook catalog
+        self._my_presets_retry_after: float = 0.0  # same, for My Presets
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
@@ -1178,6 +1180,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if (
             not catalog_fresh
             and not self._catalog_fetch_running
+            and time.monotonic() >= self._catalog_retry_after
             and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         ):
             self._catalog_fetch_running = True
@@ -1190,6 +1193,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if (
             not presets_fresh
             and not self._my_presets_fetch_running
+            and time.monotonic() >= self._my_presets_retry_after
             and self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         ):
             self._my_presets_fetch_running = True
@@ -1307,8 +1311,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._pending_recipe_fetch = None
 
     async def _populate_autocook_catalog(self) -> None:
-        """Merge the full AutoCook catalog into the recipe name cache."""
-        from .cloud_api import PhilipsCloudAPI
+        """Merge the full AutoCook catalog into the recipe name cache.
+
+        An empty catalog is a real answer and is recorded as fetched, so an
+        account without AutoCook stops asking on every poll.
+        """
+        from .cloud_api import CloudConnectionError, PhilipsCloudAPI
 
         try:
             access_token = await self._get_access_token()
@@ -1321,8 +1329,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 )
             finally:
                 await cloud_api.close()
-            if not programs:
-                return
             added = 0
             for rid, name in programs.items():
                 if rid not in self._recipe_cache:
@@ -1341,7 +1347,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if added and self._state:
                 self._inject_recipe_name()
                 self.async_set_updated_data(self._state)
+        except CloudConnectionError as err:
+            # The catalog flag stays unset so this retries, and the trigger
+            # runs on every push, so hold off before asking again.
+            self._catalog_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
+            _LOGGER.debug("AutoCook catalog fetch deferred: %s", err)
         except Exception:
+            self._catalog_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
             _LOGGER.warning("AutoCook catalog fetch failed", exc_info=True)
         finally:
             self._catalog_fetch_running = False
@@ -1417,8 +1429,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         return None
 
     async def _populate_my_presets(self) -> None:
-        """Fetch and cache the user's custom presets from the cloud."""
-        from .cloud_api import PhilipsCloudAPI
+        """Fetch and cache the user's custom presets from the cloud.
+
+        An empty list is a real answer and is recorded as fetched; only a
+        retryable failure leaves the guard unset to try again later.
+        """
+        from .cloud_api import CloudConnectionError, PhilipsCloudAPI
 
         try:
             access_token = await self._get_access_token()
@@ -1452,7 +1468,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 self._notify_new_properties([("my_preset", "airfryer")])
                 if self._state:
                     self.async_set_updated_data(self._state)
+        except CloudConnectionError as err:
+            self._my_presets_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
+            _LOGGER.debug("My Presets fetch deferred: %s", err)
         except Exception:
+            self._my_presets_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
             _LOGGER.warning("My Presets fetch failed", exc_info=True)
         finally:
             self._my_presets_fetch_running = False
@@ -1539,10 +1559,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             # Leave the guard unset so a later push tries again rather than
             # falling back to the built-in drinks for the whole session. This
             # runs on every push, so hold off a while first.
-            self._rita_drinks_retry_after = time.monotonic() + RITA_DRINKS_RETRY_DELAY
+            self._rita_drinks_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
             _LOGGER.debug("Rita drink catalog fetch deferred: %s", err)
         except Exception:
-            self._rita_drinks_retry_after = time.monotonic() + RITA_DRINKS_RETRY_DELAY
+            self._rita_drinks_retry_after = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
             _LOGGER.warning("Rita drink catalog fetch failed", exc_info=True)
         finally:
             self._rita_drinks_fetch_running = False

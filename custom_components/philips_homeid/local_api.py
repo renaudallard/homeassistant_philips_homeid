@@ -318,9 +318,37 @@ class PhilipsLocalAPI:
         """Get filter status."""
         return await self._request(device, PORT_FLTSTS)
 
+    @staticmethod
+    def _apply_device_info(device: LocalDeviceInfo, info: dict[str, Any]) -> None:
+        """Copy metadata from a /device response onto the device.
+
+        The two firmware families spell these fields differently, hence the
+        pairs. Only fields the response actually carries are written, so an
+        authenticated read cannot blank out what discovery already found.
+        """
+        for attr, keys in (
+            ("cpp_id", ("DeviceId", "cppId")),
+            ("model_name", ("modelid", "ModelName")),
+            ("model_number", ("type", "ModelNumber")),
+            ("friendly_name", ("name", "FriendlyName")),
+        ):
+            for key in keys:
+                value = info.get(key)
+                if value:
+                    setattr(device, attr, str(value))
+                    break
+
     async def get_device_info(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
-        """Get device information."""
-        return await self._request(device, PORT_DEVICE)
+        """Get device information, copying its metadata onto the device.
+
+        The probe runs unauthenticated and a device that answers 401 tells it
+        nothing about itself, so this authenticated read is where the model
+        and name usually arrive.
+        """
+        info = await self._request(device, PORT_DEVICE)
+        if info:
+            self._apply_device_info(device, info)
+        return info
 
     async def exchange_encryption_key(self, device: LocalDeviceInfo) -> str | None:
         """Fetch AES encryption key from device /security endpoint.
@@ -852,6 +880,7 @@ class PhilipsLocalAPI:
         protocol = "HTTPS" if device.use_https else "HTTP"
 
         # Try device info endpoint with product_id 1 and 0
+        reachable = False
         for product_id in (1, 0):
             info, status = await self._probe_request(
                 device, PORT_DEVICE, product_id=product_id
@@ -864,13 +893,17 @@ class PhilipsLocalAPI:
                     product_id,
                     info,
                 )
-                device.cpp_id = info.get("DeviceId", info.get("cppId", ""))
-                device.model_name = info.get("modelid", info.get("ModelName", ""))
-                device.model_number = info.get("type", info.get("ModelNumber", ""))
-                device.friendly_name = info.get("name", info.get("FriendlyName", ""))
+                self._apply_device_info(device, info)
                 return device
-            if status is not None:
-                # Any HTTP response means the device is reachable
+            if status is None:
+                # No HTTP response at all. The other product id lives behind
+                # the same socket, so it cannot do better.
+                break
+            # Any HTTP response means the device is reachable
+            reachable = True
+            if status in (401, 403):
+                # The device is there and wants credentials. It will say the
+                # same for the other product id, so stop asking.
                 _LOGGER.info(
                     "Device at %s responded with %s via %s on product %d",
                     ip_address,
@@ -879,6 +912,13 @@ class PhilipsLocalAPI:
                     product_id,
                 )
                 return device
+            _LOGGER.debug(
+                "Device at %s responded with %s via %s on product %d, trying next",
+                ip_address,
+                status,
+                protocol,
+                product_id,
+            )
 
         # Try status endpoint as fallback
         status_data, status = await self._probe_request(device, PORT_STATUS)
@@ -894,6 +934,9 @@ class PhilipsLocalAPI:
                 status,
                 protocol,
             )
+            return device
+        if reachable:
+            # The device answered the info endpoint, just not usefully.
             return device
 
         return None

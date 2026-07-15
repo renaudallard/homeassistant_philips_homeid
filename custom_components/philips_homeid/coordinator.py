@@ -216,7 +216,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._ncp_data_timestamp = time.monotonic()
         self._inject_recipe_name()
         self._maybe_fetch_rita_drinks()
+        self._maybe_refresh_mqtt_token()
         self.async_set_updated_data(state)
+
+    def _maybe_refresh_mqtt_token(self) -> None:
+        """Refresh the MQTT token from the push path if it is near expiry.
+
+        async_set_updated_data() restarts the heartbeat timer, so a device
+        that pushes more often than FUSION_HEARTBEAT_INTERVAL starves
+        _async_update_data_fusion() and the refresh it carries. Checking here
+        too means a chatty device stays covered; a quiet one still gets the
+        heartbeat. Without this the token reaches the one hour mark and the
+        broker drops the link.
+        """
+        if self.mqtt_client and self.mqtt_client.needs_token_refresh():
+            self.hass.async_create_task(self._proactive_mqtt_refresh())
 
     async def _async_update_data(self) -> LocalDeviceState | None:
         """Fetch data from device."""
@@ -1094,6 +1108,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         assert self.mqtt_client is not None
         from .cloud_api import PhilipsCloudAPI
 
+        # The heartbeat and the push path both reach here, and the reactive
+        # backoff loop sets the same flag: only one reconnect may own the
+        # client. The check and set share an event loop tick, so two pushes
+        # cannot both get through.
+        if self.mqtt_client._reconnecting:
+            return
         self.mqtt_client._reconnecting = True
         self.mqtt_client._refreshing = True
         try:

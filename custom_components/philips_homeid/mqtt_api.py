@@ -208,6 +208,10 @@ class PhilipsMQTTClient:
         # Serializes the actual reconnect dance so a proactive refresh and a
         # reactive backoff-reconnect can never produce two live paho clients.
         self._reconnect_lock = threading.Lock()
+        # Guards the _reconnecting claim itself. The flag is touched by the
+        # paho network thread, the event loop and the reconnect thread, so
+        # checking and setting it has to be one step. See claim_reconnect.
+        self._reconnecting_lock = threading.Lock()
         self._connect_time: float = 0.0  # monotonic time of last connect
         self._state: LocalDeviceState | None = None
         self._state_callback: Callable[[LocalDeviceState], None] | None = None
@@ -243,6 +247,26 @@ class PhilipsMQTTClient:
     def device_state(self) -> LocalDeviceState | None:
         """Return the current device state."""
         return self._state
+
+    def claim_reconnect(self) -> bool:
+        """Take ownership of the reconnect, or report that someone else has it.
+
+        Only one reconnect may own the client. The check and the set are one
+        step because the callers do not share a thread: a proactive refresh
+        runs on the event loop while on_disconnect runs on the paho network
+        thread, and both reading False meant two reconnect threads, whose
+        teardowns then fought over each other's client.
+        """
+        with self._reconnecting_lock:
+            if self._reconnecting:
+                return False
+            self._reconnecting = True
+            return True
+
+    def release_reconnect(self) -> None:
+        """Give up ownership of the reconnect."""
+        with self._reconnecting_lock:
+            self._reconnecting = False
 
     @property
     def ports_complete(self) -> bool:
@@ -670,12 +694,11 @@ class PhilipsMQTTClient:
 
         _LOGGER.warning("MQTT disconnected unexpectedly: %s", reason_code)
 
-        if self._reconnecting or not self._credential_refresh:
+        if not self._credential_refresh or not self.claim_reconnect():
             return
 
         # Reconnect with fresh credentials in a background thread
         # (matching APK's reactive reconnect pattern)
-        self._reconnecting = True
         thread = threading.Thread(target=self._reconnect_with_backoff, daemon=True)
         thread.start()
 
@@ -699,7 +722,10 @@ class PhilipsMQTTClient:
                     assert self._credential_refresh is not None
                     access_token, signature = self._credential_refresh()
                     with self._reconnect_lock:
-                        if self._stop.is_set():
+                        # _connected means another reconnect already restored
+                        # the link; tearing it down here would drop a working
+                        # client just to rebuild it.
+                        if self._stop.is_set() or self._connected:
                             return
                         self._teardown_client()
                         self.connect(access_token, signature)
@@ -717,7 +743,7 @@ class PhilipsMQTTClient:
                     )
                     delay = min(delay * 1.5, 300.0)
         finally:
-            self._reconnecting = False
+            self.release_reconnect()
 
     def start_reconnect(self) -> None:
         """Start the reactive reconnect loop if disconnected and idle.
@@ -726,11 +752,10 @@ class PhilipsMQTTClient:
         that point no client is alive to emit on_disconnect, so nothing else
         would restart the connection.
         """
-        if self._stop.is_set() or self._connected or self._reconnecting:
+        if self._stop.is_set() or self._connected or not self._credential_refresh:
             return
-        if not self._credential_refresh:
+        if not self.claim_reconnect():
             return
-        self._reconnecting = True
         thread = threading.Thread(target=self._reconnect_with_backoff, daemon=True)
         thread.start()
 

@@ -1158,12 +1158,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
 
         # The heartbeat and the push path both reach here, and the reactive
-        # backoff loop sets the same flag: only one reconnect may own the
-        # client. The check and set share an event loop tick, so two pushes
-        # cannot both get through.
-        if self.mqtt_client._reconnecting:
+        # backoff loop claims the same ownership: only one reconnect may own
+        # the client. claim_reconnect settles that across threads, which
+        # matters because on_disconnect races this from the paho thread.
+        if not self.mqtt_client.claim_reconnect():
             return
-        self.mqtt_client._reconnecting = True
         self.mqtt_client._refreshing = True
         token_rejected = False
         try:
@@ -1215,7 +1214,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 err,
             )
         finally:
-            self.mqtt_client._reconnecting = False
+            self.mqtt_client.release_reconnect()
             self.mqtt_client._refreshing = False
         # A failed reconnect leaves no live client to emit on_disconnect, so
         # nothing else restarts the connection and needs_token_refresh() stays

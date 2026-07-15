@@ -1555,10 +1555,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return
         props = self._state.properties
         # Rita machines expose a Profiles port; the capabilities call also
-        # needs the host firmware version (a shadow field) and cloud creds.
+        # needs the host firmware version (a shadow field), the device id and
+        # cloud creds. The device id is checked here as well as in the fetch,
+        # which returns on it without latching the one-shot guard: without it
+        # every push spawned a task that did nothing but clear the flag again.
         if (
             "Profiles" not in props
             or not props.get("hostFirmwareVersion")
+            or not self.config_entry.data.get(CONF_DEVICE_ID)
             or not self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN)
         ):
             return

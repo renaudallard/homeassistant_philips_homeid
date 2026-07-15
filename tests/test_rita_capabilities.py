@@ -9,7 +9,11 @@ _ITEMS = [
     {"drinkID": 2, "drinkName": "Espresso", "ctnNumbers": [_CTN, "EP8758/90"]},
     {"drinkID": 14, "drinkName": "Cappuccino", "ctnNumbers": [_CTN]},
     {"drinkID": 21, "drinkName": "Hot Water", "ctnNumbers": [_CTN]},  # excluded
-    {"drinkID": 99, "drinkName": "Other Only", "ctnNumbers": ["EP9999/90"]},  # wrong ctn
+    {
+        "drinkID": 99,
+        "drinkName": "Other Only",
+        "ctnNumbers": ["EP9999/90"],
+    },  # wrong ctn
     {"drinkID": 5, "drinkName": "  Double Espresso  ", "ctnNumbers": [_CTN]},  # trimmed
 ]
 

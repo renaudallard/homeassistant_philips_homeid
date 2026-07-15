@@ -38,6 +38,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .const import (
     ACTIVE_SCAN_INTERVAL,
@@ -60,6 +61,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FUSION_HEARTBEAT_INTERVAL,
+    KEEP_WARM_DEFAULT_TEMP_C,
     RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
 )
@@ -125,7 +127,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         ] = []  # Callbacks for new properties
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
         self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
-        self._keep_warm_temp: int = 65  # Keep warm temp, in the appliance's unit
+        # None until the user picks one; the default depends on the unit the
+        # appliance reads, which is not known yet. See keep_warm_temp.
+        self._keep_warm_temp: int | None = None
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
         self._rita_brew_recipe_id: int = 0  # Rita espresso: saved recipe slot to brew
         self._rita_brew_drink_id: int = 0  # Rita espresso: built-in drink id to brew
@@ -614,7 +618,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     "status": self._fusion_setting_status,
                     "preset": 8,
                     "time": self._keep_warm_time,
-                    "temp": self._keep_warm_temp,
+                    "temp": self.keep_warm_temp,
                 },
             )
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
@@ -624,7 +628,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         result = await self.api.airfryer_keep_warm(
             self.device_info,
             time_seconds=self._keep_warm_time,
-            temp=self._keep_warm_temp,
+            temp=self.keep_warm_temp,
         )
         if result:
             await self.async_request_refresh()
@@ -1049,11 +1053,30 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     @property
     def keep_warm_temp(self) -> int:
-        """Return keep warm temperature."""
-        return self._keep_warm_temp
+        """Return keep warm temperature, in the appliance's unit.
+
+        Until the user picks a value there is nothing to echo, so the default
+        is the 65C the appliances keep warm at, expressed in whichever unit
+        this one reads. Naming it in Celsius on a Fahrenheit appliance both
+        put the entity below its own minimum and sent 65F, which is no heat
+        at all.
+        """
+        if self._keep_warm_temp is not None:
+            return self._keep_warm_temp
+        return self._temp_in_device_unit(KEEP_WARM_DEFAULT_TEMP_C)
+
+    def _temp_in_device_unit(self, celsius: int) -> int:
+        """Express a Celsius temperature in the unit the appliance reads."""
+        if not self._current_raw_temp_unit():
+            return celsius
+        return round(
+            TemperatureConverter.convert(
+                celsius, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT
+            )
+        )
 
     def set_keep_warm_temp(self, temp: int) -> None:
-        """Set keep warm temperature."""
+        """Set keep warm temperature, in the appliance's unit."""
         self._keep_warm_temp = temp
 
     async def async_airfryer_update_settings(

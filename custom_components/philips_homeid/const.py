@@ -76,6 +76,12 @@ SSDP_ST = "urn:philips-com:device:DiProduct:1"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_ACTIVE_SCAN_INTERVAL = "active_scan_interval"
 
+# Keep warm temperature the appliances default to, in Celsius. The keep warm
+# number entity bounds are written in Celsius for the same reason: that is how
+# the appliances are specified, and a Fahrenheit model accepts the same
+# physical range.
+KEEP_WARM_DEFAULT_TEMP_C = 65
+
 # Default values
 DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking

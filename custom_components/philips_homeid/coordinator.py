@@ -1584,6 +1584,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Return True if device is available."""
         if self._state is None:
             return False
+        if self._is_fusion and self.mqtt_client:
+            # The FUSION heartbeat swallows its errors and returns the cached
+            # state, so last_update_success can never report a dead link. The
+            # MQTT connection is the real signal. It stays True across a
+            # proactive token refresh, so entities do not flap during one.
+            return self.mqtt_client.connected
         return True
 
     @property

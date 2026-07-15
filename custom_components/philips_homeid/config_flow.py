@@ -73,6 +73,7 @@ from .const import (
 from .local_api import (
     LocalDeviceInfo,
     PhilipsLocalAPI,
+    bracket_ipv6,
     parse_ssdp_device,
     parse_zeroconf_device,
 )
@@ -238,11 +239,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 raise AbortFlow("already_configured")
             # Match by IP only for FUSION entries (cpp_id is a cloud
-            # external_id that won't match the discovered MAC)
+            # external_id that won't match the discovered MAC). Both sides go
+            # through bracket_ipv6: an entry written before discovery carried
+            # an IPv6 address in URL form holds the bare address, and comparing
+            # that to a bracketed one would rediscover a device already set up.
             if (
                 ip_address
                 and entry.data.get(CONF_IS_FUSION)
-                and entry.data.get(CONF_HOST) == ip_address
+                and bracket_ipv6(entry.data.get(CONF_HOST, "")) == ip_address
             ):
                 raise AbortFlow("already_configured")
 

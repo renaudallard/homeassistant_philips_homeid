@@ -75,6 +75,7 @@ from .local_models import (  # noqa: F401
     PORT_VENUS1AF,
     VENUS_STYLE_PORTS,
     _MODEL_PORT_MAP,
+    bracket_ipv6,
     parse_ssdp_device,
     parse_zeroconf_device,
 )

@@ -75,6 +75,7 @@ from .local_api import (
     AIRFRYER_STATUS_SETTING,
     AIRFRYER_STATUS_STANDBY,
     AIRFRYER_STATUS_USER_ACTION,
+    VENUS_STYLE_PORTS,
     LocalDeviceInfo,
     LocalDeviceState,
     PhilipsLocalAPI,
@@ -1764,6 +1765,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return None
         value = airfryer.get("temp_unit")
         return bool(value) if value is not None else None
+
+    def is_venus_airfryer(self) -> bool:
+        """Return whether this appliance uses the Venus cooking-method enum.
+
+        The local API learns the architecture from the port that answered.
+        FUSION never probes ports, so airfryer_port stays None there and the
+        question has to go to the transport, which knows the family from the
+        NCP ports the appliance advertises.
+        """
+        port = self.device_info.airfryer_port
+        if isinstance(port, str):
+            return port in VENUS_STYLE_PORTS
+        if self.mqtt_client is not None:
+            return self.mqtt_client.is_venus
+        return False
 
     def airfryer_temperature_unit(self) -> str:
         """Return the unit the appliance currently reports temperatures in.

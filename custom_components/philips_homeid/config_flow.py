@@ -298,11 +298,13 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         **reauth_entry.data,
                         CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
                     }
-                    self.hass.config_entries.async_update_entry(
+                    await self._close_cloud_api()
+                    # Reload, don't just store: an entry that failed setup with
+                    # ConfigEntryAuthFailed gets no retry timer, so without a
+                    # reload it stays in error with the fresh token unused.
+                    return self.async_update_reload_and_abort(
                         reauth_entry, data=new_data
                     )
-                    await self._close_cloud_api()
-                    return self.async_abort(reason="reauth_successful")
                 except CloudConnectionError as err:
                     _LOGGER.warning("Reauth OTP verify: cloud unreachable (%s)", err)
                     errors["base"] = "cloud_unreachable"

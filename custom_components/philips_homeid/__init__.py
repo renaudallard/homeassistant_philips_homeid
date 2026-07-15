@@ -404,15 +404,20 @@ def _cleanup_stale_entities(
     before auth is established), skip cleanup to avoid removing entities
     that will reappear on the next poll.
     """
-    # Don't clean up if the device has a known airfryer port but no airfryer
-    # data yet - the first poll may have missed it.
     state = coordinator.device_state
     device = coordinator.device_info
-    if (
-        state
-        and isinstance(device.airfryer_port, str)
-        and "airfryer" not in state.properties
-    ):
+    # No state at all is the least informative moment there is: a device that
+    # was offline at startup reports no properties, so every entity would look
+    # stale and lose its registry customisations. The first refresh does not
+    # fail the setup on its own (it returns the previous state until the
+    # failure threshold is reached), so this has to be checked here.
+    if state is None:
+        _LOGGER.debug("Skipping stale entity cleanup: no device state yet")
+        return
+
+    # Don't clean up if the device has a known airfryer port but no airfryer
+    # data yet - the first poll may have missed it.
+    if isinstance(device.airfryer_port, str) and "airfryer" not in state.properties:
         _LOGGER.debug(
             "Skipping stale entity cleanup: airfryer port '%s' known but no data yet",
             device.airfryer_port,

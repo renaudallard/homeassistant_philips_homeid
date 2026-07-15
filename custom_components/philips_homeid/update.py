@@ -51,6 +51,26 @@ async def async_setup_entry(
     # Only create if firmware data is available
     if coordinator.has_property("version", "firmware"):
         async_add_entities([PhilipsHomeIDUpdate(coordinator, coordinator.device_id)])
+        return
+
+    # Setup goes ahead even when the wait for NCP port data times out, so on
+    # a FUSION device the firmware version can land moments later. The
+    # firmware sensors are created on the same property this way; without a
+    # hook here the update entity would wait for a reload.
+    created = False
+
+    def handle_new_properties(new_properties: list[tuple[str, str | None]]) -> None:
+        nonlocal created
+        if created or ("version", "firmware") not in new_properties:
+            return
+        created = True
+        _LOGGER.info("Creating update entity for newly discovered firmware")
+        coordinator.mark_property_seen("version", "firmware")
+        async_add_entities([PhilipsHomeIDUpdate(coordinator, coordinator.device_id)])
+
+    entry.async_on_unload(
+        coordinator.register_new_property_callback(handle_new_properties)
+    )
 
 
 class PhilipsHomeIDUpdate(PhilipsHomeIDEntity, UpdateEntity):

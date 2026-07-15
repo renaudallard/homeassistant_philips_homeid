@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Connexion cloud requise",
-        "description": "La connexion cloud est nécessaire pour récupérer les noms de recettes. Entrez votre e-mail Philips HomeID.",
+        "description": "La connexion cloud est nécessaire pour reconnecter cet appareil. Entrez votre e-mail Philips HomeID.",
         "data": {
           "email": "E-mail"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "La configuration est déjà en cours",
       "cannot_connect": "Impossible de se connecter à l'appareil",
       "unsupported_device": "Cet appareil Philips n'est pas supporté par l'intégration et a été ignoré.",
-      "reauth_successful": "Connexion cloud réussie. Appuyez à nouveau sur Actualiser les recettes.",
+      "reauth_successful": "Connexion cloud réussie.",
       "reauth_failed": "Connexion cloud échouée. Réessayez plus tard.",
       "reauth_entry_missing": "Impossible de trouver l'entrée d'intégration à réauthentifier. Rechargez Home Assistant et réessayez."
     }

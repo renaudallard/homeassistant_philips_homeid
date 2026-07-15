@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Cloud-aanmelding vereist",
-        "description": "Cloud-aanmelding is nodig om receptnamen op te halen. Voer uw Philips HomeID e-mail in.",
+        "description": "Cloud-aanmelding is nodig om dit apparaat opnieuw te verbinden. Voer uw Philips HomeID e-mail in.",
         "data": {
           "email": "E-mail"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "De configuratie is momenteel al bezig",
       "cannot_connect": "Kan geen verbinding maken met het apparaat",
       "unsupported_device": "Dit Philips-apparaat wordt niet ondersteund door de integratie en is genegeerd.",
-      "reauth_successful": "Cloud-aanmelding geslaagd. Druk opnieuw op Recepten vernieuwen.",
+      "reauth_successful": "Cloud-aanmelding geslaagd.",
       "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw.",
       "reauth_entry_missing": "De integratie-invoer voor herauthenticatie is niet gevonden. Herstart Home Assistant en probeer het opnieuw."
     }

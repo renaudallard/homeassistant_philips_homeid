@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Login na nuvem necessário",
-        "description": "Login na nuvem é necessário para obter nomes de receitas. Insira seu e-mail Philips HomeID.",
+        "description": "Login na nuvem é necessário para reconectar este dispositivo. Insira seu e-mail Philips HomeID.",
         "data": {
           "email": "E-mail"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "O fluxo de configuração já está em andamento",
       "cannot_connect": "Não é possível conectar ao dispositivo",
       "unsupported_device": "Este dispositivo Philips não é suportado pela integração e foi ignorado.",
-      "reauth_successful": "Login na nuvem bem-sucedido. Pressione Atualizar receitas novamente.",
+      "reauth_successful": "Login na nuvem bem-sucedido.",
       "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde.",
       "reauth_entry_missing": "Não foi possível encontrar a entrada da integração para reautenticar. Recarregue o Home Assistant e tente novamente."
     }

@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Cloud-Anmeldung erforderlich",
-        "description": "Cloud-Anmeldung wird benötigt, um Rezeptnamen abzurufen. Geben Sie Ihre Philips HomeID E-Mail ein.",
+        "description": "Cloud-Anmeldung wird benötigt, um dieses Gerät wieder zu verbinden. Geben Sie Ihre Philips HomeID E-Mail ein.",
         "data": {
           "email": "E-Mail"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "Konfigurationsablauf wird bereits ausgeführt",
       "cannot_connect": "Verbindung zum Gerät nicht möglich",
       "unsupported_device": "Dieses Philips-Gerät wird von der Integration nicht unterstützt und wurde ignoriert.",
-      "reauth_successful": "Cloud-Anmeldung erfolgreich. Drücken Sie erneut Rezepte aktualisieren.",
+      "reauth_successful": "Cloud-Anmeldung erfolgreich.",
       "reauth_failed": "Cloud-Anmeldung fehlgeschlagen. Versuchen Sie es später erneut.",
       "reauth_entry_missing": "Der Integrationseintrag für die erneute Authentifizierung wurde nicht gefunden. Bitte Home Assistant neu laden und erneut versuchen."
     }

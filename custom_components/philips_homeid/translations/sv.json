@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Molninloggning krävs",
-        "description": "Molninloggning krävs för att hämta receptnamn. Ange din Philips HomeID e-post.",
+        "description": "Molninloggning krävs för att återansluta den här enheten. Ange din Philips HomeID e-post.",
         "data": {
           "email": "E-post"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "Konfigurationsflödet pågår redan",
       "cannot_connect": "Kan inte ansluta",
       "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
-      "reauth_successful": "Molninloggning lyckades. Tryck på Uppdatera recept igen.",
+      "reauth_successful": "Molninloggning lyckades.",
       "reauth_failed": "Molninloggning misslyckades. Försök igen senare.",
       "reauth_entry_missing": "Det gick inte att hitta integrationsposten för att autentisera om. Ladda om Home Assistant och försök igen."
     }

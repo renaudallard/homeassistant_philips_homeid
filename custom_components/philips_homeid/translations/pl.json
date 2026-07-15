@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Wymagane logowanie do chmury",
-        "description": "Logowanie do chmury jest wymagane, aby pobrać nazwy przepisów. Wprowadź swój e-mail Philips HomeID.",
+        "description": "Logowanie do chmury jest wymagane, aby ponownie połączyć to urządzenie. Wprowadź swój e-mail Philips HomeID.",
         "data": {
           "email": "E-mail"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "Konfiguracja jest już w toku",
       "cannot_connect": "Nie mozna polaczyc",
       "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
-      "reauth_successful": "Logowanie do chmury udane. Naciśnij ponownie Odśwież przepisy.",
+      "reauth_successful": "Logowanie do chmury udane.",
       "reauth_failed": "Logowanie do chmury nieudane. Spróbuj ponownie później.",
       "reauth_entry_missing": "Nie znaleziono wpisu integracji do ponownego uwierzytelnienia. Załaduj ponownie Home Assistant i spróbuj jeszcze raz."
     }

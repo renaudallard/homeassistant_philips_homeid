@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "클라우드 로그인 필요",
-        "description": "레시피 이름을 가져오려면 클라우드 로그인이 필요합니다. Philips HomeID 이메일을 입력하세요.",
+        "description": "이 기기를 다시 연결하려면 클라우드 로그인이 필요합니다. Philips HomeID 이메일을 입력하세요.",
         "data": {
           "email": "이메일"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "기기 구성이 이미 진행 중입니다",
       "cannot_connect": "연결 불가",
       "unsupported_device": "이 Philips 기기는 이 통합에서 지원되지 않아 무시되었습니다.",
-      "reauth_successful": "클라우드 로그인 성공. 레시피 새로고침을 다시 누르세요.",
+      "reauth_successful": "클라우드 로그인 성공.",
       "reauth_failed": "클라우드 로그인 실패. 나중에 다시 시도하세요.",
       "reauth_entry_missing": "재인증할 통합 항목을 찾을 수 없습니다. Home Assistant를 다시 로드한 후 다시 시도해 주세요."
     }

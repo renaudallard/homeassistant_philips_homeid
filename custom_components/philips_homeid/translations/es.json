@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Inicio de sesión en la nube requerido",
-        "description": "Se necesita inicio de sesión en la nube para obtener nombres de recetas. Ingrese su correo de Philips HomeID.",
+        "description": "Se necesita inicio de sesión en la nube para volver a conectar este dispositivo. Ingrese su correo de Philips HomeID.",
         "data": {
           "email": "Correo electrónico"
         }
@@ -98,7 +98,7 @@
       "already_in_progress": "El flujo de configuración ya está en curso",
       "cannot_connect": "No se puede conectar al dispositivo",
       "unsupported_device": "Este dispositivo Philips no es compatible con la integración y se ha ignorado.",
-      "reauth_successful": "Inicio de sesión exitoso. Presione Actualizar recetas de nuevo.",
+      "reauth_successful": "Inicio de sesión exitoso.",
       "reauth_failed": "Inicio de sesión fallido. Intente más tarde.",
       "reauth_entry_missing": "No se pudo encontrar la entrada de integración para reautenticar. Recarga Home Assistant e inténtalo de nuevo."
     }

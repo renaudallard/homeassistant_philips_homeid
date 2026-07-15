@@ -214,6 +214,10 @@ class PhilipsMQTTClient:
         self._lock = threading.Lock()
         self._discovered_ports: list[str] = []  # NCP read port names from getAllPorts
         self._discovered_write_ports: list[str] = []  # NCP write port names
+        # NCP read ports that have answered their getPort. The answers arrive
+        # one message at a time, so this is what tells a caller the state is
+        # whole rather than merely started. See ports_complete.
+        self._answered_ports: set[str] = set()
         self._device_type: str | None = None  # Cached get_device_type() result
 
         # Build topic names
@@ -239,6 +243,20 @@ class PhilipsMQTTClient:
     def device_state(self) -> LocalDeviceState | None:
         """Return the current device state."""
         return self._state
+
+    @property
+    def ports_complete(self) -> bool:
+        """Return whether every discovered read port has answered its getPort.
+
+        getAllPorts is followed by one getPort per port and the appliance
+        answers them one message at a time, so the arrival of the first port
+        says nothing about the rest. A caller that judges a property missing
+        before this is True is really just reading a half-filled state.
+        """
+        if not self._discovered_ports:
+            return False
+        with self._lock:
+            return all(port in self._answered_ports for port in self._discovered_ports)
 
     @property
     def is_venus(self) -> bool:
@@ -805,6 +823,9 @@ class PhilipsMQTTClient:
                         _LOGGER.info("Discovered NCP write port: %s", pname)
                 self._discovered_ports = read_ports
                 self._discovered_write_ports = write_ports
+                # A fresh discovery re-asks every port, so nothing has
+                # answered this round yet.
+                self._answered_ports = set()
                 for pname in read_ports:
                     self.send_port_command(pname, command_name="getPort")
             return
@@ -857,6 +878,7 @@ class PhilipsMQTTClient:
             if self._state is None:
                 self._state = LocalDeviceState(device_info=device_info)
             self._state.connection_state = "connected"
+            self._answered_ports.add(ncp_port)
 
             # MUJI air purifiers report flat D-code properties on the Status and
             # filter-read (filtRd) ports. Store those at top level so the air

@@ -145,7 +145,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._max_failures: int = 3  # Failures before marking device offline
         # Monotonic time of the latest NCP port-data arrival; setup waits on
         # this to defer entity creation until real device state is in hand.
-        self._ncp_data_timestamp: float = 0.0
         # Recipe name cache: recipe_id -> name, persisted in config entry.
         # Invalidate if HA language changed since cache was built.
         cached_lang = entry.data.get(CONF_RECIPE_LANGUAGE, "")
@@ -225,11 +224,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._update_polling_interval(state)
         if new_properties:
             self._notify_new_properties(new_properties)
-        # Signal that initial MQTT data is available for entity setup.
-        # Only signal when port data (nested dicts) is present, not just
-        # shadow metadata like productState.
-        if any(isinstance(v, dict) for v in state.properties.values()):
-            self._ncp_data_timestamp = time.monotonic()
         self._inject_recipe_name()
         self._maybe_fetch_rita_drinks()
         self._maybe_refresh_mqtt_token()
@@ -1765,6 +1759,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return None
         value = airfryer.get("temp_unit")
         return bool(value) if value is not None else None
+
+    @property
+    def ncp_ports_complete(self) -> bool:
+        """Return whether a FUSION device has reported all of its ports."""
+        if self.mqtt_client is None:
+            return False
+        return self.mqtt_client.ports_complete
 
     def is_venus_airfryer(self) -> bool:
         """Return whether this appliance uses the Venus cooking-method enum.

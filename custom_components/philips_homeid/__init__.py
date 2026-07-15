@@ -258,18 +258,16 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         await hass.async_add_executor_job(mqtt_client.disconnect)
         raise
 
-    # Wait for NCP port data before entity setup. The first refresh
-    # sends getAllPorts + getPort requests; responses arrive async.
-    # Without this, entities are created before airfryer properties
-    # are available, resulting in 0 sensors/controls.
-    # Wait until NCP data arrives AFTER the refresh started.
-    import time as _time
-
-    refresh_time = _time.monotonic()
+    # Wait for NCP port data before entity setup. The first refresh sends
+    # getAllPorts + getPort requests and the appliance answers them one at a
+    # time. Without this, entities are created before airfryer properties are
+    # available, resulting in 0 sensors/controls. Wait for every discovered
+    # port rather than the first one to answer: the arrival of, say, Config
+    # says nothing about whether Status has reported yet.
     deadline = asyncio.get_event_loop().time() + 15
     ncp_data_ready = False
     while asyncio.get_event_loop().time() < deadline:
-        if coordinator._ncp_data_timestamp > refresh_time:
+        if coordinator.ncp_ports_complete:
             ncp_data_ready = True
             break
         await asyncio.sleep(0.2)

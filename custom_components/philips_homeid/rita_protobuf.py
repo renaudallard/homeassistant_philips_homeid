@@ -66,12 +66,22 @@ def iter_fields(data: bytes) -> Iterator[tuple[int, int, int | bytes]]:
             yield field_number, wire_type, value
         elif wire_type == 2:  # length-delimited
             length, offset = decode_varint(data, offset)
+            # Slicing clamps, so a field claiming more bytes than are left
+            # would hand back a short value and end the loop as though the
+            # message were whole. The callers turn that into a recipe list
+            # missing entries rather than an empty one they can fall back on.
+            if offset + length > len(data):
+                raise ValueError("truncated length-delimited field")
             raw = data[offset : offset + length]
             offset += length
             yield field_number, wire_type, raw
         elif wire_type == 1:  # 64-bit fixed
+            if offset + 8 > len(data):
+                raise ValueError("truncated 64-bit field")
             offset += 8
         elif wire_type == 5:  # 32-bit fixed
+            if offset + 4 > len(data):
+                raise ValueError("truncated 32-bit field")
             offset += 4
         else:
             raise ValueError(f"unsupported wire type {wire_type}")

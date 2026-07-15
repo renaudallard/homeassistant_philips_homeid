@@ -59,6 +59,10 @@ class PhilipsHomeIDNumberEntityDescription(NumberEntityDescription):
         Callable[[PhilipsHomeIDCoordinator, float], Coroutine[Any, Any, bool]] | None
     ) = None
     available_key: str | None = None  # Key to check for availability
+    # The appliance reads and reports this temperature in whatever unit
+    # temp_unit names, so the entity follows the device instead of the
+    # Celsius unit and bounds written below.
+    device_temp_unit: bool = False
 
 
 # Airfryer number entities
@@ -72,6 +76,7 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_max_value=200,
         native_step=5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         icon="mdi:thermometer",
         mode=NumberMode.SLIDER,
         set_fn=lambda c, v: c.async_airfryer_update_settings(temp=int(v)),
@@ -113,6 +118,7 @@ AIRFRYER_NUMBERS: tuple[PhilipsHomeIDNumberEntityDescription, ...] = (
         native_max_value=100,
         native_step=1,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         icon="mdi:thermometer-probe",
         mode=NumberMode.BOX,
         set_fn=lambda c, v: c.async_airfryer_set_settings(probe_temp=int(v)),
@@ -381,6 +387,29 @@ class PhilipsHomeIDNumber(PhilipsHomeIDEntity, NumberEntity):
         self._attr_unique_id = f"{device_id}_{description.key}"
 
     @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit the appliance reads this value in."""
+        if self.entity_description.device_temp_unit:
+            return self.coordinator.airfryer_temperature_unit()
+        return self.entity_description.native_unit_of_measurement
+
+    @property
+    def native_min_value(self) -> float:
+        """Return the low bound in the appliance's unit."""
+        value = self.entity_description.native_min_value
+        if self.entity_description.device_temp_unit and value is not None:
+            return self._celsius_bound_in_device_unit(value)
+        return super().native_min_value
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the high bound in the appliance's unit."""
+        value = self.entity_description.native_max_value
+        if self.entity_description.device_temp_unit and value is not None:
+            return self._celsius_bound_in_device_unit(value)
+        return super().native_max_value
+
+    @property
     def native_value(self) -> int | float | None:
         """Return the current value."""
         desc = self.entity_description
@@ -435,20 +464,36 @@ class PhilipsHomeIDKeepWarmTimeNumber(PhilipsHomeIDEntity, NumberEntity):
 
 
 class PhilipsHomeIDKeepWarmTempNumber(PhilipsHomeIDEntity, NumberEntity):
-    """Keep warm temperature setting."""
+    """Keep warm temperature setting.
+
+    The value is sent to the appliance verbatim as the cook temperature, so
+    it is in the appliance's own unit rather than always Celsius.
+    """
 
     _attr_translation_key = "set_keep_warm_temp"
     _attr_icon = "mdi:thermometer"
-    _attr_native_min_value = 40
-    _attr_native_max_value = 100
     _attr_native_step = 5
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_mode = NumberMode.SLIDER
 
     def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
         """Initialize."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{device_id}_set_keep_warm_temp"
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit the appliance reads this value in."""
+        return self.coordinator.airfryer_temperature_unit()
+
+    @property
+    def native_min_value(self) -> float:
+        """Return the low bound in the appliance's unit."""
+        return self._celsius_bound_in_device_unit(40)
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the high bound in the appliance's unit."""
+        return self._celsius_bound_in_device_unit(100)
 
     @property
     def native_value(self) -> float:

@@ -231,6 +231,13 @@ class PhilipsHomeIDSensor(PhilipsHomeIDEntity, SensorEntity):
         return max(0, extrapolated)
 
     @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit the value is actually in."""
+        if self.entity_description.device_temp_unit:
+            return self.coordinator.airfryer_temperature_unit()
+        return self.entity_description.native_unit_of_measurement
+
+    @property
     def native_value(self) -> Any:
         """Return the sensor value."""
         desc = self.entity_description

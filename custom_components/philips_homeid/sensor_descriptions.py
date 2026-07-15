@@ -110,6 +110,10 @@ class PhilipsHomeIDSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[Any], Any] | None = None
     device_types: tuple[str, ...] | None = None
     extrapolate_countdown: bool = False
+    # The appliance reports this temperature in whatever unit temp_unit names
+    # and never converts it, so the entity reads the unit off the device
+    # instead of using native_unit_of_measurement.
+    device_temp_unit: bool = False
 
 
 # Espresso machine state codes (from APK EspressoStateProperty.java)
@@ -470,6 +474,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="temp",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
@@ -481,6 +486,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="cur_temp",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-check",
@@ -583,6 +589,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="temp_probe",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-probe",
@@ -594,6 +601,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="current_temp_probe",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer-probe-off",
@@ -678,6 +686,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="temp_l",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",
@@ -709,6 +718,7 @@ AIRFRYER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         property_key="temp_r",
         nested_key="airfryer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_temp_unit=True,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:thermometer",

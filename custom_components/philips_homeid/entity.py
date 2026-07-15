@@ -29,8 +29,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from homeassistant.const import UnitOfTemperature
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
@@ -78,6 +80,20 @@ class PhilipsHomeIDEntity(CoordinatorEntity[PhilipsHomeIDCoordinator]):
     def available(self) -> bool:
         """Return if entity is available."""
         return super().available and self.coordinator.available
+
+    def _celsius_bound_in_device_unit(self, value: float) -> float:
+        """Express a Celsius bound in the unit the appliance is using.
+
+        Bounds are written in Celsius because that is how the appliances are
+        specified. A Fahrenheit appliance reports and accepts the same
+        physical range, so the bound is converted rather than reinvented.
+        """
+        unit = self.coordinator.airfryer_temperature_unit()
+        if unit == UnitOfTemperature.CELSIUS:
+            return value
+        return round(
+            TemperatureConverter.convert(value, UnitOfTemperature.CELSIUS, unit)
+        )
 
     def _get_property_value(
         self,

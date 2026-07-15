@@ -35,6 +35,7 @@ from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -119,7 +120,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         ] = []  # Callbacks for new properties
         self._preheat_enabled: bool = False  # Preheat flag for next cooking start
         self._keep_warm_time: int = 3600  # Keep warm duration in seconds (default 1h)
-        self._keep_warm_temp: int = 65  # Keep warm temperature in Celsius
+        self._keep_warm_temp: int = 65  # Keep warm temp, in the appliance's unit
         self._rita_brew_profile_id: int = 0  # Rita espresso: profile to brew (0-7)
         self._rita_brew_recipe_id: int = 0  # Rita espresso: saved recipe slot to brew
         self._rita_brew_drink_id: int = 0  # Rita espresso: built-in drink id to brew
@@ -1692,6 +1693,20 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return None
         value = airfryer.get("temp_unit")
         return bool(value) if value is not None else None
+
+    def airfryer_temperature_unit(self) -> str:
+        """Return the unit the appliance currently reports temperatures in.
+
+        The device sends temperatures in the unit named by temp_unit and
+        nothing converts them on the way through, so an entity has to name
+        that unit rather than assume Celsius. temp_unit is standard polarity
+        (True is Fahrenheit) on every model handled here, which is what the
+        temp_unit_fahrenheit diagnostic already reports. An unknown unit falls
+        back to Celsius, matching the appliances' own default.
+        """
+        if self._current_raw_temp_unit():
+            return str(UnitOfTemperature.FAHRENHEIT)
+        return str(UnitOfTemperature.CELSIUS)
 
     def is_airfryer_cooking(self) -> bool:
         """Check if airfryer is actively cooking (not paused)."""

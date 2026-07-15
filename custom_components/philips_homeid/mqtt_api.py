@@ -287,7 +287,10 @@ class PhilipsMQTTClient:
         # userId from POST /api/da/user/self/get-id (NOT the JWT sub claim).
         prefix = device.user_id or device.device_id
         client_id = f"{prefix}_{uuid.uuid4()}"
-        _LOGGER.info("MQTT client_id: %s", client_id)
+        # The prefix is the Philips account id. Logs get attached to issues,
+        # so keep it out of the default level, the way the token and
+        # signature above are logged only by length.
+        _LOGGER.debug("MQTT client_id: %s", client_id)
 
         client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,

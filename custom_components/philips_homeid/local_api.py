@@ -633,7 +633,16 @@ class PhilipsLocalAPI:
                     settings["temp"] = temp
                 if time_seconds is not None:
                     settings["total_time"] = time_seconds
-                await self._request(device, port, method="PUT", data=settings)
+                if (
+                    await self._request(device, port, method="PUT", data=settings)
+                    is None
+                ):
+                    # The start below still runs, so say so rather than let the
+                    # appliance cook on whatever it held before.
+                    _LOGGER.warning(
+                        "Venus settings write rejected; starting the cook with "
+                        "the settings already on the device"
+                    )
 
             start: dict[str, Any] = {"status": AIRFRYER_STATUS_COOKING}
             if preheat:
@@ -825,16 +834,20 @@ class PhilipsLocalAPI:
                     method="PUT",
                     data={"status": AIRFRYER_STATUS_PAUSED},
                 )
+                applied = None
                 try:
-                    await self._request(device, port, method="PUT", data=data)
+                    applied = await self._request(device, port, method="PUT", data=data)
                 finally:
-                    result = await self._request(
+                    resumed = await self._request(
                         device,
                         port,
                         method="PUT",
                         data={"status": AIRFRYER_STATUS_COOKING},
                     )
-                return result is not None
+                # Both halves matter: reporting only the resume let a rejected
+                # settings write look like success, so the entity snapped back
+                # to the old value with nothing logged.
+                return applied is not None and resumed is not None
         else:
             # SPECTRE: temp_unit True=Fahrenheit, False=Celsius (standard).
             data["temp_unit"] = (

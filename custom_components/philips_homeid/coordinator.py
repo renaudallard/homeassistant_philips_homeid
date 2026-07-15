@@ -605,6 +605,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
     async def async_airfryer_keep_warm(self) -> bool:
         """Start keep warm mode with configured time and temperature."""
+        # Echo the unit the appliance currently shows; omitting it alongside a
+        # temp makes the device reset to Fahrenheit (issue #27), which then
+        # read a Celsius keep warm setpoint as Fahrenheit.
+        raw_unit = self._current_raw_temp_unit()
         if self._is_fusion:
             await self._ensure_fusion_control_port()
             # Wake from standby if needed
@@ -612,15 +616,15 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
                 await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
             # Two-step flow: configure keep warm, then start
-            await self._mqtt_command(
-                "control",
-                {
-                    "status": self._fusion_setting_status,
-                    "preset": 8,
-                    "time": self._keep_warm_time,
-                    "temp": self.keep_warm_temp,
-                },
-            )
+            props: dict[str, Any] = {
+                "status": self._fusion_setting_status,
+                "preset": 8,
+                "time": self._keep_warm_time,
+                "temp": self.keep_warm_temp,
+            }
+            if raw_unit is not None:
+                props["temp_unit"] = raw_unit
+            await self._mqtt_command("control", props)
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
@@ -629,6 +633,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self.device_info,
             time_seconds=self._keep_warm_time,
             temp=self.keep_warm_temp,
+            raw_temp_unit=raw_unit,
         )
         if result:
             await self.async_request_refresh()

@@ -764,12 +764,18 @@ class PhilipsLocalAPI:
         device: LocalDeviceInfo,
         time_seconds: int = 3600,
         temp: int = 65,
+        raw_temp_unit: bool | None = None,
     ) -> bool:
         """Start keep warm mode on the airfryer.
 
         Args:
             time_seconds: Keep warm duration in seconds (default 1 hour)
-            temp: Keep warm temperature in Celsius (default 65, SPECTRE only)
+            temp: Keep warm temperature in the appliance's own unit
+                (SPECTRE only; Venus keep warm carries no temperature)
+            raw_temp_unit: the device's current raw temp_unit, echoed
+                verbatim so the appliance keeps the unit it is showing
+                (issue #27). Omitted when unknown, as sending a guess could
+                flip the unit the other way.
         """
         port = self._airfryer_port(device)
         if port in VENUS_STYLE_PORTS:
@@ -780,6 +786,8 @@ class PhilipsLocalAPI:
                 keep_warm_method = 50
             else:
                 keep_warm_method = 2  # Venus airfryers
+            # No temp_unit: the command carries no temperature, and the Venus
+            # control port has no writable temp_unit field anyway.
             data: dict[str, Any] = {
                 "total_time": time_seconds,
                 "method": keep_warm_method,
@@ -793,6 +801,11 @@ class PhilipsLocalAPI:
                 "preset": 8,
                 "status": AIRFRYER_STATUS_COOKING,
             }
+            # Echo the unit the appliance currently shows; omitting it next to
+            # a temp makes the device reset to Fahrenheit (issue #27), which
+            # read a Celsius keep warm setpoint as Fahrenheit.
+            if raw_temp_unit is not None:
+                data["temp_unit"] = raw_temp_unit
         result = await self._request(device, port, method="PUT", data=data)
         return result is not None
 

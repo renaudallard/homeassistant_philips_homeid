@@ -1456,7 +1456,6 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Fetch the machine's supported drink catalog from the cloud once."""
         from .cloud_api import PhilipsCloudAPI
 
-        self._rita_drinks_fetched = True
         try:
             device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
             firmware = ""
@@ -1486,6 +1485,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     ):
                         ctn = str(dev["ctn"])
                         break
+                # get_devices reached the cloud, so this is a real attempt: mark
+                # it done now (a transient token/network failure would have
+                # returned or raised earlier, leaving the guard unset to retry
+                # on a later heartbeat).
+                self._rita_drinks_fetched = True
                 if not ctn:
                     _LOGGER.debug("Rita drinks: no CTN for device %s", device_id)
                     return

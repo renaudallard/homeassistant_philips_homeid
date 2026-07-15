@@ -542,28 +542,33 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             code = user_input.get("code", "").strip()
-            if code and self._cloud_api:
-                try:
-                    session_token = await self._cloud_api.verify_otp(
-                        self._cloud_email, code, self._cloud_vtoken
-                    )
-                    self._cloud_session_token = session_token
-                # Keep the cloud API (and its vToken) alive on these
-                # errors so the user can re-enter the code without
-                # restarting the whole flow, matching the reauth step.
-                except CloudConnectionError as err:
-                    _LOGGER.warning("OTP verify: cloud unreachable (%s)", err)
-                    errors["base"] = "cloud_unreachable"
-                except CloudNotRegisteredError as err:
-                    _LOGGER.error("OTP login: %s", err)
-                    errors["base"] = "account_not_registered"
-                except CloudAuthError as err:
-                    _LOGGER.error("OTP verification failed: %s", err)
-                    errors["base"] = "otp_failed"
+            # A verified code is spent, so once the session token is in hand a
+            # retry resumes from it rather than asking the device's owner for
+            # a code that would no longer verify.
+            if self._cloud_api and (code or self._cloud_session_token):
+                if not self._cloud_session_token:
+                    try:
+                        self._cloud_session_token = await self._cloud_api.verify_otp(
+                            self._cloud_email, code, self._cloud_vtoken
+                        )
+                    # Keep the cloud API (and its vToken) alive on these
+                    # errors so the user can re-enter the code without
+                    # restarting the whole flow, matching the reauth step.
+                    except CloudConnectionError as err:
+                        _LOGGER.warning("OTP verify: cloud unreachable (%s)", err)
+                        errors["base"] = "cloud_unreachable"
+                    except CloudNotRegisteredError as err:
+                        _LOGGER.error("OTP login: %s", err)
+                        errors["base"] = "account_not_registered"
+                    except CloudAuthError as err:
+                        _LOGGER.error("OTP verification failed: %s", err)
+                        errors["base"] = "otp_failed"
 
                 if not errors:
                     try:
-                        tokens = await self._cloud_api.get_oidc_tokens(session_token)
+                        tokens = await self._cloud_api.get_oidc_tokens(
+                            self._cloud_session_token
+                        )
                         self._cloud_tokens = tokens
 
                         # Try Home ID HAL API first (the app's primary backend)
@@ -641,20 +646,20 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             return await self.async_step_cloud_devices()
 
                         errors["base"] = "no_cloud_devices"
-                        await self._close_cloud_api()
 
+                    # The cloud API stays open here too: closing it stranded
+                    # the step, because the next submission found no API and
+                    # answered a typed-in code with "missing_code" forever.
+                    # async_remove closes it when the flow goes away.
                     except CloudConnectionError as err:
                         _LOGGER.warning("Cloud OAuth: cloud unreachable (%s)", err)
                         errors["base"] = "cloud_unreachable"
-                        await self._close_cloud_api()
                     except CloudAuthError as err:
                         _LOGGER.error("Cloud auth failed: %s", err)
                         errors["base"] = "cloud_oauth_failed"
-                        await self._close_cloud_api()
                     except Exception:
                         _LOGGER.exception("Unexpected error during cloud auth")
                         errors["base"] = "unknown"
-                        await self._close_cloud_api()
             else:
                 errors["base"] = "missing_code"
 

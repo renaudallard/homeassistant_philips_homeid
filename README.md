@@ -482,11 +482,14 @@ logger:
 Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 ### "The Philips HomeID backend returned a server error for your account"
-This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile or appliance list. It is a server-side or account-state problem, not a device or network fault. The most common cause is an account that signed in but never completed HomeID setup (country and consents are created during app onboarding).
+This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile. It is a problem on Philips's servers with your account data, not a device or network fault, and the integration sends the same request the official app does. The usual cause is a stale or broken device record on the account.
 
-- Open the official Philips HomeID app and sign in with the same email. Confirm your device appears there and that setup is complete.
-- If the app shows the device, wait a few minutes and retry; a 5xx can also be transient.
-- The backend's error response is written to the Home Assistant log on the `HomeID profile failed` line, which helps identify the exact cause.
+To fix it:
+
+- Log out of the official Philips HomeID app and log back in. If your device is no longer listed, add it again. Rebuilding the device record on Philips's servers this way clears the error. Then retry the cloud login in Home Assistant.
+- A 5xx can also be transient, so if the above does not apply you can wait a while and retry.
+
+The backend's error response is written to the Home Assistant log on the `HomeID profile failed` line.
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.

@@ -265,7 +265,11 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             _LOGGER.debug(
                 "Device list response: HTTP %s, body: %s", resp.status, text[:1000]
             )
-            if resp.status == 401:
+            # A 403 is the IoT API refusing the token (its AWS gateway wants an
+            # IAM-signed request, not a bare OIDC bearer), which is a permanent
+            # authorization denial rather than a transient outage, so it is
+            # reported like a 401 and not as a retryable connection error.
+            if resp.status in (401, 403):
                 raise CloudAuthError(
                     f"Device list rejected: HTTP {resp.status}, body: {text[:200]}"
                 )

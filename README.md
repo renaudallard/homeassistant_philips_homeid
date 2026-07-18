@@ -481,6 +481,13 @@ logger:
 ### Cloud Login Not Available
 Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
+### "The Philips HomeID backend returned a server error for your account"
+This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile or appliance list. It is a server-side or account-state problem, not a device or network fault. The most common cause is an account that signed in but never completed HomeID setup (country and consents are created during app onboarding).
+
+- Open the official Philips HomeID app and sign in with the same email. Confirm your device appears there and that setup is complete.
+- If the app shows the device, wait a few minutes and retry; a 5xx can also be transient.
+- The backend's error response is written to the Home Assistant log on the `HomeID profile failed` line, which helps identify the exact cause.
+
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.
 

@@ -34,6 +34,7 @@ from typing import Any
 
 from .cloud_auth import (
     CloudAuthError,
+    CloudBackendError,
     CloudConnectionError,
     CloudNotRegisteredError,
     PhilipsCloudAuth,
@@ -41,6 +42,7 @@ from .cloud_auth import (
 
 __all__ = [
     "CloudAuthError",
+    "CloudBackendError",
     "CloudConnectionError",
     "CloudNotRegisteredError",
     "PhilipsCloudAPI",
@@ -448,7 +450,12 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 text[:1000],
             )
             if resp.status != 200:
-                _LOGGER.error("HomeID profile failed: HTTP %s", resp.status)
+                _LOGGER.error(
+                    "HomeID profile failed: HTTP %s, body: %s",
+                    resp.status,
+                    text[:500],
+                )
+                self._raise_for_homeid(resp.status, "HomeID profile")
                 return []
             try:
                 profile = json.loads(text)
@@ -496,7 +503,12 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 text[:2000],
             )
             if resp.status != 200:
-                _LOGGER.error("HomeID appliances failed: HTTP %s", resp.status)
+                _LOGGER.error(
+                    "HomeID appliances failed: HTTP %s, body: %s",
+                    resp.status,
+                    text[:500],
+                )
+                self._raise_for_homeid(resp.status, "HomeID appliances")
                 return []
             try:
                 appliances_data = json.loads(text)
@@ -543,6 +555,22 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         """
         if status >= 500 or status == 429:
             raise CloudConnectionError(f"{what}: HTTP {status}")
+
+    @staticmethod
+    def _raise_for_homeid(status: int, what: str) -> None:
+        """Raise the right error for a failed HomeID backend request.
+
+        A 401 or 403 means the token was refused, so the caller has to
+        reauthenticate. A 5xx or a 429 is the backend failing to build the
+        response for the account, reported as CloudBackendError so the config
+        flow can point the user at the official app. Any other non-200 is left
+        for the caller to fall back to the IoT device list, matching the old
+        behaviour where the HomeID path returned empty on such responses.
+        """
+        if status in (401, 403):
+            raise CloudAuthError(f"{what}: HTTP {status}")
+        if status >= 500 or status == 429:
+            raise CloudBackendError(f"{what}: HTTP {status}")
 
     async def get_recipe_name(
         self, access_token: str, recipe_id: str, language: str = "en-GB"

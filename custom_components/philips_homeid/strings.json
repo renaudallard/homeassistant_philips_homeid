@@ -86,6 +86,7 @@
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
       "account_not_registered": "This email is not a fully registered Philips HomeID account. Sign in once in the Philips HomeID app with this email, then try again, or restart and use manual credential entry.",
+      "cloud_profile_error": "The Philips HomeID backend returned a server error for your account. Open the Philips HomeID app, confirm your device appears there and setup is finished, then try again in a few minutes.",
       "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also enter credentials manually.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",

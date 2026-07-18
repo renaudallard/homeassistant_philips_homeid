@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.philips_homeid.cloud_auth import CloudConnectionError
+from custom_components.philips_homeid.cloud_auth import (
+    CloudBackendError,
+    CloudConnectionError,
+)
 from custom_components.philips_homeid.config_flow import PhilipsHomeIDConfigFlow
 
 
@@ -58,6 +61,26 @@ async def test_retry_without_a_code_still_resumes():
 
     assert result["errors"] == {"base": "cloud_unreachable"}
     assert api.get_oidc_tokens.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_homeid_backend_error_reports_profile_error():
+    """A HomeID backend 5xx surfaces as a distinct error, not "unreachable".
+
+    The profile 5xx used to be swallowed into an empty list, so the flow fell
+    through to the dead IoT fallback and showed its 403 as "cloud unreachable".
+    Now the backend error reaches the user with a message pointing at the app.
+    """
+    flow, api = _flow(AsyncMock(return_value={"access_token": "tok"}))
+    api.get_appliances_via_homeid = AsyncMock(
+        side_effect=CloudBackendError("HomeID profile: HTTP 500")
+    )
+
+    result = await flow.async_step_cloud_otp({"code": "123456"})
+
+    assert result["type"] == "form"
+    assert result["errors"] == {"base": "cloud_profile_error"}
+    assert flow._cloud_api is not None
 
 
 @pytest.mark.asyncio

@@ -91,6 +91,7 @@
       "cloud_no_ip": "Adresse IP de l'appareil non disponible depuis le cloud. Essayez de saisir l'adresse IP manuellement.",
       "cloud_oauth_failed": "L'authentification cloud a échoué. Consultez les logs de Home Assistant pour plus de détails. Vous pouvez aussi saisir les identifiants manuellement.",
       "cloud_unreachable": "Le cloud Philips est temporairement injoignable. Patientez un instant et réessayez.",
+      "cloud_profile_error": "Le serveur Philips HomeID a renvoyé une erreur pour votre compte. Ouvrez l'application Philips HomeID, vérifiez que votre appareil y apparaît et que la configuration est terminée, puis réessayez dans quelques minutes.",
       "invalid_host": "Entrez uniquement une adresse IP ou un nom d'hôte (sans schéma, port, ni chemin)."
     },
     "abort": {

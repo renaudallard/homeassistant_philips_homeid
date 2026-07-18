@@ -91,6 +91,7 @@
       "cloud_no_ip": "IP 주소를 사용할 수 없습니다",
       "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. 자격 증명을 수동으로 입력할 수도 있습니다.",
       "cloud_unreachable": "Philips 클라우드에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "cloud_profile_error": "Philips HomeID 서버가 계정에 대해 서버 오류를 반환했습니다. Philips HomeID 앱을 열어 기기가 표시되고 설정이 완료되었는지 확인한 후 몇 분 뒤에 다시 시도하세요.",
       "invalid_host": "스키마, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요."
     },
     "abort": {

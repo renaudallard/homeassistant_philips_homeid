@@ -105,6 +105,18 @@ class CloudNotRegisteredError(CloudAuthError):
     """
 
 
+class CloudBackendError(CloudConnectionError):
+    """Raised when the HomeID backend returns a server error for the account.
+
+    The profile and appliance endpoints return HTTP 5xx when the token is
+    accepted but the backend cannot build the response, typically because the
+    account has no completed HomeID profile (country and consents are set
+    during app onboarding). Subclasses CloudConnectionError so it is still
+    treated as retryable, but the config flow catches it first to show a
+    message that points at the official app rather than "cloud unreachable".
+    """
+
+
 class PhilipsCloudAuth:
     """Handles OTP login, OAuth, and token management."""
 

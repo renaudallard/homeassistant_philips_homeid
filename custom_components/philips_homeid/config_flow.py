@@ -43,6 +43,7 @@ from homeassistant.core import callback
 
 from .cloud_api import (
     CloudAuthError,
+    CloudBackendError,
     CloudConnectionError,
     CloudNotRegisteredError,
     PhilipsCloudAPI,
@@ -669,6 +670,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # the step, because the next submission found no API and
                     # answered a typed-in code with "missing_code" forever.
                     # async_remove closes it when the flow goes away.
+                    except CloudBackendError as err:
+                        _LOGGER.error("Cloud OAuth: HomeID backend error (%s)", err)
+                        errors["base"] = "cloud_profile_error"
                     except CloudConnectionError as err:
                         _LOGGER.warning("Cloud OAuth: cloud unreachable (%s)", err)
                         errors["base"] = "cloud_unreachable"

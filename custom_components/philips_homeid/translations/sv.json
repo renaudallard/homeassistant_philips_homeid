@@ -91,6 +91,7 @@
       "cloud_no_ip": "IP-adress inte tillganglig",
       "cloud_oauth_failed": "Molnautentisering misslyckades. Kontrollera Home Assistants loggar för detaljer. Du kan också ange uppgifterna manuellt.",
       "cloud_unreachable": "Philips-molnet är tillfälligt onåbart. Vänta en stund och försök igen.",
+      "cloud_profile_error": "Philips HomeID-servern returnerade ett serverfel för ditt konto. Öppna Philips HomeID-appen, kontrollera att din enhet visas där och att installationen är klar, och försök sedan igen om några minuter.",
       "invalid_host": "Ange enbart en IP-adress eller ett värdnamn (utan schema, port eller sökväg)."
     },
     "abort": {

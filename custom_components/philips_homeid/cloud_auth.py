@@ -37,14 +37,19 @@ import logging
 import secrets
 import urllib.parse
 from base64 import urlsafe_b64encode
-from typing import Any
+from typing import Any, NamedTuple
 
 import aiohttp
 
 from .const import (
+    AIRPLUS_CLIENT_ID,
+    AIRPLUS_REDIRECT_URI,
+    AIRPLUS_SCOPES,
     GIGYA_API_KEY,
     GIGYA_API_URL,
     MOBILE_APP_REDIRECT_URI,
+    OAUTH_CLIENT_AIRPLUS,
+    OAUTH_CLIENT_HOMEID,
     OAUTH_CLIENT_ID,
     OIDC_AUTH_ENDPOINT,
     OIDC_ISSUER,
@@ -62,6 +67,35 @@ OAUTH_SCOPES = (
     "subscriptions consent profile_extended "
     "DI.AccountSubscription.write DI.AccountSubscription.read"
 )
+
+
+class _OAuthClient(NamedTuple):
+    """OAuth parameters that differ between the HomeID and Air+ clients.
+
+    Both are public clients driven by the same pure-HTTP prompt=none PKCE
+    flow, so neither sends a client secret; only the id, redirect and scope
+    differ.
+    """
+
+    client_id: str
+    redirect_uri: str
+    scope: str
+
+
+_OAUTH_CLIENTS: dict[str, _OAuthClient] = {
+    OAUTH_CLIENT_HOMEID: _OAuthClient(
+        OAUTH_CLIENT_ID, MOBILE_APP_REDIRECT_URI, OAUTH_SCOPES
+    ),
+    OAUTH_CLIENT_AIRPLUS: _OAuthClient(
+        AIRPLUS_CLIENT_ID, AIRPLUS_REDIRECT_URI, AIRPLUS_SCOPES
+    ),
+}
+
+
+def _oauth_client(client: str) -> _OAuthClient:
+    """Return the OAuth parameters for a client id, defaulting to HomeID."""
+    return _OAUTH_CLIENTS.get(client, _OAUTH_CLIENTS[OAUTH_CLIENT_HOMEID])
+
 
 _SOCIALIZE_GET_IDS = f"{GIGYA_API_URL}/socialize.getIDs"
 
@@ -232,7 +266,9 @@ class PhilipsCloudAuth:
         _LOGGER.debug("OTP verified for %s", email)
         return session_token
 
-    async def get_oidc_tokens(self, session_token: str) -> dict[str, Any]:
+    async def get_oidc_tokens(
+        self, session_token: str, client: str = OAUTH_CLIENT_HOMEID
+    ) -> dict[str, Any]:
         """Exchange a Gigya session for OIDC tokens.
 
         Pure HTTP: we ask Gigya for a passive login (``prompt=none``),
@@ -240,6 +276,10 @@ class PhilipsCloudAuth:
         ``/authorize/continue`` to receive the authorization code in a
         redirect Location header. PKCE is completed against the ``/token``
         endpoint as usual.
+
+        ``client`` selects the OAuth client (OAUTH_CLIENT_HOMEID or
+        OAUTH_CLIENT_AIRPLUS); the same Gigya session works for either, so
+        an Air+ token can be minted from the HomeID OTP login.
         """
         code_verifier = secrets.token_urlsafe(64)
         code_challenge = (
@@ -249,20 +289,26 @@ class PhilipsCloudAuth:
         )
 
         try:
-            auth_code = await self._http_oauth(session_token, code_challenge)
-            return await self._exchange_code(auth_code, code_verifier)
+            auth_code = await self._http_oauth(session_token, code_challenge, client)
+            return await self._exchange_code(auth_code, code_verifier, client)
         except (aiohttp.ClientError, TimeoutError) as err:
             raise CloudConnectionError(f"OAuth flow unreachable: {err}") from err
 
-    async def _http_oauth(self, session_token: str, code_challenge: str) -> str:
+    async def _http_oauth(
+        self,
+        session_token: str,
+        code_challenge: str,
+        client: str = OAUTH_CLIENT_HOMEID,
+    ) -> str:
         """Pure-HTTP OAuth flow. Returns the authorization code."""
         session = await self._get_session()
+        cfg = _oauth_client(client)
 
         auth_params = {
-            "client_id": OAUTH_CLIENT_ID,
+            "client_id": cfg.client_id,
             "response_type": "code",
-            "redirect_uri": MOBILE_APP_REDIRECT_URI,
-            "scope": OAUTH_SCOPES,
+            "redirect_uri": cfg.redirect_uri,
+            "scope": cfg.scope,
             "state": secrets.token_urlsafe(16),
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
@@ -317,7 +363,7 @@ class PhilipsCloudAuth:
             "context": context_jwt,
             "login_token": session_token,
             "gmidTicket": gmid_ticket,
-            "client_id": OAUTH_CLIENT_ID,
+            "client_id": cfg.client_id,
         }
         cont_url = (
             f"{OIDC_ISSUER}/authorize/continue?{urllib.parse.urlencode(cont_params)}"
@@ -349,7 +395,9 @@ class PhilipsCloudAuth:
     # Token exchange.
     # ------------------------------------------------------------------ #
 
-    async def _exchange_code(self, code: str, code_verifier: str) -> dict[str, Any]:
+    async def _exchange_code(
+        self, code: str, code_verifier: str, client: str = OAUTH_CLIENT_HOMEID
+    ) -> dict[str, Any]:
         """Exchange authorization code for OIDC tokens.
 
         Raises CloudAuthError only when the code is permanently rejected. Any
@@ -358,11 +406,12 @@ class PhilipsCloudAuth:
         rather than that their verification code was wrong.
         """
         session = await self._get_session()
+        cfg = _oauth_client(client)
         data = {
-            "client_id": OAUTH_CLIENT_ID,
+            "client_id": cfg.client_id,
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": MOBILE_APP_REDIRECT_URI,
+            "redirect_uri": cfg.redirect_uri,
             "code_verifier": code_verifier,
         }
 
@@ -399,8 +448,13 @@ class PhilipsCloudAuth:
         )
         return result
 
-    async def refresh_tokens(self, refresh_token: str) -> dict[str, Any]:
+    async def refresh_tokens(
+        self, refresh_token: str, client: str = OAUTH_CLIENT_HOMEID
+    ) -> dict[str, Any]:
         """Refresh OIDC tokens using the refresh token.
+
+        ``client`` must match the OAuth client the refresh token was issued
+        for; an Air+ refresh token can only be refreshed by the Air+ client.
 
         Raises CloudAuthError only when the refresh token is permanently
         rejected (invalid_grant / invalid_token / HTTP 401). Any other
@@ -409,8 +463,9 @@ class PhilipsCloudAuth:
         the user into reauth.
         """
         session = await self._get_session()
+        cfg = _oauth_client(client)
         data = {
-            "client_id": OAUTH_CLIENT_ID,
+            "client_id": cfg.client_id,
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
         }

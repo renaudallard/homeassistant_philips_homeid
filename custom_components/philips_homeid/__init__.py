@@ -45,6 +45,7 @@ from .const import (
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
+    CONF_OAUTH_CLIENT,
     CONF_PLATFORM_REST_URL,
     CONF_TENANT,
     CONF_THING_NAME,
@@ -53,6 +54,7 @@ from .const import (
     FUSION_MQTT_HOST,
     FUSION_PLATFORM_REST_URL,
     FUSION_TENANT,
+    OAUTH_CLIENT_HOMEID,
 )
 from .coordinator import PhilipsHomeIDCoordinator
 from .local_api import LocalDeviceInfo, PhilipsLocalAPI
@@ -92,6 +94,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     mqtt_host = entry.data.get(CONF_MQTT_HOST, FUSION_MQTT_HOST)
     platform_rest_url = entry.data.get(CONF_PLATFORM_REST_URL, FUSION_PLATFORM_REST_URL)
     refresh_token = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
+    oauth_client = entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)
     model = entry.data.get(CONF_MODEL, "")
     cpp_id = entry.data.get(CONF_CPP_ID, "")
 
@@ -103,7 +106,7 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # APK uses Gigya CDC tokens for DaConnect MQTT (confirmed 2026-03-27).
     cloud_api = PhilipsCloudAPI()
     try:
-        tokens = await cloud_api.refresh_tokens(refresh_token)
+        tokens = await cloud_api.refresh_tokens(refresh_token, oauth_client)
         access_token = tokens["access_token"]
         new_refresh = tokens.get("refresh_token", refresh_token)
         if new_refresh != refresh_token:
@@ -183,7 +186,8 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
                 api = PhilipsCloudAPI()
                 try:
                     rt = entry.data.get(CONF_CLOUD_REFRESH_TOKEN, "")
-                    toks = await api.refresh_tokens(rt)
+                    client = entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)
+                    toks = await api.refresh_tokens(rt, client)
                     new_rt = toks.get("refresh_token", rt)
                     if new_rt != rt:
                         new_data = {

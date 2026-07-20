@@ -16,7 +16,7 @@ def rotating_cloud(monkeypatch):
     """A cloud that rotates the refresh token, slowly enough to be cancelled."""
 
     class FakeAPI:
-        async def refresh_tokens(self, refresh_token):
+        async def refresh_tokens(self, refresh_token, client="homeid"):
             await asyncio.sleep(0.05)
             return {"access_token": "at", "refresh_token": "NEW"}
 

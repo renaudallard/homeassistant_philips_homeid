@@ -52,6 +52,7 @@ from .const import (
     CONF_MY_PRESETS,
     CONF_MY_PRESETS_FETCHED,
     CONF_MY_PRESETS_LANGUAGE,
+    CONF_OAUTH_CLIENT,
     CONF_PLATFORM_REST_URL,
     CONF_RECIPE_CACHE,
     CONF_RECIPE_LANGUAGE,
@@ -62,6 +63,7 @@ from .const import (
     DOMAIN,
     FUSION_HEARTBEAT_INTERVAL,
     KEEP_WARM_DEFAULT_TEMP_C,
+    OAUTH_CLIENT_HOMEID,
     RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
 )
@@ -1291,7 +1293,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
 
         cloud_api = PhilipsCloudAPI()
         try:
-            tokens = await cloud_api.refresh_tokens(refresh_token)
+            client = self.config_entry.data.get(CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID)
+            tokens = await cloud_api.refresh_tokens(refresh_token, client)
             new_refresh = tokens.get("refresh_token", refresh_token)
             if new_refresh != refresh_token:
                 new_data = {

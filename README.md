@@ -35,7 +35,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 >
 > **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
 
-> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC1715 above); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
+> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC1715 above), whether they were paired in the Philips HomeID/NutriU app or the standalone **Air+** app (`com.philips.air`); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
 ---
 
@@ -54,7 +54,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
 
 ### Air Purifiers
-The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay:
+The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
 - Fan control: power on/off and preset modes (per model, for example gentle/sleep/turbo on AC0650, auto/medium/sleep/turbo on AC0651, plus fast on AC1715)
 - Air quality sensors: PM2.5 and indoor air quality index
 - Settings: beep volume, air quality threshold, sensor monitor in standby
@@ -153,6 +153,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 1. Authenticates with Philips via email OTP (one-time password)
 2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
+4. If your account has no devices in the Home ID backend, the integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC1715) are registered against a separate Philips app account, so this extra step is what makes an Air+-app-only device show up.
 
 The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 

@@ -39,6 +39,29 @@ OAUTH_CLIENT_ID = "-u6aTznrxp9_9e_0a57CpvEG"
 # Mobile app redirect URI (must match the registered client_id)
 MOBILE_APP_REDIRECT_URI = "com.philips.ka.oneka.app.prod://oauthredirect"
 
+# Air+ app OAuth client. Devices paired in the standalone Philips Air+ app
+# (com.philips.air) are registered against this client on the same Gigya
+# account, and the DA IoT device registry only lists a device to the client
+# it was paired with. Discovery mints a token with this client from the same
+# OTP session to find Air+-paired purifiers (AC0650/AC0651/AC1715). The token
+# is obtained with the same pure-HTTP prompt=none PKCE flow as the HomeID
+# client and needs no client secret. Values from the Air+ app (issue #33).
+AIRPLUS_CLIENT_ID = "-XsK7O6iEkLml77yDGDUi0ku"
+AIRPLUS_REDIRECT_URI = "com.philips.air://loginredirect"
+AIRPLUS_SCOPES = (
+    "openid email profile address "
+    "DI.Account.read DI.Account.write DI.AccountProfile.read "
+    "DI.AccountProfile.write DI.AccountGeneralConsent.read "
+    "DI.AccountGeneralConsent.write DI.GeneralConsent.read subscriptions "
+    "profile_extended consents DI.AccountSubscription.read "
+    "DI.AccountSubscription.write"
+)
+
+# OAuth client identifiers stored on a config entry so the runtime relay
+# refreshes tokens with the same client the device was discovered under.
+OAUTH_CLIENT_HOMEID = "homeid"
+OAUTH_CLIENT_AIRPLUS = "airplus"
+
 # Local discovery configuration keys
 CONF_CPP_ID = "cpp_id"
 CONF_DEVICE_ID = "device_id"
@@ -49,6 +72,9 @@ CONF_USE_HTTPS = "use_https"
 CONF_ENCRYPTION_KEY = "encryption_key"
 CONF_AIRFRYER_PORT = "airfryer_port"
 CONF_CLOUD_REFRESH_TOKEN = "cloud_refresh_token"
+# Which OAuth client the entry's refresh token belongs to (OAUTH_CLIENT_*).
+# Absent on entries created before Air+ support; treated as HomeID.
+CONF_OAUTH_CLIENT = "oauth_client"
 CONF_RECIPE_CACHE = "recipe_cache"
 CONF_RECIPE_LANGUAGE = "recipe_language"
 CONF_AUTOCOOK_CATALOG_FETCHED = "autocook_catalog_fetched"

@@ -60,6 +60,7 @@ from .const import (
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
+    CONF_OAUTH_CLIENT,
     CONF_PLATFORM_REST_URL,
     CONF_SCAN_INTERVAL,
     CONF_TENANT,
@@ -70,6 +71,8 @@ from .const import (
     FUSION_MQTT_HOST,
     FUSION_PLATFORM_REST_URL,
     FUSION_TENANT,
+    OAUTH_CLIENT_AIRPLUS,
+    OAUTH_CLIENT_HOMEID,
 )
 from .local_api import (
     LocalDeviceInfo,
@@ -299,11 +302,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     session_token = await self._cloud_api.verify_otp(
                         self._cloud_email, code, self._cloud_vtoken
                     )
-                    tokens = await self._cloud_api.get_oidc_tokens(session_token)
-                    # Store refresh token in existing entry. Use .get() so a
-                    # missing context["entry_id"] surfaces as a clean abort
-                    # rather than a KeyError after the user has already
-                    # typed the OTP.
+                    # Look up the entry before the OAuth exchange. An Air+
+                    # device's refresh token must be minted with the Air+
+                    # client, so the entry's audience has to be known first.
+                    # Use .get() so a missing context["entry_id"] surfaces as
+                    # a clean abort rather than a KeyError after the user has
+                    # already typed the OTP.
                     entry_id = self.context.get("entry_id")
                     reauth_entry = (
                         self.hass.config_entries.async_get_entry(entry_id)
@@ -313,6 +317,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if reauth_entry is None:
                         await self._close_cloud_api()
                         return self.async_abort(reason="reauth_entry_missing")
+                    oauth_client = reauth_entry.data.get(
+                        CONF_OAUTH_CLIENT, OAUTH_CLIENT_HOMEID
+                    )
+                    tokens = await self._cloud_api.get_oidc_tokens(
+                        session_token, client=oauth_client
+                    )
                     new_data = {
                         **reauth_entry.data,
                         CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
@@ -664,6 +674,17 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             self._cloud_source = "iot"
                             return await self.async_step_cloud_devices()
 
+                        # Air+ app pairing: a purifier paired in the standalone
+                        # Philips Air+ app is registered against the Air+ OAuth
+                        # client, so it is invisible to the HomeID-audience
+                        # token used above. Mint an Air+ token from the same
+                        # OTP session and query the same DA registry (issue #33).
+                        airplus_devices = await self._discover_airplus_devices()
+                        if airplus_devices:
+                            self._cloud_devices = airplus_devices
+                            self._cloud_source = OAUTH_CLIENT_AIRPLUS
+                            return await self.async_step_cloud_devices()
+
                         errors["base"] = "no_cloud_devices"
 
                     # The cloud API stays open here too: closing it stranded
@@ -692,6 +713,33 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def _discover_airplus_devices(self) -> list[dict[str, Any]]:
+        """Discover purifiers paired in the Philips Air+ app.
+
+        Mints an Air+-client token from the existing Gigya OTP session and
+        queries the DA IoT device registry, which lists a device only to the
+        OAuth client it was paired with. On success the Air+ tokens replace
+        self._cloud_tokens so the entry stores an Air+ refresh token. Returns
+        an empty list on any failure so the caller falls through to
+        no_cloud_devices.
+        """
+        if not self._cloud_api or not self._cloud_session_token:
+            return []
+        try:
+            tokens = await self._cloud_api.get_oidc_tokens(
+                self._cloud_session_token, client=OAUTH_CLIENT_AIRPLUS
+            )
+            devices = await self._cloud_api.get_devices(tokens["access_token"])
+        except CloudAuthError as err:
+            # CloudConnectionError subclasses CloudAuthError; either way the
+            # Air+ path simply yields nothing and the flow reports no devices.
+            _LOGGER.debug("Air+ discovery failed: %s", err)
+            return []
+        if devices:
+            _LOGGER.info("Air+ discovery found %d device(s)", len(devices))
+            self._cloud_tokens = tokens
+        return devices
+
     async def async_step_cloud_devices(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -712,6 +760,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         result = await self._create_entry_from_homeid(
                             device_data, errors
                         )
+                    elif self._cloud_source == OAUTH_CLIENT_AIRPLUS:
+                        result = await self._create_fusion_entry_from_device(
+                            device_data, errors
+                        )
                     else:
                         result = await self._create_entry_from_iot(device_data, errors)
                     if result:
@@ -725,7 +777,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 mac = dev.get("macAddress", "")
                 label = f"{name} ({mac})" if mac else name
             else:
-                name = dev.get("friendlyName", "") or dev.get("ctn", "")
+                name = (
+                    dev.get("friendlyName", "")
+                    or dev.get("name", "")
+                    or dev.get("deviceName", "")
+                    or dev.get("ctn", "")
+                )
                 ctn = dev.get("ctn", "")
                 label = f"{name} ({ctn})" if ctn else name
             device_options[str(idx)] = label
@@ -943,18 +1000,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._discovered_device:
             host = self._discovered_device.ip_address
 
-        entry_data = {
-            CONF_HOST: host,
-            CONF_CPP_ID: mac or external_id,
-            CONF_MODEL: model,
-            CONF_DEVICE_ID: external_id,
-            CONF_IS_FUSION: True,
-            CONF_THING_NAME: thing_name,
-            CONF_TENANT: FUSION_TENANT,
-            CONF_MQTT_HOST: FUSION_MQTT_HOST,
-            CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
-            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
-        }
+        entry_data = self._fusion_entry_data(
+            thing_name=thing_name,
+            device_id=external_id,
+            mac=mac or external_id,
+            model=model,
+            host=host,
+            oauth_client=OAUTH_CLIENT_HOMEID,
+        )
 
         _LOGGER.info(
             "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s",
@@ -964,6 +1017,96 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             fw,
         )
 
+        await self._close_cloud_api()
+        return self.async_create_entry(title=f"{name} (Cloud)", data=entry_data)
+
+    def _fusion_entry_data(
+        self,
+        *,
+        thing_name: str,
+        device_id: str,
+        mac: str,
+        model: str,
+        host: str,
+        oauth_client: str,
+    ) -> dict[str, Any]:
+        """Build the config-entry data for a FUSION (cloud MQTT relay) device.
+
+        ``oauth_client`` records which OAuth client the stored refresh token
+        belongs to, so the runtime relay refreshes it with the same client.
+        """
+        return {
+            CONF_HOST: host,
+            CONF_CPP_ID: mac or device_id,
+            CONF_MODEL: model,
+            CONF_DEVICE_ID: device_id,
+            CONF_IS_FUSION: True,
+            CONF_THING_NAME: thing_name,
+            CONF_TENANT: FUSION_TENANT,
+            CONF_MQTT_HOST: FUSION_MQTT_HOST,
+            CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
+            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+            CONF_OAUTH_CLIENT: oauth_client,
+        }
+
+    async def _create_fusion_entry_from_device(
+        self, device_data: dict[str, Any], errors: dict[str, str]
+    ) -> ConfigFlowResult | None:
+        """Create a FUSION entry from an Air+ IoT device record.
+
+        Unlike the HomeID appliance path, an Air+ device record from the DA
+        registry already carries its AWS IoT thingName, so no separate lookup
+        is needed. The device was discovered with an Air+ token, so the entry
+        is stamped with the Air+ client for its runtime token refresh.
+        """
+        # The device UUID names the AWS IoT thing. Community Air+ integrations
+        # read "uuid" first (falling back to "id"); when the record carries no
+        # explicit thingName the thing is "da-<uuid>" on this platform.
+        device_id = device_data.get("uuid", "") or device_data.get("id", "")
+        thing_name = device_data.get("thingName", "")
+        if not thing_name and device_id:
+            thing_name = f"da-{device_id}"
+        if not thing_name:
+            _LOGGER.error("Air+ device record has no thingName or id: %s", device_data)
+            errors["base"] = "cloud_credentials_not_found"
+            return None
+
+        if not self._cloud_tokens.get("refresh_token"):
+            _LOGGER.error(
+                "Air+ OAuth returned no refresh_token; cannot create FUSION entry"
+            )
+            errors["base"] = "cloud_oauth_failed"
+            return None
+
+        mac = device_data.get("macAddress", "")
+        ctn = device_data.get("ctn", "")
+        name = (
+            device_data.get("name", "")
+            or device_data.get("deviceName", "")
+            or device_data.get("friendlyName", "")
+            or ctn
+            or thing_name
+        )
+
+        unique_id = _normalize_unique_id(mac or device_id or thing_name)
+        await self._set_unique_id_or_abort(unique_id)
+
+        entry_data = self._fusion_entry_data(
+            thing_name=thing_name,
+            device_id=device_id,
+            mac=mac,
+            model=ctn or name,
+            host="",
+            oauth_client=OAUTH_CLIENT_AIRPLUS,
+        )
+
+        _LOGGER.info(
+            "Creating Air+ FUSION entry: name=%s, thing=%s, mac=%s, ctn=%s",
+            name,
+            thing_name,
+            mac,
+            ctn,
+        )
         await self._close_cloud_api()
         return self.async_create_entry(title=f"{name} (Cloud)", data=entry_data)
 

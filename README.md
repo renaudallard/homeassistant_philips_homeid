@@ -265,7 +265,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 |------|--------|-------------|
 | Fan | Air Purifier | Power on/off and preset modes (MUJI uses preset modes, not a percentage speed) |
 | Sensor | PM1.0 / PM2.5 / PM10 | Particulate matter readings |
-| Sensor | Air Quality Index | Indoor air quality (IAQL) |
+| Sensor | Indoor Air Index | Indoor air-quality index reading (0-12) |
 | Sensor | Total VOC | Volatile organic compounds |
 | Sensor | Gas Level | Gas/formaldehyde level |
 | Sensor | Allergen Index | Allergen level indicator |

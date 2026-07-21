@@ -126,7 +126,7 @@
         "name": "PM10"
       },
       "air_quality_index": {
-        "name": "Indice de qualité de l'air"
+        "name": "Indice de l'air intérieur"
       },
       "tvoc": {
         "name": "COV totaux"

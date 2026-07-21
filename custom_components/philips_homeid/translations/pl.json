@@ -126,7 +126,7 @@
         "name": "PM10"
       },
       "air_quality_index": {
-        "name": "Indeks jakosci powietrza"
+        "name": "Indeks powietrza w pomieszczeniu"
       },
       "tvoc": {
         "name": "Calkowite LZO"

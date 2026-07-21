@@ -126,7 +126,7 @@
         "name": "PM10"
       },
       "air_quality_index": {
-        "name": "공기질 지수"
+        "name": "실내 공기 지수"
       },
       "tvoc": {
         "name": "총 VOC"

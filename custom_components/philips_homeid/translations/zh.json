@@ -126,7 +126,7 @@
         "name": "PM10"
       },
       "air_quality_index": {
-        "name": "空气质量指数"
+        "name": "室内空气指数"
       },
       "tvoc": {
         "name": "总挥发性有机物"

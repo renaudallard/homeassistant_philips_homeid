@@ -7,6 +7,8 @@ Two questions, deliberately separate:
 """
 
 import threading
+from collections import deque
+from unittest.mock import MagicMock
 
 from custom_components.philips_homeid.mqtt_api import PhilipsMQTTClient
 
@@ -21,6 +23,17 @@ def _client(discovered):
     client._device_type = None
     client._notify_state_update = lambda snapshot: None
     client._device = _Device()
+    client._connected = True
+    client._client = MagicMock()
+    # Serialized getPort queue state. send_port_command returns None here (no
+    # broker), so the pump never arms a real timer; these tests only exercise
+    # the ports_replied / ports_complete accounting, not the queue.
+    client._port_queue = deque()
+    client._inflight_port = None
+    client._inflight_cid = None
+    client._inflight_since = 0.0
+    client._port_busy_counts = {}
+    client._pump_timer = None
     # The handler re-asks each discovered port; there is no broker here.
     client.send_port_command = lambda *a, **kw: None
     return client

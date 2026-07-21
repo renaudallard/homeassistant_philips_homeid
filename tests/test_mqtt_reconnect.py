@@ -1,6 +1,7 @@
 """Tests for the MQTT reconnect loop's handling of a rejected token."""
 
 import threading
+from collections import deque
 from unittest.mock import MagicMock
 
 from custom_components.philips_homeid.mqtt_api import (
@@ -20,12 +21,18 @@ def _client(credential_refresh):
     client = PhilipsMQTTClient.__new__(PhilipsMQTTClient)
     client._credential_refresh = credential_refresh
     client._stop = _NoWaitEvent()
+    client._lock = threading.Lock()
     client._reconnect_lock = threading.Lock()
     client._reconnecting_lock = threading.Lock()
     client._reconnecting = True
     client._connected = False
     client._teardown_client = MagicMock()
     client.connect = MagicMock()
+    # Reconnect cancels the getPort queue for the dropped session.
+    client._port_queue = deque()
+    client._inflight_port = None
+    client._inflight_cid = None
+    client._pump_timer = None
     return client
 
 

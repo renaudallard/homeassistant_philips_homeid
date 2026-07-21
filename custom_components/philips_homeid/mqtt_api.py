@@ -34,6 +34,7 @@ import ssl
 import threading
 import time
 import uuid
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -123,6 +124,23 @@ _NCP_STATUS_NAMES: dict[int, str] = {
     11: "serialization_error",
     12: "mqtt_error",
 }
+
+_NCP_STATUS_BUSY = 1
+
+# getPort pacing. The MUJI purifier NCP (AC0651, likely AC0650/AC1715 too) is
+# effectively single-threaded: concurrent getPorts are answered with busy(1),
+# and the busy reply carries an empty data object, so it does not even name the
+# port it refused. A sustained burst can wedge the NCP until the appliance is
+# power-cycled, which also locks out the official app. So getPort reads are
+# serialized: one in flight at a time, a gap between sends, and bounded retries
+# for a port that answers busy.
+_PORT_SEND_GAP = 1.0  # seconds between consecutive getPort sends
+_PORT_BUSY_RETRY_DELAY = 3.0  # seconds before retrying a port that answered busy
+_PORT_BUSY_RETRY_LIMIT = 3  # busy replies for a port before deferring to next round
+# from_ncp is subscribed QoS0, so a reply can be lost. This bounds how long a
+# lost reply stalls the queue before the next port is tried; kept short so a
+# single loss cannot push the startup port-fetch past its budget.
+_PORT_INFLIGHT_TIMEOUT = 5.0  # seconds to wait for a getPort reply
 
 # Reverse maps for sending commands (local API names → NCP names)
 # Use first-wins to prefer SPECTRE/Venus 1 names as default fallback;
@@ -225,6 +243,17 @@ class PhilipsMQTTClient:
         self._replied_ports: set[str] = set()
         self._reported_ports: set[str] = set()
         self._device_type: str | None = None  # Cached get_device_type() result
+        # getPort serialization (see _pump_port_queue): one read in flight, the
+        # rest queued. A busy reply carries no port name, so the in-flight port
+        # is what a busy reply is attributed to; the in-flight cid is what
+        # distinguishes our solicited reply from this chatty device's own
+        # unsolicited status pushes.
+        self._port_queue: deque[str] = deque()
+        self._inflight_port: str | None = None
+        self._inflight_cid: str | None = None
+        self._inflight_since: float = 0.0
+        self._port_busy_counts: dict[str, int] = {}
+        self._pump_timer: threading.Timer | None = None
 
         # Build topic names
         tn = device.thing_name
@@ -461,6 +490,7 @@ class PhilipsMQTTClient:
     def disconnect(self) -> None:
         """Disconnect from the MQTT broker and stop any pending reconnects."""
         self._stop.set()
+        self._cancel_port_queue()
         if self._client:
             self._client.loop_stop()
             self._client.disconnect()
@@ -502,6 +532,9 @@ class PhilipsMQTTClient:
             if self._stop.is_set():
                 return
             self._teardown_client()
+            # Queued reads belong to the old session; the fresh getAllPorts
+            # after CONNACK rebuilds the queue.
+            self._cancel_port_queue()
             # Clear discovered ports so they're re-fetched by getAllPorts.
             # Keep the cached state in place so consumers don't see a brief
             # unavailability gap while the new shadow + NCP messages arrive;
@@ -551,10 +584,146 @@ class PhilipsMQTTClient:
         # Copy to avoid race with MQTT thread writing _discovered_ports
         ports = list(self._discovered_ports)
         if ports:
-            for pname in ports:
-                self.send_port_command(pname, command_name="getPort")
+            self._enqueue_port_reads(ports, new_round=True)
         else:
             self._request_port_data()
+
+    def _enqueue_port_reads(self, ports: list[str], new_round: bool = False) -> None:
+        """Queue getPort reads, sent one at a time by _pump_port_queue.
+
+        new_round resets the per-port busy counters so a port that gave up
+        after _PORT_BUSY_RETRY_LIMIT busy replies gets a fresh chance on the
+        next refresh cycle.
+        """
+        with self._lock:
+            if new_round:
+                self._port_busy_counts.clear()
+            for pname in ports:
+                if pname != self._inflight_port and pname not in self._port_queue:
+                    self._port_queue.append(pname)
+        self._pump_port_queue()
+
+    def _pump_port_queue(self) -> None:
+        """Send the next queued getPort if none is in flight.
+
+        Serialization is what keeps the MUJI NCP alive: it answers concurrent
+        reads with busy(1) and a sustained burst can wedge it until the
+        appliance is power-cycled (observed on the AC0651), which also locks
+        out the official app.
+        """
+        with self._lock:
+            if not self._client or not self._connected:
+                self._port_queue.clear()
+                self._inflight_port = None
+                self._inflight_cid = None
+                return
+            if self._inflight_port is not None:
+                if time.monotonic() - self._inflight_since < _PORT_INFLIGHT_TIMEOUT:
+                    return
+                _LOGGER.debug(
+                    "getPort for %s got no reply in %.0fs, moving on",
+                    self._inflight_port,
+                    _PORT_INFLIGHT_TIMEOUT,
+                )
+                self._inflight_port = None
+                self._inflight_cid = None
+            if not self._port_queue:
+                return
+            port = self._port_queue.popleft()
+            self._inflight_port = port
+            self._inflight_cid = None
+            self._inflight_since = time.monotonic()
+        # Publish outside the lock: send_port_command does network I/O, and the
+        # reply can land on the paho thread before it returns.
+        cid = self.send_port_command(port, command_name="getPort")
+        with self._lock:
+            if self._inflight_port != port:
+                # The reply already landed (matched by type) and armed its own
+                # pump, so do not touch the timer here.
+                return
+            if cid is None:
+                # The link dropped mid-send; the reconnect getAllPorts rebuilds
+                # the queue, so drop what is left rather than orphan it.
+                self._inflight_port = None
+                self._port_queue.clear()
+                return
+            self._inflight_cid = cid
+            # Safety net: advance if the reply never arrives (from_ncp is QoS0).
+            # Armed under the lock so a reply that raced in cannot be clobbered.
+            self._arm_pump_timer_locked(_PORT_INFLIGHT_TIMEOUT + 0.5)
+
+    def _arm_pump_timer_locked(self, delay: float) -> None:
+        """(Re)arm the timer that runs _pump_port_queue after delay seconds.
+
+        Caller must hold self._lock. Every arm and cancel of _pump_timer runs
+        under the lock, so the in-flight reply's short pump always wins over
+        the safety timer instead of racing it.
+        """
+        if self._pump_timer is not None:
+            self._pump_timer.cancel()
+        timer = threading.Timer(delay, self._pump_port_queue)
+        timer.daemon = True
+        self._pump_timer = timer
+        timer.start()
+
+    def _cancel_port_queue(self) -> None:
+        """Drop queued reads and stop the pump timer (on disconnect)."""
+        with self._lock:
+            if self._pump_timer is not None:
+                self._pump_timer.cancel()
+                self._pump_timer = None
+            self._port_queue.clear()
+            self._inflight_port = None
+            self._inflight_cid = None
+
+    def _on_getport_reply(self, payload: dict[str, Any]) -> None:
+        """Track the in-flight getPort and pace the next send.
+
+        A busy reply carries an empty data object, so the in-flight port is
+        the only way to know which port was refused; busy ports are retried a
+        bounded number of times per round, with a breather, then deferred to
+        the next refresh cycle. This device also emits unsolicited status
+        pushes, which are told apart from our solicited reply by message type
+        and correlation id so they do not advance the queue.
+        """
+        reply_type = payload.get("type")
+        reply_cid = payload.get("cid")
+        status = payload.get("status")
+        delay = _PORT_SEND_GAP
+        with self._lock:
+            port = self._inflight_port
+            if port is None:
+                return  # nothing in flight: an unsolicited push
+            # A status event is typed non-response; a stale reply carries a cid
+            # that does not match the read we are waiting on. Either way it is
+            # not our in-flight reply, so leave the queue untouched and let the
+            # real reply (or the safety timeout) advance it.
+            if reply_type is not None and reply_type != "response":
+                return
+            if (
+                reply_cid is not None
+                and self._inflight_cid is not None
+                and reply_cid != self._inflight_cid
+            ):
+                return
+            self._inflight_port = None
+            self._inflight_cid = None
+            if status == _NCP_STATUS_BUSY:
+                tries = self._port_busy_counts.get(port, 0) + 1
+                self._port_busy_counts[port] = tries
+                if tries < _PORT_BUSY_RETRY_LIMIT:
+                    if port not in self._port_queue:
+                        self._port_queue.append(port)
+                    delay = _PORT_BUSY_RETRY_DELAY
+                else:
+                    _LOGGER.debug(
+                        "NCP port %s busy %d times, deferring to next refresh",
+                        port,
+                        tries,
+                    )
+            else:
+                self._port_busy_counts.pop(port, None)
+            self._arm_pump_timer_locked(delay)
 
     def set_power(self, power_on: bool) -> None:
         """Set device power via shadow update (APK UpdatePowerState)."""
@@ -602,7 +771,7 @@ class PhilipsMQTTClient:
         port_name: str,
         command_name: str = "setPort",
         properties: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> str | None:
         """Send a port command to the device via NCP.
 
         Args:
@@ -610,10 +779,14 @@ class PhilipsMQTTClient:
                        Empty string for commands that don't need a port (getAllPorts).
             command_name: "updatePort", "getPort", "getAllPorts", etc.
             properties: Dict of properties to set (for updatePort)
+
+        Returns the correlation id (cid) stamped on the message, so a caller
+        that needs to match the reply (the serialized getPort queue) can, or
+        None when nothing was sent because the link is down.
         """
         if not self._client or not self._connected:
             _LOGGER.warning("Cannot send command: MQTT not connected")
-            return
+            return None
 
         data: dict[str, Any] | None = None
         if port_name:
@@ -658,6 +831,7 @@ class PhilipsMQTTClient:
             port_name,
             properties,
         )
+        return cid
 
     def _on_connect(
         self,
@@ -750,6 +924,9 @@ class PhilipsMQTTClient:
                         if self._stop.is_set() or self._connected:
                             return
                         self._teardown_client()
+                        # Queued reads belong to the dropped session; the fresh
+                        # getAllPorts after CONNACK rebuilds the queue.
+                        self._cancel_port_queue()
                         self.connect(access_token, signature)
                     _LOGGER.info("MQTT reconnected successfully")
                     return
@@ -875,9 +1052,14 @@ class PhilipsMQTTClient:
                 with self._lock:
                     self._replied_ports = set()
                     self._reported_ports = set()
-                for pname in read_ports:
-                    self.send_port_command(pname, command_name="getPort")
+                self._enqueue_port_reads(read_ports, new_round=True)
             return
+
+        # Pace the serialized getPort queue off each reply. Done before the
+        # busy/normal handling below so a busy reply (which carries no port
+        # name) still advances the queue.
+        if command == "getPort":
+            self._on_getport_reply(payload)
 
         data = payload.get("data", {})
         ncp_port = data.get("portName", "") if isinstance(data, dict) else ""

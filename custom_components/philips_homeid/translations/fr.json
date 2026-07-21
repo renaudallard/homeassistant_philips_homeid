@@ -573,6 +573,9 @@
       },
       "autocook_program": {
         "name": "Programme AutoCook"
+      },
+      "operation_mode": {
+        "name": "Mode de fonctionnement"
       }
     },
     "switch": {

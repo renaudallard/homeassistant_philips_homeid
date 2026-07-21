@@ -82,8 +82,12 @@ MUJI_MODE_MAPS: dict[str, dict[str, int]] = {
 }
 
 
-def _muji_mode_map(model_name: str | None) -> dict[str, int] | None:
-    """Return the MUJI operationMode map for a model, or None if not MUJI."""
+def muji_mode_map(model_name: str | None) -> dict[str, int] | None:
+    """Return the MUJI operationMode map for a model, or None if not MUJI.
+
+    Shared with the operation-mode select so the per-model maps live in one
+    place.
+    """
     model_upper = (model_name or "").upper()
     for prefix, mode_map in MUJI_MODE_MAPS.items():
         if model_upper.startswith(prefix):
@@ -146,7 +150,7 @@ class PhilipsAirPurifierFan(PhilipsHomeIDEntity, FanEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{device_id}_fan"
 
-        self._mode_map = _muji_mode_map(coordinator.device_info.model_name)
+        self._mode_map = muji_mode_map(coordinator.device_info.model_name)
         self._mode_reverse = (
             {v: k for k, v in self._mode_map.items()} if self._mode_map else {}
         )

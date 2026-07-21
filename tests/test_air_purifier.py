@@ -2,7 +2,7 @@
 
 from custom_components.philips_homeid.fan import (
     MUJI_MODE_MAPS,
-    _muji_mode_map,
+    muji_mode_map,
 )
 from custom_components.philips_homeid.mqtt_api import (
     FusionDeviceInfo,
@@ -90,12 +90,12 @@ def test_airfryer_status_stays_nested():
 
 def test_muji_mode_map_lookup():
     """Model names resolve to the correct operationMode map (or None)."""
-    assert _muji_mode_map("AC0650/10") == {"gentle": 1, "sleep": 17, "turbo": 18}
-    assert _muji_mode_map("AC0651/10")["auto"] == 0
-    assert _muji_mode_map("AC1715/70")["fast"] == 2
+    assert muji_mode_map("AC0650/10") == {"gentle": 1, "sleep": 17, "turbo": 18}
+    assert muji_mode_map("AC0651/10")["auto"] == 0
+    assert muji_mode_map("AC1715/70")["fast"] == 2
     # Non air purifier models have no MUJI mode map.
-    assert _muji_mode_map("HD9280") is None
-    assert _muji_mode_map(None) is None
+    assert muji_mode_map("HD9280") is None
+    assert muji_mode_map(None) is None
 
 
 def test_muji_mode_values_unique_per_model():

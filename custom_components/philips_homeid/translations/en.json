@@ -573,6 +573,9 @@
       },
       "rita_builtin_drink_select": {
         "name": "Built-in Drink"
+      },
+      "operation_mode": {
+        "name": "Operation Mode"
       }
     },
     "switch": {

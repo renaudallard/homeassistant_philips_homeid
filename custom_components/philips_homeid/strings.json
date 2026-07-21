@@ -409,6 +409,9 @@
       },
       "my_preset": {
         "name": "My Presets"
+      },
+      "operation_mode": {
+        "name": "Operation Mode"
       }
     },
     "switch": {

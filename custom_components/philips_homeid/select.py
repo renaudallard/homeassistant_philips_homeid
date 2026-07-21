@@ -36,6 +36,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .fan import MUJI_MODE_KEY, muji_mode_map
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
 from .rita_protobuf import decode_profile_recipe_ids, decode_recipe_id
 from .sensor import get_device_type
@@ -201,6 +202,39 @@ async def async_setup_entry(
                     return
 
         unregister = coordinator.register_new_property_callback(handle_rita_properties)
+        entry.async_on_unload(unregister)
+        return
+
+    if device_type == "air_purifier":
+        # Only MUJI models expose an operation-mode map. D0310C arrives via an
+        # NCP push after setup, so create the select on discovery like the
+        # MUJI fan and numbers do.
+        if muji_mode_map(model_name) is None:
+            return
+
+        created = False
+
+        def _make_mode_select() -> list[PhilipsHomeIDEntity]:
+            nonlocal created
+            if created or not coordinator.has_property(MUJI_MODE_KEY):
+                return []
+            created = True
+            return [PhilipsHomeIDMujiModeSelect(coordinator, coordinator.device_id)]
+
+        initial = _make_mode_select()
+        if initial:
+            async_add_entities(initial)
+            return
+
+        def handle_muji_properties(
+            new_properties: list[tuple[str, str | None]],
+        ) -> None:
+            entities = _make_mode_select()
+            if entities:
+                _LOGGER.info("Creating MUJI operation-mode select")
+                async_add_entities(entities, update_before_add=True)
+
+        unregister = coordinator.register_new_property_callback(handle_muji_properties)
         entry.async_on_unload(unregister)
         return
 
@@ -614,3 +648,47 @@ class PhilipsHomeIDRitaBuiltinDrinkSelect(PhilipsHomeIDEntity, SelectEntity):
             return
         self.coordinator.set_rita_brew_drink_id(drink_id)
         self.async_write_ha_state()
+
+
+class PhilipsHomeIDMujiModeSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Operation-mode select for MUJI (FUSION) air purifiers.
+
+    A convenience mirror of the fan's preset modes: it writes the same D0310C
+    operationMode, but renders as a dropdown on the device page, where Home
+    Assistant otherwise tucks the fan's presets into the more-info dialog.
+    """
+
+    _attr_translation_key = "operation_mode"
+    _attr_icon = "mdi:fan-auto"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_operation_mode"
+        self._mode_map = muji_mode_map(coordinator.device_info.model_name) or {}
+        self._mode_reverse = {v: k for k, v in self._mode_map.items()}
+        self._attr_options = list(self._mode_map)
+
+    @property
+    def current_option(self) -> str | None:
+        state = self.device_state
+        if not state:
+            return None
+        raw = state.properties.get(MUJI_MODE_KEY)
+        if raw is None:
+            return None
+        try:
+            return self._mode_reverse.get(int(raw))
+        except (TypeError, ValueError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._mode_map:
+            return
+        state = self.device_state
+        # The device ignores an operationMode write while off (APK IdleState),
+        # so power it on first, matching the fan preset.
+        if not state or not state.power_on:
+            await self.coordinator.async_set_power(True)
+        await self.coordinator.async_set_control_property(
+            MUJI_MODE_KEY, self._mode_map[option]
+        )

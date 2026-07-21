@@ -573,6 +573,9 @@
       },
       "autocook_program": {
         "name": "AutoCook-program"
+      },
+      "operation_mode": {
+        "name": "Driftläge"
       }
     },
     "switch": {

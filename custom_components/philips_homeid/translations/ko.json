@@ -573,6 +573,9 @@
       },
       "autocook_program": {
         "name": "AutoCook 프로그램"
+      },
+      "operation_mode": {
+        "name": "운전 모드"
       }
     },
     "switch": {

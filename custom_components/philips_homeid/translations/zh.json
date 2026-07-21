@@ -573,6 +573,9 @@
       },
       "autocook_program": {
         "name": "AutoCook 程序"
+      },
+      "operation_mode": {
+        "name": "运行模式"
       }
     },
     "switch": {

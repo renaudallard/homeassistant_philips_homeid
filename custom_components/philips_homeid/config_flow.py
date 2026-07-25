@@ -82,6 +82,7 @@ from .local_api import (
     parse_zeroconf_device,
 )
 from .sensor_descriptions import get_device_type
+from .util import normalize_unique_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,27 +119,6 @@ def _sanitize_host(raw: str) -> str | None:
     if ":" in host:
         return f"[{host}]"
     return host
-
-
-def _normalize_unique_id(raw_id: str) -> str:
-    """Normalize a device identifier to a consistent format.
-
-    Handles MAC addresses in various formats (colon-separated, dash-separated,
-    bare hex, uppercase/lowercase) and UUIDs containing a MAC suffix.
-    Normalizes to lowercase colon-separated MAC when possible.
-    """
-    if not raw_id:
-        return raw_id
-    raw_id = raw_id.strip().lower()
-    # Strip UUID prefix: "12345678-1234-1234-1234-e4bc960f7d9d" -> "e4bc960f7d9d"
-    if len(raw_id) == 36 and raw_id.count("-") == 4:
-        raw_id = raw_id.rsplit("-", 1)[-1]
-    # Remove separators to get bare hex
-    bare = raw_id.replace(":", "").replace("-", "")
-    # If it's 12 hex chars, format as colon-separated MAC
-    if len(bare) == 12 and all(c in "0123456789abcdef" for c in bare):
-        return ":".join(bare[i : i + 2] for i in range(0, 12, 2))
-    return raw_id
 
 
 DEVICE_MODELS = {
@@ -232,10 +212,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Abort if any existing entry matches this device."""
         from homeassistant.data_entry_flow import AbortFlow
 
-        norm = _normalize_unique_id(cpp_id)
+        norm = normalize_unique_id(cpp_id)
         for entry in self._async_current_entries():
             entry_cpp = entry.data.get(CONF_CPP_ID, "")
-            if norm and _normalize_unique_id(entry_cpp) == norm:
+            if norm and normalize_unique_id(entry_cpp) == norm:
                 # Update host IP if discovered (helps future matching)
                 if ip_address and entry.data.get(CONF_HOST) != ip_address:
                     self.hass.config_entries.async_update_entry(
@@ -402,7 +382,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if model != "auto":
                         device.model_name = model
                     self._discovered_device = device
-                    unique_id = _normalize_unique_id(device.cpp_id or host)
+                    unique_id = normalize_unique_id(device.cpp_id or host)
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured(updates={CONF_HOST: host})
                     return await self.async_step_confirm()
@@ -849,7 +829,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self._create_fusion_entry(device_data, errors)
 
         # Use MAC as unique ID (normalized to match discovery format)
-        unique_id = _normalize_unique_id(mac or host)
+        unique_id = normalize_unique_id(mac or host)
         await self._set_unique_id_or_abort(unique_id)
 
         # Use discovered device model if available, fall back to cloud data
@@ -914,7 +894,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "cloud_no_ip"
             return None
 
-        unique_id = _normalize_unique_id(device_data.get("id", host))
+        unique_id = normalize_unique_id(device_data.get("id", host))
         await self._set_unique_id_or_abort(unique_id)
 
         use_https = True
@@ -953,7 +933,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not mac and self._discovered_device:
             mac = self._discovered_device.cpp_id
 
-        unique_id = _normalize_unique_id(mac or external_id)
+        unique_id = normalize_unique_id(mac or external_id)
         await self._set_unique_id_or_abort(unique_id)
 
         # FUSION entries require a refresh token; the setup path bails
@@ -1088,7 +1068,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             or thing_name
         )
 
-        unique_id = _normalize_unique_id(mac or device_id or thing_name)
+        unique_id = normalize_unique_id(mac or device_id or thing_name)
         await self._set_unique_id_or_abort(unique_id)
 
         entry_data = self._fusion_entry_data(
@@ -1144,7 +1124,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_device = device
 
         # Set unique ID (normalized to match FUSION entries)
-        unique_id = _normalize_unique_id(device.cpp_id or discovery_info.name)
+        unique_id = normalize_unique_id(device.cpp_id or discovery_info.name)
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured(updates={CONF_HOST: device.ip_address})
 
@@ -1216,7 +1196,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_device = device
 
         # Set unique ID - prefer cppId over UDN (normalized to match FUSION entries)
-        unique_id = _normalize_unique_id(device.cpp_id or upnp.get("UDN", ""))
+        unique_id = normalize_unique_id(device.cpp_id or upnp.get("UDN", ""))
         await self.async_set_unique_id(unique_id)
         self._abort_if_unique_id_configured(updates={CONF_HOST: device.ip_address})
 

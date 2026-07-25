@@ -39,6 +39,7 @@ from .cloud_auth import (
     CloudNotRegisteredError,
     PhilipsCloudAuth,
 )
+from .util import normalize_unique_id
 
 __all__ = [
     "CloudAuthError",
@@ -204,17 +205,29 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         device_id: str = "",
         mac_address: str = "",
     ) -> str | None:
-        """Get the AWS IoT thingName for a device."""
+        """Get the AWS IoT thingName for a device.
+
+        The HomeID appliance record and the IoT device registry are separate
+        backends that can format the same MAC or device id differently (colon
+        vs dash vs bare hex, upper vs lower case, or wrapped in a UUID). Both
+        sides are normalized before matching so a format mismatch does not hide
+        an otherwise valid thingName.
+        """
         devices = await self.get_devices(access_token)
+        norm_id = normalize_unique_id(device_id)
+        norm_mac = normalize_unique_id(mac_address)
         for dev in devices:
-            if device_id and dev.get("id") == device_id:
+            if device_id and normalize_unique_id(dev.get("id", "")) == norm_id:
                 thing = dev.get("thingName", "")
                 if thing:
                     _LOGGER.debug(
                         "Found thingName=%s for device id=%s", thing, device_id
                     )
                     return thing
-            if mac_address and dev.get("macAddress") == mac_address:
+            if (
+                mac_address
+                and normalize_unique_id(dev.get("macAddress", "")) == norm_mac
+            ):
                 thing = dev.get("thingName", "")
                 if thing:
                     _LOGGER.debug("Found thingName=%s for mac=%s", thing, mac_address)

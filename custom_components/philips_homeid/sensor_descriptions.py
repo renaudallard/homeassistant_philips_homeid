@@ -38,13 +38,28 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
-    CONCENTRATION_PARTS_PER_BILLION,
     EntityCategory,
     PERCENTAGE,
     UnitOfTemperature,
     UnitOfTime,
 )
+
+try:
+    # UnitOfDensity and UnitOfRatio landed in HA 2026.7; the CONCENTRATION_*
+    # aliases warn since 2026.8 and get removed in 2027.8. Fall back to them
+    # so the integration keeps loading on older cores.
+    from homeassistant.const import (  # type: ignore[attr-defined]
+        UnitOfDensity,
+        UnitOfRatio,
+    )
+
+    MICROGRAMS_PER_CUBIC_METER: str = UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+    PARTS_PER_BILLION: str = UnitOfRatio.PARTS_PER_BILLION
+except ImportError:
+    from homeassistant import const as ha_const
+
+    MICROGRAMS_PER_CUBIC_METER = ha_const.CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+    PARTS_PER_BILLION = ha_const.CONCENTRATION_PARTS_PER_BILLION
 
 
 def is_spectre_model(model_name: str | None) -> bool:
@@ -268,7 +283,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         translation_key="pm25",
         # FUSION MUJI air purifiers report PM2.5 on D03221 (APK AirStatusPort).
         property_key="D03221",
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM25,
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),
@@ -277,7 +292,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         key="pm1",
         translation_key="pm1",
         property_key="pm1",
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM1,
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),
@@ -286,7 +301,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         key="pm10",
         translation_key="pm10",
         property_key="pm10",
-        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        native_unit_of_measurement=MICROGRAMS_PER_CUBIC_METER,
         device_class=SensorDeviceClass.PM10,
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),
@@ -305,7 +320,7 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         key="tvoc",
         translation_key="tvoc",
         property_key="tvoc",
-        native_unit_of_measurement=CONCENTRATION_PARTS_PER_BILLION,
+        native_unit_of_measurement=PARTS_PER_BILLION,
         device_class=SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS_PARTS,
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),

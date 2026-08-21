@@ -138,10 +138,12 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         _LOGGER.debug("MQTT signature: GET %s", url)
         async with session.get(url, headers=headers) as resp:
             text = await resp.text()
+            # The body is the AWS IoT custom-authorizer signature, which is a
+            # credential, so log its size and never its value.
             _LOGGER.debug(
-                "MQTT signature response: HTTP %s, body: %s",
+                "MQTT signature response: HTTP %s, %d bytes",
                 resp.status,
-                text[:500],
+                len(text),
             )
             if resp.status == 401:
                 raise CloudAuthError(f"MQTT signature rejected: HTTP {resp.status}")

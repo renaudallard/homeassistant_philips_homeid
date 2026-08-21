@@ -200,7 +200,6 @@ class PhilipsCondorAuth:
                     break
 
             _LOGGER.debug("Using scheme: %s", response_scheme)
-            _LOGGER.debug("Challenge (cleaned): %s", challenge_clean)
 
             challenge = base64.b64decode(challenge_clean)
             if not (
@@ -216,9 +215,7 @@ class PhilipsCondorAuth:
                 )
                 return None
 
-            _LOGGER.debug(
-                "Challenge size: %d bytes, hex: %s", len(challenge), challenge.hex()
-            )
+            _LOGGER.debug("Challenge size: %d bytes", len(challenge))
 
             client_id_bytes = base64.b64decode(client_id)
             client_secret_bytes = base64.b64decode(client_secret)
@@ -229,12 +226,14 @@ class PhilipsCondorAuth:
             data = challenge + client_id_bytes + client_secret_bytes
             hash_result = hashlib.sha256(data).digest()
 
-            _LOGGER.debug("Hash result (hex): %s", hash_result.hex())
-
             response_bytes = client_id_bytes + hash_result
             response_b64 = base64.b64encode(response_bytes).decode("utf-8")
 
-            _LOGGER.debug("Response: %s %s", response_scheme, response_b64)
+            # The response is the verbatim Authorization header value, so log
+            # its size rather than the header itself.
+            _LOGGER.debug(
+                "Response: scheme %s, %d chars", response_scheme, len(response_b64)
+            )
 
             return f"{response_scheme} {response_b64}"
         except Exception as err:

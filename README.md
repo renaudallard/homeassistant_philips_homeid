@@ -91,9 +91,10 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 
 ### Requirements
 
-Home Assistant **2025.3.0** or newer. Older cores cannot install the
-`paho-mqtt>=2.0.0` requirement used by the FUSION cloud relay, and the config
-flow imports discovery types that only exist from 2025.2.0.
+Home Assistant **2025.3.0** or newer. No extra Python packages are needed:
+the FUSION cloud relay uses the `paho-mqtt` that Home Assistant itself ships,
+and 2025.3.0 is the first core to ship version 2.x of it. The config flow also
+imports discovery types that only exist from 2025.2.0.
 
 ### HACS (Recommended)
 

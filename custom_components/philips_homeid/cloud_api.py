@@ -1006,15 +1006,17 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
         async with session.post(url, headers=headers, json=body) as resp:
             text = await resp.text()
+            # The body carries localCredentials for every device, so log its
+            # size only. The per-device lines below stay free of secrets.
             _LOGGER.debug(
-                "Migration response: HTTP %s, body: %s", resp.status, text[:1000]
+                "Migration response: HTTP %s, %d bytes", resp.status, len(text)
             )
             if resp.status != 200:
                 return []
             try:
                 data = json.loads(text)
             except json.JSONDecodeError:
-                _LOGGER.debug("Migration response not JSON: %s", text[:200])
+                _LOGGER.debug("Migration response not JSON, %d bytes", len(text))
                 return []
 
         devices = data if isinstance(data, list) else data.get("devices", [])

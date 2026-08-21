@@ -463,10 +463,12 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         _LOGGER.debug("HomeID profile: GET %s", profile_req_url)
         async with session.get(profile_req_url, headers=hal_headers) as resp:
             text = await resp.text()
+            # The profile can embed the appliance list, which carries a
+            # clientId and clientSecret per appliance, so log the size only.
             _LOGGER.debug(
-                "HomeID profile response: HTTP %s, body (first 1000): %s",
+                "HomeID profile response: HTTP %s, %d bytes",
                 resp.status,
-                text[:1000],
+                len(text),
             )
             if resp.status != 200:
                 _LOGGER.error(
@@ -479,7 +481,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             try:
                 profile = json.loads(text)
             except json.JSONDecodeError:
-                _LOGGER.error("HomeID profile not JSON: %s", text[:200])
+                _LOGGER.error("HomeID profile not JSON, %d bytes", len(text))
                 return []
 
         embedded = profile.get("_embedded", {})
@@ -516,10 +518,13 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         _LOGGER.debug("HomeID appliances: GET %s", appliances_req_url)
         async with session.get(appliances_req_url, headers=hal_headers) as resp:
             text = await resp.text()
+            # Every appliance in the body carries its clientId and
+            # clientSecret, so log the size only. The per-appliance lines in
+            # _log_appliances() report those two as booleans.
             _LOGGER.debug(
-                "HomeID appliances response: HTTP %s, body (first 2000): %s",
+                "HomeID appliances response: HTTP %s, %d bytes",
                 resp.status,
-                text[:2000],
+                len(text),
             )
             if resp.status != 200:
                 _LOGGER.error(
@@ -532,7 +537,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             try:
                 appliances_data = json.loads(text)
             except json.JSONDecodeError:
-                _LOGGER.error("HomeID appliances not JSON: %s", text[:200])
+                _LOGGER.error("HomeID appliances not JSON, %d bytes", len(text))
                 return []
 
         if isinstance(appliances_data, dict):

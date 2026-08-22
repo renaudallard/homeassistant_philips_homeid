@@ -91,7 +91,7 @@
       "cloud_no_ip": "IP地址不可用",
       "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以手动输入凭据。",
       "cloud_unreachable": "Philips 云服务暂时无法访问，请稍后再试。",
-      "cloud_profile_error": "Philips HomeID 服务器针对你的账户返回了服务器错误。请打开 Philips HomeID 应用，确认你的设备已显示且设置已完成，然后过几分钟再试。",
+      "cloud_profile_error": "Philips HomeID 服务器针对你的账户返回了服务器错误。请打开 Philips HomeID 应用，即使设备仍然显示，也请先删除该设备并重新配对，然后再试一次。该错误也可能是暂时的，可以等几分钟后重试。",
       "invalid_host": "请仅输入 IP 地址或主机名（不要包含协议、端口或路径）。"
     },
     "abort": {

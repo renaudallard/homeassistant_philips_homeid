@@ -91,7 +91,7 @@
       "cloud_no_ip": "Adres IP niedostepny",
       "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też wprowadzić dane uwierzytelniające ręcznie.",
       "cloud_unreachable": "Chmura Philips jest tymczasowo niedostępna. Poczekaj chwilę i spróbuj ponownie.",
-      "cloud_profile_error": "Serwer Philips HomeID zwrócił błąd dla Twojego konta. Otwórz aplikację Philips HomeID, sprawdź, czy Twoje urządzenie jest na liście i czy konfiguracja została ukończona, a następnie spróbuj ponownie za kilka minut.",
+      "cloud_profile_error": "Serwer Philips HomeID zwrócił błąd dla Twojego konta. Otwórz aplikację Philips HomeID, usuń urządzenie i sparuj je ponownie, nawet jeśli nadal jest na liście, a następnie spróbuj ponownie. Błąd może być też tymczasowy, więc warto odczekać kilka minut.",
       "invalid_host": "Podaj sam adres IP lub nazwę hosta (bez schematu, portu ani ścieżki)."
     },
     "abort": {

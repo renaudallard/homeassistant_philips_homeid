@@ -88,7 +88,7 @@
       "otp_failed": "Invalid verification code. Please try again.",
       "account_not_registered": "This email is not a fully registered Philips HomeID account. Sign in once in the Philips HomeID app with this email, then try again, or restart and use manual credential entry.",
       "cloud_unreachable": "The Philips cloud is temporarily unreachable. Please wait a moment and try again.",
-      "cloud_profile_error": "The Philips HomeID backend returned a server error for your account. Open the Philips HomeID app, confirm your device appears there and setup is finished, then try again in a few minutes.",
+      "cloud_profile_error": "The Philips HomeID backend returned a server error for your account. Open the Philips HomeID app, remove the device and pair it again even if it is still listed, then retry. The error can also be temporary, so waiting a few minutes may help.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",
       "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually.",

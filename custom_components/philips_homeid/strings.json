@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Cloud login required",
-        "description": "Cloud login is needed to fetch recipe names. Enter your Philips HomeID email.",
+        "description": "Cloud login is needed to reconnect this device. Enter your Philips HomeID email.",
         "data": {
           "email": "Email"
         }
@@ -89,17 +89,19 @@
       "account_not_registered": "This email is not a fully registered Philips HomeID account. Sign in once in the Philips HomeID app with this email, then try again, or restart and use manual credential entry.",
       "cloud_unreachable": "The Philips cloud is temporarily unreachable. Please wait a moment and try again.",
       "cloud_profile_error": "The Philips HomeID backend returned a server error for your account. Open the Philips HomeID app, remove the device and pair it again even if it is still listed, then retry. The error can also be temporary, so waiting a few minutes may help.",
-      "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also enter credentials manually.",
       "no_cloud_devices": "No devices found in your Philips account.",
       "cloud_credentials_not_found": "Could not retrieve device credentials from the cloud. Try entering credentials manually.",
-      "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually."
+      "cloud_no_ip": "Device IP address not available from cloud. Try entering the IP address manually.",
+      "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also enter credentials manually."
     },
     "abort": {
       "already_configured": "Device already configured",
+      "already_in_progress": "Configuration flow is already in progress",
       "cannot_connect": "Cannot connect to device",
       "unsupported_device": "This Philips device is not supported by the integration and was ignored.",
-      "reauth_successful": "Cloud login successful. Press Refresh Recipes again.",
-      "reauth_failed": "Cloud login failed. Try again later."
+      "reauth_successful": "Cloud login successful.",
+      "reauth_failed": "Cloud login failed. Try again later.",
+      "reauth_entry_missing": "Could not find the integration entry to reauthenticate. Reload Home Assistant and try again."
     }
   },
   "options": {
@@ -171,6 +173,18 @@
       "error_code": {
         "name": "Error Code"
       },
+      "muji_filter0_lifetime": {
+        "name": "Filter 0 Total Lifetime"
+      },
+      "muji_filter1_lifetime": {
+        "name": "Filter 1 Total Lifetime"
+      },
+      "muji_filter0_remaining": {
+        "name": "Filter 0 Remaining"
+      },
+      "muji_filter1_remaining": {
+        "name": "Filter 1 Remaining"
+      },
       "airfryer_status": {
         "name": "Cooking Status"
       },
@@ -200,18 +214,6 @@
       },
       "airfryer_keep_warm": {
         "name": "Keep Warm"
-      },
-      "muji_filter0_lifetime": {
-        "name": "Filter 0 Total Lifetime"
-      },
-      "muji_filter1_lifetime": {
-        "name": "Filter 1 Total Lifetime"
-      },
-      "muji_filter0_remaining": {
-        "name": "Filter 0 Remaining"
-      },
-      "muji_filter1_remaining": {
-        "name": "Filter 1 Remaining"
       },
       "airfryer_recipe_id": {
         "name": "Recipe ID"
@@ -290,6 +292,96 @@
       },
       "firmware_available": {
         "name": "Firmware Available"
+      },
+      "espresso_mainstate": {
+        "name": "Machine State"
+      },
+      "espresso_brewing_progress": {
+        "name": "Brewing Progress"
+      },
+      "espresso_water_level": {
+        "name": "Water Level"
+      },
+      "espresso_bean_level": {
+        "name": "Bean Level"
+      },
+      "espresso_descale_status": {
+        "name": "Descale Status"
+      },
+      "espresso_filter_status": {
+        "name": "Filter Status"
+      },
+      "espresso_filter_number": {
+        "name": "Filter Number"
+      },
+      "espresso_waste_bean": {
+        "name": "Waste Bean Tray"
+      },
+      "espresso_switch_state": {
+        "name": "Switch State"
+      },
+      "espresso_last_error": {
+        "name": "Last Error"
+      },
+      "espresso_active_user": {
+        "name": "Active User"
+      },
+      "espresso_water_hardness": {
+        "name": "Water Hardness"
+      },
+      "espresso_auto_standby_time": {
+        "name": "Auto Standby Time"
+      },
+      "rita_machine_state": {
+        "name": "Machine State"
+      },
+      "rita_machine_status": {
+        "name": "Machine Status"
+      },
+      "rita_machine_extra_info": {
+        "name": "Machine Extra Info"
+      },
+      "rita_control_status": {
+        "name": "Control Status"
+      },
+      "rita_bean_type": {
+        "name": "Bean Type"
+      },
+      "rita_roast_level": {
+        "name": "Roast Level"
+      },
+      "rita_aquaclean_filter_number": {
+        "name": "AquaClean Filter Number"
+      },
+      "rita_aquaclean_autonomy": {
+        "name": "AquaClean Autonomy"
+      },
+      "rita_descale_autonomy": {
+        "name": "Descale Autonomy"
+      },
+      "rita_coffee_autonomy": {
+        "name": "Coffee Autonomy"
+      },
+      "rita_brew_group_autonomy": {
+        "name": "Brew Group Autonomy"
+      },
+      "ncp_firmware_version": {
+        "name": "NCP Firmware Version"
+      },
+      "host_firmware_version": {
+        "name": "Host Firmware Version"
+      },
+      "product_error": {
+        "name": "Product Error"
+      },
+      "device_name": {
+        "name": "Device Name"
+      },
+      "device_serial": {
+        "name": "Serial Number"
+      },
+      "device_ctn": {
+        "name": "Model Number"
       }
     },
     "binary_sensor": {
@@ -331,6 +423,9 @@
       },
       "airfryer_right_drawer_open": {
         "name": "Right Basket Drawer"
+      },
+      "temp_unit_fahrenheit": {
+        "name": "Temperature Unit Fahrenheit"
       }
     },
     "button": {
@@ -346,8 +441,35 @@
       "airfryer_keep_warm": {
         "name": "Keep Warm"
       },
+      "airfryer_refresh_recipe": {
+        "name": "Refresh Recipes"
+      },
       "airfryer_autocook_send": {
         "name": "Send AutoCook Program"
+      },
+      "rita_brew": {
+        "name": "Brew Saved Recipe"
+      },
+      "rita_brew_builtin": {
+        "name": "Brew Built-in Drink"
+      },
+      "rita_abort_brew": {
+        "name": "Abort Brew"
+      },
+      "rita_resume_brew": {
+        "name": "Resume Brew"
+      },
+      "rita_skip_step": {
+        "name": "Skip Step"
+      },
+      "rita_brew_hot_water": {
+        "name": "Brew Hot Water"
+      },
+      "espresso_brew_espresso": {
+        "name": "Brew Espresso"
+      },
+      "espresso_brew_coffee": {
+        "name": "Brew Coffee"
       }
     },
     "number": {
@@ -374,6 +496,21 @@
       },
       "set_keep_warm_temp": {
         "name": "Keep Warm Temperature"
+      },
+      "espresso_grinder_dose": {
+        "name": "Grinder Dose"
+      },
+      "espresso_brew_temperature": {
+        "name": "Brew Temperature"
+      },
+      "espresso_brew_count": {
+        "name": "Number of Brews"
+      },
+      "espresso_primary_dose": {
+        "name": "Primary Dose"
+      },
+      "espresso_secondary_dose": {
+        "name": "Secondary Dose"
       }
     },
     "select": {
@@ -412,6 +549,31 @@
       "my_preset": {
         "name": "My Presets"
       },
+      "rita_roast_level_select": {
+        "name": "Roast Level",
+        "state": {
+          "light": "Light",
+          "medium": "Medium",
+          "dark": "Dark"
+        }
+      },
+      "rita_bean_type_select": {
+        "name": "Bean Type",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mix",
+          "other": "Other"
+        }
+      },
+      "rita_brew_profile_select": {
+        "name": "Brew Profile"
+      },
+      "rita_brew_recipe_select": {
+        "name": "Saved Recipe"
+      },
+      "rita_builtin_drink_select": {
+        "name": "Built-in Drink"
+      },
       "operation_mode": {
         "name": "Operation Mode"
       }
@@ -425,6 +587,9 @@
       },
       "sensor_monitor_standby": {
         "name": "Sensor Monitor in Standby"
+      },
+      "power": {
+        "name": "Power"
       }
     },
     "update": {

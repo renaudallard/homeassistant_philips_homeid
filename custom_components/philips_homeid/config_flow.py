@@ -582,9 +582,24 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                         # Try Home ID HAL API first (the app's primary backend)
                         _LOGGER.debug("Trying Home ID API for appliances")
-                        appliances = await self._cloud_api.get_appliances_via_homeid(
-                            tokens
-                        )
+                        homeid_failed = False
+                        try:
+                            appliances = (
+                                await self._cloud_api.get_appliances_via_homeid(tokens)
+                            )
+                        except CloudBackendError as err:
+                            # A 5xx here is the HomeID backend failing to build
+                            # the response for this account. That says nothing
+                            # about the DA registry, so remember the failure and
+                            # let the IoT and Air+ lookups still have a turn
+                            # instead of ending the flow (issue #36).
+                            _LOGGER.error(
+                                "Cloud OAuth: HomeID backend error (%s), "
+                                "falling back to the IoT device registry",
+                                err,
+                            )
+                            homeid_failed = True
+                            appliances = []
 
                         if appliances:
                             self._cloud_devices = appliances
@@ -618,9 +633,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             return await self.async_step_cloud_devices()
 
                         # Fall back to IoT API
-                        _LOGGER.debug(
-                            "Home ID API returned no appliances, trying IoT API"
-                        )
+                        _LOGGER.debug("No Home ID appliances, trying IoT API")
 
                         # Verify token with user profile (IoT)
                         try:
@@ -635,9 +648,23 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 "Could not fetch IoT user profile (non-fatal)"
                             )
 
-                        devices = await self._cloud_api.get_devices(
-                            tokens["access_token"]
-                        )
+                        try:
+                            devices = await self._cloud_api.get_devices(
+                                tokens["access_token"]
+                            )
+                        except CloudAuthError:
+                            # With the HomeID backend already broken for this
+                            # account, a refusal here is just the second door
+                            # shutting. Keep the HomeID diagnosis rather than
+                            # reporting it as an auth failure.
+                            if not homeid_failed:
+                                raise
+                            _LOGGER.debug(
+                                "IoT device registry lookup failed after the "
+                                "HomeID backend error",
+                                exc_info=True,
+                            )
+                            devices = []
 
                         # Also query homes for debug context
                         try:
@@ -665,7 +692,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             self._cloud_source = OAUTH_CLIENT_AIRPLUS
                             return await self.async_step_cloud_devices()
 
-                        errors["base"] = "no_cloud_devices"
+                        errors["base"] = (
+                            "cloud_profile_error"
+                            if homeid_failed
+                            else "no_cloud_devices"
+                        )
 
                     # The cloud API stays open here too: closing it stranded
                     # the step, because the next submission found no API and

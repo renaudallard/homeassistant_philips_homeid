@@ -493,9 +493,11 @@ Cloud login works on all supported HA installation types (OS, Container, Supervi
 ### "The Philips HomeID backend returned a server error for your account"
 This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile. It is a problem on Philips's servers with your account data, not a device or network fault, and the integration sends the same request the official app does. The usual cause is a stale or broken device record on the account.
 
+When the HomeID backend fails this way the integration still queries the IoT device registry and the Air+ registry, which are separate services on Philips's side. You only see this message if none of them listed a device, so there is nothing left for the integration to try.
+
 To fix it:
 
-- Log out of the official Philips HomeID app and log back in. If your device is no longer listed, add it again. Rebuilding the device record on Philips's servers this way clears the error. Then retry the cloud login in Home Assistant.
+- Log out of the official Philips HomeID app, log back in, then remove the device and pair it again. Do this even if the device is still listed after logging back in, because the app can show a cached entry over a record the server can no longer serve. Re-pairing rebuilds that record and clears the error. Then retry the cloud login in Home Assistant.
 - A 5xx can also be transient, so if the above does not apply you can wait a while and retry.
 
 The backend's error response is written to the Home Assistant log on the `HomeID profile failed` line.

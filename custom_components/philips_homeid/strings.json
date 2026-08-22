@@ -77,6 +77,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to device",
+      "invalid_host": "Enter a bare IP address or hostname (no scheme, port, or path)",
       "missing_credentials": "Both Client ID and Client Secret are required",
       "invalid_credentials": "The credentials are invalid or the device rejected them",
       "encryption_key_failed": "Could not obtain encryption key from device. The credentials may be cloud credentials (not local), or the device requires a manual encryption key. Use the credential extractor or provide the key manually.",
@@ -86,6 +87,7 @@
       "otp_send_failed": "Failed to send verification code. Please check your email and try again.",
       "otp_failed": "Invalid verification code. Please try again.",
       "account_not_registered": "This email is not a fully registered Philips HomeID account. Sign in once in the Philips HomeID app with this email, then try again, or restart and use manual credential entry.",
+      "cloud_unreachable": "The Philips cloud is temporarily unreachable. Please wait a moment and try again.",
       "cloud_profile_error": "The Philips HomeID backend returned a server error for your account. Open the Philips HomeID app, remove the device and pair it again even if it is still listed, then retry. The error can also be temporary, so waiting a few minutes may help.",
       "cloud_oauth_failed": "Cloud authentication failed. Check Home Assistant logs for details. You can also enter credentials manually.",
       "no_cloud_devices": "No devices found in your Philips account.",

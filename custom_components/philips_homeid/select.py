@@ -609,6 +609,13 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         slot left over from a previously selected profile.
         """
         labels = self._slot_labels()
+        if not labels:
+            # An empty dropdown is otherwise indistinguishable from a profile
+            # the machine has not reported yet, so say which slot came up bare.
+            _LOGGER.debug(
+                "No saved recipes for Rita profile slot %s",
+                self.coordinator.rita_brew_profile_id,
+            )
         if self.coordinator.rita_brew_recipe_id not in labels:
             self.coordinator.set_rita_brew_recipe_id(next(iter(labels), -1))
         super()._handle_coordinator_update()

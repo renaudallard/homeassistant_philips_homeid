@@ -30,7 +30,7 @@ def test_truncated_length_delimited_field_is_rejected():
 
 def test_a_truncated_profile_decodes_as_empty():
     raw = bytes([4 << 3 | 2, 10, 0x05, 0x07])
-    assert decode_profile_recipe_ids(_b64(raw)) == set()
+    assert decode_profile_recipe_ids(_b64(raw)) == []
 
 
 def test_truncated_fixed_width_fields_are_rejected():
@@ -47,7 +47,7 @@ def test_truncated_fixed_width_fields_are_rejected():
 def test_a_whole_profile_still_decodes():
     body = bytes([0x05, 0x07])
     raw = bytes([4 << 3 | 2, len(body)]) + body
-    assert decode_profile_recipe_ids(_b64(raw)) == {5, 7}
+    assert decode_profile_recipe_ids(_b64(raw)) == [5, 7]
 
 
 def test_whole_fixed_width_fields_are_skipped():

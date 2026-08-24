@@ -87,13 +87,18 @@ def iter_fields(data: bytes) -> Iterator[tuple[int, int, int | bytes]]:
             raise ValueError(f"unsupported wire type {wire_type}")
 
 
-def decode_profile_recipe_ids(blob_b64: str) -> set[int]:
-    """Return the recipeIds from a Rita profile's recipeIdOrderList (tag 4)."""
+def decode_profile_recipe_ids(blob_b64: str) -> list[int]:
+    """Return the recipeIds from a Rita profile's recipeIdOrderList (tag 4).
+
+    The order is the one the machine keeps, which is how the profile's drinks
+    are arranged on its screen. Unused entries are stored as 0 and dropped,
+    as are repeats of an id already listed.
+    """
     try:
         data = base64.b64decode(blob_b64)
     except (ValueError, TypeError):
-        return set()
-    result: set[int] = set()
+        return []
+    result: list[int] = []
     try:
         for field_number, wire_type, value in iter_fields(data):
             if field_number != 4 or wire_type != 2 or not isinstance(value, bytes):
@@ -101,10 +106,10 @@ def decode_profile_recipe_ids(blob_b64: str) -> set[int]:
             offset = 0
             while offset < len(value):
                 recipe_id, offset = decode_varint(value, offset)
-                if recipe_id:
-                    result.add(recipe_id)
+                if recipe_id and recipe_id not in result:
+                    result.append(recipe_id)
     except ValueError:
-        return set()
+        return []
     return result
 
 

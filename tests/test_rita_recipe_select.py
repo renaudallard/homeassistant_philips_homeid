@@ -92,6 +92,18 @@ def test_missing_ports_have_no_options():
     assert sel._slot_labels() == {}
 
 
+def test_options_follow_the_machine_order():
+    """The dropdown lists the profile's recipes in recipeIdOrderList order."""
+    sel = _select(recipes={8: RECIPES[8], 9: RECIPES[9], 10: RECIPES[10]})
+    # Profile 1 lists ids 2, 1 then 4, which live in slots 8, 9 and 10.
+    assert list(sel._slot_labels()) == [8, 9, 10]
+    sel = _select(
+        profile_blob="COSHgcYCEAEiCQQBAp4DAAAAAA==",  # ids 4, 1, 2 then 414
+        recipes={8: RECIPES[8], 9: RECIPES[9], 10: RECIPES[10]},
+    )
+    assert list(sel._slot_labels()) == [10, 9, 8]
+
+
 def test_duplicate_drink_names_keep_their_slot_prefix():
     """Two personalised copies of one drink stay distinguishable."""
     sel = _select(recipes={8: RECIPES[8], 9: RECIPES[8]})

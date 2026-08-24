@@ -541,7 +541,7 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         state = self.device_state
         names = [""] * 80
         blobs: list[str] = [""] * 80
-        profile_ids: set[int] = set()
+        profile_ids: list[int] = []
         profile_slot = self.coordinator.rita_brew_profile_id
 
         if state:
@@ -571,12 +571,14 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
 
         drinks = self.coordinator.rita_builtin_drinks()
         filtered = [""] * 80
+        slots_of: dict[int, list[int]] = {}
         for i in range(80):
             if not blobs[i]:
                 continue
             rid = decode_recipe_id(blobs[i])
             if rid is None or rid not in profile_ids:
                 continue
+            slots_of.setdefault(rid, []).append(i)
             if names[i]:
                 filtered[i] = names[i]
                 continue
@@ -588,7 +590,15 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
             filtered[i] = drink or f"Recipe {i}"
         if not any(filtered):
             return {}
-        return _build_named_options(filtered, 80, "Recipe")
+
+        # recipeIdOrderList is the order the machine arranges the profile's
+        # drinks in, so offer them that way rather than in storage order.
+        named = _build_named_options(filtered, 80, "Recipe")
+        labels: dict[int, str] = {}
+        for rid in profile_ids:
+            for slot in slots_of.get(rid, []):
+                labels[slot] = named[slot]
+        return labels
 
     @callback
     def _handle_coordinator_update(self) -> None:

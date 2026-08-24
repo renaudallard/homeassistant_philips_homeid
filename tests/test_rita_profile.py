@@ -72,8 +72,8 @@ def test_profile_id_truncated_varint_returns_none():
 
 
 def test_profile_recipe_ids_from_tag4():
-    """The recipe id order list is read from tag 4."""
-    assert decode_profile_recipe_ids(_PROFILE_SLOT2) == {10, 20}
+    """The recipe id order list is read from tag 4, in the machine's order."""
+    assert decode_profile_recipe_ids(_PROFILE_SLOT2) == [10, 20]
 
 
 def test_recipe_id_from_tag1():

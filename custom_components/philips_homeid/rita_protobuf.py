@@ -108,19 +108,33 @@ def decode_profile_recipe_ids(blob_b64: str) -> set[int]:
     return result
 
 
-def decode_recipe_id(blob_b64: str) -> int | None:
-    """Return the recipeId (tag 1) from a RitaBrewCommand saved recipe blob."""
+def _decode_varint_field(blob_b64: str, field: int) -> int | None:
+    """Return one top-level varint field from a base64 protobuf blob."""
     try:
         data = base64.b64decode(blob_b64)
     except (ValueError, TypeError):
         return None
     try:
         for field_number, wire_type, value in iter_fields(data):
-            if field_number == 1 and wire_type == 0 and isinstance(value, int):
+            if field_number == field and wire_type == 0 and isinstance(value, int):
                 return value
     except ValueError:
         return None
     return None
+
+
+def decode_recipe_id(blob_b64: str) -> int | None:
+    """Return the recipeId (tag 1) from a RitaBrewCommand saved recipe blob."""
+    return _decode_varint_field(blob_b64, 1)
+
+
+def decode_recipe_book_id(blob_b64: str) -> int | None:
+    """Return the recipeBookId (tag 2) from a RitaBrewCommand saved recipe blob.
+
+    A built-in drink personalised on the machine keeps that drink's id here,
+    which is the only way to name a saved recipe the machine left unnamed.
+    """
+    return _decode_varint_field(blob_b64, 2)
 
 
 def decode_profile_id(blob_b64: str) -> int | None:
@@ -130,14 +144,4 @@ def decode_profile_id(blob_b64: str) -> int | None:
     index of the profile. profileId 0 is the app's empty/invalid sentinel
     (profiles reporting 0 are skipped), so it is reported as None.
     """
-    try:
-        data = base64.b64decode(blob_b64)
-    except (ValueError, TypeError):
-        return None
-    try:
-        for field_number, wire_type, value in iter_fields(data):
-            if field_number == 1 and wire_type == 0 and isinstance(value, int):
-                return value or None
-    except ValueError:
-        return None
-    return None
+    return _decode_varint_field(blob_b64, 1) or None

@@ -38,7 +38,11 @@ from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .fan import MUJI_MODE_KEY, muji_mode_map
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
-from .rita_protobuf import decode_profile_recipe_ids, decode_recipe_id
+from .rita_protobuf import (
+    decode_profile_recipe_ids,
+    decode_recipe_book_id,
+    decode_recipe_id,
+)
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
@@ -520,8 +524,10 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
     Lists only the active profile's saved recipes, filtered to the profile by
     matching each rcp blob's recipeId (field 1 of RitaBrewCommand) against the
     profile's recipeIdOrderList (field 4 of RitaProfileData), the same approach
-    the APK uses in DefaultGetDrinksForActiveProfileUseCase. The machine's
-    built-in drinks live in the separate PhilipsHomeIDRitaBuiltinDrinkSelect.
+    the APK uses in DefaultGetDrinksForActiveProfileUseCase. A recipe the
+    machine left unnamed is labelled after the built-in drink it was
+    personalised from. The machine's built-in drinks live in the separate
+    PhilipsHomeIDRitaBuiltinDrinkSelect.
     """
 
     _attr_translation_key = "rita_brew_recipe_select"
@@ -560,21 +566,29 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
                 if isinstance(profile_blob, str) and profile_blob:
                     profile_ids = decode_profile_recipe_ids(profile_blob)
 
-        labels: dict[int, str] = {}
+        if not profile_ids:
+            return {}
 
-        # The active profile's saved recipes come first.
-        if profile_ids:
-            filtered = [""] * 80
-            for i in range(80):
-                if not names[i] or not blobs[i]:
-                    continue
-                rid = decode_recipe_id(blobs[i])
-                if rid is not None and rid in profile_ids:
-                    filtered[i] = names[i]
-            if any(filtered):
-                labels.update(_build_named_options(filtered, 80, "Recipe"))
-
-        return labels
+        drinks = self.coordinator.rita_builtin_drinks()
+        filtered = [""] * 80
+        for i in range(80):
+            if not blobs[i]:
+                continue
+            rid = decode_recipe_id(blobs[i])
+            if rid is None or rid not in profile_ids:
+                continue
+            if names[i]:
+                filtered[i] = names[i]
+                continue
+            # The machine saves a personalised built-in drink without a
+            # Rec_Names entry, so name it after the drink it was built from.
+            # The APK drops a slot only when its recipeId is 0.
+            book_id = decode_recipe_book_id(blobs[i])
+            drink = drinks.get(book_id) if book_id is not None else None
+            filtered[i] = drink or f"Recipe {i}"
+        if not any(filtered):
+            return {}
+        return _build_named_options(filtered, 80, "Recipe")
 
     @callback
     def _handle_coordinator_update(self) -> None:

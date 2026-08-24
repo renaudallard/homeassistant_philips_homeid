@@ -76,6 +76,14 @@ def test_profile_recipe_ids_from_tag4():
     assert decode_profile_recipe_ids(_PROFILE_SLOT2) == [10, 20]
 
 
+def test_profile_recipe_ids_from_unpacked_tag4():
+    """An unpacked repeated field is read the same as a packed one."""
+    assert decode_profile_recipe_ids(_blob(0x20, 0x0A, 0x20, 0x14, 0x20, 0x00)) == [
+        10,
+        20,
+    ]
+
+
 def test_recipe_id_from_tag1():
     """A saved RitaBrewCommand recipe blob exposes its recipeId at tag 1."""
     assert decode_recipe_id(_blob(0x08, 0x07)) == 7

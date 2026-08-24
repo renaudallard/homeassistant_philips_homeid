@@ -93,21 +93,32 @@ def decode_profile_recipe_ids(blob_b64: str) -> list[int]:
     The order is the one the machine keeps, which is how the profile's drinks
     are arranged on its screen. Unused entries are stored as 0 and dropped,
     as are repeats of an id already listed.
+
+    A repeated field may reach us packed into one length-delimited value or
+    as one varint per entry. Both are valid and the app's protobuf runtime
+    reads either, so both are accepted here.
     """
     try:
         data = base64.b64decode(blob_b64)
     except (ValueError, TypeError):
         return []
     result: list[int] = []
+
+    def add(recipe_id: int) -> None:
+        if recipe_id and recipe_id not in result:
+            result.append(recipe_id)
+
     try:
         for field_number, wire_type, value in iter_fields(data):
-            if field_number != 4 or wire_type != 2 or not isinstance(value, bytes):
+            if field_number != 4:
                 continue
-            offset = 0
-            while offset < len(value):
-                recipe_id, offset = decode_varint(value, offset)
-                if recipe_id and recipe_id not in result:
-                    result.append(recipe_id)
+            if wire_type == 0 and isinstance(value, int):
+                add(value)
+            elif wire_type == 2 and isinstance(value, bytes):
+                offset = 0
+                while offset < len(value):
+                    recipe_id, offset = decode_varint(value, offset)
+                    add(recipe_id)
     except ValueError:
         return []
     return result

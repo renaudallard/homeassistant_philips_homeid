@@ -75,6 +75,10 @@ async def test_homeid_backend_error_reports_profile_error():
     api.get_appliances_via_homeid = AsyncMock(
         side_effect=CloudBackendError("HomeID profile: HTTP 500")
     )
+    # The flow falls through to the IoT registry, which finds nothing here.
+    api.get_user_profile = AsyncMock(return_value={"id": "user"})
+    api.get_devices = AsyncMock(return_value=[])
+    api.get_homes = AsyncMock(return_value=[])
 
     result = await flow.async_step_cloud_otp({"code": "123456"})
 

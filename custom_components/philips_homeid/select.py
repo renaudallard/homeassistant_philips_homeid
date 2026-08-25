@@ -521,12 +521,15 @@ class PhilipsHomeIDRitaBrewProfileSelect(PhilipsHomeIDEntity, SelectEntity):
 class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
     """Saved-recipe selector for Rita espresso machines (APK RitaRecipesPort).
 
-    Lists only the active profile's saved recipes, filtered to the profile by
-    matching each rcp blob's recipeId (field 1 of RitaBrewCommand) against the
-    profile's recipeIdOrderList (field 4 of RitaProfileData), the same approach
-    the APK uses in DefaultGetDrinksForActiveProfileUseCase. A recipe the
-    machine left unnamed is labelled after the built-in drink it was
-    personalised from. The machine's built-in drinks live in the separate
+    Lists only the active profile's saved recipes. A profile owns a fixed
+    block of RITA_RECIPES_PER_PROFILE slots chosen by its position in
+    Pr_Names, and within that block a slot counts only when its recipeId
+    (field 1 of RitaBrewCommand) appears in the profile's recipeIdOrderList
+    (field 4 of RitaProfileData). Both filters are needed: recipe ids are not
+    unique across the machine. The options follow the order of that same
+    recipeIdOrderList, which is how the machine arranges the profile's drinks.
+    A recipe the machine left unnamed is labelled after the built-in drink it
+    was personalised from. The machine's built-in drinks live in the separate
     PhilipsHomeIDRitaBuiltinDrinkSelect.
     """
 

@@ -385,7 +385,7 @@ Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 | Select | Roast Level | Set bean roast level |
 | Select | Bean Type | Set bean type |
 | Select | Brew Profile | Profile used by Brew (names from device, 8 slots) |
-| Select | Saved Recipe | The active profile's saved recipes, named after the built-in drink they were personalised from when the machine stored them without a name (brewed by Brew Saved Recipe) |
+| Select | Saved Recipe | The active profile's saved recipes, in the order the machine keeps them. Each profile has its own eight recipe slots. A recipe the machine stored without a name is listed under the built-in drink it was personalised from (brewed by Brew Saved Recipe) |
 | Select | Built-in Drink | The machine's built-in drinks (fetched per model from the cloud, falling back to a common list), brewed by Brew Built-in Drink |
 | Sensor | NCP / Host Firmware Version | Reported firmware versions (diagnostic) |
 | Sensor | Product Error | Device error code from shadow (diagnostic) |

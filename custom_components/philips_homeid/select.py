@@ -33,7 +33,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, RITA_RECIPES_PER_PROFILE
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .fan import MUJI_MODE_KEY, muji_mode_map
@@ -569,10 +569,18 @@ class PhilipsHomeIDRitaBrewRecipeSelect(PhilipsHomeIDEntity, SelectEntity):
         if not profile_ids:
             return {}
 
+        # A profile only ever uses its own block of slots. A built-in drink
+        # personalised on the machine is stored under that drink's own id, so
+        # the same id turns up in every profile that personalised it and a
+        # search across all 80 slots would list other profiles' recipes.
+        start = profile_slot * RITA_RECIPES_PER_PROFILE
+        if start < 0 or start >= 80:
+            return {}
+
         drinks = self.coordinator.rita_builtin_drinks()
         filtered = [""] * 80
         slots_of: dict[int, list[int]] = {}
-        for i in range(80):
+        for i in range(start, min(start + RITA_RECIPES_PER_PROFILE, 80)):
             if not blobs[i]:
                 continue
             rid = decode_recipe_id(blobs[i])

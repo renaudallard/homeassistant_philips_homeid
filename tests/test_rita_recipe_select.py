@@ -104,6 +104,22 @@ def test_options_follow_the_machine_order():
     assert list(sel._slot_labels()) == [10, 9, 8]
 
 
+def test_another_profile_slot_is_not_listed():
+    """A matching id outside the profile's own block belongs to someone else.
+
+    A personalised built-in drink is stored under that drink's own id, so the
+    same id appears in every profile that personalised it. Slot 40 is profile
+    5's copy of Ristretto and must stay out of profile 1's dropdown, which
+    lists the same id at slot 9.
+    """
+    sel = _select(recipes={9: RECIPES[9]})
+    sel.coordinator.device_state.properties["Recipes_p2"] = {
+        "Rec_Names": _rec_names({}),
+        "rcp40": RECIPES[9],
+    }
+    assert sel._slot_labels() == {9: "Ristretto"}
+
+
 def test_duplicate_drink_names_keep_their_slot_prefix():
     """Two personalised copies of one drink stay distinguishable."""
     sel = _select(recipes={8: RECIPES[8], 9: RECIPES[8]})

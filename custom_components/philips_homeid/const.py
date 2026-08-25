@@ -164,3 +164,10 @@ RITA_BUILTIN_DRINKS: dict[int, str] = {
 # collision; the brew path routes any value at or above the offset to a
 # built-in-drink brew after subtracting it.
 RITA_BUILTIN_DRINK_OFFSET = 1000
+
+# Recipe slots are handed out to profiles in fixed blocks: the profile in
+# Pr_Names position N owns slots N*8 through N*8+7. The app reads each recipe
+# port in chunks of this size and picks the chunk by the profile's position
+# (RitaRecipesPortDeserializer, ObserveActiveRitaProfileUseCase), and it pads
+# every profile's recipeIdOrderList to the same count (RitaProfileMapperKt).
+RITA_RECIPES_PER_PROFILE = 8

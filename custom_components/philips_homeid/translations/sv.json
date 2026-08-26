@@ -3,117 +3,117 @@
     "step": {
       "user": {
         "title": "Lägg till Philips-enhet",
-        "description": "Välj hur du vill konfigurera enheten. Ange en lokal IP-adress för enheter i ditt nätverk, eller logga in med ditt Philips-konto för enheter med molnrelä (FUSION) utan lokal anslutning.",
+        "description": "Välj hur du vill konfigurera enheten. Ange en lokal IP-adress för enheter i ditt nätverk eller logga in med ditt Philips-konto för enheter som styrs via molnet (FUSION) och saknar lokal anslutning.",
         "menu_options": {
           "manual_host": "Konfigurera en lokal enhet via IP-adress",
-          "cloud_email": "Logga in med Philips-konto (molnrelä / FUSION-enheter)"
+          "cloud_email": "Logga in med Philips-konto (molnanslutning / FUSION-enheter)"
         }
       },
       "manual_host": {
-        "title": "Ange enhetens IP",
-        "description": "Ange IP-adressen for din Philips-enhet.",
+        "title": "Ange enhetens IP-adress",
+        "description": "Ange IP-adressen till din Philips-enhet som redan är ansluten till ditt nätverk.",
         "data": {
           "host": "IP-adress",
           "model": "Enhetsmodell"
         }
       },
       "cloud_email": {
-        "title": "Philips-kontoinloggning",
-        "description": "Ange din Philips HomeID-kontoe-post.",
+        "title": "Logga in på Philips-konto",
+        "description": "Ange e-postadressen för ditt Philips HomeID-konto. En verifieringskod skickas till den här adressen.",
         "data": {
-          "email": "E-post",
-          "manual_entry": "Ange uppgifter manuellt"
+          "email": "E-postadress",
+          "manual_entry": "Ange autentiseringsuppgifter manuellt i stället"
         }
       },
       "cloud_otp": {
         "title": "Ange verifieringskod",
-        "description": "En verifieringskod har skickats till {email}.",
+        "description": "En verifieringskod har skickats till {email}. Ange den nedan.",
         "data": {
           "code": "Verifieringskod"
         }
       },
       "cloud_devices": {
-        "title": "Valj enhet",
-        "description": "Valj enheten att lagga till.",
+        "title": "Välj enhet",
+        "description": "Välj den enhet som du vill lägga till i Home Assistant.",
         "data": {
           "device": "Enhet"
         }
       },
       "confirm": {
-        "title": "Bekrafta enhet",
-        "description": "Lagga till {name} pa {host}?\n\nModell: {model}"
+        "title": "Bekräfta enhet",
+        "description": "Vill du lägga till {name} på {host}?\n\nModell: {model}\n\n**Obs!** Det kan ta några minuter innan alla entiteter visas medan integrationen upprättar autentisering med enheten."
       },
       "zeroconf_confirm": {
-        "title": "Philips-enhet hittad",
-        "description": "Philips-enhet hittad:\n\n**{name}**\nIP: {host}\nModell: {model}"
+        "title": "Philips-enhet hittades",
+        "description": "En Philips-enhet hittades i ditt nätverk:\n\n**{name}**\nIP: {host}\nModell: {model}\n\nVill du lägga till den här enheten?\n\n**Obs!** Det kan ta några minuter innan alla entiteter visas medan integrationen upprättar autentisering med enheten."
       },
       "ssdp_confirm": {
-        "title": "Philips-enhet hittad",
-        "description": "Philips-enhet hittad:\n\n**{name}**\nIP: {host}\nModell: {model}"
+        "title": "Philips-enhet hittades",
+        "description": "En Philips-enhet hittades i ditt nätverk:\n\n**{name}**\nIP: {host}\nModell: {model}\n\nVill du lägga till den här enheten?\n\n**Obs!** Det kan ta några minuter innan alla entiteter visas medan integrationen upprättar autentisering med enheten."
       },
       "manual_credentials": {
-        "title": "Uppgifter for {name}",
-        "description": "Ange uppgifterna fran HomeID-appen.",
+        "title": "Ange autentiseringsuppgifter för {name}",
+        "description": "Ange klientuppgifterna som har extraherats från HomeID-appen.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "Krypteringsnyckel"
+          "encryption_key": "Krypteringsnyckel (krävs för HTTP-enheter som HD9285)"
         }
       },
       "reauth_email": {
         "title": "Molninloggning krävs",
-        "description": "Molninloggning krävs för att återansluta den här enheten. Ange din Philips HomeID e-post.",
+        "description": "Du måste logga in via molnet för att återansluta den här enheten. Ange e-postadressen för ditt Philips HomeID-konto.",
         "data": {
-          "email": "E-post"
+          "email": "E-postadress"
         }
       },
       "reauth_otp": {
         "title": "Ange verifieringskod",
-        "description": "En verifieringskod har skickats till {email}",
+        "description": "En verifieringskod har skickats till {email}.",
         "data": {
           "code": "Verifieringskod"
         }
       }
     },
     "error": {
-      "cannot_connect": "Kan inte ansluta till enheten",
-      "missing_credentials": "Client ID och Client Secret kravs",
-      "invalid_credentials": "Ogiltiga uppgifter",
-      "encryption_key_failed": "Kan inte hamta krypteringsnyckel",
-      "unknown": "Ovantat fel",
-      "missing_email": "Ange e-post",
-      "missing_code": "Ange verifieringskod",
-      "otp_send_failed": "Kunde inte skicka verifieringskod",
-      "otp_failed": "Ogiltig verifieringskod",
-      "account_not_registered": "Den här e-postadressen är inte ett fullständigt registrerat Philips HomeID-konto. Logga in en gång i Philips HomeID-appen med den här e-postadressen och försök igen, eller börja om och ange uppgifterna manuellt.",
-      "no_cloud_devices": "Inga enheter hittades",
-      "cloud_credentials_not_found": "Kunde inte hamta uppgifter fran molnet",
-      "cloud_no_ip": "IP-adress inte tillganglig",
-      "cloud_oauth_failed": "Molnautentisering misslyckades. Kontrollera Home Assistants loggar för detaljer. Du kan också ange uppgifterna manuellt.",
-      "cloud_unreachable": "Philips-molnet är tillfälligt onåbart. Vänta en stund och försök igen.",
-      "cloud_profile_error": "Philips HomeID-servern returnerade ett serverfel för ditt konto. Öppna Philips HomeID-appen, ta bort enheten och parkoppla den igen även om den fortfarande visas, och försök sedan igen. Felet kan också vara tillfälligt, så vänta gärna några minuter.",
-      "invalid_host": "Ange enbart en IP-adress eller ett värdnamn (utan schema, port eller sökväg)."
+      "cannot_connect": "Det gick inte att ansluta till enheten",
+      "invalid_host": "Ange endast en IP-adress eller ett värdnamn, utan protokoll, port eller sökväg",
+      "missing_credentials": "Både Client ID och Client Secret krävs",
+      "invalid_credentials": "Autentiseringsuppgifterna är ogiltiga eller avvisades av enheten",
+      "encryption_key_failed": "Det gick inte att hämta krypteringsnyckeln från enheten. Autentiseringsuppgifterna kan vara avsedda för molnet och inte för lokal åtkomst, eller så kräver enheten att krypteringsnyckeln anges manuellt. Använd verktyget för att extrahera autentiseringsuppgifter eller ange nyckeln manuellt.",
+      "unknown": "Ett oväntat fel inträffade",
+      "missing_email": "Ange din e-postadress",
+      "missing_code": "Ange verifieringskoden",
+      "otp_send_failed": "Det gick inte att skicka verifieringskoden. Kontrollera din e-postadress och försök igen.",
+      "otp_failed": "Ogiltig verifieringskod. Försök igen.",
+      "account_not_registered": "Den här e-postadressen tillhör inte ett fullständigt registrerat Philips HomeID-konto. Logga in en gång i Philips HomeID-appen med den här e-postadressen och försök sedan igen, eller börja om och ange autentiseringsuppgifterna manuellt.",
+      "cloud_unreachable": "Philips molntjänst går inte att nå för tillfället. Vänta en stund och försök igen.",
+      "cloud_profile_error": "Philips HomeID-tjänsten returnerade ett serverfel för ditt konto. Öppna Philips HomeID-appen, ta bort enheten och parkoppla den på nytt även om den fortfarande visas, och försök sedan igen. Felet kan också vara tillfälligt, så det kan hjälpa att vänta några minuter.",
+      "no_cloud_devices": "Inga enheter hittades på ditt Philips-konto.",
+      "cloud_credentials_not_found": "Det gick inte att hämta enhetens autentiseringsuppgifter från molnet. Försök att ange dem manuellt.",
+      "cloud_no_ip": "Enhetens IP-adress är inte tillgänglig via molnet. Försök att ange IP-adressen manuellt.",
+      "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt."
     },
     "abort": {
-      "already_configured": "Enheten ar redan konfigurerad",
-      "already_in_progress": "Konfigurationsflödet pågår redan",
-      "cannot_connect": "Kan inte ansluta",
-      "unsupported_device": "Denna Philips-enhet stods inte av integrationen och ignorerades.",
-      "reauth_successful": "Molninloggning lyckades.",
-      "reauth_failed": "Molninloggning misslyckades. Försök igen senare.",
-      "reauth_entry_missing": "Det gick inte att hitta integrationsposten för att autentisera om. Ladda om Home Assistant och försök igen."
+      "already_configured": "Enheten är redan konfigurerad",
+      "already_in_progress": "Konfigurationen av enheten pågår redan",
+      "cannot_connect": "Det gick inte att ansluta till enheten",
+      "unsupported_device": "Den här Philips-enheten stöds inte av integrationen och ignorerades.",
+      "reauth_successful": "Molninloggningen lyckades.",
+      "reauth_failed": "Molninloggningen misslyckades. Försök igen senare.",
+      "reauth_entry_missing": "Det gick inte att hitta integrationsposten som ska autentiseras på nytt. Ladda om Home Assistant och försök igen."
     }
   },
   "options": {
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Pollningsintervall (sekunder)",
-          "active_scan_interval": "Aktivt intervall under tillagning (sekunder)"
+          "scan_interval": "Pollningsintervall (sekunder",
+          "active_scan_interval": "Aktivt pollningsintervall under tillagning (sekunder)"
         }
       }
     }
-  },
+  }
   "entity": {
     "sensor": {
       "pm25": {
@@ -126,13 +126,13 @@
         "name": "PM10"
       },
       "air_quality_index": {
-        "name": "Inomhusluftindex"
+        "name": "Luftkvalitetsindex inomhus"
       },
       "tvoc": {
-        "name": "Total VOC"
+        "name": "Totala VOC"
       },
       "gas": {
-        "name": "Gasniva"
+        "name": "Gasnivå"
       },
       "allergen_index": {
         "name": "Allergenindex"
@@ -144,7 +144,7 @@
         "name": "Temperatur"
       },
       "filter_pre": {
-        "name": "Forfilter"
+        "name": "Förfilter"
       },
       "filter_hepa": {
         "name": "HEPA-filter"
@@ -156,52 +156,52 @@
         "name": "Luftfuktarveke"
       },
       "water_level": {
-        "name": "Vattenniva"
+        "name": "Vattennivå"
       },
       "display_brightness": {
-        "name": "Displayljusstyrka"
+        "name": "Skärmens ljusstyrka"
       },
       "runtime": {
         "name": "Total drifttid"
       },
       "mode": {
-        "name": "Lage"
+        "name": "Läge"
       },
       "fan_speed": {
-        "name": "Flakthastighet"
+        "name": "Fläkthastighet"
       },
       "error_code": {
         "name": "Felkod"
       },
       "muji_filter0_lifetime": {
-        "name": "Filter 0 livslangd"
+        "name": "Filter 0 total livslängd"
       },
       "muji_filter1_lifetime": {
-        "name": "Filter 1 livslangd"
+        "name": "Filter 1 total livslängd"
       },
       "muji_filter0_remaining": {
-        "name": "Filter 0 aterstaende"
+        "name": "Filter 0 återstående livslängd"
       },
       "muji_filter1_remaining": {
-        "name": "Filter 1 aterstaende"
+        "name": "Filter 1 återstående livslängd"
       },
       "airfryer_status": {
         "name": "Tillagningsstatus"
       },
       "airfryer_temperature": {
-        "name": "Maltemperatur"
+        "name": "Måltemperatur"
       },
       "airfryer_current_temperature": {
-        "name": "Nuvarande temperatur"
+        "name": "Aktuell temperatur"
       },
       "airfryer_time_total": {
-        "name": "Total tid"
+        "name": "Total tillagningstid"
       },
       "airfryer_time_remaining": {
-        "name": "Aterstaende tid"
+        "name": "Återstående tid"
       },
       "airfryer_preset": {
-        "name": "Forinstallt"
+        "name": "Förinställning"
       },
       "airfryer_recipe_name": {
         "name": "Recept"
@@ -210,10 +210,10 @@
         "name": "Felkod"
       },
       "airfryer_preheat_status": {
-        "name": "Forvarmning"
+        "name": "Förvärmningsstatus"
       },
       "airfryer_keep_warm": {
-        "name": "Hallvarm"
+        "name": "Håll varm"
       },
       "airfryer_recipe_id": {
         "name": "Recept-ID"
@@ -228,40 +228,40 @@
         "name": "Sondtemperatur"
       },
       "airfryer_current_probe_temperature": {
-        "name": "Nuvarande sondtemperatur"
+        "name": "Aktuell sondtemperatur"
       },
       "airfryer_dialog": {
         "name": "Dialog"
       },
       "airfryer_previous_status": {
-        "name": "Foregaende status"
+        "name": "Föregående status"
       },
       "airfryer_cooking_id": {
         "name": "Tillagnings-ID"
       },
       "airfryer_current_stage": {
-        "name": "Nuvarande steg"
+        "name": "Aktuellt steg"
       },
       "airfryer_voltage": {
-        "name": "Spanning"
+        "name": "Spänning"
       },
       "airfryer_left_status": {
-        "name": "Vanster korg status"
+        "name": "Status för vänster korg"
       },
       "airfryer_left_temperature": {
-        "name": "Vanster korg temperatur"
+        "name": "Temperatur för vänster korg"
       },
       "airfryer_left_time": {
-        "name": "Vanster korg tid"
+        "name": "Tid för vänster korg"
       },
       "airfryer_right_status": {
-        "name": "Hoger korg status"
+        "name": "Status för höger korg"
       },
       "airfryer_right_temperature": {
-        "name": "Hoger korg temperatur"
+        "name": "Temperatur för höger korg"
       },
       "airfryer_right_time": {
-        "name": "Hoger korg tid"
+        "name": "Tid för höger korg"
       },
       "multicooker_humidity": {
         "name": "Luftfuktighet"
@@ -276,7 +276,7 @@
         "name": "Tillagningsgrad"
       },
       "autocook_amount": {
-        "name": "Mangd"
+        "name": "Mängd"
       },
       "autocook_weight": {
         "name": "Vikt"
@@ -285,22 +285,25 @@
         "name": "Tjocklek"
       },
       "recipe_current_stage": {
-        "name": "Receptets nuvarande steg"
+        "name": "Aktuellt receptsteg"
       },
       "firmware_version": {
-        "name": "Firmware-version"
+        "name": "Firmwareversion"
       },
       "firmware_available": {
-        "name": "Firmware tillganglig"
+        "name": "Tillgänglig firmware"
       },
       "espresso_mainstate": {
         "name": "Maskinstatus"
       },
       "espresso_brewing_progress": {
-        "name": "Bryggframsteg"
+        "name": "Bryggningsförlopp"
       },
       "espresso_water_level": {
-        "name": "Vattenniva"
+        "name": "Vattennivå"
+      },
+      "espresso_bean_level": {
+        "name": "Bönnivå"
       },
       "espresso_descale_status": {
         "name": "Avkalkningsstatus"
@@ -312,61 +315,61 @@
         "name": "Filternummer"
       },
       "espresso_waste_bean": {
-        "name": "Sumpbehallare"
+        "name": "Sumpbehållare"
       },
       "espresso_switch_state": {
-        "name": "Strombrytarstatus"
+        "name": "Strömbrytarstatus"
       },
       "espresso_last_error": {
         "name": "Senaste fel"
       },
       "espresso_active_user": {
-        "name": "Aktiv anvandare"
+        "name": "Aktiv användare"
       },
       "espresso_water_hardness": {
-        "name": "Vattenhardhet"
+        "name": "Vattenhårdhet"
       },
       "espresso_auto_standby_time": {
-        "name": "Automatisk standby-tid"
+        "name": "Automatisk standbytid"
       },
       "rita_machine_state": {
         "name": "Maskinläge"
       },
       "rita_machine_status": {
-        "name": "Driftstatus"
+        "name": "Maskinstatus"
       },
       "rita_machine_extra_info": {
-        "name": "Extra information"
+        "name": "Extra maskininformation"
       },
       "rita_control_status": {
-        "name": "Kommandostatus"
+        "name": "Styrstatus"
       },
       "rita_bean_type": {
         "name": "Bönsort"
       },
       "rita_roast_level": {
-        "name": "Rostnivå"
+        "name": "Rostningsgrad"
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean-filternummer"
       },
       "rita_aquaclean_autonomy": {
-        "name": "AquaClean-autonomi"
+        "name": "Återstående AquaClean-kapacitet"
       },
       "rita_descale_autonomy": {
-        "name": "Avkalkningsautonomi"
+        "name": "Återstående kapacitet före avkalkning"
       },
       "rita_coffee_autonomy": {
-        "name": "Kaffeautonomi"
+        "name": "Återstående kaffekapacitet"
       },
       "rita_brew_group_autonomy": {
-        "name": "Bryggruppsautonomi"
+        "name": "Återstående bryggruppskapacitet"
       },
       "ncp_firmware_version": {
         "name": "NCP-firmwareversion"
       },
       "host_firmware_version": {
-        "name": "Värd-firmwareversion"
+        "name": "Värdens firmwareversion"
       },
       "product_error": {
         "name": "Produktfel"
@@ -379,35 +382,32 @@
       },
       "device_ctn": {
         "name": "Modellnummer"
-      },
-      "espresso_bean_level": {
-        "name": "Bönnivå"
       }
     },
     "binary_sensor": {
       "filter_replace_required": {
-        "name": "Filterbyte kravs"
+        "name": "Filterbyte krävs"
       },
       "water_tank_empty": {
-        "name": "Vattentank tom"
+        "name": "Vattentanken är tom"
       },
       "airfryer_drawer_open": {
-        "name": "Lada"
+        "name": "Låda"
       },
       "airfryer_shake_reminder": {
-        "name": "Skakpaminnelse"
+        "name": "Påminnelse om omskakning"
       },
       "airfryer_flip_reminder": {
-        "name": "Vandpaminnelse"
+        "name": "Påminnelse om vändning"
       },
       "airfryer_preheat_active": {
-        "name": "Forvarmning aktiv"
+        "name": "Förvärmning aktiv"
       },
       "airfryer_probe_unplugged": {
-        "name": "Sond urkopplad"
+        "name": "Sond frånkopplad"
       },
       "airfryer_probe_required": {
-        "name": "Sond kravs"
+        "name": "Sond krävs"
       },
       "airfryer_resting": {
         "name": "Vilar"
@@ -419,13 +419,13 @@
         "name": "Inget vatten"
       },
       "airfryer_left_drawer_open": {
-        "name": "Vanster lada"
+        "name": "Vänster korg"
       },
       "airfryer_right_drawer_open": {
-        "name": "Hoger lada"
+        "name": "Höger korg"
       },
       "temp_unit_fahrenheit": {
-        "name": "Fahrenheit-enhet"
+        "name": "Temperaturenhet Fahrenheit"
       }
     },
     "button": {
@@ -439,7 +439,7 @@
         "name": "Stoppa"
       },
       "airfryer_keep_warm": {
-        "name": "Hallvarm"
+        "name": "Håll varm"
       },
       "airfryer_refresh_recipe": {
         "name": "Uppdatera recept"
@@ -460,7 +460,7 @@
         "name": "Hoppa över steg"
       },
       "rita_brew_hot_water": {
-        "name": "Hett vatten"
+        "name": "Tillred hett vatten"
       },
       "airfryer_autocook_send": {
         "name": "Skicka AutoCook-program"
@@ -474,28 +474,28 @@
     },
     "number": {
       "airfryer_set_temperature": {
-        "name": "Stall in temperatur"
+        "name": "Ställ in temperatur"
       },
       "airfryer_set_time": {
-        "name": "Stall in tid"
+        "name": "Ställ in tid"
       },
       "airfryer_set_airspeed": {
-        "name": "Stall in lufthastighet"
+        "name": "Ställ in lufthastighet"
       },
       "airfryer_set_probe_temperature": {
-        "name": "Stall in sondtemperatur"
+        "name": "Ställ in sondtemperatur"
       },
       "set_beep_volume": {
         "name": "Signalvolym"
       },
       "set_air_quality_threshold": {
-        "name": "Luftkvalitetströskel"
+        "name": "Tröskelvärde för luftkvalitet"
       },
       "set_keep_warm_time": {
-        "name": "Hallvarm-tid"
+        "name": "Tid för håll varm"
       },
       "set_keep_warm_temp": {
-        "name": "Hallvarm-temperatur"
+        "name": "Temperatur för håll varm"
       },
       "espresso_grinder_dose": {
         "name": "Malningsdos"
@@ -507,39 +507,39 @@
         "name": "Antal bryggningar"
       },
       "espresso_primary_dose": {
-        "name": "Primardos"
+        "name": "Primär dos"
       },
       "espresso_secondary_dose": {
-        "name": "Sekundardos"
+        "name": "Sekundär dos"
       }
     },
-    "select": {
+     "select": {
       "cooking_method": {
         "name": "Tillagningsmetod",
         "state": {
           "manual": "Manuell",
           "frozen_snacks": "Frysta snacks",
-          "fresh_fries": "Färska pommes",
+          "fresh_fries": "Färska pommes frites",
           "chicken": "Kyckling",
           "fish": "Fisk",
-          "muffins_cake": "Muffins/Kaka",
-          "meat_chops": "Kotletter",
+          "muffins_cake": "Muffins/kaka",
+          "meat_chops": "Kött/kotletter",
           "vegetables": "Grönsaker",
-          "keep_warm": "Hålla varm",
-          "auto_cook": "Automatisk",
+          "keep_warm": "Håll varm",
+          "auto_cook": "Automatisk tillagning",
           "recipe": "Recept",
           "no_selection": "Inget val",
-          "air_steam": "Luftånga",
+          "air_steam": "Air Steam",
           "steaming": "Ångkokning",
-          "roast": "Steka",
-          "bake": "Baka",
+          "roast": "Ugnsgrillning",
+          "bake": "Bakning",
           "slow_cook": "Långkok",
-          "defrost": "Tina",
-          "reheat": "Värma",
-          "sous_vide": "Sous Vide",
-          "air_steam_pro": "Luftånga Pro",
+          "defrost": "Upptining",
+          "reheat": "Uppvärmning",
+          "sous_vide": "Sous vide",
+          "air_steam_pro": "Air Steam Pro",
           "stew": "Gryta",
-          "user_preset": "Egen inställning",
+          "user_preset": "Egen förinställning",
           "easy_clean": "Enkel rengöring"
         }
       },
@@ -547,7 +547,7 @@
         "name": "Mina förinställningar"
       },
       "rita_roast_level_select": {
-        "name": "Rostnivå",
+        "name": "Rostningsgrad",
         "state": {
           "light": "Ljus",
           "medium": "Mellan",
@@ -559,7 +559,7 @@
         "state": {
           "arabica": "Arabica",
           "mix": "Blandning",
-          "other": "Övrigt"
+          "other": "Annan"
         }
       },
       "rita_brew_profile_select": {
@@ -580,13 +580,13 @@
     },
     "switch": {
       "child_lock": {
-        "name": "Barnlas"
+        "name": "Barnlås"
       },
       "preheat": {
-        "name": "Forvarmning"
+        "name": "Förvärmning"
       },
       "sensor_monitor_standby": {
-        "name": "Sensorovervakning i standby"
+        "name": "Sensorövervakning i standbyläge"
       },
       "power": {
         "name": "Ström"
@@ -602,5 +602,3 @@
         "name": "Luftrenare"
       }
     }
-  }
-}

@@ -108,12 +108,12 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Pollningsintervall (sekunder",
+          "scan_interval": "Pollningsintervall (sekunder)",
           "active_scan_interval": "Aktivt pollningsintervall under tillagning (sekunder)"
         }
       }
     }
-  }
+  },
   "entity": {
     "sensor": {
       "pm25": {
@@ -513,7 +513,7 @@
         "name": "Sekundär dos"
       }
     },
-     "select": {
+    "select": {
       "cooking_method": {
         "name": "Tillagningsmetod",
         "state": {
@@ -602,3 +602,5 @@
         "name": "Luftrenare"
       }
     }
+  }
+}

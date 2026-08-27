@@ -50,6 +50,21 @@ REDACT_KEYS = {
 }
 
 
+def _redact_properties(properties: dict[str, Any]) -> dict[str, Any]:
+    """Copy device properties with any signed URL removed.
+
+    The Venus autocook port reports a presigned program-download URL under
+    "url", and diagnostics get attached to issues, so no port body is allowed
+    to carry a signed link out.
+    """
+    redacted: dict[str, Any] = {}
+    for key, value in properties.items():
+        if isinstance(value, dict) and "url" in value:
+            value = {**value, "url": "**REDACTED**"}
+        redacted[key] = value
+    return redacted
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
@@ -99,7 +114,7 @@ async def async_get_config_entry_diagnostics(
         state_data = {
             "power_on": state.power_on,
             "connection_state": state.connection_state,
-            "properties": state.properties,
+            "properties": _redact_properties(state.properties),
         }
 
     # Coordinator status

@@ -38,12 +38,12 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
-
-
-import paho.mqtt.client as mqtt
+from typing import TYPE_CHECKING, Any
 
 from .local_api import LocalDeviceInfo, LocalDeviceState
+
+if TYPE_CHECKING:
+    import paho.mqtt.client as mqtt
 
 # NCP port name → local API port name (entities use local API names)
 _NCP_PORT_MAP: dict[str, str] = {
@@ -387,6 +387,11 @@ class PhilipsMQTTClient:
         # so keep it out of the default level, the way the token and
         # signature above are logged only by length.
         _LOGGER.debug("MQTT client_id: %s", client_id)
+
+        # paho ships with core but is not in our requirements, and a local
+        # only device never reaches this code, so importing it here keeps
+        # those setups working on an install that does not have it.
+        import paho.mqtt.client as mqtt
 
         client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,

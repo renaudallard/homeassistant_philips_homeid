@@ -604,7 +604,8 @@ class PhilipsLocalAPI:
     async def get_recipe_status(self, device: LocalDeviceInfo) -> dict[str, Any] | None:
         """Get recipe status (Venus devices only)."""
         result = await self._request(device, PORT_RECIPE)
-        _LOGGER.debug("Recipe status: %s", result)
+        if result:
+            _LOGGER.debug("Recipe status keys: %s", sorted(result))
         return result
 
     async def airfryer_start_cooking(
@@ -939,7 +940,7 @@ class PhilipsLocalAPI:
                     ip_address,
                     protocol,
                     product_id,
-                    info,
+                    info.get("name", "?"),
                 )
                 self._apply_device_info(device, info)
                 return device
@@ -971,9 +972,7 @@ class PhilipsLocalAPI:
         # Try status endpoint as fallback
         status_data, status = await self._probe_request(device, PORT_STATUS)
         if status_data:
-            _LOGGER.info(
-                "Got status from %s via %s: %s", ip_address, protocol, status_data
-            )
+            _LOGGER.info("Got status from %s via %s", ip_address, protocol)
             return device
         if status is not None:
             _LOGGER.info(

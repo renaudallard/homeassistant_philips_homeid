@@ -339,6 +339,8 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Sensor | NCP / Host Firmware Version | Reported firmware versions, FUSION only (diagnostic) |
 | Sensor | Product Error | Device error code from shadow, FUSION only (diagnostic) |
 | Sensor | Device Name / Serial Number / Model Number | Config port identifiers, FUSION only (diagnostic) |
+| Sensor | Firmware Update State | OTA download and validation state from the shadow, FUSION only (diagnostic) |
+| Binary Sensor | Firmware Update Available | A firmware job is queued in the cloud, FUSION only, read-only (diagnostic) |
 | Update | Firmware | Installed and available firmware version |
 
 </details>
@@ -390,6 +392,8 @@ Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 | Sensor | NCP / Host Firmware Version | Reported firmware versions (diagnostic) |
 | Sensor | Product Error | Device error code from shadow (diagnostic) |
 | Sensor | Device Name / Serial Number / Model Number | Config port identifiers (diagnostic) |
+| Sensor | Firmware Update State | OTA download and validation state from the shadow (diagnostic) |
+| Binary Sensor | Firmware Update Available | A firmware job is queued in the cloud, read-only (diagnostic) |
 
 Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 
@@ -443,6 +447,12 @@ The integration automatically detects FUSION devices during setup. When a device
 - OIDC access tokens expire after 1 hour; the integration proactively refreshes them before expiry to avoid disconnects
 - Entities stay available during token refresh (no flickering)
 - Token refresh is synchronized with a lock to prevent race conditions between MQTT reconnection and recipe fetching
+
+**Firmware state (read-only):**
+- The device shadow reports an OTA state, surfaced as the "Firmware Update State" diagnostic sensor
+- The cloud job list is checked every 6 hours and surfaced as the "Firmware Update Available" binary sensor
+- Both are read-only: the integration never starts, accepts or cancels a firmware update. A queued job means the appliance applies it on its own
+- A failed check leaves the sensor unknown rather than reporting "up to date"
 
 **Recipe names:**
 - When the device reports a recipe ID during cooking, the integration resolves it to a human-readable name via the Philips cloud API

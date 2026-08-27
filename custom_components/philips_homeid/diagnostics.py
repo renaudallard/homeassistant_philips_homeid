@@ -111,6 +111,7 @@ async def async_get_config_entry_diagnostics(
         "preheat_enabled": coordinator.preheat_enabled,
         "keep_warm_time": coordinator.keep_warm_time,
         "keep_warm_temp": coordinator.keep_warm_temp,
+        "ota_update_available": coordinator.ota_update_available,
     }
 
     return {

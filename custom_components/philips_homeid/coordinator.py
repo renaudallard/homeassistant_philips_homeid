@@ -64,6 +64,8 @@ from .const import (
     FUSION_HEARTBEAT_INTERVAL,
     KEEP_WARM_DEFAULT_TEMP_C,
     OAUTH_CLIENT_HOMEID,
+    OTA_JOBS_POLL_INTERVAL,
+    OTA_UPDATE_KEY,
     RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
 )
@@ -143,6 +145,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._rita_drinks_retry_after: float = 0.0  # monotonic gate after a failure
         self._catalog_retry_after: float = 0.0  # same, for the AutoCook catalog
         self._my_presets_retry_after: float = 0.0  # same, for My Presets
+        # Cloud firmware job list. None until the cloud has actually answered,
+        # so a failed check reads as unknown and never as "up to date".
+        self._ota_jobs_pending: bool | None = None
+        self._ota_jobs_fetch_running: bool = False  # in-flight guard
+        self._ota_jobs_next_fetch: float = 0.0  # monotonic gate
         self._autocook_selected_uuid: str = ""  # Venus airfryer: UUID to send next
         self._consecutive_failures: int = 0  # Track consecutive poll failures
         self._max_failures: int = 3  # Failures before marking device offline
@@ -234,6 +241,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             self._notify_new_properties(new_properties)
         self._inject_recipe_name()
         self._maybe_fetch_rita_drinks()
+        self._maybe_fetch_ota_jobs()
         self._maybe_refresh_mqtt_token()
         self.async_set_updated_data(state)
 
@@ -274,6 +282,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Heartbeat poll for FUSION devices via MQTT."""
         assert self.mqtt_client is not None
         try:
+            # Kicked from the push path as well, so a chatty device that never
+            # lets this heartbeat run still gets its firmware job check.
+            self._maybe_fetch_ota_jobs()
             # Proactively refresh token before the 1-hour expiry
             _LOGGER.debug(
                 "FUSION heartbeat: connected=%s, connect_time=%.0f",
@@ -1558,6 +1569,74 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         finally:
             self._my_presets_fetch_running = False
 
+    def _maybe_fetch_ota_jobs(self) -> None:
+        """Kick a periodic read of the cloud firmware job list."""
+        if (
+            not self._is_fusion
+            or self._ota_jobs_fetch_running
+            or not self._state
+            or time.monotonic() < self._ota_jobs_next_fetch
+        ):
+            return
+        # Checked here as well as in the fetch, which returns on these without
+        # arming the interval: without it every push would spawn a task that
+        # did nothing but clear the in-flight flag again.
+        if not self.config_entry.data.get(
+            CONF_DEVICE_ID
+        ) or not self.config_entry.data.get(CONF_CLOUD_REFRESH_TOKEN):
+            return
+        self._ota_jobs_fetch_running = True
+        self._create_tracked_task(self._poll_ota_jobs())
+
+    async def _poll_ota_jobs(self) -> None:
+        """Read the cloud firmware job list and publish it if it changed.
+
+        Read-only. A queued job means the appliance will update itself; there
+        is no way from here to start, accept or cancel one.
+        """
+        from .cloud_api import CloudAuthError, CloudConnectionError, PhilipsCloudAPI
+
+        try:
+            device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
+            if not device_id:
+                return
+            access_token = await self._get_access_token()
+            if not access_token:
+                return
+            cloud_api = PhilipsCloudAPI()
+            try:
+                jobs = await cloud_api.get_device_jobs(access_token, device_id)
+            finally:
+                await cloud_api.close()
+            self._ota_jobs_next_fetch = time.monotonic() + OTA_JOBS_POLL_INTERVAL
+            pending = bool(jobs)
+            if pending == self._ota_jobs_pending:
+                return
+            first_answer = self._ota_jobs_pending is None
+            self._ota_jobs_pending = pending
+            _LOGGER.debug("Cloud firmware jobs for %s: %d", device_id, len(jobs))
+            if first_answer:
+                # Not a device property: the sensor reads ota_update_available,
+                # and this only tells the platform an answer now exists.
+                # Nothing goes into state.properties, which the next push
+                # replaces wholesale.
+                self._notify_new_properties([(OTA_UPDATE_KEY, None)])
+            if self._state:
+                self.async_set_updated_data(self._state)
+        except CloudConnectionError as err:
+            self._ota_jobs_next_fetch = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
+            _LOGGER.debug("Firmware job check deferred: %s", err)
+        except CloudAuthError as err:
+            # Checked after CloudConnectionError, which subclasses it. The MQTT
+            # credential path owns reauth; a read-only side fetch just waits.
+            self._ota_jobs_next_fetch = time.monotonic() + OTA_JOBS_POLL_INTERVAL
+            _LOGGER.debug("Firmware job check rejected: %s", err)
+        except Exception:
+            self._ota_jobs_next_fetch = time.monotonic() + CLOUD_FETCH_RETRY_DELAY
+            _LOGGER.warning("Firmware job check failed", exc_info=True)
+        finally:
+            self._ota_jobs_fetch_running = False
+
     def _maybe_fetch_rita_drinks(self) -> None:
         """Kick a one-shot fetch of the per-model Rita drink catalog."""
         if (
@@ -1694,6 +1773,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def device_state(self) -> LocalDeviceState | None:
         """Get current device state."""
         return self._state
+
+    @property
+    def ota_update_available(self) -> bool | None:
+        """Return whether the cloud has a firmware job queued, None if unknown."""
+        return self._ota_jobs_pending
 
     @property
     def device_id(self) -> str:

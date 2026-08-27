@@ -374,6 +374,9 @@
       "product_error": {
         "name": "Product Error"
       },
+      "ota_state": {
+        "name": "Firmware Update State"
+      },
       "device_name": {
         "name": "Device Name"
       },
@@ -426,6 +429,9 @@
       },
       "temp_unit_fahrenheit": {
         "name": "Temperature Unit Fahrenheit"
+      },
+      "firmware_update_available": {
+        "name": "Firmware Update Available"
       }
     },
     "button": {

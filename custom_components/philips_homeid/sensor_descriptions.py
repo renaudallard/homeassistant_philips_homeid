@@ -248,12 +248,29 @@ def _make_enum_decoder(mapping: dict[int, str]) -> Callable[[Any], str | None]:
     return decoder
 
 
+# OTA download state reported in the AWS IoT shadow (APK OsState enum, where
+# the explicit value equals the ordinal). NCP and host are the two firmware
+# images a FUSION appliance carries, matching the two firmware version sensors
+# below. The official app collapses these six into idle, downloading and
+# installing; they are kept apart here because a diagnostic sensor exists to
+# carry exactly that detail.
+_OTA_STATE: dict[int, str] = {
+    0: "no_download",
+    1: "ncp_download_in_progress",
+    2: "host_download_in_progress",
+    3: "host_download_paused",
+    4: "ncp_validating",
+    5: "host_validating",
+}
+
+
 _rita_machine_state = _make_enum_decoder(_RITA_MACHINE_STATE)
 _rita_machine_status = _make_enum_decoder(_RITA_MACHINE_STATUS)
 _rita_machine_extra_info = _make_enum_decoder(_RITA_MACHINE_EXTRA_INFO)
 _rita_bean_type = _make_enum_decoder(_RITA_BEAN_TYPE)
 _rita_roast_level = _make_enum_decoder(_RITA_ROAST_LEVEL)
 _rita_control_status = _make_enum_decoder(_RITA_CONTROL_STATUS)
+_ota_state = _make_enum_decoder(_OTA_STATE)
 
 
 def _seconds_to_minutes(value: Any) -> int | None:
@@ -1097,6 +1114,17 @@ FUSION_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         icon="mdi:alert-circle-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         device_types=("airfryer", "espresso"),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="ota_state",
+        translation_key="ota_state",
+        property_key="ota",
+        icon="mdi:cloud-download-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_ota_state,
+        # No device_types: ota is a shadow-only key, so its presence is the
+        # gate. Naming families here would drop the Air+ purifiers, which are
+        # FUSION and get a shadow too.
     ),
     PhilipsHomeIDSensorEntityDescription(
         key="device_name",

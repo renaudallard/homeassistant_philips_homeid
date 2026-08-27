@@ -371,6 +371,9 @@
       "product_error": {
         "name": "제품 오류"
       },
+      "ota_state": {
+        "name": "펌웨어 업데이트 상태"
+      },
       "device_name": {
         "name": "기기 이름"
       },
@@ -426,6 +429,9 @@
       },
       "temp_unit_fahrenheit": {
         "name": "화씨 단위"
+      },
+      "firmware_update_available": {
+        "name": "펌웨어 업데이트 사용 가능"
       }
     },
     "button": {

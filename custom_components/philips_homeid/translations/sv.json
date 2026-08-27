@@ -374,6 +374,9 @@
       "product_error": {
         "name": "Produktfel"
       },
+      "ota_state": {
+        "name": "Status för firmware-uppdatering"
+      },
       "device_name": {
         "name": "Enhetsnamn"
       },
@@ -426,6 +429,9 @@
       },
       "temp_unit_fahrenheit": {
         "name": "Temperaturenhet Fahrenheit"
+      },
+      "firmware_update_available": {
+        "name": "Firmware-uppdatering tillgänglig"
       }
     },
     "button": {

@@ -39,7 +39,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, OTA_UPDATE_KEY
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -245,7 +245,7 @@ async def async_setup_entry(
             )
             property_to_description[key] = description
 
-    entities: list[PhilipsHomeIDBinarySensor] = []
+    entities: list[BinarySensorEntity] = []
     # Track property keys this platform has created, so dynamic creation dedups
     # per-platform. The coordinator's shared seen-set would let another platform
     # that reads the same property (binary_sensor water_tank_empty and sensor
@@ -285,13 +285,24 @@ async def async_setup_entry(
             PhilipsHomeIDBinarySensor(coordinator, description, coordinator.device_id)
         )
 
+    def make_ota_entity() -> PhilipsHomeIDOtaUpdateAvailable | None:
+        """Build the cloud firmware-job sensor once the cloud has answered."""
+        if OTA_UPDATE_KEY in created_keys or coordinator.ota_update_available is None:
+            return None
+        created_keys.add(OTA_UPDATE_KEY)
+        return PhilipsHomeIDOtaUpdateAvailable(coordinator, coordinator.device_id)
+
+    ota_entity = make_ota_entity()
+    if ota_entity:
+        entities.append(ota_entity)
+
     _LOGGER.info("Created %d binary sensors for %s", len(entities), model_name)
     async_add_entities(entities)
 
     # Register callback for dynamic entity creation when new properties appear
     def handle_new_properties(new_properties: list[tuple[str, str | None]]) -> None:
         """Handle newly discovered properties by creating binary sensors."""
-        new_entities: list[PhilipsHomeIDBinarySensor] = []
+        new_entities: list[BinarySensorEntity] = []
 
         for property_key, nested_key in new_properties:
             key = coordinator.get_property_key(property_key, nested_key)
@@ -310,6 +321,12 @@ async def async_setup_entry(
                         coordinator, description, coordinator.device_id
                     )
                 )
+
+        if (OTA_UPDATE_KEY, None) in new_properties:
+            entity = make_ota_entity()
+            if entity:
+                _LOGGER.info("Creating firmware update sensor from cloud job list")
+                new_entities.append(entity)
 
         if new_entities:
             async_add_entities(new_entities)
@@ -356,3 +373,29 @@ class PhilipsHomeIDBinarySensor(PhilipsHomeIDEntity, BinarySensorEntity):
             return False
         desc = self.entity_description
         return self._has_property(desc.property_key, desc.nested_key)
+
+
+class PhilipsHomeIDOtaUpdateAvailable(PhilipsHomeIDEntity, BinarySensorEntity):
+    """Whether the cloud has a firmware job queued for a FUSION device.
+
+    Read-only. The job list says an update is waiting; it carries no version
+    and nothing here can start, accept or cancel it.
+    """
+
+    _attr_translation_key = OTA_UPDATE_KEY
+    _attr_device_class = BinarySensorDeviceClass.UPDATE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: PhilipsHomeIDCoordinator,
+        device_id: str,
+    ) -> None:
+        """Initialize the firmware update sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_{OTA_UPDATE_KEY}"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True when a firmware job is queued, None when unknown."""
+        return self.coordinator.ota_update_available

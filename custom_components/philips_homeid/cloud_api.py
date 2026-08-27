@@ -369,6 +369,58 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             ) from err
         return data if isinstance(data, list) else []
 
+    async def get_device_jobs(
+        self, access_token: str, device_id: str
+    ) -> list[dict[str, Any]]:
+        """List the firmware jobs the cloud has queued for a device.
+
+        An empty list is a real answer and means the device is up to date, so
+        every failure raises instead of returning an empty list. A caller must
+        never be able to read a refused or malformed response as "nothing
+        pending".
+        """
+        session = await self._get_session()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+        url = f"{IOT_BASE}/device/{device_id}/jobs"
+        try:
+            async with session.get(url, headers=headers) as resp:
+                text = await resp.text()
+                status = resp.status
+        except Exception as err:
+            raise CloudConnectionError(
+                f"Device jobs fetch failed for {device_id}: {err}"
+            ) from err
+
+        _LOGGER.debug("Device jobs response: HTTP %s, body: %s", status, text[:500])
+        if status in (401, 403):
+            raise CloudAuthError(
+                f"Device jobs rejected: HTTP {status}, body: {text[:200]}"
+            )
+        if status != 200:
+            raise CloudConnectionError(
+                f"Device jobs failed: HTTP {status}, body: {text[:200]}"
+            )
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as err:
+            raise CloudConnectionError(
+                f"Device jobs response is not JSON: {text[:200]}"
+            ) from err
+
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for key in ("jobs", "data", "items"):
+                value = data.get(key)
+                if isinstance(value, list):
+                    return value
+        raise CloudConnectionError(
+            f"Device jobs response shape unexpected: {text[:200]}"
+        )
+
     async def get_homes(self, access_token: str) -> list[dict[str, Any]]:
         """List homes from IoT API (for debugging)."""
         session = await self._get_session()

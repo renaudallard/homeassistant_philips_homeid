@@ -118,6 +118,14 @@ FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
 # outage must not turn every push into a retry.
 CLOUD_FETCH_RETRY_DELAY = 600  # 10 minutes before retrying a failed fetch
 
+# The cloud firmware job list only changes when Versuni queues an update, and
+# every check costs a token refresh, so it is read a few times a day.
+OTA_JOBS_POLL_INTERVAL = 21600  # 6 hours between firmware job checks
+
+# Key for the cloud firmware-job sensor. Not a device property: the coordinator
+# announces it so the binary sensor platform knows an answer has arrived.
+OTA_UPDATE_KEY = "firmware_update_available"
+
 # FUSION / DaConnect platform defaults (from APK DomainConfig)
 FUSION_PLATFORM_REST_URL = "prod.eu-da.iot.versuni.com"
 FUSION_TENANT = "da"

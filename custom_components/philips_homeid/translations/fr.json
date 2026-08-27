@@ -374,6 +374,9 @@
       "product_error": {
         "name": "Erreur produit"
       },
+      "ota_state": {
+        "name": "État de mise à jour du firmware"
+      },
       "device_name": {
         "name": "Nom de l'appareil"
       },
@@ -426,6 +429,9 @@
       },
       "temp_unit_fahrenheit": {
         "name": "Unité Fahrenheit"
+      },
+      "firmware_update_available": {
+        "name": "Mise à jour du firmware disponible"
       }
     },
     "button": {

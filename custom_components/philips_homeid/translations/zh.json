@@ -371,6 +371,9 @@
       "product_error": {
         "name": "产品错误"
       },
+      "ota_state": {
+        "name": "固件更新状态"
+      },
       "device_name": {
         "name": "设备名称"
       },
@@ -426,6 +429,9 @@
       },
       "temp_unit_fahrenheit": {
         "name": "华氏温度"
+      },
+      "firmware_update_available": {
+        "name": "固件更新可用"
       }
     },
     "button": {

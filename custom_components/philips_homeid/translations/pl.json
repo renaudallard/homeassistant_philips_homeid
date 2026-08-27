@@ -580,7 +580,15 @@
         "name": "Program AutoCook"
       },
       "operation_mode": {
-        "name": "Tryb pracy"
+        "name": "Tryb pracy",
+        "state": {
+          "auto": "Automatyczny",
+          "gentle": "Łagodny",
+          "medium": "Średni",
+          "fast": "Szybki",
+          "sleep": "Nocny",
+          "turbo": "Turbo"
+        }
       }
     },
     "switch": {

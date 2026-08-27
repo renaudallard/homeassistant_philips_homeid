@@ -580,7 +580,15 @@
         "name": "Built-in Drink"
       },
       "operation_mode": {
-        "name": "Operation Mode"
+        "name": "Operation Mode",
+        "state": {
+          "auto": "Auto",
+          "gentle": "Gentle",
+          "medium": "Medium",
+          "fast": "Fast",
+          "sleep": "Sleep",
+          "turbo": "Turbo"
+        }
       }
     },
     "switch": {

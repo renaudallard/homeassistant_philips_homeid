@@ -580,7 +580,15 @@
         "name": "AutoCook 程序"
       },
       "operation_mode": {
-        "name": "运行模式"
+        "name": "运行模式",
+        "state": {
+          "auto": "自动",
+          "gentle": "轻柔",
+          "medium": "中档",
+          "fast": "快速",
+          "sleep": "睡眠",
+          "turbo": "强劲"
+        }
       }
     },
     "switch": {

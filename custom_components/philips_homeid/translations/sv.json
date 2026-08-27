@@ -580,7 +580,15 @@
         "name": "AutoCook-program"
       },
       "operation_mode": {
-        "name": "Driftläge"
+        "name": "Driftläge",
+        "state": {
+          "auto": "Automatiskt",
+          "gentle": "Skonsamt",
+          "medium": "Medel",
+          "fast": "Snabbt",
+          "sleep": "Nattläge",
+          "turbo": "Turbo"
+        }
       }
     },
     "switch": {

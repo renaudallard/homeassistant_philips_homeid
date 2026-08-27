@@ -580,7 +580,15 @@
         "name": "AutoCook-Programm"
       },
       "operation_mode": {
-        "name": "Betriebsmodus"
+        "name": "Betriebsmodus",
+        "state": {
+          "auto": "Automatik",
+          "gentle": "Sanft",
+          "medium": "Mittel",
+          "fast": "Schnell",
+          "sleep": "Nacht",
+          "turbo": "Turbo"
+        }
       }
     },
     "switch": {

@@ -580,7 +580,15 @@
         "name": "AutoCook 프로그램"
       },
       "operation_mode": {
-        "name": "운전 모드"
+        "name": "운전 모드",
+        "state": {
+          "auto": "자동",
+          "gentle": "약",
+          "medium": "중",
+          "fast": "강",
+          "sleep": "수면",
+          "turbo": "터보"
+        }
       }
     },
     "switch": {

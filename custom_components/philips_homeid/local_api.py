@@ -595,7 +595,10 @@ class PhilipsLocalAPI:
     ) -> dict[str, Any] | None:
         """Get auto cook program (Venus devices only)."""
         result = await self._request(device, PORT_AUTOCOOK)
-        _LOGGER.debug("Autocook program: %s", result)
+        # The body carries a signed program-download URL, so name the program
+        # rather than printing the whole thing.
+        if result:
+            _LOGGER.debug("Autocook program: %s", result.get("UUID", "?"))
         return result
 
     async def get_recipe_status(self, device: LocalDeviceInfo) -> dict[str, Any] | None:

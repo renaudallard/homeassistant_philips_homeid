@@ -1141,7 +1141,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle zeroconf discovery."""
-        _LOGGER.info("Zeroconf discovery: %s", discovery_info)
+        _LOGGER.debug(
+            "Zeroconf discovery: %s at %s", discovery_info.name, discovery_info.host
+        )
 
         # Parse discovery info
         device = parse_zeroconf_device(
@@ -1209,7 +1211,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, discovery_info: SsdpServiceInfo
     ) -> ConfigFlowResult:
         """Handle SSDP discovery."""
-        _LOGGER.info("SSDP discovery: %s", discovery_info)
+        _LOGGER.debug(
+            "SSDP discovery: %s at %s",
+            discovery_info.upnp.get("friendlyName", ""),
+            discovery_info.ssdp_location or "",
+        )
 
         # Parse discovery info - use keys directly from upnp dict
         upnp = discovery_info.upnp

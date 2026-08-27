@@ -304,8 +304,10 @@ class PhilipsLocalAPI:
 
             # Handle authentication challenge
             challenge = resp.headers.get("WWW-Authenticate")
+            # The header value is the scheme plus the base64 challenge nonce,
+            # which feeds the Authorization response, so log the size only.
             _LOGGER.debug(
-                "Got 401 challenge: %s", challenge[:100] if challenge else "None"
+                "Got 401 challenge (%d chars)", len(challenge) if challenge else 0
             )
             if challenge and device.client_id and device.client_secret:
                 credentials = PhilipsCondorAuth.create_credentials(

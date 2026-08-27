@@ -569,7 +569,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
-| Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH, KO, SV |
+| Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH-HANS, KO, SV |
 
 For in-depth protocol documentation based on decompiled APK analysis, see:
 - [APK Decompiled Analysis](docs/APK_DECOMPILED_ANALYSIS.md) - Complete annotated code analysis of the Philips HomeID APK (includes OAuth/OIDC flow in Appendix E)

@@ -209,7 +209,7 @@ class PhilipsCloudAuth:
         if not vtoken:
             raise CloudAuthError("No vToken in OTP response")
 
-        _LOGGER.debug("OTP sent to %s", email)
+        _LOGGER.debug("OTP sent")
         return vtoken
 
     async def verify_otp(self, email: str, code: str, vtoken: str) -> str:
@@ -263,7 +263,7 @@ class PhilipsCloudAuth:
         if not session_token:
             raise CloudAuthError("No session token in OTP response")
 
-        _LOGGER.debug("OTP verified for %s", email)
+        _LOGGER.debug("OTP verified")
         return session_token
 
     async def get_oidc_tokens(

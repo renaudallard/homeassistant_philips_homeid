@@ -389,7 +389,7 @@
         "name": "Filterbyte krävs"
       },
       "water_tank_empty": {
-        "name": "Vattentanken är tom"
+        "name": "Vattentank tom"
       },
       "airfryer_drawer_open": {
         "name": "Låda"
@@ -419,10 +419,10 @@
         "name": "Inget vatten"
       },
       "airfryer_left_drawer_open": {
-        "name": "Vänster korg"
+        "name": "Vänster låda"
       },
       "airfryer_right_drawer_open": {
-        "name": "Höger korg"
+        "name": "Höger låda"
       },
       "temp_unit_fahrenheit": {
         "name": "Temperaturenhet Fahrenheit"
@@ -531,7 +531,7 @@
           "no_selection": "Inget val",
           "air_steam": "Air Steam",
           "steaming": "Ångkokning",
-          "roast": "Ugnsgrillning",
+          "roast": "Rostning",
           "bake": "Bakning",
           "slow_cook": "Långkok",
           "defrost": "Upptining",

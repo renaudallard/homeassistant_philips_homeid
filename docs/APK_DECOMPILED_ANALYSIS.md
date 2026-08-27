@@ -4584,15 +4584,22 @@ public class SubscribeRequest extends LanRequest {
 
 **File:** `connectivity/condor/lan/communication/FasterFirmwareUploadRequest.java`
 
-Firmware data upload via HTTP PUT to `https://{ip}/firmwaredata`.
+Firmware data upload via HTTP PUT with a raw binary body.
 
 ```java
 public class FasterFirmwareUploadRequest extends LanRequest {
-    // URL: https://{ip}/firmwaredata (not /di/v1/products/...)
     // Method: PUT with binary body (application/octet-stream)
+    // Authorization header: NetworkNode credentials
     // Used for faster bulk firmware transfer (bypasses JSON encoding)
 }
 ```
+
+The target URL cannot be recovered from the APK. `createFirmwareURL` builds it as
+`new URL("https", networkNode.getIpAddress(), "firmwaredata")`, and the file component has no
+leading slash, so `toString()` returns `https://{ip}firmwaredata`. `Request.Builder.url(URL)`
+re-parses that string with `HttpUrl.get(String)` instead of using the parsed components, so the
+request is aimed at host `{ip}firmwaredata` with path `/`. There is no evidence in the APK for a
+`/firmwaredata` path on the device.
 
 ### B.18 IOUtil
 

@@ -4088,7 +4088,7 @@ public final class FirmwarePortProperties implements CondorPortProperties {
     @SerializedName("state")        FirmwarePortState mState;
     @SerializedName("maxchunksize") Integer maxChunkSize;
     String name;                                    // Firmware file name
-    Integer progress;                               // 0-100
+    Integer progress;                               // Bytes received so far, not a percentage
     Integer size;                                   // Bytes
     @SerializedName("statusmsg")    String statusMessage;
     String upgrade;                                 // Available version

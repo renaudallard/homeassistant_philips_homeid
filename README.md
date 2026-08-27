@@ -176,6 +176,7 @@ logger:
     custom_components.philips_homeid.cloud_api: debug
     custom_components.philips_homeid.cloud_auth: debug
     custom_components.philips_homeid.config_flow: debug
+    custom_components.philips_homeid.local_api: debug
 ```
 
 ---
@@ -479,6 +480,7 @@ logger:
   default: warning
   logs:
     custom_components.philips_homeid.mqtt_api: debug
+    custom_components.philips_homeid.local_api: debug
     custom_components.philips_homeid: info
 ```
 

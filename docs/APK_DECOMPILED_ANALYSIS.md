@@ -6358,8 +6358,8 @@ Test run v15 with LucaTomei's HD9285 FUSION device. MQTT CONNECT succeeded.
 NOT the `sub` claim from the access_token.
 
 ```
-get-id userId: d863ffb1-bbb8-48d7-bacc-85ee36cc35a6  (UUID format)
-JWT sub claim:  2631090b920d4b9ba5d77829dc5d89b6       (hex format)
+get-id userId: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (UUID format)
+JWT sub claim:  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx       (hex format)
 ```
 
 Results with fresh Gigya OIDC token + signature from /user/self/signature:

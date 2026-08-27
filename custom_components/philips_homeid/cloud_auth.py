@@ -328,22 +328,19 @@ class PhilipsCloudAuth:
         async with session.get(auth_url, allow_redirects=False) as resp:
             status = resp.status
             if status not in (301, 302, 303, 307, 308):
-                body = (await resp.text())[:300]
+                # The body is server controlled and this request carries the
+                # session token, so report the status rather than the text.
                 if status >= 500:
-                    raise CloudConnectionError(
-                        f"/authorize unreachable: HTTP {status}: {body}"
-                    )
+                    raise CloudConnectionError(f"/authorize unreachable: HTTP {status}")
                 raise CloudAuthError(
-                    f"/authorize: expected redirect, got HTTP {status}: {body}"
+                    f"/authorize: expected redirect, got HTTP {status}"
                 )
             location = resp.headers.get("Location", "")
 
         query = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
         context_jwt = (query.get("context") or [""])[0]
         if not context_jwt:
-            raise CloudAuthError(
-                f"/authorize: no 'context' in Location header ({location[:200]})"
-            )
+            raise CloudAuthError("/authorize: no 'context' in Location header")
 
         async with session.post(
             _SOCIALIZE_GET_IDS,
@@ -376,13 +373,15 @@ class PhilipsCloudAuth:
         async with session.get(cont_url, allow_redirects=False) as resp:
             status = resp.status
             if status not in (301, 302, 303, 307, 308):
-                body = (await resp.text())[:300]
+                # Same reasoning as /authorize above, and this request puts the
+                # session token in its query string, so nothing echoed back
+                # from the server is safe to repeat.
                 if status >= 500:
                     raise CloudConnectionError(
-                        f"/authorize/continue unreachable: HTTP {status}: {body}"
+                        f"/authorize/continue unreachable: HTTP {status}"
                     )
                 raise CloudAuthError(
-                    f"/authorize/continue: expected redirect, got HTTP {status}: {body}"
+                    f"/authorize/continue: expected redirect, got HTTP {status}"
                 )
             location = resp.headers.get("Location", "")
 
@@ -391,9 +390,7 @@ class PhilipsCloudAuth:
             raise CloudAuthError(f"/authorize/continue: {query['errorMessage'][0]}")
         auth_code = (query.get("code") or [""])[0]
         if not auth_code:
-            raise CloudAuthError(
-                f"/authorize/continue: no 'code' in Location ({location[:200]})"
-            )
+            raise CloudAuthError("/authorize/continue: no 'code' in Location")
         return auth_code
 
     # ------------------------------------------------------------------ #

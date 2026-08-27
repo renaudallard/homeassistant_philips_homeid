@@ -292,7 +292,12 @@ class PhilipsCloudAuth:
             auth_code = await self._http_oauth(session_token, code_challenge, client)
             return await self._exchange_code(auth_code, code_verifier, client)
         except (aiohttp.ClientError, TimeoutError) as err:
-            raise CloudConnectionError(f"OAuth flow unreachable: {err}") from err
+            # aiohttp puts the request URL in its timeout message, and the
+            # /authorize/continue URL carries login_token and gmidTicket in the
+            # query string, so only the failure type goes into the message.
+            raise CloudConnectionError(
+                f"OAuth flow unreachable: {type(err).__name__}"
+            ) from err
 
     async def _http_oauth(
         self,

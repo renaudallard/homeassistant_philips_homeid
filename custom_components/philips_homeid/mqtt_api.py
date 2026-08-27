@@ -847,7 +847,7 @@ class PhilipsMQTTClient:
         properties: Any = None,
     ) -> None:
         """Handle MQTT connection established."""
-        _LOGGER.info("MQTT on_connect: reason_code=%s, flags=%s", reason_code, flags)
+        _LOGGER.debug("MQTT on_connect: reason_code=%s, flags=%s", reason_code, flags)
         if reason_code == 0:
             self._connected = True
             self._connect_time = time.monotonic()
@@ -942,8 +942,14 @@ class PhilipsMQTTClient:
                     _LOGGER.error("MQTT reconnect abandoned: %s", err)
                     return
                 except Exception as err:
-                    _LOGGER.warning(
-                        "MQTT reconnect attempt %d failed: %s", attempt, err
+                    # The loop has no attempt cap, so only the first failure
+                    # is worth a warning. After that it is a trace of a
+                    # condition the user cannot act on.
+                    _LOGGER.log(
+                        logging.WARNING if attempt == 1 else logging.DEBUG,
+                        "MQTT reconnect attempt %d failed: %s",
+                        attempt,
+                        err,
                     )
                     delay = min(delay * 1.5, 300.0)
         finally:
@@ -1046,10 +1052,10 @@ class PhilipsMQTTClient:
                         continue
                     if direction == "read":
                         read_ports.append(pname)
-                        _LOGGER.info("Discovered NCP read port: %s", pname)
+                        _LOGGER.debug("Discovered NCP read port: %s", pname)
                     elif direction == "write":
                         write_ports.append(pname)
-                        _LOGGER.info("Discovered NCP write port: %s", pname)
+                        _LOGGER.debug("Discovered NCP write port: %s", pname)
                 self._discovered_ports = read_ports
                 self._discovered_write_ports = write_ports
                 # A fresh discovery re-asks every port, so nothing has

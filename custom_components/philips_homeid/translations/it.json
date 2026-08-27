@@ -100,7 +100,6 @@
       "cannot_connect": "Impossibile connettersi al dispositivo",
       "unsupported_device": "Questo dispositivo Philips non è supportato dall'integrazione ed è stato ignorato.",
       "reauth_successful": "Accesso cloud riuscito.",
-      "reauth_failed": "Accesso cloud fallito. Riprova più tardi.",
       "reauth_entry_missing": "Impossibile trovare la voce di integrazione da riautenticare. Ricarica Home Assistant e riprova."
     }
   },

@@ -100,7 +100,6 @@
       "cannot_connect": "Kan geen verbinding maken met het apparaat",
       "unsupported_device": "Dit Philips-apparaat wordt niet ondersteund door de integratie en is genegeerd.",
       "reauth_successful": "Cloud-aanmelding geslaagd.",
-      "reauth_failed": "Cloud-aanmelding mislukt. Probeer het later opnieuw.",
       "reauth_entry_missing": "De integratie-invoer voor herauthenticatie is niet gevonden. Herstart Home Assistant en probeer het opnieuw."
     }
   },

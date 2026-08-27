@@ -100,7 +100,6 @@
       "cannot_connect": "无法连接",
       "unsupported_device": "此 Philips 设备不受此集成支持，已被忽略。",
       "reauth_successful": "云登录成功。",
-      "reauth_failed": "云登录失败。请稍后重试。",
       "reauth_entry_missing": "找不到要重新认证的集成条目。请重新加载 Home Assistant 后再试。"
     }
   },

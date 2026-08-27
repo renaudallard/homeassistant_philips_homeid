@@ -100,7 +100,6 @@
       "cannot_connect": "No se puede conectar al dispositivo",
       "unsupported_device": "Este dispositivo Philips no es compatible con la integración y se ha ignorado.",
       "reauth_successful": "Inicio de sesión exitoso.",
-      "reauth_failed": "Inicio de sesión fallido. Intente más tarde.",
       "reauth_entry_missing": "No se pudo encontrar la entrada de integración para reautenticar. Recarga Home Assistant e inténtalo de nuevo."
     }
   },

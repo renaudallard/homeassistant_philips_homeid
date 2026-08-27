@@ -100,7 +100,6 @@
       "cannot_connect": "Nao e possivel ligar ao dispositivo",
       "unsupported_device": "Este dispositivo Philips nao e suportado pela integracao e foi ignorado.",
       "reauth_successful": "Login na nuvem bem-sucedido.",
-      "reauth_failed": "Login na nuvem falhou. Tente novamente mais tarde.",
       "reauth_entry_missing": "Não foi possível encontrar a entrada da integração para reautenticar. Recarregue o Home Assistant e tente novamente."
     }
   },

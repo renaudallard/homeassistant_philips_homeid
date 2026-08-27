@@ -100,7 +100,6 @@
       "cannot_connect": "Det gick inte att ansluta till enheten",
       "unsupported_device": "Den här Philips-enheten stöds inte av integrationen och ignorerades.",
       "reauth_successful": "Molninloggningen lyckades.",
-      "reauth_failed": "Molninloggningen misslyckades. Försök igen senare.",
       "reauth_entry_missing": "Det gick inte att hitta integrationsposten som ska autentiseras på nytt. Ladda om Home Assistant och försök igen."
     }
   },

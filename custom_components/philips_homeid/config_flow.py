@@ -1078,7 +1078,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not thing_name and device_id:
             thing_name = f"da-{device_id}"
         if not thing_name:
-            _LOGGER.error("Air+ device record has no thingName or id: %s", device_data)
+            # The record holds localCredentials, so name the fields it does
+            # have rather than dumping it.
+            _LOGGER.error(
+                "Air+ device record has no thingName or id, fields: %s",
+                sorted(device_data),
+            )
             errors["base"] = "cloud_credentials_not_found"
             return None
 

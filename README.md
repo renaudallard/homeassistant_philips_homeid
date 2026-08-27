@@ -474,7 +474,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Built-in preset recipe IDs (PRESET-*) are local to the device and cannot be resolved to names via the cloud API
 
 **Debugging MQTT connection issues:**
-Enable debug logging to see detailed MQTT protocol diagnostics (credential info, paho-mqtt protocol trace):
+Enable debug logging to see MQTT connection diagnostics (token and signature sizes, paho-mqtt protocol trace):
 ```yaml
 logger:
   default: warning

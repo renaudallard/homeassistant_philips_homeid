@@ -296,7 +296,7 @@ async def async_setup_entry(
     if ota_entity:
         entities.append(ota_entity)
 
-    _LOGGER.info("Created %d binary sensors for %s", len(entities), model_name)
+    _LOGGER.debug("Created %d binary sensors for %s", len(entities), model_name)
     async_add_entities(entities)
 
     # Register callback for dynamic entity creation when new properties appear
@@ -309,7 +309,7 @@ async def async_setup_entry(
             description = property_to_description.get(key)
 
             if description and key not in created_keys:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Creating binary sensor %s for newly discovered property %s",
                     description.key,
                     property_key,
@@ -325,7 +325,7 @@ async def async_setup_entry(
         if (OTA_UPDATE_KEY, None) in new_properties:
             entity = make_ota_entity()
             if entity:
-                _LOGGER.info("Creating firmware update sensor from cloud job list")
+                _LOGGER.debug("Creating firmware update sensor from cloud job list")
                 new_entities.append(entity)
 
         if new_entities:

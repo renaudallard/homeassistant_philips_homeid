@@ -64,7 +64,7 @@ async def async_setup_entry(
         if created or ("version", "firmware") not in new_properties:
             return
         created = True
-        _LOGGER.info("Creating update entity for newly discovered firmware")
+        _LOGGER.debug("Creating update entity for newly discovered firmware")
         coordinator.mark_property_seen("version", "firmware")
         async_add_entities([PhilipsHomeIDUpdate(coordinator, coordinator.device_id)])
 

@@ -280,7 +280,7 @@ async def async_setup_entry(
                 for prop_key, nested_key in new_properties:
                     description = wanted.pop((prop_key, nested_key), None)
                     if description is not None:
-                        _LOGGER.info(
+                        _LOGGER.debug(
                             "Creating number %s for newly discovered property %s",
                             description.key,
                             prop_key,

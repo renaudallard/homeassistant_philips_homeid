@@ -121,7 +121,7 @@ async def async_setup_entry(
             PhilipsHomeIDSensor(coordinator, description, coordinator.device_id)
         )
 
-    _LOGGER.info("Created %d sensors for %s", len(entities), model_name)
+    _LOGGER.debug("Created %d sensors for %s", len(entities), model_name)
     async_add_entities(entities)
 
     # Register callback for dynamic entity creation when new properties appear
@@ -134,7 +134,7 @@ async def async_setup_entry(
             description = property_to_description.get(key)
 
             if description and key not in created_keys:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Creating sensor %s for newly discovered property %s",
                     description.key,
                     property_key,

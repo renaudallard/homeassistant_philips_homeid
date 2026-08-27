@@ -245,7 +245,7 @@ async def async_setup_entry(
         for prop_key, nested_key in new_properties:
             if (prop_key, nested_key) == watch_prop:
                 created = True
-                _LOGGER.info("Creating buttons for newly discovered %s", device_type)
+                _LOGGER.debug("Creating buttons for newly discovered %s", device_type)
                 async_add_entities(_create_buttons(), update_before_add=True)
                 return
 

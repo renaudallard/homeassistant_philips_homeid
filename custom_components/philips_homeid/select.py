@@ -164,7 +164,7 @@ async def async_setup_entry(
         ) -> None:
             entities = _make_airfryer_selects()
             if entities:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Creating airfryer selects for newly discovered properties"
                 )
                 async_add_entities(entities, update_before_add=True)
@@ -201,7 +201,7 @@ async def async_setup_entry(
             for prop_key, nested_key in new_properties:
                 if prop_key in ("RoastLevel", "BeanType") and nested_key == "airfryer":
                     rita_created = True
-                    _LOGGER.info("Creating Rita selects for newly discovered espresso")
+                    _LOGGER.debug("Creating Rita selects for newly discovered espresso")
                     async_add_entities(_rita_entities(), update_before_add=True)
                     return
 
@@ -235,7 +235,7 @@ async def async_setup_entry(
         ) -> None:
             entities = _make_mode_select()
             if entities:
-                _LOGGER.info("Creating MUJI operation-mode select")
+                _LOGGER.debug("Creating MUJI operation-mode select")
                 async_add_entities(entities, update_before_add=True)
 
         unregister = coordinator.register_new_property_callback(handle_muji_properties)

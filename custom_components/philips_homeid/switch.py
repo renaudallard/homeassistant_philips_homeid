@@ -122,7 +122,7 @@ async def async_setup_entry(
                     new_entities.append(
                         PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id)
                     )
-                    _LOGGER.info("Creating switches for newly discovered airfryer")
+                    _LOGGER.debug("Creating switches for newly discovered airfryer")
                     async_add_entities(new_entities, update_before_add=True)
                     return
 

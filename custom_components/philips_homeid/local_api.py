@@ -288,7 +288,10 @@ class PhilipsLocalAPI:
             try:
                 return json.loads(text), False
             except (json.JSONDecodeError, ValueError):
-                _LOGGER.debug("Non-JSON response: %s", text[:200])
+                # The security port hands back the device AES key as a bare
+                # hex string, which lands here rather than in the JSON branch.
+                # Log the size so this path can never print a credential.
+                _LOGGER.debug("Non-JSON response (%d chars)", len(text))
                 return {"raw": text}, False
 
         elif resp.status == 401:

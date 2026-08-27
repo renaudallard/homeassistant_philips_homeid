@@ -136,7 +136,6 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
         sig_data = await cloud_api.get_mqtt_signature(
             access_token, platform_rest_url, tenant
         )
-        _LOGGER.info("MQTT signature response keys: %s", list(sig_data.keys()))
     except CloudConnectionError as err:
         raise ConfigEntryNotReady(f"FUSION cloud unreachable: {err}") from err
     except CloudAuthError as err:

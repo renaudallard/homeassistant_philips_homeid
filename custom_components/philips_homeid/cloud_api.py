@@ -183,9 +183,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         async with session.post(url, headers=headers, data=body) as resp:
             text = await resp.text()
             _LOGGER.debug(
-                "MQTT get-id response: HTTP %s, body: %s",
-                resp.status,
-                text[:500],
+                "MQTT get-id response: HTTP %s, %d bytes", resp.status, len(text)
             )
             if resp.status in (401, 403):
                 raise CloudAuthError(f"MQTT get-id rejected: HTTP {resp.status}")
@@ -250,7 +248,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         async with session.get(f"{IOT_BASE}/user/self", headers=headers) as resp:
             text = await resp.text()
             _LOGGER.debug(
-                "User profile response: HTTP %s, body: %s", resp.status, text[:500]
+                "User profile response: HTTP %s, %d bytes", resp.status, len(text)
             )
             if resp.status == 401:
                 raise CloudAuthError(f"User profile rejected: HTTP {resp.status}")
@@ -353,9 +351,9 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             async with session.get(url, headers=headers) as resp:
                 text = await resp.text()
                 _LOGGER.debug(
-                    "Rita capabilities response: HTTP %s, body: %s",
+                    "Rita capabilities response: HTTP %s, %d bytes",
                     resp.status,
-                    text[:500],
+                    len(text),
                 )
                 if resp.status != 200:
                     self._raise_if_retryable(
@@ -396,7 +394,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 f"Device jobs fetch failed for {device_id}: {err}"
             ) from err
 
-        _LOGGER.debug("Device jobs response: HTTP %s, body: %s", status, text[:500])
+        _LOGGER.debug("Device jobs response: HTTP %s, %d bytes", status, len(text))
         if status in (401, 403):
             raise CloudAuthError(
                 f"Device jobs rejected: HTTP {status}, body: {text[:200]}"
@@ -433,7 +431,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
         async with session.get(f"{IOT_BASE}/user/self/home", headers=headers) as resp:
             text = await resp.text()
-            _LOGGER.debug("Homes response: HTTP %s, body: %s", resp.status, text[:500])
+            _LOGGER.debug("Homes response: HTTP %s, %d bytes", resp.status, len(text))
             if resp.status != 200:
                 return []
             try:

@@ -652,7 +652,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 tokens["access_token"]
                             )
                             _LOGGER.debug(
-                                "IoT user: id=%s", profile.get("id", "unknown")
+                                "IoT user resolved: %s", bool(profile.get("id"))
                             )
                         except CloudAuthError:
                             _LOGGER.warning(

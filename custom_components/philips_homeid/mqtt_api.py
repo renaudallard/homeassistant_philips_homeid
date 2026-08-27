@@ -383,10 +383,9 @@ class PhilipsMQTTClient:
         # userId from POST /api/da/user/self/get-id (NOT the JWT sub claim).
         prefix = device.user_id or device.device_id
         client_id = f"{prefix}_{uuid.uuid4()}"
-        # The prefix is the Philips account id. Logs get attached to issues,
-        # so keep it out of the default level, the way the token and
-        # signature above are logged only by length.
-        _LOGGER.debug("MQTT client_id: %s", client_id)
+        # The prefix is the Philips account id, and logs get attached to
+        # issues, so report the shape rather than the value.
+        _LOGGER.debug("MQTT client_id built (prefix %d chars)", len(prefix))
 
         # paho ships with core but is not in our requirements, and a local
         # only device never reaches this code, so importing it here keeps

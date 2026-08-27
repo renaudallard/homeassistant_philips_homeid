@@ -262,7 +262,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 raise CloudConnectionError(
                     f"User profile response not JSON: {text[:200]}"
                 ) from err
-            _LOGGER.debug("Cloud user ID: %s", data.get("id", "unknown"))
+            _LOGGER.debug("Cloud user ID resolved: %s", bool(data.get("id")))
             return data
 
     async def get_devices(self, access_token: str) -> list[dict[str, Any]]:

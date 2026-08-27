@@ -917,7 +917,11 @@ class PhilipsMQTTClient:
                 attempt += 1
                 if self._stop.wait(delay):
                     return
-                _LOGGER.info("MQTT reconnect attempt %d", attempt)
+                _LOGGER.log(
+                    logging.INFO if attempt == 1 else logging.DEBUG,
+                    "MQTT reconnect attempt %d",
+                    attempt,
+                )
                 try:
                     assert self._credential_refresh is not None
                     access_token, signature = self._credential_refresh()

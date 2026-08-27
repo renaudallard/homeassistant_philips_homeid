@@ -277,8 +277,10 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
         async with session.get(f"{IOT_BASE}/user/self/device", headers=headers) as resp:
             text = await resp.text()
+            # Each record carries localCredentials, which holds the Condor
+            # client id, client secret and the device AES key, so log the size.
             _LOGGER.debug(
-                "Device list response: HTTP %s, body: %s", resp.status, text[:1000]
+                "Device list response: HTTP %s, %d bytes", resp.status, len(text)
             )
             # A 403 is the IoT API refusing the token (its AWS gateway wants an
             # IAM-signed request, not a bare OIDC bearer), which is a permanent

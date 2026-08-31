@@ -444,6 +444,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
 - All entity platforms (sensors, buttons, switches, numbers, cooking method) support dynamic creation: entities appear automatically when device properties become available, even if NCP port data arrives after initial setup
 - Some air fryer firmwares park the appliance controller while the Wi-Fi module stays connected to the cloud. Such a device answers no port read at all, so the Power switch is always created for FUSION air fryers: turning it on wakes the appliance and port discovery restarts
+- Port discovery is retried during setup and every five minutes for as long as a device has not named its ports, so an appliance that only wakes up later is picked up without reloading the integration
 
 **Token management:**
 - OIDC access tokens expire after 1 hour; the integration proactively refreshes them before expiry to avoid disconnects
@@ -518,7 +519,7 @@ The backend's error response is written to the Home Assistant log on the `HomeID
 ### FUSION Air Fryer Shows Only the Power Switch
 Some air fryer firmwares power down the appliance controller (NCP) while the Wi-Fi module stays connected to the cloud. The device then answers no port read, so the integration has no properties to build the cooking entities from.
 
-Turn the **Power** switch on, or press the power button on the appliance itself. The appliance re-advertises its ports and the remaining entities appear within a few seconds. The Power switch tracks the appliance's cooking status afterwards, so it reads off again once the appliance settles in standby.
+Turn the **Power** switch on: the appliance re-advertises its ports and the remaining entities appear within a few seconds. Waking it at its own control panel works too, and is picked up at the next port retry (five minutes at most). The Power switch tracks the appliance's cooking status afterwards, so it reads off again once the appliance settles in standby.
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.

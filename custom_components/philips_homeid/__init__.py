@@ -53,6 +53,7 @@ from .const import (
     DOMAIN,
     FUSION_MQTT_HOST,
     FUSION_PLATFORM_REST_URL,
+    FUSION_PORT_RETRY_INTERVAL,
     FUSION_TENANT,
     OAUTH_CLIENT_HOMEID,
 )
@@ -269,10 +270,20 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # says nothing about whether Status has reported yet. A port that replies
     # busy ends the wait but not the pruning question below, so a slow
     # appliance costs no extra startup time.
+    #
+    # An appliance whose NCP is asleep ignores the getAllPorts sent from
+    # on_connect: the publish is acknowledged and nothing comes back. Ask
+    # again while waiting, since that answer is what every entity is built
+    # from. A device that already named its ports is left alone.
     deadline = asyncio.get_event_loop().time() + 15
+    next_retry = asyncio.get_event_loop().time() + FUSION_PORT_RETRY_INTERVAL
     while asyncio.get_event_loop().time() < deadline:
         if coordinator.ncp_ports_replied:
             break
+        now = asyncio.get_event_loop().time()
+        if now >= next_retry and not coordinator.ncp_ports_discovered:
+            await coordinator._request_ncp_ports()
+            next_retry = now + FUSION_PORT_RETRY_INTERVAL
         await asyncio.sleep(0.2)
     else:
         _LOGGER.warning(

@@ -300,6 +300,16 @@ class PhilipsMQTTClient:
             self._reconnecting = False
 
     @property
+    def ports_discovered(self) -> bool:
+        """Return whether getAllPorts has named the device's read ports.
+
+        False means the appliance never answered the discovery command, which
+        is how an NCP that is asleep behaves: the link is up and the publish
+        is acknowledged, but nothing comes back.
+        """
+        return bool(self._discovered_ports)
+
+    @property
     def ports_replied(self) -> bool:
         """Return whether every discovered read port has replied to its getPort.
 

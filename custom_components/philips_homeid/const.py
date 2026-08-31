@@ -112,6 +112,7 @@ KEEP_WARM_DEFAULT_TEMP_C = 65
 DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking
 FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
+FUSION_PORT_RETRY_INTERVAL = 5  # seconds between getAllPorts retries at setup
 
 # The best-effort cloud fetches (AutoCook catalog, My Presets, Rita drinks)
 # are kicked from the state-update path, which runs on every push, so a cloud

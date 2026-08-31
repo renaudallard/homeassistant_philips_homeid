@@ -122,6 +122,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self.device_info = device_info
         self._state: LocalDeviceState | None = None
         self._last_update_time: float = 0.0  # Timestamp of last successful poll
+        # The connect that follows this sends its own getAllPorts, so the
+        # retry below counts from here rather than from the epoch.
+        self._last_port_request: float = time.monotonic()
         # Baseline the cook countdown extrapolates from, and the cur_time it
         # was taken at. Kept apart from _last_update_time because a message
         # can refresh the state without carrying a new cur_time.
@@ -243,6 +246,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         self._maybe_fetch_rita_drinks()
         self._maybe_fetch_ota_jobs()
         self._maybe_refresh_mqtt_token()
+        self._maybe_request_ncp_ports()
         self.async_set_updated_data(state)
 
     def _update_countdown_baseline(self, state: LocalDeviceState) -> None:
@@ -272,6 +276,34 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if self.mqtt_client and self.mqtt_client.needs_token_refresh():
             self._create_tracked_task(self._proactive_mqtt_refresh())
 
+    def _maybe_request_ncp_ports(self) -> None:
+        """Re-ask a FUSION device for its ports when none are known.
+
+        Same starvation as above: a device that pushes often enough keeps the
+        heartbeat from ever running, and the heartbeat is what re-sends
+        getAllPorts. An appliance that was asleep when the link came up would
+        then never be asked again, and it has no entities until it answers.
+        """
+        if not self._is_fusion or self.mqtt_client is None:
+            return
+        if not self.mqtt_client.connected or self.mqtt_client.ports_discovered:
+            return
+        now = time.monotonic()
+        if now - self._last_port_request < FUSION_HEARTBEAT_INTERVAL:
+            return
+        self._last_port_request = now
+        self._create_tracked_task(self._request_ncp_ports())
+
+    async def _request_ncp_ports(self) -> None:
+        """Send a fresh getAllPorts to a FUSION device."""
+        assert self.mqtt_client is not None
+        try:
+            await self.hass.async_add_executor_job(self.mqtt_client.refresh_port_data)
+        except Exception as err:
+            # A link that broke under the send is the reconnect's problem,
+            # exactly as in the heartbeat that sends the same command.
+            _LOGGER.debug("NCP port re-request failed: %s", err)
+
     async def _async_update_data(self) -> LocalDeviceState | None:
         """Fetch data from device."""
         if self._is_fusion and self.mqtt_client:
@@ -295,6 +327,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 await self._proactive_mqtt_refresh()
             if self.mqtt_client.connected:
                 await self.hass.async_add_executor_job(self.mqtt_client.request_state)
+                self._last_port_request = time.monotonic()
                 await self.hass.async_add_executor_job(
                     self.mqtt_client.refresh_port_data
                 )
@@ -1892,6 +1925,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         for task in list(self._background_tasks):
             if not task.done():
                 task.cancel()
+
+    @property
+    def ncp_ports_discovered(self) -> bool:
+        """Return whether a FUSION device has named its ports."""
+        if self.mqtt_client is None:
+            return False
+        return self.mqtt_client.ports_discovered
 
     @property
     def ncp_ports_replied(self) -> bool:

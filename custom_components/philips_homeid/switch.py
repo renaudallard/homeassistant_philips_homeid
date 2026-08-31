@@ -52,6 +52,8 @@ async def async_setup_entry(
 
     model_name = coordinator.device_info.model_name or ""
     device_type = get_device_type(model_name)
+    is_fusion = bool(entry.data.get(CONF_IS_FUSION))
+    is_airfryer = device_type in ("airfryer", "multicooker")
 
     entities: list[SwitchEntity] = []
 
@@ -61,27 +63,25 @@ async def async_setup_entry(
             PhilipsHomeIDChildLockSwitch(coordinator, coordinator.device_id)
         )
 
-    # Power switch for FUSION airfryers only (local HTTP devices don't need it)
-    if (
-        device_type in ("airfryer", "multicooker")
-        and coordinator.has_property("status", "airfryer")
-        and entry.data.get(CONF_IS_FUSION)
-    ):
+    # Power switch for FUSION airfryers only (local HTTP devices don't need it).
+    # Not gated on the Status port: an appliance that parked its NCP answers
+    # no port read at all, and turning this switch on is what wakes it, so
+    # gating it on port data left such a device with no entity to wake it
+    # from (issue #40).
+    if is_airfryer and is_fusion:
         entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
 
     # Power switch for Rita espresso machines (FUSION shadow powerOn)
-    if device_type == "espresso" and entry.data.get(CONF_IS_FUSION):
+    if device_type == "espresso" and is_fusion:
         entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
 
     # Power switch for local EP/SM espresso machines (command port power enum)
-    if device_type == "espresso" and not entry.data.get(CONF_IS_FUSION):
+    if device_type == "espresso" and not is_fusion:
         entities.append(PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id))
 
     # Preheat toggle for airfryers
-    if device_type in (
-        "airfryer",
-        "multicooker",
-    ) and coordinator.has_property("status", "airfryer"):
+    preheat_created = is_airfryer and coordinator.has_property("status", "airfryer")
+    if preheat_created:
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
     # MUJI sensor monitor in standby (AC0650/AC0651)
@@ -99,31 +99,30 @@ async def async_setup_entry(
     if entities:
         async_add_entities(entities)
 
-    # Dynamic creation for airfryer switches when properties arrive late
-    if device_type in ("airfryer", "multicooker"):
-        is_fusion = entry.data.get(CONF_IS_FUSION)
-        created = set()
-        if entities:
-            created.add("switches")
+    # Dynamic creation for the preheat toggle when the Status port answers late
+    if is_airfryer and not preheat_created:
+        created = False
 
         def handle_new_properties(
             new_properties: list[tuple[str, str | None]],
         ) -> None:
-            if "switches" in created:
+            nonlocal created
+            if created:
                 return
             for prop_key, nested_key in new_properties:
                 if prop_key == "status" and nested_key == "airfryer":
-                    created.add("switches")
-                    new_entities: list[SwitchEntity] = []
-                    if is_fusion:
-                        new_entities.append(
-                            PhilipsHomeIDPowerSwitch(coordinator, coordinator.device_id)
-                        )
-                    new_entities.append(
-                        PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id)
+                    created = True
+                    _LOGGER.debug(
+                        "Creating preheat switch for newly discovered airfryer"
                     )
-                    _LOGGER.debug("Creating switches for newly discovered airfryer")
-                    async_add_entities(new_entities, update_before_add=True)
+                    async_add_entities(
+                        [
+                            PhilipsHomeIDPreheatSwitch(
+                                coordinator, coordinator.device_id
+                            )
+                        ],
+                        update_before_add=True,
+                    )
                     return
 
         unregister = coordinator.register_new_property_callback(handle_new_properties)

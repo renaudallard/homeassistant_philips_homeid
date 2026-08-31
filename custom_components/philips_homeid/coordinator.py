@@ -394,7 +394,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 return await self._mqtt_command(
                     "control", {"status": AIRFRYER_STATUS_STANDBY}
                 )
-            return True  # Power on is a no-op; use Start button
+            # Powering on does not start a cook, that is what the Start button
+            # is for. What it does is wake an appliance that parked its NCP:
+            # such a device answers no port read, so waking it is the only way
+            # back to its ports and to every entity built from them (issue
+            # #40). An appliance that is already awake advertises its control
+            # port and this returns without sending anything.
+            return await self._ensure_fusion_control_port()
         # FUSION non-airfryers (Rita espresso, air purifier): shadow update
         if self._is_fusion and self.mqtt_client:
             await self.hass.async_add_executor_job(self.mqtt_client.set_power, power_on)

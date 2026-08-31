@@ -331,7 +331,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Select | Cooking Method | Preset selection (architecture-specific) |
 | Select | My Presets | Apply a custom preset created in the Philips HomeID app (cloud login required; SPECTRE airfryers) |
 | Select | AutoCook Program | Pick a built-in AutoCook program by name (Venus local only; names come from the cached cloud catalog) |
-| Switch | Power | Power status indicator, sends standby on off (FUSION only) |
+| Switch | Power | Wakes the appliance when turned on, sends standby when turned off (FUSION only) |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |
 | Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
@@ -443,6 +443,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Uses the same cooking flow as the official app: configure settings first (temp, time, cooking method), which wakes the device and puts it in "setting" state, then press Start to begin cooking
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
 - All entity platforms (sensors, buttons, switches, numbers, cooking method) support dynamic creation: entities appear automatically when device properties become available, even if NCP port data arrives after initial setup
+- Some air fryer firmwares park the appliance controller while the Wi-Fi module stays connected to the cloud. Such a device answers no port read at all, so the Power switch is always created for FUSION air fryers: turning it on wakes the appliance and port discovery restarts
 
 **Token management:**
 - OIDC access tokens expire after 1 hour; the integration proactively refreshes them before expiry to avoid disconnects
@@ -513,6 +514,11 @@ To fix it:
 - A 5xx can also be transient, so if the above does not apply you can wait a while and retry.
 
 The backend's error response is written to the Home Assistant log on the `HomeID profile failed` line.
+
+### FUSION Air Fryer Shows Only the Power Switch
+Some air fryer firmwares power down the appliance controller (NCP) while the Wi-Fi module stays connected to the cloud. The device then answers no port read, so the integration has no properties to build the cooking entities from.
+
+Turn the **Power** switch on, or press the power button on the appliance itself. The appliance re-advertises its ports and the remaining entities appear within a few seconds. The Power switch tracks the appliance's cooking status afterwards, so it reads off again once the appliance settles in standby.
 
 ### No Credentials Found (Credential Extractor Returns Empty)
 On some firmwares, the Philips app initially communicates with the device via **cloud relay** (Philips MQTT servers) and does not store local credentials. This can happen when you install the app on a new device and log into your Philips account without completing the local authentication step.

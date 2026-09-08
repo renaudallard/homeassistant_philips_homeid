@@ -31,12 +31,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-      - name: Format
-        run: ruff format --check custom_components tests
+      - name: Lint
+        run: |
+          ruff check custom_components tests
+          ruff format --check custom_components tests
       - name: Type check
         run: mypy --ignore-missing-imports custom_components/philips_homeid
-      # ruff check is not here yet: the tree still has findings to clear, and
-      # a check that is red from the first run tells nobody anything.
       - name: Tests
         env:
           PYTHONPATH: "."

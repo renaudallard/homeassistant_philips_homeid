@@ -236,9 +236,11 @@ async def async_setup_entry(
     # Build a mapping of property keys to sensor descriptions for this device type
     property_to_description: dict[str, PhilipsHomeIDBinarySensorEntityDescription] = {}
     for description in BINARY_SENSORS:
-        if description.device_types is not None:
-            if device_type not in description.device_types:
-                continue
+        if (
+            description.device_types is not None
+            and device_type not in description.device_types
+        ):
+            continue
         if description.property_key:
             key = coordinator.get_property_key(
                 description.property_key, description.nested_key
@@ -255,9 +257,11 @@ async def async_setup_entry(
     # Only add binary sensors that match the device type AND have data
     for description in BINARY_SENSORS:
         # If sensor has device_types defined, check if current device matches
-        if description.device_types is not None:
-            if device_type not in description.device_types:
-                continue
+        if (
+            description.device_types is not None
+            and device_type not in description.device_types
+        ):
+            continue
 
         # Only create sensor if the property exists in device state
         if not coordinator.has_property(

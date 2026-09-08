@@ -30,12 +30,13 @@ import asyncio
 import json
 import logging
 import secrets
-from typing import Any
+from typing import Any, ClassVar
 
 import aiohttp
 
 # Re-export models and constants so existing imports from local_api still work
 from .local_models import (  # noqa: F401
+    _MODEL_PORT_MAP,
     AIRFRYER_STATUS_COOKING,
     AIRFRYER_STATUS_FINISH,
     AIRFRYER_STATUS_IDLE,
@@ -51,10 +52,6 @@ from .local_models import (  # noqa: F401
     AIRFRYER_STATUS_USER_ACTION,
     DEFAULT_PRODUCT_ID,
     DEFAULT_PROTOCOL_VERSION,
-    LocalDeviceInfo,
-    LocalDeviceState,
-    PhilipsCondorAuth,
-    PhilipsCrypto,
     PORT_AIR,
     PORT_AIRFRYER,
     PORT_AUTOCOOK,
@@ -71,10 +68,13 @@ from .local_models import (  # noqa: F401
     PORT_RECIPE,
     PORT_SECURITY,
     PORT_STATUS,
-    PORT_VENUSAF,
     PORT_VENUS1AF,
+    PORT_VENUSAF,
     VENUS_STYLE_PORTS,
-    _MODEL_PORT_MAP,
+    LocalDeviceInfo,
+    LocalDeviceState,
+    PhilipsCondorAuth,
+    PhilipsCrypto,
     bracket_ipv6,
     keep_warm_method_for_port,
     parse_ssdp_device,
@@ -256,7 +256,9 @@ class PhilipsLocalAPI:
             _LOGGER.error("Request failed for %s: %s", url, err)
             self._probe_transient = True
             return None
-        except Exception as err:
+        # Anything the device throws back leaves the caller with None,
+        # which it already handles as an unreachable device.
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Unexpected error for %s: %s", url, err)
             self._probe_transient = True
             return None
@@ -490,7 +492,7 @@ class PhilipsLocalAPI:
     # Mapping between Venus and SPECTRE JSON property names.
     # Venus (HD9875/HD9876/HD9880) uses different keys than
     # SPECTRE (HD9280/HD9285/HD9255). Format: {venus_key: spectre_key}
-    _VENUS_KEY_MAP = {
+    _VENUS_KEY_MAP: ClassVar[dict[str, str]] = {
         "disp_time": "cur_time",
         "total_time": "time",
         "method": "preset",
@@ -502,7 +504,9 @@ class PhilipsLocalAPI:
         "drw_opn": "drawer_open",
         "prev_stat": "prev_status",
     }
-    _SPECTRE_KEY_MAP = {v: k for k, v in _VENUS_KEY_MAP.items()}
+    _SPECTRE_KEY_MAP: ClassVar[dict[str, str]] = {
+        v: k for k, v in _VENUS_KEY_MAP.items()
+    }
 
     @staticmethod
     def _normalize_venus_response(data: dict[str, Any]) -> dict[str, Any]:
@@ -907,13 +911,14 @@ class PhilipsLocalAPI:
                 if resp.status == 200:
                     try:
                         return await resp.json(), resp.status
-                    except Exception:
+                    # A body that will not decode is a failed probe.
+                    except Exception:  # noqa: BLE001
                         return None, resp.status
                 return None, resp.status
         except aiohttp.ClientError as err:
             _LOGGER.debug("Probe connection failed for %s: %s", url, err)
             return None, None
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Probe unexpected error for %s: %s", url, err)
             return None, None
 

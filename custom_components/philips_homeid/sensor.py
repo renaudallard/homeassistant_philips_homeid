@@ -44,7 +44,7 @@ from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 
 # Re-export for other modules that import from sensor
-from .sensor_descriptions import (  # noqa: F401
+from .sensor_descriptions import (
     SENSORS,
     PhilipsHomeIDSensorEntityDescription,
     get_device_type,
@@ -72,9 +72,11 @@ async def async_setup_entry(
     # Build a mapping of property keys to sensor descriptions for this device type
     property_to_description: dict[str, PhilipsHomeIDSensorEntityDescription] = {}
     for description in SENSORS:
-        if description.device_types is not None:
-            if device_type not in description.device_types:
-                continue
+        if (
+            description.device_types is not None
+            and device_type not in description.device_types
+        ):
+            continue
         if description.property_key:
             key = coordinator.get_property_key(
                 description.property_key, description.nested_key
@@ -91,9 +93,11 @@ async def async_setup_entry(
     # Only add sensors that match the device type AND have data
     for description in SENSORS:
         # If sensor has device_types defined, check if current device matches
-        if description.device_types is not None:
-            if device_type not in description.device_types:
-                continue
+        if (
+            description.device_types is not None
+            and device_type not in description.device_types
+        ):
+            continue
 
         # Only create sensor if the property exists in device state
         if not coordinator.has_property(

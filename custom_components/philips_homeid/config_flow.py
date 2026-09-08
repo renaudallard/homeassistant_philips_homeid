@@ -31,11 +31,10 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST
-
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
@@ -43,8 +42,6 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.service_info.ssdp import SsdpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
-
-from homeassistant.core import callback
 
 from .cloud_api import (
     CloudAuthError,
@@ -686,8 +683,10 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             )
                             if homes:
                                 _LOGGER.debug("IoT homes: %d found", len(homes))
-                        except Exception:
-                            pass
+                        except Exception as err:  # noqa: BLE001
+                            # A debug aid only. The device list gathered above
+                            # is what the step actually needs to continue.
+                            _LOGGER.debug("IoT home list unavailable: %s", err)
 
                         if devices:
                             self._cloud_devices = devices

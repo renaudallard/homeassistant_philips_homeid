@@ -29,9 +29,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -173,7 +172,11 @@ class PhilipsCondorAuth:
 
     SCHEME = "PhilipsCondor"
     # Alternative scheme names used by different firmware versions
-    SCHEME_VARIANTS = ["PhilipsCondor", "PHILIPS-Condor", "Philips-Condor"]
+    SCHEME_VARIANTS: ClassVar[list[str]] = [
+        "PhilipsCondor",
+        "PHILIPS-Condor",
+        "Philips-Condor",
+    ]
     # Accept challenge sizes between 8 and 64 bytes (different firmware versions)
     MIN_CHALLENGE_SIZE = 8
     MAX_CHALLENGE_SIZE = 64
@@ -236,7 +239,8 @@ class PhilipsCondorAuth:
             )
 
             return f"{response_scheme} {response_b64}"
-        except Exception as err:
+        # Bad credentials material must return None, not take the setup down.
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Failed to create credentials: %s", err)
             return None
 
@@ -278,7 +282,8 @@ class PhilipsCrypto:
             plaintext = unpadder.update(padded) + unpadder.finalize()
 
             return plaintext.decode("utf-8")
-        except Exception as err:
+        # A key or payload the cipher rejects is a None, not a crash.
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("AES decryption failed: %s", err)
             return None
 
@@ -297,7 +302,7 @@ class PhilipsCrypto:
             ciphertext = encryptor.update(padded) + encryptor.finalize()
 
             return base64.b64encode(ciphertext).decode("utf-8")
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("AES encryption failed: %s", err)
             return None
 
@@ -357,7 +362,8 @@ def parse_ssdp_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | None:
         )
         return device
 
-    except Exception as err:
+    # Discovery payloads come from the network and are not to be trusted.
+    except Exception as err:  # noqa: BLE001
         _LOGGER.error("Failed to parse SSDP discovery: %s", err)
         return None
 
@@ -429,6 +435,6 @@ def parse_zeroconf_device(discovery_info: dict[str, Any]) -> LocalDeviceInfo | N
         )
         return device
 
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _LOGGER.error("Failed to parse Zeroconf discovery: %s", err)
         return None

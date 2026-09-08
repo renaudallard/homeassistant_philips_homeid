@@ -872,7 +872,8 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             except CloudConnectionError as err:
                 deferred = err
                 continue
-            except Exception as err:
+            # One base URL failing only means the next one gets tried.
+            except Exception as err:  # noqa: BLE001
                 deferred = err
                 continue
             links = root.get("_links")

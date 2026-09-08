@@ -27,11 +27,11 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
 import logging
 import secrets
 import time
 from collections.abc import Callable, Coroutine
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -66,8 +66,8 @@ from .const import (
     OAUTH_CLIENT_HOMEID,
     OTA_JOBS_POLL_INTERVAL,
     OTA_UPDATE_KEY,
-    RITA_BUILTIN_DRINKS,
     RITA_BUILTIN_DRINK_OFFSET,
+    RITA_BUILTIN_DRINKS,
 )
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
@@ -299,7 +299,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         assert self.mqtt_client is not None
         try:
             await self.hass.async_add_executor_job(self.mqtt_client.refresh_port_data)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             # A link that broke under the send is the reconnect's problem,
             # exactly as in the heartbeat that sends the same command.
             _LOGGER.debug("NCP port re-request failed: %s", err)
@@ -333,7 +333,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 )
             else:
                 _LOGGER.warning("MQTT not connected for heartbeat")
-        except Exception as err:
+        # A heartbeat that fails is the reconnect's problem, not this one's.
+        except Exception as err:  # noqa: BLE001
             _LOGGER.debug("MQTT heartbeat error: %s", err)
         # Return cached state (real updates come via MQTT push)
         return self._state
@@ -1260,7 +1261,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             _LOGGER.error("Proactive MQTT reconnect: token rejected (%s)", err)
             token_rejected = True
             self.config_entry.async_start_reauth(self.hass)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.warning(
                 "Proactive MQTT reconnect failed (%s), will retry on next heartbeat",
                 err,
@@ -1435,7 +1436,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             # The cloud is having a bad moment. Leave the id out of the failed
             # set so a later poll retries instead of never naming it again.
             _LOGGER.debug("Recipe name fetch for %s deferred: %s", recipe_id, err)
-        except Exception:
+        # A recipe name nobody could fetch is not worth failing the poll.
+        except Exception:  # noqa: BLE001
             _LOGGER.warning("Failed to fetch recipe name for %s", recipe_id)
             self._failed_recipe_ids.add(recipe_id)
         finally:

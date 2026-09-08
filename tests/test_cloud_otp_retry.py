@@ -29,7 +29,7 @@ async def test_transient_failure_after_verify_keeps_the_step_usable():
     through to "missing_code" for a code the user did type, with no way
     forward but to restart the whole flow.
     """
-    flow, api = _flow(AsyncMock(side_effect=CloudConnectionError("boom")))
+    flow, _api = _flow(AsyncMock(side_effect=CloudConnectionError("boom")))
 
     result = await flow.async_step_cloud_otp({"code": "123456"})
 

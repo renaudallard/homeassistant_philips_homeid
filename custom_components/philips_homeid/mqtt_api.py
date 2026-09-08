@@ -954,7 +954,7 @@ class PhilipsMQTTClient:
                     # that behind an endless retry.
                     _LOGGER.error("MQTT reconnect abandoned: %s", err)
                     return
-                except Exception as err:
+                except Exception as err:  # noqa: BLE001
                     # The loop has no attempt cap, so only the first failure
                     # is worth a warning. After that it is a trace of a
                     # condition the user cannot act on.
@@ -998,9 +998,10 @@ class PhilipsMQTTClient:
         _LOGGER.debug("MQTT message on %s: %s", msg.topic, str(payload)[:500])
 
         try:
-            if msg.topic == self._topics["shadow_get_accepted"]:
-                self._handle_shadow(payload)
-            elif msg.topic == self._topics["shadow_update_accepted"]:
+            if msg.topic in (
+                self._topics["shadow_get_accepted"],
+                self._topics["shadow_update_accepted"],
+            ):
                 self._handle_shadow(payload)
             elif msg.topic == self._topics["from_ncp"]:
                 self._handle_ncp_response(payload)

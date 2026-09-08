@@ -27,7 +27,6 @@
 from __future__ import annotations
 
 import re
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -38,8 +37,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    EntityCategory,
     PERCENTAGE,
+    EntityCategory,
     UnitOfTemperature,
     UnitOfTime,
 )

@@ -27,8 +27,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.number import (

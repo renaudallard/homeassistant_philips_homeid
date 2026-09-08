@@ -1,0 +1,8 @@
+# Pinned so a green run here means a green run anywhere. Home Assistant
+# 2026.9 needs Python 3.14, which is the version the workflow asks for.
+homeassistant==2026.9.1
+mypy==2.3.1
+pytest==9.1.1
+pytest-asyncio==1.4.0
+ruff==0.16.6
+voluptuous==0.16.0

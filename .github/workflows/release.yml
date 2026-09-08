@@ -8,8 +8,13 @@ on:
       - 'custom_components/philips_homeid/manifest.json'
 
 jobs:
+  # A version that fails the suite must not reach HACS users.
+  verify:
+    uses: ./.github/workflows/test.yml
+
   release:
     runs-on: ubuntu-latest
+    needs: [verify]
     permissions:
       contents: write
 

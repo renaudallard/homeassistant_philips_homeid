@@ -34,7 +34,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
-> **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details.
+> **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details. If your device still works locally, do not accept firmware updates from the Philips app: the FUSION migration is offered as an ordinary update and cannot be undone. See [Cloud-only Firmware](#cloud-only-firmware).
 
 > **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC1715 above), whether they were paired in the Philips HomeID/NutriU app or the standalone **Air+** app (`com.philips.air`); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
@@ -537,7 +537,7 @@ HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_i
 ### Cloud-only Firmware
 
 > [!WARNING]
-> If your airfryer currently runs SPECTRE firmware and works locally, consider declining the FUSION firmware upgrade when the Philips app offers it. The upgrade is one-way: the FUSION firmware does not generate local credentials, so the device can only be controlled through the Philips cloud afterwards.
+> If your airfryer works locally (a single firmware version such as `1.6.0`), do not install any firmware update the Philips app offers for it. The app does not label the FUSION migration: it appears as an ordinary version number, for example `2.6.8` offered to a device running `1.6.0`, and a user who installed it ended up on `4.0.0/0.6.8`, which is FUSION. There is no way back. FUSION firmware never generates local credentials, so from then on the device can only be reached through the Philips cloud. The integration's Firmware update entity shows the offered version for information only and never installs it.
 
 Some newer firmware versions do not generate local credentials at all. The Philips app communicates with the device exclusively through cloud relay (MQTT via AWS IoT at `ats.prod.eu-da.iot.versuni.com`), and the credential extractor finds nothing because there are no local credentials stored on the device.
 

@@ -121,6 +121,10 @@ class PhilipsLocalAPI:
         # "not supported" response, so a momentary glitch cannot cache a
         # permanent negative device-type verdict.
         self._probe_transient = False
+        # True when the last request got no answer at all, as opposed to an
+        # answer we could not use. Every port of a device sits behind the
+        # same socket, so one unanswered read says the rest are pointless.
+        self._no_response = False
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -198,6 +202,7 @@ class PhilipsLocalAPI:
         product_id: int | None = None,
     ) -> dict[str, Any] | None:
         """Make a request to the device."""
+        self._no_response = False
         session = await self._get_session()
         url = self._build_url(device, port_name, product_id)
 
@@ -283,6 +288,7 @@ class PhilipsLocalAPI:
                 level, "Request failed for %s %s: %s", method, url, _describe(err)
             )
             self._probe_transient = True
+            self._no_response = True
             return None
 
     async def _handle_response(
@@ -601,6 +607,10 @@ class PhilipsLocalAPI:
                 if port in VENUS_STYLE_PORTS:
                     result = self._normalize_venus_response(result)
                 return result
+            if self._no_response:
+                # Nothing answered. The remaining candidates share the same
+                # socket, so probing them only spends a timeout each.
+                break
 
         return None
 
@@ -1071,11 +1081,25 @@ class PhilipsLocalAPI:
                     task.cancel()
             await asyncio.gather(https_task, http_task, return_exceptions=True)
 
+    def _device_unreachable(self, got_data: bool) -> bool:
+        """True when nothing has answered and the last read got no reply.
+
+        A poll walks the ports one at a time, so a device that is off or
+        whose web server has wedged used to cost a full request timeout per
+        port, every cycle. One unanswered read with nothing in hand settles
+        it: they all sit behind the same socket.
+        """
+        return not got_data and self._no_response
+
     async def get_full_state(self, device: LocalDeviceInfo) -> LocalDeviceState | None:
         """Get the full state of a device."""
         state = LocalDeviceState(device_info=device)
         got_data = False
         self._probe_transient = False
+        # A block that is skipped makes no request, so this has to start clean
+        # or the previous cycle's failure would cut this one short before it
+        # asked the device anything.
+        self._no_response = False
 
         # Try airfryer endpoint (skip if device is known to be non-airfryer)
         # Skip probing if we have no auth material at all (no client_id/secret),
@@ -1124,6 +1148,9 @@ class PhilipsLocalAPI:
                 # could permanently misclassify the device until restart.
                 device.airfryer_port = False
 
+        if self._device_unreachable(got_data):
+            return None
+
         # Get status/air/filter for non-airfryer devices (air purifiers).
         # Airfryers don't have these endpoints (return 501), so skip to
         # avoid noisy warnings every poll cycle. Cache a negative sentinel
@@ -1153,6 +1180,9 @@ class PhilipsLocalAPI:
             if not purifier_found and has_auth and not self._probe_transient:
                 device.purifier_port = False
 
+        if self._device_unreachable(got_data):
+            return None
+
         # Espresso machines (EP/SM models) expose their state on the
         # "machinestatus" and "configuration" ports. Probe once on non-airfryer
         # devices, then cache a negative sentinel so non-espresso devices (air
@@ -1177,6 +1207,9 @@ class PhilipsLocalAPI:
                             state.power_on = state.power_on or mainstate >= 2
             if not found_any and not self._probe_transient:
                 device.espresso_port = False
+
+        if self._device_unreachable(got_data):
+            return None
 
         # Get firmware version info
         firmware = await self.get_firmware_info(device)

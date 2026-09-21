@@ -585,7 +585,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
 | Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
-| Polling | Configurable via integration options (default: 60s idle, 10s cooking) |
+| Polling | Configurable via integration options (default: 60s idle, 10s cooking). A cycle whose first read goes unanswered stops there instead of timing out on every port |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
 | Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH-HANS, KO, SV |

@@ -3,6 +3,10 @@
 An exception is not guaranteed to carry a message. A timeout raises a bare
 TimeoutError whose text is empty, and the log line then stopped at its colon
 and said nothing about what had happened, for every endpoint of every poll.
+
+The level matters as much as the text: a device that is off makes every read
+fail, which the coordinator already reports once a cycle, while a command
+that fails has nothing else behind it.
 """
 
 import logging
@@ -74,3 +78,32 @@ async def test_the_probe_names_its_failures_too(caplog):
 
     assert (data, status) == (None, None)
     assert any("TimeoutError" in message for message in _messages(caplog))
+
+
+def _records(caplog, level):
+    return [r for r in caplog.records if r.name == LOGGER_NAME and r.levelno >= level]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_read_stays_out_of_the_error_log(caplog):
+    """An unplugged device wrote seven error lines per poll, for hours."""
+    api = _api(TimeoutError())
+    device = LocalDeviceInfo(ip_address="192.0.2.10", cpp_id="")
+
+    with caplog.at_level(logging.DEBUG, logger=LOGGER_NAME):
+        await api._request(device, "airfryer")
+
+    assert _records(caplog, logging.DEBUG)
+    assert not _records(caplog, logging.WARNING)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_command_is_still_an_error(caplog):
+    """Nothing else reports a command the user asked for and did not get."""
+    api = _api(TimeoutError())
+    device = LocalDeviceInfo(ip_address="192.0.2.10", cpp_id="")
+
+    with caplog.at_level(logging.DEBUG, logger=LOGGER_NAME):
+        await api._request(device, "airfryer", method="PUT", data={"status": "idle"})
+
+    assert _records(caplog, logging.ERROR)

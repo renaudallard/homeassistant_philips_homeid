@@ -271,14 +271,17 @@ class PhilipsLocalAPI:
                 _LOGGER.error("Unsupported HTTP method: %s for %s", method, url)
                 return None
 
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Request failed for %s: %s", url, _describe(err))
-            self._probe_transient = True
-            return None
-        # Anything the device throws back leaves the caller with None,
-        # which it already handles as an unreachable device.
+        # Anything the device throws back leaves the caller with None, which
+        # it already handles as an unreachable device. A read that fails is
+        # the coordinator's to report, and it says once per cycle that the
+        # device did not answer, so logging every port of every poll at error
+        # level only fills the log of anyone whose appliance is unplugged. A
+        # command has no such report behind it and stays visible.
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Unexpected error for %s: %s", url, _describe(err))
+            level = logging.DEBUG if method == "GET" else logging.ERROR
+            _LOGGER.log(
+                level, "Request failed for %s %s: %s", method, url, _describe(err)
+            )
             self._probe_transient = True
             return None
 

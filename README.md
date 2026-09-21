@@ -502,6 +502,17 @@ logger:
 - Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration tries both protocols concurrently when probing.
 - The device's web server has limited capacity. Avoid sending too many requests in quick succession or the web server may crash, requiring a power cycle.
 
+### Local Device Stops Responding
+Entities go unavailable and the log shows `No response from device at <ip>`. The per-request detail is logged at debug level, so turn it on to see what the appliance is doing:
+```yaml
+logger:
+  logs:
+    custom_components.philips_homeid.local_api: debug
+```
+The `Request failed for GET <url>` lines then name the failure. `ConnectionTimeoutError` means the appliance accepted nothing, or accepted the socket and never finished the TLS handshake, which is what a wedged web server looks like. `ClientConnectorError` means the connection was refused or reset, so nothing was listening on the port or the appliance dropped the connection as it was being set up.
+
+A wedged web server does not recover on its own. Power-cycle the appliance, or disconnect it at the access point and let it reconnect, which is enough to restart its network services. The appliance keeps answering pings the whole time, so being able to reach it says nothing about its web server.
+
 ### Cloud Login Not Available
 Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 

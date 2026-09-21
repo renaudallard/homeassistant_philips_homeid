@@ -93,6 +93,18 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10, connect=7)
 _LOGGER = logging.getLogger(__name__)
 
 
+def _describe(err: BaseException) -> str:
+    """Render an exception for a log line.
+
+    Not every exception carries a message: a timeout raises a bare
+    TimeoutError, which prints as nothing at all and leaves a line that stops
+    at its colon, so the type name stands in when there is no text.
+    """
+    text = str(err)
+    name = type(err).__name__
+    return f"{name}: {text}" if text else name
+
+
 class EncryptionError(Exception):
     """Raised when a command for an encrypted device cannot be encrypted."""
 
@@ -260,13 +272,13 @@ class PhilipsLocalAPI:
                 return None
 
         except aiohttp.ClientError as err:
-            _LOGGER.error("Request failed for %s: %s", url, err)
+            _LOGGER.error("Request failed for %s: %s", url, _describe(err))
             self._probe_transient = True
             return None
         # Anything the device throws back leaves the caller with None,
         # which it already handles as an unreachable device.
         except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Unexpected error for %s: %s", url, err)
+            _LOGGER.error("Unexpected error for %s: %s", url, _describe(err))
             self._probe_transient = True
             return None
 
@@ -923,10 +935,10 @@ class PhilipsLocalAPI:
                         return None, resp.status
                 return None, resp.status
         except aiohttp.ClientError as err:
-            _LOGGER.debug("Probe connection failed for %s: %s", url, err)
+            _LOGGER.debug("Probe connection failed for %s: %s", url, _describe(err))
             return None, None
         except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("Probe unexpected error for %s: %s", url, err)
+            _LOGGER.debug("Probe unexpected error for %s: %s", url, _describe(err))
             return None, None
 
     async def _probe_with_protocol(

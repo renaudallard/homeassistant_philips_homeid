@@ -81,7 +81,14 @@ from .local_models import (  # noqa: F401
     parse_zeroconf_device,
 )
 
-REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+# The connect budget covers the pool wait, the TCP connect and the TLS
+# handshake. Without it an appliance that accepts the socket and then goes
+# quiet, which is how these devices fail when their web server wedges,
+# only trips the total timeout, and that one raises a bare TimeoutError
+# carrying no message at all. The handshake is nearly the whole cost of a
+# request here, a steady 1.8s on an HD9280 over a quiet network, against
+# 50ms for the exchange that follows it.
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10, connect=7)
 
 _LOGGER = logging.getLogger(__name__)
 

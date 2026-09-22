@@ -458,8 +458,15 @@ class PhilipsMQTTClient:
             port=443,
             keepalive=MQTT_KEEPALIVE,
         )
-        client.loop_start()
+        # Published before the network thread starts, because on_connect sends
+        # the first shadow get and getAllPorts through it and both drop the
+        # command when it is not set yet. loop_start() returns once the thread
+        # is running, and the CONNACK can already be waiting in the socket, so
+        # the assignment cannot come after. On a reconnect this still held the
+        # torn down client, which is worse than empty: the two commands went
+        # out on a dead link and nothing asked again until the next heartbeat.
         self._client = client
+        client.loop_start()
 
         self._wait_for_connection(client)
 

@@ -135,3 +135,20 @@ def test_a_rediscovery_starts_the_question_over():
     _get_ports(client, ["Status", "Config"])
     assert client.ports_complete is False
     assert client.ports_replied is False
+
+
+def test_a_busy_reply_that_names_no_port_cannot_end_the_wait():
+    """The MUJI purifiers answer busy with an empty data object.
+
+    There is nothing in it to attribute the refusal to, so the port stays
+    outstanding and the caller waits out its deadline. The getPort queue is
+    paced off the in-flight port instead, which is the only thing that knows
+    which read was refused.
+    """
+    client = _client([])
+    _get_ports(client, ["Status", "filtRd"])
+    _port_reply(client, "Status", properties={"D03221": 7})
+    client._handle_ncp_response({"cn": "getPort", "status": 1, "data": {}})
+
+    assert client.ports_replied is False
+    assert client.ports_complete is False

@@ -316,6 +316,12 @@ class PhilipsMQTTClient:
         Includes ports that replied busy or with nothing to say, so a caller
         waiting on the appliance stops as soon as it has heard from all of
         them rather than sitting out its whole deadline.
+
+        A busy reply only counts when it names the port it refused. The MUJI
+        purifiers answer busy with an empty data object, so theirs cannot, and
+        such an appliance keeps its caller waiting the whole deadline. That is
+        the conservative end to be on: ports_complete stays False as well, so
+        nothing is pruned against a half-filled state.
         """
         if not self._discovered_ports:
             return False

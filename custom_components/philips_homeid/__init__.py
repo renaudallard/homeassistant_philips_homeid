@@ -270,7 +270,9 @@ async def _async_setup_fusion_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     # port rather than the first one to answer: the arrival of, say, Config
     # says nothing about whether Status has reported yet. A port that replies
     # busy ends the wait but not the pruning question below, so a slow
-    # appliance costs no extra startup time.
+    # appliance costs no extra startup time. That holds only where the busy
+    # reply names its port; a MUJI purifier answers busy with an empty data
+    # object, and then the wait does run to its deadline.
     #
     # An appliance whose NCP is asleep ignores the getAllPorts sent from
     # on_connect: the publish is acknowledged and nothing comes back. Ask

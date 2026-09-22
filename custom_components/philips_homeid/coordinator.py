@@ -80,6 +80,7 @@ from .local_api import (
     AIRFRYER_STATUS_STANDBY,
     AIRFRYER_STATUS_USER_ACTION,
     PORT_VENUSAF,
+    VENUS_STYLE_PORTS,
     LocalDeviceInfo,
     LocalDeviceState,
     PhilipsLocalAPI,
@@ -414,6 +415,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return AIRFRYER_STATUS_PRECOOK
         return AIRFRYER_STATUS_SETTING
 
+    def _fusion_control_has_temp_unit(self) -> bool:
+        """Return whether this appliance's FUSION control port takes temp_unit.
+
+        Only the SPECTRE one declares the field. The Venus and Hermes control
+        ports do not, and Nutrimax has no FUSION ports at all, so on those the
+        unit echo issue #27 asks for is a property the port never had. The
+        appliance still reports temp_unit on its status port, which is where
+        the echoed value is read from, hence the asymmetry.
+        """
+        return self.airfryer_style_port() not in VENUS_STYLE_PORTS
+
     async def async_set_power(self, power_on: bool) -> bool:
         """Set device power state."""
         # Deferred import avoids a circular dependency on sensor_descriptions.
@@ -625,9 +637,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     props["temp_probe"] = probe_temp
                     props["probe_required"] = True
                 # Echo the unit the appliance currently shows; omitting it
-                # makes the device reset to Fahrenheit (issue #27).
+                # makes the device reset to Fahrenheit (issue #27). Only where
+                # the control port has the field.
                 raw_unit = self._current_raw_temp_unit()
-                if raw_unit is not None:
+                if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
             if props:
                 await self._ensure_fusion_control_port()
@@ -685,7 +698,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 "time": self._keep_warm_time,
                 "temp": self.keep_warm_temp,
             }
-            if raw_unit is not None:
+            if raw_unit is not None and self._fusion_control_has_temp_unit():
                 props["temp_unit"] = raw_unit
             await self._mqtt_command("control", props)
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
@@ -1162,9 +1175,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["time"] = time_seconds
             if props:
                 # Echo the current unit so a temp or time change never
-                # resets it (issue #27).
+                # resets it (issue #27). Only where the control port has
+                # the field.
                 raw_unit = self._current_raw_temp_unit()
-                if raw_unit is not None:
+                if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
                 # Pre-cooking: include setting status so device accepts values.
                 # Mid-cooking: send without status (APK behavior).

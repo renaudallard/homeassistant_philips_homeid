@@ -692,14 +692,20 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             # the appliance's own, not SPECTRE's: the send path translates
             # preset to method for a Venus, whose enum has no 8 and would
             # reject the command outright.
+            port = self.airfryer_style_port()
             props: dict[str, Any] = {
                 "status": self._fusion_setting_status,
-                "preset": keep_warm_method_for_port(self.airfryer_style_port()),
+                "preset": keep_warm_method_for_port(port),
                 "time": self._keep_warm_time,
-                "temp": self.keep_warm_temp,
             }
-            if raw_unit is not None and self._fusion_control_has_temp_unit():
-                props["temp_unit"] = raw_unit
+            # A Venus style appliance picks its own keep warm temperature: the
+            # app sends the duration, the method and the status and nothing
+            # else (APK VenusCookingKeepWarmSettingsConverter), which is what
+            # the local path already does. Only SPECTRE names a setpoint.
+            if port not in VENUS_STYLE_PORTS:
+                props["temp"] = self.keep_warm_temp
+                if raw_unit is not None and self._fusion_control_has_temp_unit():
+                    props["temp_unit"] = raw_unit
             await self._mqtt_command("control", props)
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(

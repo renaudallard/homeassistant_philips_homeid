@@ -161,3 +161,30 @@ async def test_spectre_keep_warm_still_echoes_the_unit():
     await stub.async_airfryer_keep_warm()
 
     assert stub.props_for("time")["temp_unit"] is True
+
+
+@pytest.mark.asyncio
+async def test_venus_keep_warm_sends_only_what_the_app_sends():
+    """The appliance picks its own keep warm temperature.
+
+    APK VenusCookingKeepWarmSettingsConverter builds the command from the
+    duration, the method and the status alone, which is what the local path
+    already does.
+    """
+    stub = _Stub(PORT_VENUSAF, {"status": "idle", "temp_unit": True})
+
+    await stub.async_airfryer_keep_warm()
+
+    props = stub.props_for("time")
+    assert set(props) == {"status", "preset", "time"}
+
+
+@pytest.mark.asyncio
+async def test_spectre_keep_warm_still_names_a_temperature():
+    stub = _Stub(PORT_AIRFRYER, {"status": "idle", "temp_unit": False})
+
+    await stub.async_airfryer_keep_warm()
+
+    props = stub.props_for("time")
+    assert props["temp"] == 65
+    assert props["preset"] == 8

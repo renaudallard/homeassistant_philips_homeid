@@ -48,12 +48,26 @@ class _EagerClient:
         self.published.append((topic, payload))
 
 
-def _fake_paho():
-    """Stand in for paho.mqtt.client, which connect() imports on the fly."""
-    module = types.ModuleType("paho.mqtt.client")
-    module.Client = _EagerClient
-    module.CallbackAPIVersion = types.SimpleNamespace(VERSION2="v2")
-    return module
+def _install_fake_paho(monkeypatch):
+    """Stand in for paho.mqtt.client, which connect() imports on the fly.
+
+    paho is not a requirement of this integration, for the reason connect()
+    gives, so it is absent wherever the mqtt integration has not pulled it in.
+    That means the whole package chain has to be stood up and not just the
+    leaf: `import paho.mqtt.client` returns the top level paho, so the import
+    reaches for that name even when the leaf is already in sys.modules.
+    """
+    client_module = types.ModuleType("paho.mqtt.client")
+    client_module.Client = _EagerClient
+    client_module.CallbackAPIVersion = types.SimpleNamespace(VERSION2="v2")
+    mqtt_module = types.ModuleType("paho.mqtt")
+    mqtt_module.client = client_module
+    paho_module = types.ModuleType("paho")
+    paho_module.mqtt = mqtt_module
+
+    monkeypatch.setitem(sys.modules, "paho", paho_module)
+    monkeypatch.setitem(sys.modules, "paho.mqtt", mqtt_module)
+    monkeypatch.setitem(sys.modules, "paho.mqtt.client", client_module)
 
 
 def _mqtt_client():
@@ -78,9 +92,7 @@ def test_the_first_commands_reach_the_broker(monkeypatch):
     CONNACK that lands during loop_start() used to cost the initial state and
     the port list, and on a reconnect sent them down the dead link instead.
     """
-    paho = _fake_paho()
-    monkeypatch.setitem(sys.modules, "paho.mqtt.client", paho)
-    monkeypatch.setitem(sys.modules, "paho.mqtt", types.ModuleType("paho.mqtt"))
+    _install_fake_paho(monkeypatch)
 
     client = _mqtt_client()
     client._wait_for_connection = MagicMock()
@@ -97,9 +109,7 @@ def test_a_stale_handle_is_replaced_before_the_loop_runs(monkeypatch):
     _teardown_client() stops it but leaves it in place, so publishing before
     the swap put the commands on a link that was already gone.
     """
-    paho = _fake_paho()
-    monkeypatch.setitem(sys.modules, "paho.mqtt.client", paho)
-    monkeypatch.setitem(sys.modules, "paho.mqtt", types.ModuleType("paho.mqtt"))
+    _install_fake_paho(monkeypatch)
 
     client = _mqtt_client()
     stale = _EagerClient()

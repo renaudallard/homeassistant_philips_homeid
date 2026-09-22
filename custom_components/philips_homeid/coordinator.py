@@ -617,7 +617,13 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 if airspeed is not None:
                     props["airspeed"] = airspeed
                 if probe_temp is not None:
-                    props["probe_temp"] = probe_temp
+                    # The appliance calls this temp_probe, on every port it
+                    # has: the Venus control and status ports and the local
+                    # HTTP one all spell it that way, and probe_temp appears
+                    # nowhere in the APK. probe_required rides along as the
+                    # local path sends it, and reaches the wire as probe_rqrd.
+                    props["temp_probe"] = probe_temp
+                    props["probe_required"] = True
                 # Echo the unit the appliance currently shows; omitting it
                 # makes the device reset to Fahrenheit (issue #27).
                 raw_unit = self._current_raw_temp_unit()

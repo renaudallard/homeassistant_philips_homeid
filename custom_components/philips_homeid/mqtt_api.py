@@ -29,6 +29,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import random
 import secrets
 import ssl
 import threading
@@ -141,6 +142,13 @@ _PORT_BUSY_RETRY_LIMIT = 3  # busy replies for a port before deferring to next r
 # lost reply stalls the queue before the next port is tried; kept short so a
 # single loss cannot push the startup port-fetch past its budget.
 _PORT_INFLIGHT_TIMEOUT = 5.0  # seconds to wait for a getPort reply
+
+# setPort retries. busy(1) says the appliance cannot take a command right now,
+# not that it refused it. The app sends a busy command again up to three times,
+# each after a random 300 to 1000 ms and under a fresh cid (APK
+# DaRemoteControlClient.createRetryingNcpCommandObservable).
+_WRITE_BUSY_RETRY_LIMIT = 3
+_WRITE_BUSY_RETRY_DELAY = (0.3, 1.0)  # seconds, drawn at random for each retry
 
 # Reverse maps for sending commands (local API names → NCP names)
 # Use first-wins to prefer SPECTRE/Venus 1 names as default fallback;
@@ -880,8 +888,34 @@ class PhilipsMQTTClient:
 
         Returns (accepted, status, status name). Only a reply with NCP status
         0 is accepted. With no reply the status is None and the name
-        "timeout", and "not_connected" when nothing could be sent. Blocks, so
-        it runs in an executor.
+        "timeout", and "not_connected" when nothing could be sent. A command
+        answered busy is sent again, as the app does, and busy is returned
+        only once the retries run out. Blocks, so it runs in an executor.
+        """
+        retries = 0
+        while True:
+            result = self._send_and_wait(port_name, command_name, properties, timeout)
+            if result[1] != _NCP_STATUS_BUSY or retries == _WRITE_BUSY_RETRY_LIMIT:
+                return result
+            retries += 1
+            delay = random.uniform(*_WRITE_BUSY_RETRY_DELAY)
+            _LOGGER.debug(
+                "NCP busy for %s to %s, sending it again in %.1fs",
+                command_name,
+                port_name,
+                delay,
+            )
+            if self._stop.wait(delay):
+                return result
+
+    def _send_and_wait(
+        self,
+        port_name: str,
+        command_name: str,
+        properties: dict[str, Any] | None,
+        timeout: float,
+    ) -> tuple[bool, int | None, str]:
+        """Send a port command once and wait for its reply.
 
         The cid is registered before the publish, so a reply cannot arrive
         between the send and the wait.

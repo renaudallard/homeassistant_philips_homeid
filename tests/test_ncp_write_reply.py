@@ -90,21 +90,71 @@ def test_an_accepted_write_reports_ok():
 
 
 @pytest.mark.parametrize(
-    ("status", "name", "reply_type"),
-    [
-        (8, "port_error", "response"),
-        (7, "command_name_error", "response"),
-        (1, "busy", None),
-    ],
+    ("status", "name"),
+    [(8, "port_error"), (7, "command_name_error")],
 )
-def test_a_refused_write_reports_the_refusal(status, name, reply_type):
+def test_a_refused_write_reports_the_refusal(status, name):
     client = _client()
     thread, holder = _wait_in_thread(client, {"temp": 200})
 
-    _reply(client, _pending(client), status, reply_type)
+    _reply(client, _pending(client), status)
     thread.join(2)
 
     assert holder["result"] == (False, status, name)
+    assert len(client._client.published) == 1
+
+
+@pytest.fixture
+def no_retry_delay(monkeypatch):
+    monkeypatch.setattr(
+        "custom_components.philips_homeid.mqtt_api._WRITE_BUSY_RETRY_DELAY",
+        (0.0, 0.0),
+    )
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_a_busy_write_is_sent_again_under_a_new_cid():
+    """busy means not now, and the app sends the command again."""
+    client = _client()
+    thread, holder = _wait_in_thread(client, {"status": "finish"})
+
+    first = _pending(client)
+    _reply(client, first, 1, reply_type=None)
+    second = _pending(client, exclude=(first,))
+    _reply(client, second, 0)
+    thread.join(2)
+
+    assert holder["result"] == (True, 0, "ok")
+    assert [msg["cid"] for msg in client._client.published] == [first, second]
+    assert client._client.published[0]["data"] == client._client.published[1]["data"]
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_a_write_still_busy_after_three_retries_reports_busy():
+    client = _client()
+    thread, holder = _wait_in_thread(client, {"status": "finish"})
+
+    sent: list[str] = []
+    for _ in range(4):
+        sent.append(_pending(client, exclude=sent))
+        _reply(client, sent[-1], 1)
+    thread.join(2)
+
+    assert holder["result"] == (False, 1, "busy")
+    assert [msg["cid"] for msg in client._client.published] == sent
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_a_busy_write_is_not_sent_again_once_disconnected():
+    client = _client()
+    client._stop.set()
+    thread, holder = _wait_in_thread(client, {"status": "finish"})
+
+    _reply(client, _pending(client), 1)
+    thread.join(2)
+
+    assert holder["result"] == (False, 1, "busy")
+    assert len(client._client.published) == 1
 
 
 def test_no_reply_times_out_and_cleans_up():

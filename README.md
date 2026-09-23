@@ -441,6 +441,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Receives device state via AWS IoT device shadow (subscribe + shadow get)
 - Maps device-specific NCP port names to the integration's internal port names (e.g., Venus 2 `venusaf_s` to `airfryer`)
 - Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
+- Waits for the appliance's answer to each NCP command and logs a refusal as a warning. A command answered busy is sent again up to three times, each after a short random pause, as the official app does
 - Uses the same cooking flow as the official app: configure settings first (temp, time, cooking method), which wakes the device and puts it in "setting" state, then press Start to begin cooking
 - Automatically detects Venus vs SPECTRE device type from discovered NCP ports and translates property names accordingly (e.g., `time`/`preset` to `total_time`/`method` for Venus)
 - All entity platforms (sensors, buttons, switches, numbers, cooking method) support dynamic creation: entities appear automatically when device properties become available, even if NCP port data arrives after initial setup

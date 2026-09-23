@@ -569,7 +569,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_stop(self) -> bool:
         """Stop airfryer and return to standby."""
         if self._is_fusion:
-            return await self._mqtt_command("control", {"status": "standby"})
+            if self.airfryer_style_port() in VENUS_STYLE_PORTS:
+                # mainmenu is also what wakes a Venus, so from standby there
+                # is nothing to stop and sending it would turn it on.
+                if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                    return True
+                # As on the local path: a Venus stops through pause to
+                # mainmenu. It acknowledges a bare standby mid-cook and
+                # carries on cooking.
+                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_PAUSED})
+                return await self._mqtt_command(
+                    "control", {"status": AIRFRYER_STATUS_MAINMENU}
+                )
+            return await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_STANDBY}
+            )
         result = await self.api.airfryer_stop(self.device_info)
         if result:
             await self.async_request_refresh()

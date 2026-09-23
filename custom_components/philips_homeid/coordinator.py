@@ -755,7 +755,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["temp"] = self.keep_warm_temp
                 if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
-            await self._mqtt_command("control", props)
+            # Starting after a refusal would heat on whatever program the
+            # appliance still holds, not on keep warm.
+            if not await self._mqtt_command("control", props):
+                return False
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}

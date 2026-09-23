@@ -1224,6 +1224,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Set keep warm temperature, in the appliance's unit."""
         self._keep_warm_temp = temp
 
+    async def _fusion_venus_update_mid_cook(self, props: dict[str, Any]) -> bool:
+        """Change a running Venus cook: pause, set, resume, as the local path.
+
+        Sent on its own mid-cook, the value is accepted and reported on the
+        status port, but the running cook keeps its old setting.
+        """
+        await self._mqtt_command("control", {"status": AIRFRYER_STATUS_PAUSED})
+        applied = False
+        try:
+            applied = await self._mqtt_command("control", props)
+        finally:
+            resumed = await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_COOKING}
+            )
+        return applied and resumed
+
     async def async_airfryer_update_settings(
         self,
         temp: int | None = None,
@@ -1249,7 +1265,11 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 # takes the values alone either way, as the local path sends
                 # them, rather than being asked for precook again.
                 status = self._fusion_setting_status
-                if not self.is_airfryer_cooking() and status != AIRFRYER_STATUS_PRECOOK:
+                venus = status == AIRFRYER_STATUS_PRECOOK
+                if self.is_airfryer_cooking():
+                    if venus:
+                        return await self._fusion_venus_update_mid_cook(props)
+                elif not venus:
                     props["status"] = status
                 return await self._mqtt_command("control", props)
             return True

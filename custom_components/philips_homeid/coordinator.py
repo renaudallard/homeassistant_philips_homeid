@@ -559,6 +559,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """
         if self._is_fusion:
             await self._ensure_fusion_control_port()
+            # No preheat flag here: an HD9875 refuses a start carrying one
+            # with NCP port_error, so the cook would not start at all.
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )

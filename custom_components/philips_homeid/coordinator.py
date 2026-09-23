@@ -72,6 +72,7 @@ from .const import (
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
     AIRFRYER_STATUS_IDLE,
+    AIRFRYER_STATUS_MAINMENU,
     AIRFRYER_STATUS_MAINTAIN,
     AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
@@ -415,6 +416,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             return AIRFRYER_STATUS_PRECOOK
         return AIRFRYER_STATUS_SETTING
 
+    @property
+    def _fusion_wake_status(self) -> str:
+        """Return the status a FUSION airfryer is woken to from standby.
+
+        A SPECTRE wakes to idle. A Venus has no idle: it goes from standby to
+        mainmenu, which is also where the local path's stop leaves it.
+        """
+        if self.airfryer_style_port() in VENUS_STYLE_PORTS:
+            return AIRFRYER_STATUS_MAINMENU
+        return AIRFRYER_STATUS_IDLE
+
     def _fusion_control_has_temp_unit(self) -> bool:
         """Return whether this appliance's FUSION control port takes temp_unit.
 
@@ -645,10 +657,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if props:
                 await self._ensure_fusion_control_port()
                 if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
-                    await self._mqtt_command(
-                        "control", {"status": AIRFRYER_STATUS_IDLE}
-                    )
-                    await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
+                    wake = self._fusion_wake_status
+                    await self._mqtt_command("control", {"status": wake})
+                    await self._wait_for_status(wake, timeout=10)
                 props["status"] = self._fusion_setting_status
                 # My Presets go to the dedicated SPECTRE recipe control port
                 # (recipe_c); the regular Control port has no recipe_id/step_id
@@ -686,8 +697,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self._ensure_fusion_control_port()
             # Wake from standby if needed
             if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
-                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
-                await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
+                wake = self._fusion_wake_status
+                await self._mqtt_command("control", {"status": wake})
+                await self._wait_for_status(wake, timeout=10)
             # Two-step flow: configure keep warm, then start. The method id is
             # the appliance's own, not SPECTRE's: the send path translates
             # preset to method for a Venus, whose enum has no 8 and would

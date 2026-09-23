@@ -1245,9 +1245,12 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
                 # Pre-cooking: include setting status so device accepts values.
-                # Mid-cooking: send without status (APK behavior).
-                if not self.is_airfryer_cooking():
-                    props["status"] = self._fusion_setting_status
+                # Mid-cooking: send without status (APK behavior). A Venus
+                # takes the values alone either way, as the local path sends
+                # them, rather than being asked for precook again.
+                status = self._fusion_setting_status
+                if not self.is_airfryer_cooking() and status != AIRFRYER_STATUS_PRECOOK:
+                    props["status"] = status
                 return await self._mqtt_command("control", props)
             return True
         cooking = self.is_airfryer_cooking()

@@ -82,3 +82,26 @@ async def test_a_spectre_setting_carries_no_probe_flag():
     await stub.async_airfryer_set_settings(preset=1)
 
     assert "probe_required" not in stub.sent[-1]
+
+
+@pytest.mark.asyncio
+async def test_a_venus_takes_temperature_and_time_alone_before_a_cook():
+    """The local path sends a Venus its values without a status. On an
+    HD9875 precook, then {"temp": 200}, then {"total_time": 960}, then
+    cooking starts the cook at those settings.
+    """
+    stub = _Stub(PORT_VENUS1AF, status="precook")
+
+    await stub.async_airfryer_update_settings(temp=200)
+    await stub.async_airfryer_update_settings(time_seconds=960)
+
+    assert stub.sent == [{"temp": 200}, {"time": 960}]
+
+
+@pytest.mark.asyncio
+async def test_a_spectre_still_sends_its_values_with_the_setting_status():
+    stub = _Stub(PORT_AIRFRYER, status="idle")
+
+    await stub.async_airfryer_update_settings(temp=200)
+
+    assert stub.sent[-1]["status"] == "setting"

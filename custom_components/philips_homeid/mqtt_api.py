@@ -851,12 +851,14 @@ class PhilipsMQTTClient:
             payload=json.dumps(payload),
             qos=QOS_AT_LEAST_ONCE,
         )
+        # Log what went out, after the NCP and Venus renames. The caller's
+        # dict hides exactly the translation a port_error is usually about.
         _LOGGER.debug(
             "Sent %s to %s/%s: %s",
             command_name,
             self._device.thing_name,
             port_name,
-            properties,
+            data.get("properties") if data is not None else None,
         )
         return cid
 

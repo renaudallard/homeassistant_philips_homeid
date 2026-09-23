@@ -72,6 +72,7 @@ from .const import (
 from .local_api import (
     AIRFRYER_STATUS_COOKING,
     AIRFRYER_STATUS_IDLE,
+    AIRFRYER_STATUS_MAINMENU,
     AIRFRYER_STATUS_MAINTAIN,
     AIRFRYER_STATUS_PARASETTING,
     AIRFRYER_STATUS_PAUSED,
@@ -90,6 +91,11 @@ from .mqtt_api import PhilipsMQTTClient
 from .rita_protobuf import decode_profile_id
 
 _LOGGER = logging.getLogger(__name__)
+
+# How long a FUSION write waits for the appliance's reply. An HD9875 answers
+# within half a second through the cloud relay; this stays well inside the
+# ten second status waits that follow a write.
+_WRITE_REPLY_TIMEOUT = 5.0
 
 
 class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
@@ -400,13 +406,33 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             raise UpdateFailed(f"Error communicating with device: {err}") from err
 
     async def _mqtt_command(self, port: str, props: dict[str, Any]) -> bool:
-        """Send a command via MQTT for FUSION devices."""
+        """Send a command via MQTT for FUSION devices.
+
+        False when the appliance refused it or it could not be sent. A write
+        with no reply counts as sent: from_ncp is subscribed at QoS 0, so the
+        reply can be lost for a write that went through.
+        """
         if not self.mqtt_client:
             return False
-        await self.hass.async_add_executor_job(
-            self.mqtt_client.send_port_command, port, "setPort", props
+        accepted, status, name = await self.hass.async_add_executor_job(
+            self.mqtt_client.send_port_command_and_wait,
+            port,
+            "setPort",
+            props,
+            _WRITE_REPLY_TIMEOUT,
         )
-        return True
+        if status is not None and not accepted:
+            _LOGGER.warning(
+                "NCP %s (%s) for setPort to %s: %s", name, status, port, props
+            )
+        elif name == "timeout":
+            _LOGGER.debug(
+                "No reply to setPort to %s within %ss: %s",
+                port,
+                _WRITE_REPLY_TIMEOUT,
+                props,
+            )
+        return accepted or name == "timeout"
 
     @property
     def _fusion_setting_status(self) -> str:
@@ -414,6 +440,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         if self.mqtt_client and self.mqtt_client.is_venus:
             return AIRFRYER_STATUS_PRECOOK
         return AIRFRYER_STATUS_SETTING
+
+    @property
+    def _fusion_wake_status(self) -> str:
+        """Return the status a FUSION airfryer is woken to from standby.
+
+        A SPECTRE wakes to idle. A Venus has no idle: it goes from standby to
+        mainmenu, which is also where the local path's stop leaves it.
+        """
+        if self.airfryer_style_port() in VENUS_STYLE_PORTS:
+            return AIRFRYER_STATUS_MAINMENU
+        return AIRFRYER_STATUS_IDLE
 
     def _fusion_control_has_temp_unit(self) -> bool:
         """Return whether this appliance's FUSION control port takes temp_unit.
@@ -524,6 +561,8 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """
         if self._is_fusion:
             await self._ensure_fusion_control_port()
+            # No preheat flag here: an HD9875 refuses a start carrying one
+            # with NCP port_error, so the cook would not start at all.
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
             )
@@ -557,7 +596,21 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def async_airfryer_stop(self) -> bool:
         """Stop airfryer and return to standby."""
         if self._is_fusion:
-            return await self._mqtt_command("control", {"status": "standby"})
+            if self.airfryer_style_port() in VENUS_STYLE_PORTS:
+                # mainmenu is also what wakes a Venus, so from standby there
+                # is nothing to stop and sending it would turn it on.
+                if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
+                    return True
+                # As on the local path: a Venus stops through pause to
+                # mainmenu. It acknowledges a bare standby mid-cook and
+                # carries on cooking.
+                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_PAUSED})
+                return await self._mqtt_command(
+                    "control", {"status": AIRFRYER_STATUS_MAINMENU}
+                )
+            return await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_STANDBY}
+            )
         result = await self.api.airfryer_stop(self.device_info)
         if result:
             await self.async_request_refresh()
@@ -645,11 +698,14 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             if props:
                 await self._ensure_fusion_control_port()
                 if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
-                    await self._mqtt_command(
-                        "control", {"status": AIRFRYER_STATUS_IDLE}
-                    )
-                    await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
+                    wake = self._fusion_wake_status
+                    await self._mqtt_command("control", {"status": wake})
+                    await self._wait_for_status(wake, timeout=10)
                 props["status"] = self._fusion_setting_status
+                if props["status"] == AIRFRYER_STATUS_PRECOOK:
+                    # A Venus answers a precook without probe_rqrd with NCP
+                    # ok and stays in mainmenu. The local start sends it.
+                    props.setdefault("probe_required", False)
                 # My Presets go to the dedicated SPECTRE recipe control port
                 # (recipe_c); the regular Control port has no recipe_id/step_id
                 # fields and rejects them with NCP port_error (APK
@@ -686,8 +742,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self._ensure_fusion_control_port()
             # Wake from standby if needed
             if self._get_airfryer_status() == AIRFRYER_STATUS_STANDBY:
-                await self._mqtt_command("control", {"status": AIRFRYER_STATUS_IDLE})
-                await self._wait_for_status(AIRFRYER_STATUS_IDLE, timeout=10)
+                wake = self._fusion_wake_status
+                await self._mqtt_command("control", {"status": wake})
+                await self._wait_for_status(wake, timeout=10)
             # Two-step flow: configure keep warm, then start. The method id is
             # the appliance's own, not SPECTRE's: the send path translates
             # preset to method for a Venus, whose enum has no 8 and would
@@ -706,7 +763,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 props["temp"] = self.keep_warm_temp
                 if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
-            await self._mqtt_command("control", props)
+            # Starting after a refusal would heat on whatever program the
+            # appliance still holds, not on keep warm.
+            if not await self._mqtt_command("control", props):
+                return False
             await self._wait_for_status(self._fusion_setting_status, timeout=10)
             return await self._mqtt_command(
                 "control", {"status": AIRFRYER_STATUS_COOKING}
@@ -1166,6 +1226,22 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
         """Set keep warm temperature, in the appliance's unit."""
         self._keep_warm_temp = temp
 
+    async def _fusion_venus_update_mid_cook(self, props: dict[str, Any]) -> bool:
+        """Change a running Venus cook: pause, set, resume, as the local path.
+
+        Sent on its own mid-cook, the value is accepted and reported on the
+        status port, but the running cook keeps its old setting.
+        """
+        await self._mqtt_command("control", {"status": AIRFRYER_STATUS_PAUSED})
+        applied = False
+        try:
+            applied = await self._mqtt_command("control", props)
+        finally:
+            resumed = await self._mqtt_command(
+                "control", {"status": AIRFRYER_STATUS_COOKING}
+            )
+        return applied and resumed
+
     async def async_airfryer_update_settings(
         self,
         temp: int | None = None,
@@ -1187,9 +1263,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 if raw_unit is not None and self._fusion_control_has_temp_unit():
                     props["temp_unit"] = raw_unit
                 # Pre-cooking: include setting status so device accepts values.
-                # Mid-cooking: send without status (APK behavior).
-                if not self.is_airfryer_cooking():
-                    props["status"] = self._fusion_setting_status
+                # Mid-cooking: send without status (APK behavior). A Venus
+                # takes the values alone either way, as the local path sends
+                # them, rather than being asked for precook again.
+                status = self._fusion_setting_status
+                venus = status == AIRFRYER_STATUS_PRECOOK
+                if self.is_airfryer_cooking():
+                    if venus:
+                        return await self._fusion_venus_update_mid_cook(props)
+                elif not venus:
+                    props["status"] = status
                 return await self._mqtt_command("control", props)
             return True
         cooking = self.is_airfryer_cooking()

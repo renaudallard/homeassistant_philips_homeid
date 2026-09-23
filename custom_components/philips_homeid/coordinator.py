@@ -700,6 +700,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                     await self._mqtt_command("control", {"status": wake})
                     await self._wait_for_status(wake, timeout=10)
                 props["status"] = self._fusion_setting_status
+                if props["status"] == AIRFRYER_STATUS_PRECOOK:
+                    # A Venus answers a precook without probe_rqrd with NCP
+                    # ok and stays in mainmenu. The local start sends it.
+                    props.setdefault("probe_required", False)
                 # My Presets go to the dedicated SPECTRE recipe control port
                 # (recipe_c); the regular Control port has no recipe_id/step_id
                 # fields and rejects them with NCP port_error (APK

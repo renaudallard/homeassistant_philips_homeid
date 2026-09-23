@@ -198,15 +198,27 @@ async def test_the_coordinator_reports_and_logs_a_refused_write(caplog):
 
 
 @pytest.mark.asyncio
-async def test_the_coordinator_treats_no_reply_as_unconfirmed(caplog, monkeypatch):
-    """A missing reply is not an NCP status, so it is not logged as one."""
+async def test_the_coordinator_does_not_count_a_lost_reply_as_a_refusal(
+    caplog, monkeypatch
+):
+    """from_ncp is subscribed at QoS 0, so a write can go through and its
+    reply still be lost. Only an actual refusal, or nothing sent, is False.
+    """
     monkeypatch.setattr(
         "custom_components.philips_homeid.coordinator._WRITE_REPLY_TIMEOUT", 0.05
     )
 
     with caplog.at_level(logging.DEBUG):
-        accepted = await _coordinator(_client())._mqtt_command("control", {"temp": 1})
+        sent = await _coordinator(_client())._mqtt_command("control", {"temp": 1})
 
-    assert accepted is False
+    assert sent is True
     assert "No reply to setPort to control" in caplog.text
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+@pytest.mark.asyncio
+async def test_the_coordinator_reports_a_write_it_could_not_send():
+    client = _client()
+    client._connected = False
+
+    assert await _coordinator(client)._mqtt_command("control", {"temp": 1}) is False

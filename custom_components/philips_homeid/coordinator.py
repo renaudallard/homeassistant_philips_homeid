@@ -408,7 +408,9 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     async def _mqtt_command(self, port: str, props: dict[str, Any]) -> bool:
         """Send a command via MQTT for FUSION devices.
 
-        True only once the appliance has accepted it.
+        False when the appliance refused it or it could not be sent. A write
+        with no reply counts as sent: from_ncp is subscribed at QoS 0, so the
+        reply can be lost for a write that went through.
         """
         if not self.mqtt_client:
             return False
@@ -430,7 +432,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 _WRITE_REPLY_TIMEOUT,
                 props,
             )
-        return accepted
+        return accepted or name == "timeout"
 
     @property
     def _fusion_setting_status(self) -> str:

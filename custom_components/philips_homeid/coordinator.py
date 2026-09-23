@@ -92,6 +92,11 @@ from .rita_protobuf import decode_profile_id
 
 _LOGGER = logging.getLogger(__name__)
 
+# How long a FUSION write waits for the appliance's reply. An HD9875 answers
+# within half a second through the cloud relay; this stays well inside the
+# ten second status waits that follow a write.
+_WRITE_REPLY_TIMEOUT = 5.0
+
 
 class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     """Coordinator for Philips HomeID devices using local API."""
@@ -401,13 +406,31 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             raise UpdateFailed(f"Error communicating with device: {err}") from err
 
     async def _mqtt_command(self, port: str, props: dict[str, Any]) -> bool:
-        """Send a command via MQTT for FUSION devices."""
+        """Send a command via MQTT for FUSION devices.
+
+        True only once the appliance has accepted it.
+        """
         if not self.mqtt_client:
             return False
-        await self.hass.async_add_executor_job(
-            self.mqtt_client.send_port_command, port, "setPort", props
+        accepted, status, name = await self.hass.async_add_executor_job(
+            self.mqtt_client.send_port_command_and_wait,
+            port,
+            "setPort",
+            props,
+            _WRITE_REPLY_TIMEOUT,
         )
-        return True
+        if status is not None and not accepted:
+            _LOGGER.warning(
+                "NCP %s (%s) for setPort to %s: %s", name, status, port, props
+            )
+        elif name == "timeout":
+            _LOGGER.debug(
+                "No reply to setPort to %s within %ss: %s",
+                port,
+                _WRITE_REPLY_TIMEOUT,
+                props,
+            )
+        return accepted
 
     @property
     def _fusion_setting_status(self) -> str:

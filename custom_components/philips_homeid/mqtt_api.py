@@ -254,6 +254,9 @@ class PhilipsMQTTClient:
         self._inflight_since: float = 0.0
         self._port_busy_counts: dict[str, int] = {}
         self._pump_timer: threading.Timer | None = None
+        # Writes waiting on their reply, by cid. Unlike the read queue above
+        # several can be outstanding, and each is released by its own reply.
+        self._pending_writes: dict[str, tuple[threading.Event, dict[str, Any]]] = {}
 
         # Build topic names
         tn = device.thing_name
@@ -798,6 +801,7 @@ class PhilipsMQTTClient:
         port_name: str,
         command_name: str = "setPort",
         properties: dict[str, Any] | None = None,
+        cid: str | None = None,
     ) -> str | None:
         """Send a port command to the device via NCP.
 
@@ -806,6 +810,8 @@ class PhilipsMQTTClient:
                        Empty string for commands that don't need a port (getAllPorts).
             command_name: "updatePort", "getPort", "getAllPorts", etc.
             properties: Dict of properties to set (for updatePort)
+            cid: Correlation id to stamp instead of a fresh one, for a caller
+                 that registers for the reply before the publish.
 
         Returns the correlation id (cid) stamped on the message, so a caller
         that needs to match the reply (the serialized getPort queue) can, or
@@ -834,7 +840,8 @@ class PhilipsMQTTClient:
                     }
                 data["properties"] = ncp_props
         # CID: APK uses 8-char hex (32-bit random, byte-reversed)
-        cid = secrets.token_bytes(4).hex()
+        if cid is None:
+            cid = secrets.token_bytes(4).hex()
         payload: dict[str, Any] = {
             "cid": cid,
             # APK NcpRequestTime: "yyyy-MM-dd'T'HH:mm:ss'Z'" (no fractional seconds)
@@ -861,6 +868,41 @@ class PhilipsMQTTClient:
             data.get("properties") if data is not None else None,
         )
         return cid
+
+    def send_port_command_and_wait(
+        self,
+        port_name: str,
+        command_name: str = "setPort",
+        properties: dict[str, Any] | None = None,
+        timeout: float = 10.0,
+    ) -> tuple[bool, int | None, str]:
+        """Send a port command and block until the appliance answers it.
+
+        Returns (accepted, status, status name). Only a reply with NCP status
+        0 is accepted. With no reply the status is None and the name
+        "timeout", and "not_connected" when nothing could be sent. Blocks, so
+        it runs in an executor.
+
+        The cid is registered before the publish, so a reply cannot arrive
+        between the send and the wait.
+        """
+        cid = secrets.token_bytes(4).hex()
+        event = threading.Event()
+        result: dict[str, Any] = {}
+        with self._lock:
+            self._pending_writes[cid] = (event, result)
+        try:
+            if self.send_port_command(port_name, command_name, properties, cid) is None:
+                return False, None, "not_connected"
+            if not event.wait(timeout):
+                return False, None, "timeout"
+        finally:
+            with self._lock:
+                self._pending_writes.pop(cid, None)
+        status = result.get("status")
+        if not isinstance(status, int):
+            return False, None, str(status)
+        return status == 0, status, _NCP_STATUS_NAMES.get(status, "unknown")
 
     def _on_connect(
         self,
@@ -1065,6 +1107,18 @@ class PhilipsMQTTClient:
         """Parse NCP response and update device state."""
         command = payload.get("cn", "")
         status = payload.get("status")
+
+        # Release a write waiting on this reply. Replies echo the command's
+        # cid; the appliance's own pushes are events under cid "0". type is
+        # not required, as the getPort reply check does not require it.
+        reply_cid = payload.get("cid")
+        if reply_cid is not None and payload.get("type") != "event":
+            with self._lock:
+                pending = self._pending_writes.get(reply_cid)
+            if pending is not None:
+                event, result = pending
+                result["status"] = status
+                event.set()
 
         # Handle getAllPorts response: send getPort for each discovered port
         if command == "getAllPorts" and status == 0:

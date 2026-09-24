@@ -61,6 +61,7 @@ from .const import (
     CONF_THING_NAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    FUSION_ACTIVE_HEARTBEAT_INTERVAL,
     FUSION_HEARTBEAT_INTERVAL,
     KEEP_WARM_DEFAULT_TEMP_C,
     OAUTH_CLIENT_HOMEID,
@@ -219,12 +220,18 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
     def _update_polling_interval(self, state: LocalDeviceState | None) -> None:
         """Adjust polling interval based on device state."""
         if self._is_fusion:
-            return  # FUSION uses MQTT push; heartbeat interval is fixed
-        options = self.config_entry.options
-        if state and self._is_airfryer_active(state):
-            interval = options.get(CONF_ACTIVE_SCAN_INTERVAL, ACTIVE_SCAN_INTERVAL)
+            # FUSION is push-driven, but a cook's end is not reliably pushed,
+            # so poll faster until the status leaves the active set.
+            if state and self._is_airfryer_active(state):
+                interval = FUSION_ACTIVE_HEARTBEAT_INTERVAL
+            else:
+                interval = FUSION_HEARTBEAT_INTERVAL
         else:
-            interval = options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            options = self.config_entry.options
+            if state and self._is_airfryer_active(state):
+                interval = options.get(CONF_ACTIVE_SCAN_INTERVAL, ACTIVE_SCAN_INTERVAL)
+            else:
+                interval = options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         new_interval = timedelta(seconds=interval)
 
         if self.update_interval != new_interval:

@@ -8,7 +8,9 @@ The heartbeat therefore runs faster while the airfryer is in an active status.
 """
 
 from datetime import timedelta
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from custom_components.philips_homeid.const import (
     FUSION_ACTIVE_HEARTBEAT_INTERVAL,
@@ -63,6 +65,33 @@ def test_the_local_scan_options_do_not_apply_to_fusion():
     coordinator = _coordinator()
     coordinator.config_entry = MagicMock(options={"active_scan_interval": 3})
     coordinator._update_polling_interval(_state("cooking"))
+    assert coordinator.update_interval == timedelta(
+        seconds=FUSION_ACTIVE_HEARTBEAT_INTERVAL
+    )
+
+
+def _heartbeat_ready(coordinator, connected):
+    coordinator.hass = MagicMock(async_add_executor_job=AsyncMock())
+    coordinator.mqtt_client = MagicMock(connected=connected, _connect_time=0.0)
+    coordinator.mqtt_client.needs_token_refresh.return_value = False
+    coordinator._maybe_fetch_ota_jobs = MagicMock()
+    coordinator._state = _state("cooking")
+    coordinator._update_polling_interval(coordinator._state)
+    return coordinator
+
+
+@pytest.mark.asyncio
+async def test_a_lost_link_drops_back_to_the_idle_heartbeat():
+    """With the link down no push can end the cook, so 20 s only repeats a warning."""
+    coordinator = _heartbeat_ready(_coordinator(), connected=False)
+    await coordinator._async_update_data_fusion()
+    assert coordinator.update_interval == timedelta(seconds=FUSION_HEARTBEAT_INTERVAL)
+
+
+@pytest.mark.asyncio
+async def test_a_connected_heartbeat_keeps_the_fast_interval():
+    coordinator = _heartbeat_ready(_coordinator(), connected=True)
+    await coordinator._async_update_data_fusion()
     assert coordinator.update_interval == timedelta(
         seconds=FUSION_ACTIVE_HEARTBEAT_INTERVAL
     )

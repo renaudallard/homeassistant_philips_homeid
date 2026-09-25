@@ -347,6 +347,10 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 )
             else:
                 _LOGGER.warning("MQTT not connected for heartbeat")
+                # No push can arrive to move a cooking status on, so the fast
+                # heartbeat would only repeat this warning. The first push
+                # after the reconnect restores it.
+                self._update_polling_interval(None)
         # A heartbeat that fails is the reconnect's problem, not this one's.
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("MQTT heartbeat error: %s", err)

@@ -46,7 +46,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 |---------|-------------|
 | **Local Control** | Direct communication over your local network |
 | **Auto Discovery** | Automatic device detection via Zeroconf/SSDP |
-| **Smart Polling** | Configurable intervals (default 60s idle / 10s cooking) |
+| **Smart Polling** | Configurable intervals for local devices (default 60s idle / 10s cooking), faster FUSION heartbeat while cooking |
 | **Extrapolated Timers** | Smooth countdown updates between polls |
 | **Dynamic Entities** | Sensors created only when device reports data |
 | **Firmware Updates** | Shows installed and available firmware versions |
@@ -301,7 +301,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 
 | Type | Entity | Description |
 |------|--------|-------------|
-| Sensor | Cooking Status | Current cooking state |
+| Sensor | Cooking Status | Current cooking state, shown as a label (automations still see the raw value, such as `user_action`) |
 | Sensor | Target / Current Temperature | Temperature readings |
 | Sensor | Total Cook Time / Time Remaining | Timing information |
 | Sensor | Preset / Recipe | Selected program |
@@ -439,6 +439,7 @@ The integration automatically detects FUSION devices during setup. When a device
 - Fetches MQTT userId from the IoT API (`/user/self/get-id`), matching the APK's client ID format
 - Connects via MQTT over WebSocket Secure (port 443), matching the official app's Java Paho handshake (no Origin header)
 - Receives device state via AWS IoT device shadow (subscribe + shadow get)
+- The appliance pushes its state changes. A heartbeat also asks for the full state every five minutes, and every 20 seconds while an air fryer has a cook under way (from setting it up to keeping warm), because some appliances do not push the end of a cook
 - Maps device-specific NCP port names to the integration's internal port names (e.g., Venus 2 `venusaf_s` to `airfryer`)
 - Sends control commands via MQTT pub/sub (shadow update + NCP port commands), using the device's actual discovered NCP port names
 - Waits for the appliance's answer to each NCP command and logs a refusal as a warning. A command answered busy is sent again up to three times, each after a short random pause, as the official app does
@@ -586,7 +587,7 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
 | Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
-| Polling | Configurable via integration options (default: 60s idle, 10s cooking). A cycle whose first read goes unanswered stops there instead of timing out on every port |
+| Polling | Local devices: configurable via integration options (default: 60s idle, 10s cooking). A cycle whose first read goes unanswered stops there instead of timing out on every port. FUSION devices push their state, with a heartbeat every 5 minutes (20s while an air fryer is cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
 | Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH-HANS, KO, SV |

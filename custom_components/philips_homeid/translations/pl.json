@@ -185,7 +185,22 @@
         "name": "Filtr 1 pozostalo"
       },
       "airfryer_status": {
-        "name": "Status gotowania"
+        "name": "Status gotowania",
+        "state": {
+          "standby": "Czuwanie",
+          "idle": "Bezczynny",
+          "setting": "Ustawianie",
+          "cooking": "Gotowanie",
+          "pause": "Wstrzymano",
+          "finish": "Zakończono",
+          "pairing": "Parowanie",
+          "precook": "Przygotowanie",
+          "parasetting": "Zmiana ustawień",
+          "maintain": "Utrzymywanie ciepła",
+          "user_action": "Wymagane działanie",
+          "powersave": "Oszczędzanie energii",
+          "mainmenu": "Menu główne"
+        }
       },
       "airfryer_temperature": {
         "name": "Temperatura docelowa"
@@ -230,10 +245,29 @@
         "name": "Aktualna temp. sondy"
       },
       "airfryer_dialog": {
-        "name": "Dialog"
+        "name": "Dialog",
+        "state": {
+          "none": "Brak",
+          "close_drawer": "Zamknij szufladę"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Poprzedni status"
+        "name": "Poprzedni status",
+        "state": {
+          "standby": "Czuwanie",
+          "idle": "Bezczynny",
+          "setting": "Ustawianie",
+          "cooking": "Gotowanie",
+          "pause": "Wstrzymano",
+          "finish": "Zakończono",
+          "pairing": "Parowanie",
+          "precook": "Przygotowanie",
+          "parasetting": "Zmiana ustawień",
+          "maintain": "Utrzymywanie ciepła",
+          "user_action": "Wymagane działanie",
+          "powersave": "Oszczędzanie energii",
+          "mainmenu": "Menu główne"
+        }
       },
       "airfryer_cooking_id": {
         "name": "ID gotowania"

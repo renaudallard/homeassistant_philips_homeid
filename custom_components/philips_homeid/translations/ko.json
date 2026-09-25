@@ -185,7 +185,22 @@
         "name": "필터 1 잔여"
       },
       "airfryer_status": {
-        "name": "조리 상태"
+        "name": "조리 상태",
+        "state": {
+          "standby": "대기",
+          "idle": "유휴",
+          "setting": "설정 중",
+          "cooking": "조리 중",
+          "pause": "일시정지됨",
+          "finish": "완료",
+          "pairing": "페어링 중",
+          "precook": "준비 중",
+          "parasetting": "설정 변경 중",
+          "maintain": "보온 중",
+          "user_action": "조치 필요",
+          "powersave": "절전 모드",
+          "mainmenu": "메인 메뉴"
+        }
       },
       "airfryer_temperature": {
         "name": "목표 온도"
@@ -230,10 +245,29 @@
         "name": "현재 프로브 온도"
       },
       "airfryer_dialog": {
-        "name": "대화상자"
+        "name": "대화상자",
+        "state": {
+          "none": "없음",
+          "close_drawer": "서랍을 닫으세요"
+        }
       },
       "airfryer_previous_status": {
-        "name": "이전 상태"
+        "name": "이전 상태",
+        "state": {
+          "standby": "대기",
+          "idle": "유휴",
+          "setting": "설정 중",
+          "cooking": "조리 중",
+          "pause": "일시정지됨",
+          "finish": "완료",
+          "pairing": "페어링 중",
+          "precook": "준비 중",
+          "parasetting": "설정 변경 중",
+          "maintain": "보온 중",
+          "user_action": "조치 필요",
+          "powersave": "절전 모드",
+          "mainmenu": "메인 메뉴"
+        }
       },
       "airfryer_cooking_id": {
         "name": "조리 ID"

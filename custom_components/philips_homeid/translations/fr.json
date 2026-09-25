@@ -173,7 +173,22 @@
         "name": "Code d'erreur"
       },
       "airfryer_status": {
-        "name": "État de cuisson"
+        "name": "État de cuisson",
+        "state": {
+          "standby": "Veille",
+          "idle": "Inactif",
+          "setting": "Réglage",
+          "cooking": "Cuisson",
+          "pause": "En pause",
+          "finish": "Terminé",
+          "pairing": "Appairage",
+          "precook": "Préparation",
+          "parasetting": "Modification des réglages",
+          "maintain": "Maintien au chaud",
+          "user_action": "Action requise",
+          "powersave": "Économie d'énergie",
+          "mainmenu": "Menu principal"
+        }
       },
       "airfryer_temperature": {
         "name": "Température cible"
@@ -230,10 +245,29 @@
         "name": "Température actuelle de la sonde"
       },
       "airfryer_dialog": {
-        "name": "Notification"
+        "name": "Notification",
+        "state": {
+          "none": "Aucune",
+          "close_drawer": "Fermez le tiroir"
+        }
       },
       "airfryer_previous_status": {
-        "name": "État précédent"
+        "name": "État précédent",
+        "state": {
+          "standby": "Veille",
+          "idle": "Inactif",
+          "setting": "Réglage",
+          "cooking": "Cuisson",
+          "pause": "En pause",
+          "finish": "Terminé",
+          "pairing": "Appairage",
+          "precook": "Préparation",
+          "parasetting": "Modification des réglages",
+          "maintain": "Maintien au chaud",
+          "user_action": "Action requise",
+          "powersave": "Économie d'énergie",
+          "mainmenu": "Menu principal"
+        }
       },
       "airfryer_cooking_id": {
         "name": "ID de cuisson"

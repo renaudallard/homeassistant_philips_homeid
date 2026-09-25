@@ -185,7 +185,22 @@
         "name": "Filter 1 återstående livslängd"
       },
       "airfryer_status": {
-        "name": "Tillagningsstatus"
+        "name": "Tillagningsstatus",
+        "state": {
+          "standby": "Viloläge",
+          "idle": "Inaktiv",
+          "setting": "Inställning",
+          "cooking": "Tillagning",
+          "pause": "Pausad",
+          "finish": "Klar",
+          "pairing": "Parkoppling",
+          "precook": "Förberedelse",
+          "parasetting": "Ändrar inställningar",
+          "maintain": "Håller varm",
+          "user_action": "Åtgärd krävs",
+          "powersave": "Energisparläge",
+          "mainmenu": "Huvudmeny"
+        }
       },
       "airfryer_temperature": {
         "name": "Måltemperatur"
@@ -230,10 +245,29 @@
         "name": "Aktuell sondtemperatur"
       },
       "airfryer_dialog": {
-        "name": "Dialog"
+        "name": "Dialog",
+        "state": {
+          "none": "Ingen",
+          "close_drawer": "Stäng lådan"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Föregående status"
+        "name": "Föregående status",
+        "state": {
+          "standby": "Viloläge",
+          "idle": "Inaktiv",
+          "setting": "Inställning",
+          "cooking": "Tillagning",
+          "pause": "Pausad",
+          "finish": "Klar",
+          "pairing": "Parkoppling",
+          "precook": "Förberedelse",
+          "parasetting": "Ändrar inställningar",
+          "maintain": "Håller varm",
+          "user_action": "Åtgärd krävs",
+          "powersave": "Energisparläge",
+          "mainmenu": "Huvudmeny"
+        }
       },
       "airfryer_cooking_id": {
         "name": "Tillagnings-ID"

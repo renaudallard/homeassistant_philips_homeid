@@ -18,11 +18,7 @@ STATUSES = {
     for name, value in vars(local_models).items()
     if name.startswith("AIRFRYER_STATUS_") and isinstance(value, str)
 }
-FILES = [
-    BASE / "strings.json",
-    BASE / "translations/en.json",
-    BASE / "translations/nl.json",
-]
+FILES = [BASE / "strings.json", *sorted((BASE / "translations").glob("*.json"))]
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)

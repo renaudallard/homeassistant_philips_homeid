@@ -173,7 +173,22 @@
         "name": "Fehlercode"
       },
       "airfryer_status": {
-        "name": "Kochstatus"
+        "name": "Kochstatus",
+        "state": {
+          "standby": "Standby",
+          "idle": "Bereit",
+          "setting": "Einstellen",
+          "cooking": "Garen",
+          "pause": "Pausiert",
+          "finish": "Fertig",
+          "pairing": "Koppeln",
+          "precook": "Vorbereiten",
+          "parasetting": "Einstellungen ändern",
+          "maintain": "Warmhalten",
+          "user_action": "Aktion erforderlich",
+          "powersave": "Energiesparmodus",
+          "mainmenu": "Hauptmenü"
+        }
       },
       "airfryer_temperature": {
         "name": "Zieltemperatur"
@@ -230,10 +245,29 @@
         "name": "Aktuelle Sondentemperatur"
       },
       "airfryer_dialog": {
-        "name": "Benachrichtigung"
+        "name": "Benachrichtigung",
+        "state": {
+          "none": "Keine",
+          "close_drawer": "Schublade schließen"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Vorheriger Status"
+        "name": "Vorheriger Status",
+        "state": {
+          "standby": "Standby",
+          "idle": "Bereit",
+          "setting": "Einstellen",
+          "cooking": "Garen",
+          "pause": "Pausiert",
+          "finish": "Fertig",
+          "pairing": "Koppeln",
+          "precook": "Vorbereiten",
+          "parasetting": "Einstellungen ändern",
+          "maintain": "Warmhalten",
+          "user_action": "Aktion erforderlich",
+          "powersave": "Energiesparmodus",
+          "mainmenu": "Hauptmenü"
+        }
       },
       "airfryer_cooking_id": {
         "name": "Koch-ID"

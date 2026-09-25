@@ -185,7 +185,22 @@
         "name": "滤芯1剩余"
       },
       "airfryer_status": {
-        "name": "烹饪状态"
+        "name": "烹饪状态",
+        "state": {
+          "standby": "待机",
+          "idle": "空闲",
+          "setting": "设置中",
+          "cooking": "烹饪中",
+          "pause": "已暂停",
+          "finish": "已完成",
+          "pairing": "配对中",
+          "precook": "准备中",
+          "parasetting": "调整设置中",
+          "maintain": "保温中",
+          "user_action": "需要操作",
+          "powersave": "节能模式",
+          "mainmenu": "主菜单"
+        }
       },
       "airfryer_temperature": {
         "name": "目标温度"
@@ -230,10 +245,29 @@
         "name": "当前探针温度"
       },
       "airfryer_dialog": {
-        "name": "对话框"
+        "name": "对话框",
+        "state": {
+          "none": "无",
+          "close_drawer": "请关上抽屉"
+        }
       },
       "airfryer_previous_status": {
-        "name": "上一状态"
+        "name": "上一状态",
+        "state": {
+          "standby": "待机",
+          "idle": "空闲",
+          "setting": "设置中",
+          "cooking": "烹饪中",
+          "pause": "已暂停",
+          "finish": "已完成",
+          "pairing": "配对中",
+          "precook": "准备中",
+          "parasetting": "调整设置中",
+          "maintain": "保温中",
+          "user_action": "需要操作",
+          "powersave": "节能模式",
+          "mainmenu": "主菜单"
+        }
       },
       "airfryer_cooking_id": {
         "name": "烹饪ID"

@@ -185,7 +185,22 @@
         "name": "Filtro 1 restante"
       },
       "airfryer_status": {
-        "name": "Status de cozimento"
+        "name": "Status de cozimento",
+        "state": {
+          "standby": "Em espera",
+          "idle": "Inativo",
+          "setting": "Configurando",
+          "cooking": "Cozinhando",
+          "pause": "Pausado",
+          "finish": "Concluído",
+          "pairing": "Pareando",
+          "precook": "Preparando",
+          "parasetting": "Ajustando configurações",
+          "maintain": "Mantendo aquecido",
+          "user_action": "Ação necessária",
+          "powersave": "Economia de energia",
+          "mainmenu": "Menu principal"
+        }
       },
       "airfryer_temperature": {
         "name": "Temperatura alvo"
@@ -230,10 +245,29 @@
         "name": "Temperatura atual da sonda"
       },
       "airfryer_dialog": {
-        "name": "Dialogo"
+        "name": "Dialogo",
+        "state": {
+          "none": "Nenhum",
+          "close_drawer": "Feche a gaveta"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Status anterior"
+        "name": "Status anterior",
+        "state": {
+          "standby": "Em espera",
+          "idle": "Inativo",
+          "setting": "Configurando",
+          "cooking": "Cozinhando",
+          "pause": "Pausado",
+          "finish": "Concluído",
+          "pairing": "Pareando",
+          "precook": "Preparando",
+          "parasetting": "Ajustando configurações",
+          "maintain": "Mantendo aquecido",
+          "user_action": "Ação necessária",
+          "powersave": "Economia de energia",
+          "mainmenu": "Menu principal"
+        }
       },
       "airfryer_cooking_id": {
         "name": "ID de cozimento"

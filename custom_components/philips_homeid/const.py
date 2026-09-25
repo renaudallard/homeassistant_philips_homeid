@@ -112,6 +112,11 @@ KEEP_WARM_DEFAULT_TEMP_C = 65
 DEFAULT_SCAN_INTERVAL = 60  # 1 minute when idle
 ACTIVE_SCAN_INTERVAL = 10  # 10 seconds when airfryer is cooking
 FUSION_HEARTBEAT_INTERVAL = 300  # 5 minutes heartbeat for MQTT devices
+# Heartbeat while a FUSION airfryer is cooking. The device does not always push
+# the end of a cook: on an HD9875 the status stayed 'cooking' with no pushes at
+# all until the next heartbeat, and every push restarts that timer, so 'finish'
+# arrived up to FUSION_HEARTBEAT_INTERVAL after the cook had actually ended.
+FUSION_ACTIVE_HEARTBEAT_INTERVAL = 20
 FUSION_PORT_RETRY_INTERVAL = 5  # seconds between getAllPorts retries at setup
 
 # The best-effort cloud fetches (AutoCook catalog, My Presets, Rita drinks)

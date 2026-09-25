@@ -173,7 +173,22 @@
         "name": "Foutcode"
       },
       "airfryer_status": {
-        "name": "Kookstatus"
+        "name": "Kookstatus",
+        "state": {
+          "standby": "Stand-by",
+          "idle": "Inactief",
+          "setting": "Instellen",
+          "cooking": "Bezig",
+          "pause": "Gepauzeerd",
+          "finish": "Klaar",
+          "pairing": "Koppelen",
+          "precook": "Voorbereiden",
+          "parasetting": "Instellingen wijzigen",
+          "maintain": "Warmhouden",
+          "user_action": "Actie nodig",
+          "powersave": "Energiebesparing",
+          "mainmenu": "Hoofdmenu"
+        }
       },
       "airfryer_temperature": {
         "name": "Doeltemperatuur"
@@ -230,10 +245,29 @@
         "name": "Huidige sondetemperatuur"
       },
       "airfryer_dialog": {
-        "name": "Melding"
+        "name": "Melding",
+        "state": {
+          "none": "Geen",
+          "close_drawer": "Sluit de lade"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Vorige status"
+        "name": "Vorige status",
+        "state": {
+          "standby": "Stand-by",
+          "idle": "Inactief",
+          "setting": "Instellen",
+          "cooking": "Bezig",
+          "pause": "Gepauzeerd",
+          "finish": "Klaar",
+          "pairing": "Koppelen",
+          "precook": "Voorbereiden",
+          "parasetting": "Instellingen wijzigen",
+          "maintain": "Warmhouden",
+          "user_action": "Actie nodig",
+          "powersave": "Energiebesparing",
+          "mainmenu": "Hoofdmenu"
+        }
       },
       "airfryer_cooking_id": {
         "name": "Kook-ID"

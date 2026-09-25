@@ -185,7 +185,22 @@
         "name": "Filter 1 Remaining"
       },
       "airfryer_status": {
-        "name": "Cooking Status"
+        "name": "Cooking Status",
+        "state": {
+          "standby": "Standby",
+          "idle": "Idle",
+          "setting": "Setting",
+          "cooking": "Cooking",
+          "pause": "Paused",
+          "finish": "Finished",
+          "pairing": "Pairing",
+          "precook": "Preparing",
+          "parasetting": "Adjusting settings",
+          "maintain": "Keeping warm",
+          "user_action": "Action needed",
+          "powersave": "Power saving",
+          "mainmenu": "Main menu"
+        }
       },
       "airfryer_temperature": {
         "name": "Target Temperature"
@@ -230,10 +245,29 @@
         "name": "Current Probe Temperature"
       },
       "airfryer_dialog": {
-        "name": "Dialog"
+        "name": "Dialog",
+        "state": {
+          "none": "None",
+          "close_drawer": "Close the drawer"
+        }
       },
       "airfryer_previous_status": {
-        "name": "Previous Status"
+        "name": "Previous Status",
+        "state": {
+          "standby": "Standby",
+          "idle": "Idle",
+          "setting": "Setting",
+          "cooking": "Cooking",
+          "pause": "Paused",
+          "finish": "Finished",
+          "pairing": "Pairing",
+          "precook": "Preparing",
+          "parasetting": "Adjusting settings",
+          "maintain": "Keeping warm",
+          "user_action": "Action needed",
+          "powersave": "Power saving",
+          "mainmenu": "Main menu"
+        }
       },
       "airfryer_cooking_id": {
         "name": "Cooking ID"

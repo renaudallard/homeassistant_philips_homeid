@@ -173,16 +173,16 @@
         "name": "Codigo de erro"
       },
       "muji_filter0_lifetime": {
-        "name": "Vida util filtro 0"
+        "name": "Vida útil de limpeza do filtro"
       },
       "muji_filter1_lifetime": {
-        "name": "Vida util filtro 1"
+        "name": "Vida útil de substituição do filtro"
       },
       "muji_filter0_remaining": {
-        "name": "Filtro 0 restante"
+        "name": "Limpeza do filtro restante"
       },
       "muji_filter1_remaining": {
-        "name": "Filtro 1 restante"
+        "name": "Substituição do filtro restante"
       },
       "airfryer_status": {
         "name": "Estado de cozedura",

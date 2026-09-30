@@ -218,16 +218,16 @@
         "name": "Warmhouden"
       },
       "muji_filter0_lifetime": {
-        "name": "Levensduur filter 0"
+        "name": "Levensduur filterreiniging"
       },
       "muji_filter1_lifetime": {
-        "name": "Levensduur filter 1"
+        "name": "Levensduur filtervervanging"
       },
       "muji_filter0_remaining": {
-        "name": "Filter 0 resterend"
+        "name": "Filterreiniging resterend"
       },
       "muji_filter1_remaining": {
-        "name": "Filter 1 resterend"
+        "name": "Filtervervanging resterend"
       },
       "airfryer_recipe_id": {
         "name": "Recept-ID"

@@ -173,16 +173,16 @@
         "name": "错误代码"
       },
       "muji_filter0_lifetime": {
-        "name": "滤芯0寿命"
+        "name": "滤芯清洁寿命"
       },
       "muji_filter1_lifetime": {
-        "name": "滤芯1寿命"
+        "name": "滤芯更换寿命"
       },
       "muji_filter0_remaining": {
-        "name": "滤芯0剩余"
+        "name": "滤芯清洁剩余"
       },
       "muji_filter1_remaining": {
-        "name": "滤芯1剩余"
+        "name": "滤芯更换剩余"
       },
       "airfryer_status": {
         "name": "烹饪状态",
@@ -511,10 +511,10 @@
         "name": "冲煮浓缩咖啡"
       },
       "muji_reset_filter_clean": {
-        "name": "重置滤网清洁计时"
+        "name": "重置滤芯清洁计时"
       },
       "muji_reset_filter_replace": {
-        "name": "重置滤网更换计时"
+        "name": "重置滤芯更换计时"
       }
     },
     "number": {

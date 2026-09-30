@@ -173,16 +173,16 @@
         "name": "Felkod"
       },
       "muji_filter0_lifetime": {
-        "name": "Filter 0 total livslängd"
+        "name": "Filterrengöring total livslängd"
       },
       "muji_filter1_lifetime": {
-        "name": "Filter 1 total livslängd"
+        "name": "Filterbyte total livslängd"
       },
       "muji_filter0_remaining": {
-        "name": "Filter 0 återstående livslängd"
+        "name": "Filterrengöring återstående livslängd"
       },
       "muji_filter1_remaining": {
-        "name": "Filter 1 återstående livslängd"
+        "name": "Filterbyte återstående livslängd"
       },
       "airfryer_status": {
         "name": "Tillagningsstatus",

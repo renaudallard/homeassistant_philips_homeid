@@ -470,6 +470,9 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         icon="mdi:alert-circle",
         device_types=("air_purifier",),
     ),
+    # MUJI filtRd: filter 0 is the clean timer and filter 1 the replace one
+    # (APK muji_filter_status_description and the filter reset serializers).
+    # The keys keep the port's 0/1 numbering so unique ids stay the same.
     PhilipsHomeIDSensorEntityDescription(
         key="muji_filter0_lifetime",
         translation_key="muji_filter0_lifetime",

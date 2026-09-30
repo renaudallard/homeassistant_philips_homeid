@@ -218,16 +218,16 @@
         "name": "Mantieni caldo"
       },
       "muji_filter0_lifetime": {
-        "name": "Durata filtro 0"
+        "name": "Durata pulizia filtro"
       },
       "muji_filter1_lifetime": {
-        "name": "Durata filtro 1"
+        "name": "Durata sostituzione filtro"
       },
       "muji_filter0_remaining": {
-        "name": "Filtro 0 rimanente"
+        "name": "Pulizia filtro rimanente"
       },
       "muji_filter1_remaining": {
-        "name": "Filtro 1 rimanente"
+        "name": "Sostituzione filtro rimanente"
       },
       "airfryer_recipe_id": {
         "name": "ID ricetta"

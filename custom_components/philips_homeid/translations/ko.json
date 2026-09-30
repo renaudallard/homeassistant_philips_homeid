@@ -173,16 +173,16 @@
         "name": "오류 코드"
       },
       "muji_filter0_lifetime": {
-        "name": "필터 0 수명"
+        "name": "필터 청소 수명"
       },
       "muji_filter1_lifetime": {
-        "name": "필터 1 수명"
+        "name": "필터 교체 수명"
       },
       "muji_filter0_remaining": {
-        "name": "필터 0 잔여"
+        "name": "필터 청소 잔여"
       },
       "muji_filter1_remaining": {
-        "name": "필터 1 잔여"
+        "name": "필터 교체 잔여"
       },
       "airfryer_status": {
         "name": "조리 상태",

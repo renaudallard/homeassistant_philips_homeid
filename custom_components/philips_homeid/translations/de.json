@@ -218,16 +218,16 @@
         "name": "Warmhalten"
       },
       "muji_filter0_lifetime": {
-        "name": "Lebensdauer Filter 0"
+        "name": "Lebensdauer Filterreinigung"
       },
       "muji_filter1_lifetime": {
-        "name": "Lebensdauer Filter 1"
+        "name": "Lebensdauer Filterwechsel"
       },
       "muji_filter0_remaining": {
-        "name": "Filter 0 verbleibend"
+        "name": "Filterreinigung verbleibend"
       },
       "muji_filter1_remaining": {
-        "name": "Filter 1 verbleibend"
+        "name": "Filterwechsel verbleibend"
       },
       "airfryer_recipe_id": {
         "name": "Rezept-ID"

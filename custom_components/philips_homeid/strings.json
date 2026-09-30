@@ -173,16 +173,16 @@
         "name": "Error Code"
       },
       "muji_filter0_lifetime": {
-        "name": "Filter 0 Total Lifetime"
+        "name": "Filter Clean Total Lifetime"
       },
       "muji_filter1_lifetime": {
-        "name": "Filter 1 Total Lifetime"
+        "name": "Filter Replace Total Lifetime"
       },
       "muji_filter0_remaining": {
-        "name": "Filter 0 Remaining"
+        "name": "Filter Clean Remaining"
       },
       "muji_filter1_remaining": {
-        "name": "Filter 1 Remaining"
+        "name": "Filter Replace Remaining"
       },
       "airfryer_status": {
         "name": "Cooking Status",

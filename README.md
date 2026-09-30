@@ -293,8 +293,8 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Switch | Child Lock | Child lock control |
 | Switch | Sensor Monitor in Standby | Keep sensors active in standby (MUJI only) |
 | Number | Beep Volume / Air Quality Threshold | Device settings (MUJI only) |
-| Sensor | Filter 0/1 Lifetime / Remaining | Filter tracking (MUJI only) |
-| Button | Reset Filter Clean / Replace Timer | Restart the filter clean (filter 0) or replace (filter 1) timer, as the app does after servicing the filter (MUJI only) |
+| Sensor | Filter Clean / Replace Total Lifetime / Remaining | Filter clean and replace timers in hours (MUJI only) |
+| Button | Reset Filter Clean / Replace Timer | Restart the filter clean or replace timer, as the app does after servicing the filter (MUJI only) |
 | Sensor | Fan Speed | Speed the fan is running at, raw device value (MUJI only) |
 
 </details>

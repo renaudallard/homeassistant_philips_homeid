@@ -173,16 +173,16 @@
         "name": "Kod bledu"
       },
       "muji_filter0_lifetime": {
-        "name": "Zywotnosc filtru 0"
+        "name": "Okres czyszczenia filtra"
       },
       "muji_filter1_lifetime": {
-        "name": "Zywotnosc filtru 1"
+        "name": "Okres wymiany filtra"
       },
       "muji_filter0_remaining": {
-        "name": "Filtr 0 pozostalo"
+        "name": "Pozostało do czyszczenia filtra"
       },
       "muji_filter1_remaining": {
-        "name": "Filtr 1 pozostalo"
+        "name": "Pozostało do wymiany filtra"
       },
       "airfryer_status": {
         "name": "Status gotowania",

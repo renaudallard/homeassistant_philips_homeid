@@ -167,7 +167,7 @@
         "name": "Modo"
       },
       "fan_speed": {
-        "name": "Velocidade"
+        "name": "Velocidade do ventilador"
       },
       "error_code": {
         "name": "Código de erro"

@@ -167,7 +167,7 @@
         "name": "Tryb"
       },
       "fan_speed": {
-        "name": "Predkosc wentylatora"
+        "name": "Prędkość wentylatora"
       },
       "error_code": {
         "name": "Kod bledu"

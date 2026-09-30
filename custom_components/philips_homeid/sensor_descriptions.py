@@ -453,6 +453,17 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(
+        key="muji_fan_speed",
+        translation_key="fan_speed",
+        # FUSION MUJI reports the running fan speed on D0310D (APK
+        # AirStatusPort fanSpeed). Kept raw: it uses the operationMode
+        # numbers (17 sleep, 18 turbo) and reads 0 while auto idles the fan.
+        property_key="D0310D",
+        icon="mdi:fan",
+        state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
         key="error_code",
         translation_key="error_code",
         property_key="err",

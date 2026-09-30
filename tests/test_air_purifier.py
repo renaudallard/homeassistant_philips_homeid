@@ -8,6 +8,7 @@ from custom_components.philips_homeid.mqtt_api import (
     FusionDeviceInfo,
     PhilipsMQTTClient,
 )
+from custom_components.philips_homeid.sensor_descriptions import SENSORS
 
 
 def _make_client(model_name: str) -> PhilipsMQTTClient:
@@ -103,3 +104,12 @@ def test_muji_mode_values_unique_per_model():
     for mode_map in MUJI_MODE_MAPS.values():
         values = list(mode_map.values())
         assert len(values) == len(set(values))
+
+
+def test_muji_fan_speed_sensor():
+    """D0310D gets its own air purifier sensor, next to the legacy om one."""
+    descs = [d for d in SENSORS if d.property_key == "D0310D"]
+    assert len(descs) == 1
+    assert descs[0].device_types == ("air_purifier",)
+    assert descs[0].nested_key is None
+    assert len({d.key for d in SENSORS}) == len(SENSORS)

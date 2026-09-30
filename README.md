@@ -58,6 +58,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
 - Fan control: power on/off and preset modes (per model, for example gentle/sleep/turbo on AC0650, auto/medium/sleep/turbo on AC0651, plus fast on AC1715)
 - Air quality sensors: PM2.5 and indoor air quality index
+- Fan speed: the speed the fan is running at, as the purifier reports it
 - Settings: beep volume, air quality threshold, sensor monitor in standby
 - Filter tracking: lifetime and remaining hours for the clean and replace filters
 
@@ -293,6 +294,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Switch | Sensor Monitor in Standby | Keep sensors active in standby (MUJI only) |
 | Number | Beep Volume / Air Quality Threshold | Device settings (MUJI only) |
 | Sensor | Filter 0/1 Lifetime / Remaining | Filter tracking (MUJI only) |
+| Sensor | Fan Speed | Speed the fan is running at, raw device value (MUJI only) |
 
 </details>
 

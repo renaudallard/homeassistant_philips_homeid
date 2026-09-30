@@ -62,7 +62,7 @@
       },
       "reauth_email": {
         "title": "Accesso cloud richiesto",
-        "description": "L accesso cloud è necessario per riconnettere questo dispositivo. Inserisci la tua e-mail Philips HomeID.",
+        "description": "L'accesso cloud è necessario per riconnettere questo dispositivo. Inserisci la tua e-mail Philips HomeID.",
         "data": {
           "email": "E-mail"
         }
@@ -461,7 +461,7 @@
         "name": "Cassetto cestello destro"
       },
       "temp_unit_fahrenheit": {
-        "name": "Unita Fahrenheit"
+        "name": "Unità Fahrenheit"
       },
       "firmware_update_available": {
         "name": "Aggiornamento firmware disponibile"
@@ -525,7 +525,7 @@
         "name": "Imposta tempo di cottura"
       },
       "airfryer_set_airspeed": {
-        "name": "Imposta velocita dell'aria"
+        "name": "Imposta velocità dell'aria"
       },
       "airfryer_set_probe_temperature": {
         "name": "Imposta temperatura sonda"

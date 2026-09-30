@@ -34,14 +34,14 @@
       },
       "cloud_devices": {
         "title": "Sélectionner l'appareil",
-        "description": "Sélectionnez l'appareil que vous souhaitez ajouter a Home Assistant.",
+        "description": "Sélectionnez l'appareil que vous souhaitez ajouter à Home Assistant.",
         "data": {
           "device": "Appareil"
         }
       },
       "confirm": {
         "title": "Confirmer l'appareil",
-        "description": "Voulez-vous ajouter {name} a l'adresse {host} ?\n\nModèle : {model}\n\n**Remarque :** Toutes les entités peuvent prendre quelques minutes avant d'apparaître pendant que l'intégration établit l'authentification avec l'appareil."
+        "description": "Voulez-vous ajouter {name} à l'adresse {host} ?\n\nModèle : {model}\n\n**Remarque :** Toutes les entités peuvent prendre quelques minutes avant d'apparaître pendant que l'intégration établit l'authentification avec l'appareil."
       },
       "zeroconf_confirm": {
         "title": "Appareil Philips détecté",

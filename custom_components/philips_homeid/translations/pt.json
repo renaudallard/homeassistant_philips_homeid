@@ -11,25 +11,25 @@
       },
       "manual_host": {
         "title": "Introduzir IP do dispositivo",
-        "description": "Introduza o endereco IP do seu dispositivo Philips.",
+        "description": "Introduza o endereço IP do seu dispositivo Philips.",
         "data": {
-          "host": "Endereco IP",
+          "host": "Endereço IP",
           "model": "Modelo"
         }
       },
       "cloud_email": {
         "title": "Login conta Philips",
-        "description": "Introduza o email da sua conta Philips HomeID. Um codigo de verificacao sera enviado.",
+        "description": "Introduza o email da sua conta Philips HomeID. Um código de verificação será enviado.",
         "data": {
           "email": "Email",
           "manual_entry": "Introduzir credenciais manualmente"
         }
       },
       "cloud_otp": {
-        "title": "Introduzir codigo de verificacao",
-        "description": "Um codigo de verificacao foi enviado para {email}.",
+        "title": "Introduzir código de verificação",
+        "description": "Um código de verificação foi enviado para {email}.",
         "data": {
-          "code": "Codigo de verificacao"
+          "code": "Código de verificação"
         }
       },
       "cloud_devices": {
@@ -53,11 +53,11 @@
       },
       "manual_credentials": {
         "title": "Credenciais para {name}",
-        "description": "Introduza as credenciais extraidas da app HomeID.",
+        "description": "Introduza as credenciais extraídas da app HomeID.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "Chave de encriptacao (necessaria para dispositivos HTTP)"
+          "encryption_key": "Chave de encriptação (necessária para dispositivos HTTP)"
         }
       },
       "reauth_email": {
@@ -77,28 +77,28 @@
     },
     "error": {
       "cannot_connect": "Falha ao ligar ao dispositivo",
-      "missing_credentials": "Client ID e Client Secret sao obrigatorios",
-      "invalid_credentials": "Credenciais invalidas",
-      "encryption_key_failed": "Nao foi possivel obter chave de encriptacao",
+      "missing_credentials": "Client ID e Client Secret são obrigatórios",
+      "invalid_credentials": "Credenciais inválidas",
+      "encryption_key_failed": "Não foi possível obter chave de encriptação",
       "unknown": "Erro inesperado",
       "missing_email": "Introduza o email",
-      "missing_code": "Introduza o codigo de verificacao",
-      "otp_send_failed": "Falha ao enviar codigo de verificacao",
-      "otp_failed": "Codigo de verificacao invalido",
+      "missing_code": "Introduza o código de verificação",
+      "otp_send_failed": "Falha ao enviar código de verificação",
+      "otp_failed": "Código de verificação inválido",
       "account_not_registered": "Este email não é uma conta Philips HomeID totalmente registada. Inicie sessão uma vez na aplicação Philips HomeID com este email e tente novamente, ou recomece e introduza as credenciais manualmente.",
       "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
-      "cloud_credentials_not_found": "Nao foi possivel obter credenciais da cloud",
-      "cloud_no_ip": "Endereco IP nao disponivel",
+      "cloud_credentials_not_found": "Não foi possível obter credenciais da cloud",
+      "cloud_no_ip": "Endereço IP não disponível",
       "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os registos do Home Assistant para mais detalhes. Também pode inserir as credenciais manualmente.",
       "cloud_unreachable": "A cloud da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",
       "cloud_profile_error": "O servidor Philips HomeID devolveu um erro para a sua conta. Abra a aplicação Philips HomeID, remova o dispositivo e emparelhe-o novamente mesmo que ainda apareça, e tente de novo. O erro também pode ser temporário, por isso aguardar alguns minutos pode ajudar.",
       "invalid_host": "Indique apenas um endereço IP ou nome de host (sem esquema, porta ou caminho)."
     },
     "abort": {
-      "already_configured": "Dispositivo ja configurado",
+      "already_configured": "Dispositivo já configurado",
       "already_in_progress": "O processo de configuração já está a decorrer",
-      "cannot_connect": "Nao e possivel ligar ao dispositivo",
-      "unsupported_device": "Este dispositivo Philips nao e suportado pela integracao e foi ignorado.",
+      "cannot_connect": "Não é possível ligar ao dispositivo",
+      "unsupported_device": "Este dispositivo Philips não é suportado pela integração e foi ignorado.",
       "reauth_successful": "Login na nuvem bem-sucedido.",
       "reauth_entry_missing": "Não foi possível encontrar a entrada da integração para reautenticar. Recarregue o Home Assistant e tente novamente."
     }
@@ -131,10 +131,10 @@
         "name": "COV total"
       },
       "gas": {
-        "name": "Nivel de gas"
+        "name": "Nível de gás"
       },
       "allergen_index": {
-        "name": "Indice de alergenos"
+        "name": "Índice de alergénios"
       },
       "humidity": {
         "name": "Humidade"
@@ -143,7 +143,7 @@
         "name": "Temperatura"
       },
       "filter_pre": {
-        "name": "Pre-filtro"
+        "name": "Pré-filtro"
       },
       "filter_hepa": {
         "name": "Filtro HEPA"
@@ -155,10 +155,10 @@
         "name": "Pavio humidificador"
       },
       "water_level": {
-        "name": "Nivel de agua"
+        "name": "Nível de água"
       },
       "display_brightness": {
-        "name": "Brilho do ecra"
+        "name": "Brilho do ecrã"
       },
       "runtime": {
         "name": "Tempo total"
@@ -170,7 +170,7 @@
         "name": "Velocidade do ventilador"
       },
       "error_code": {
-        "name": "Codigo de erro"
+        "name": "Código de erro"
       },
       "muji_filter0_lifetime": {
         "name": "Vida útil de limpeza do filtro"
@@ -221,10 +221,10 @@
         "name": "Receita"
       },
       "airfryer_error": {
-        "name": "Codigo de erro"
+        "name": "Código de erro"
       },
       "airfryer_preheat_status": {
-        "name": "Pre-aquecimento"
+        "name": "Pré-aquecimento"
       },
       "airfryer_keep_warm": {
         "name": "Manter quente"
@@ -245,7 +245,7 @@
         "name": "Temperatura atual da sonda"
       },
       "airfryer_dialog": {
-        "name": "Dialogo",
+        "name": "Diálogo",
         "state": {
           "none": "Nenhuma",
           "close_drawer": "Feche a gaveta"
@@ -276,7 +276,7 @@
         "name": "Etapa atual"
       },
       "airfryer_voltage": {
-        "name": "Tensao"
+        "name": "Tensão"
       },
       "airfryer_left_status": {
         "name": "Estado cesto esquerdo"
@@ -321,28 +321,28 @@
         "name": "Etapa atual da receita"
       },
       "firmware_version": {
-        "name": "Versao firmware"
+        "name": "Versão firmware"
       },
       "firmware_available": {
-        "name": "Firmware disponivel"
+        "name": "Firmware disponível"
       },
       "espresso_mainstate": {
-        "name": "Estado da maquina"
+        "name": "Estado da máquina"
       },
       "espresso_brewing_progress": {
-        "name": "Progresso da extracao"
+        "name": "Progresso da extração"
       },
       "espresso_water_level": {
-        "name": "Nivel de agua"
+        "name": "Nível de água"
       },
       "espresso_descale_status": {
-        "name": "Estado descalcificacao"
+        "name": "Estado descalcificação"
       },
       "espresso_filter_status": {
         "name": "Estado do filtro"
       },
       "espresso_filter_number": {
-        "name": "Numero do filtro"
+        "name": "Número do filtro"
       },
       "espresso_waste_bean": {
         "name": "Bandeja de borras"
@@ -351,16 +351,16 @@
         "name": "Estado interruptor"
       },
       "espresso_last_error": {
-        "name": "Ultimo erro"
+        "name": "Último erro"
       },
       "espresso_active_user": {
         "name": "Utilizador ativo"
       },
       "espresso_water_hardness": {
-        "name": "Dureza da agua"
+        "name": "Dureza da água"
       },
       "espresso_auto_standby_time": {
-        "name": "Tempo standby automatico"
+        "name": "Tempo standby automático"
       },
       "rita_machine_state": {
         "name": "Estado da máquina"
@@ -422,10 +422,10 @@
     },
     "binary_sensor": {
       "filter_replace_required": {
-        "name": "Substituicao de filtro necessaria"
+        "name": "Substituição de filtro necessária"
       },
       "water_tank_empty": {
-        "name": "Tanque de agua vazio"
+        "name": "Tanque de água vazio"
       },
       "airfryer_drawer_open": {
         "name": "Gaveta"
@@ -437,13 +437,13 @@
         "name": "Lembrete virar"
       },
       "airfryer_preheat_active": {
-        "name": "Pre-aquecimento ativo"
+        "name": "Pré-aquecimento ativo"
       },
       "airfryer_probe_unplugged": {
         "name": "Sonda desligada"
       },
       "airfryer_probe_required": {
-        "name": "Sonda necessaria"
+        "name": "Sonda necessária"
       },
       "airfryer_resting": {
         "name": "Em repouso"
@@ -452,7 +452,7 @@
         "name": "Tampa"
       },
       "multicooker_no_water": {
-        "name": "Sem agua"
+        "name": "Sem água"
       },
       "airfryer_left_drawer_open": {
         "name": "Gaveta esquerda"
@@ -537,7 +537,7 @@
         "name": "Limite qualidade do ar"
       },
       "set_keep_warm_time": {
-        "name": "Duracao manter quente"
+        "name": "Duração manter quente"
       },
       "set_keep_warm_temp": {
         "name": "Temperatura manter quente"
@@ -546,21 +546,21 @@
         "name": "Dose de moagem"
       },
       "espresso_brew_temperature": {
-        "name": "Temperatura de extracao"
+        "name": "Temperatura de extração"
       },
       "espresso_brew_count": {
-        "name": "Numero de extracoes"
+        "name": "Número de extrações"
       },
       "espresso_primary_dose": {
         "name": "Dose principal"
       },
       "espresso_secondary_dose": {
-        "name": "Dose secundaria"
+        "name": "Dose secundária"
       }
     },
     "select": {
       "cooking_method": {
-        "name": "Metodo de cozedura",
+        "name": "Método de cozedura",
         "state": {
           "manual": "Manual",
           "frozen_snacks": "Snacks congelados",
@@ -636,7 +636,7 @@
         "name": "Bloqueio infantil"
       },
       "preheat": {
-        "name": "Pre-aquecimento"
+        "name": "Pré-aquecimento"
       },
       "sensor_monitor_standby": {
         "name": "Monitor sensor em standby"

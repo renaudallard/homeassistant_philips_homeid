@@ -330,7 +330,7 @@
         "name": "Maschinenstatus"
       },
       "espresso_brewing_progress": {
-        "name": "Bruhfortschritt"
+        "name": "Brühfortschritt"
       },
       "espresso_water_level": {
         "name": "Wasserstand"

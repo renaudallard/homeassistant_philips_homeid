@@ -131,10 +131,10 @@
         "name": "COV total"
       },
       "gas": {
-        "name": "Nivel de gas"
+        "name": "Nível de gás"
       },
       "allergen_index": {
-        "name": "Indice de alergenos"
+        "name": "Índice de alérgenos"
       },
       "humidity": {
         "name": "Umidade"
@@ -143,7 +143,7 @@
         "name": "Temperatura"
       },
       "filter_pre": {
-        "name": "Pre-filtro"
+        "name": "Pré-filtro"
       },
       "filter_hepa": {
         "name": "Filtro HEPA"
@@ -245,7 +245,7 @@
         "name": "Temperatura atual da sonda"
       },
       "airfryer_dialog": {
-        "name": "Dialogo",
+        "name": "Diálogo",
         "state": {
           "none": "Nenhum",
           "close_drawer": "Feche a gaveta"
@@ -555,7 +555,7 @@
         "name": "Dose principal"
       },
       "espresso_secondary_dose": {
-        "name": "Dose secundaria"
+        "name": "Dose secundária"
       }
     },
     "select": {

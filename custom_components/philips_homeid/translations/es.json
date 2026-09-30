@@ -41,19 +41,19 @@
       },
       "confirm": {
         "title": "Confirmar dispositivo",
-        "description": "Quieres agregar {name} en {host}?\n\nModelo: {model}\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
+        "description": "¿Quieres agregar {name} en {host}?\n\nModelo: {model}\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
       },
       "zeroconf_confirm": {
         "title": "Dispositivo Philips detectado",
-        "description": "Se ha detectado un dispositivo Philips en tu red:\n\n**{name}**\nIP: {host}\nModelo: {model}\n\nQuieres agregar este dispositivo?\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
+        "description": "Se ha detectado un dispositivo Philips en tu red:\n\n**{name}**\nIP: {host}\nModelo: {model}\n\n¿Quieres agregar este dispositivo?\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
       },
       "ssdp_confirm": {
         "title": "Dispositivo Philips detectado",
-        "description": "Se ha detectado un dispositivo Philips en tu red:\n\n**{name}**\nIP: {host}\nModelo: {model}\n\nQuieres agregar este dispositivo?\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
+        "description": "Se ha detectado un dispositivo Philips en tu red:\n\n**{name}**\nIP: {host}\nModelo: {model}\n\n¿Quieres agregar este dispositivo?\n\n**Nota:** Todas las entidades pueden tardar unos minutos en aparecer mientras la integración establece la autenticación con el dispositivo."
       },
       "manual_credentials": {
         "title": "Credenciales para {name}",
-        "description": "Introduce las credenciales extraidas de la aplicación HomeID.",
+        "description": "Introduce las credenciales extraídas de la aplicación HomeID.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
@@ -327,22 +327,22 @@
         "name": "Firmware disponible"
       },
       "espresso_mainstate": {
-        "name": "Estado maquina"
+        "name": "Estado máquina"
       },
       "espresso_brewing_progress": {
-        "name": "Progreso preparacion"
+        "name": "Progreso preparación"
       },
       "espresso_water_level": {
         "name": "Nivel de agua"
       },
       "espresso_descale_status": {
-        "name": "Estado descalcificacion"
+        "name": "Estado descalcificación"
       },
       "espresso_filter_status": {
         "name": "Estado filtro"
       },
       "espresso_filter_number": {
-        "name": "Numero filtro"
+        "name": "Número filtro"
       },
       "espresso_waste_bean": {
         "name": "Bandeja residuos"
@@ -351,7 +351,7 @@
         "name": "Estado interruptor"
       },
       "espresso_last_error": {
-        "name": "Ultimo error"
+        "name": "Último error"
       },
       "espresso_active_user": {
         "name": "Usuario activo"
@@ -360,7 +360,7 @@
         "name": "Dureza del agua"
       },
       "espresso_auto_standby_time": {
-        "name": "Tiempo espera automatico"
+        "name": "Tiempo espera automático"
       },
       "rita_machine_state": {
         "name": "Estado de la máquina"
@@ -537,7 +537,7 @@
         "name": "Umbral de calidad del aire"
       },
       "set_keep_warm_time": {
-        "name": "Duracion de mantener caliente"
+        "name": "Duración de mantener caliente"
       },
       "set_keep_warm_temp": {
         "name": "Temperatura de mantener caliente"
@@ -546,10 +546,10 @@
         "name": "Dosis molienda"
       },
       "espresso_brew_temperature": {
-        "name": "Temperatura preparacion"
+        "name": "Temperatura preparación"
       },
       "espresso_brew_count": {
-        "name": "Numero de preparaciones"
+        "name": "Número de preparaciones"
       },
       "espresso_primary_dose": {
         "name": "Dosis principal"

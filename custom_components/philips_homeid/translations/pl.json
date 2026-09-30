@@ -10,8 +10,8 @@
         }
       },
       "manual_host": {
-        "title": "Wprowadz IP urzadzenia",
-        "description": "Wprowadz adres IP urzadzenia Philips.",
+        "title": "Wprowadź IP urządzenia",
+        "description": "Wprowadź adres IP urządzenia Philips.",
         "data": {
           "host": "Adres IP",
           "model": "Model"
@@ -19,41 +19,41 @@
       },
       "cloud_email": {
         "title": "Logowanie Philips",
-        "description": "Wprowadz email konta Philips HomeID.",
+        "description": "Wprowadź email konta Philips HomeID.",
         "data": {
           "email": "Email",
-          "manual_entry": "Wprowadz dane reczne"
+          "manual_entry": "Wprowadź dane ręcznie"
         }
       },
       "cloud_otp": {
         "title": "Kod weryfikacyjny",
-        "description": "Kod weryfikacyjny wyslany na {email}.",
+        "description": "Kod weryfikacyjny wysłany na {email}.",
         "data": {
           "code": "Kod weryfikacyjny"
         }
       },
       "cloud_devices": {
-        "title": "Wybierz urzadzenie",
-        "description": "Wybierz urzadzenie do dodania.",
+        "title": "Wybierz urządzenie",
+        "description": "Wybierz urządzenie do dodania.",
         "data": {
-          "device": "Urzadzenie"
+          "device": "Urządzenie"
         }
       },
       "confirm": {
-        "title": "Potwierdz urzadzenie",
-        "description": "Dodac {name} pod {host}?\n\nModel: {model}"
+        "title": "Potwierdź urządzenie",
+        "description": "Dodać {name} pod {host}?\n\nModel: {model}"
       },
       "zeroconf_confirm": {
-        "title": "Wykryto urzadzenie Philips",
-        "description": "Wykryto urzadzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
+        "title": "Wykryto urządzenie Philips",
+        "description": "Wykryto urządzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
       },
       "ssdp_confirm": {
-        "title": "Wykryto urzadzenie Philips",
-        "description": "Wykryto urzadzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
+        "title": "Wykryto urządzenie Philips",
+        "description": "Wykryto urządzenie:\n\n**{name}**\nIP: {host}\nModel: {model}"
       },
       "manual_credentials": {
         "title": "Dane logowania {name}",
-        "description": "Wprowadz dane z aplikacji HomeID.",
+        "description": "Wprowadź dane z aplikacji HomeID.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
@@ -76,29 +76,29 @@
       }
     },
     "error": {
-      "cannot_connect": "Nie mozna polaczyc",
+      "cannot_connect": "Nie można połączyć",
       "missing_credentials": "Wymagane Client ID i Client Secret",
-      "invalid_credentials": "Nieprawidlowe dane",
-      "encryption_key_failed": "Nie mozna uzyskac klucza szyfrowania",
-      "unknown": "Nieoczekiwany blad",
-      "missing_email": "Wprowadz email",
-      "missing_code": "Wprowadz kod weryfikacyjny",
-      "otp_send_failed": "Blad wysylania kodu",
-      "otp_failed": "Nieprawidlowy kod",
+      "invalid_credentials": "Nieprawidłowe dane",
+      "encryption_key_failed": "Nie można uzyskać klucza szyfrowania",
+      "unknown": "Nieoczekiwany błąd",
+      "missing_email": "Wprowadź email",
+      "missing_code": "Wprowadź kod weryfikacyjny",
+      "otp_send_failed": "Błąd wysyłania kodu",
+      "otp_failed": "Nieprawidłowy kod",
       "account_not_registered": "Ten adres e-mail nie jest w pełni zarejestrowanym kontem Philips HomeID. Zaloguj się raz w aplikacji Philips HomeID przy użyciu tego adresu e-mail i spróbuj ponownie albo zacznij od nowa i wprowadź dane logowania ręcznie.",
-      "no_cloud_devices": "Nie znaleziono urzadzen",
-      "cloud_credentials_not_found": "Nie mozna pobrac danych z chmury",
-      "cloud_no_ip": "Adres IP niedostepny",
+      "no_cloud_devices": "Nie znaleziono urządzeń",
+      "cloud_credentials_not_found": "Nie można pobrać danych z chmury",
+      "cloud_no_ip": "Adres IP niedostępny",
       "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też wprowadzić dane uwierzytelniające ręcznie.",
       "cloud_unreachable": "Chmura Philips jest tymczasowo niedostępna. Poczekaj chwilę i spróbuj ponownie.",
       "cloud_profile_error": "Serwer Philips HomeID zwrócił błąd dla Twojego konta. Otwórz aplikację Philips HomeID, usuń urządzenie i sparuj je ponownie, nawet jeśli nadal jest na liście, a następnie spróbuj ponownie. Błąd może być też tymczasowy, więc warto odczekać kilka minut.",
       "invalid_host": "Podaj sam adres IP lub nazwę hosta (bez schematu, portu ani ścieżki)."
     },
     "abort": {
-      "already_configured": "Urzadzenie juz skonfigurowane",
+      "already_configured": "Urządzenie już skonfigurowane",
       "already_in_progress": "Konfiguracja jest już w toku",
-      "cannot_connect": "Nie mozna polaczyc",
-      "unsupported_device": "To urzadzenie Philips nie jest obslugiwane przez integracje i zostalo zignorowane.",
+      "cannot_connect": "Nie można połączyć",
+      "unsupported_device": "To urządzenie Philips nie jest obsługiwane przez integrację i zostało zignorowane.",
       "reauth_successful": "Logowanie do chmury udane.",
       "reauth_entry_missing": "Nie znaleziono wpisu integracji do ponownego uwierzytelnienia. Załaduj ponownie Home Assistant i spróbuj jeszcze raz."
     }
@@ -107,8 +107,8 @@
     "step": {
       "init": {
         "data": {
-          "scan_interval": "Interwat odpytywania (sekundy)",
-          "active_scan_interval": "Interwat aktywny podczas gotowania (sekundy)"
+          "scan_interval": "Interwał odpytywania (sekundy)",
+          "active_scan_interval": "Interwał aktywny podczas gotowania (sekundy)"
         }
       }
     }
@@ -128,40 +128,40 @@
         "name": "Indeks powietrza w pomieszczeniu"
       },
       "tvoc": {
-        "name": "Calkowite LZO"
+        "name": "Całkowite LZO"
       },
       "gas": {
         "name": "Poziom gazu"
       },
       "allergen_index": {
-        "name": "Indeks alergenow"
+        "name": "Indeks alergenów"
       },
       "humidity": {
-        "name": "Wilgotnosc"
+        "name": "Wilgotność"
       },
       "temperature": {
         "name": "Temperatura"
       },
       "filter_pre": {
-        "name": "Filtr wstepny"
+        "name": "Filtr wstępny"
       },
       "filter_hepa": {
         "name": "Filtr HEPA"
       },
       "filter_carbon": {
-        "name": "Filtr weglowy"
+        "name": "Filtr węglowy"
       },
       "filter_wick": {
-        "name": "Knot nawilzacza"
+        "name": "Knot nawilżacza"
       },
       "water_level": {
         "name": "Poziom wody"
       },
       "display_brightness": {
-        "name": "Jasnosc wyswietlacza"
+        "name": "Jasność wyświetlacza"
       },
       "runtime": {
-        "name": "Calkowity czas pracy"
+        "name": "Całkowity czas pracy"
       },
       "mode": {
         "name": "Tryb"
@@ -170,7 +170,7 @@
         "name": "Prędkość wentylatora"
       },
       "error_code": {
-        "name": "Kod bledu"
+        "name": "Kod błędu"
       },
       "muji_filter0_lifetime": {
         "name": "Okres czyszczenia filtra"
@@ -209,10 +209,10 @@
         "name": "Aktualna temperatura"
       },
       "airfryer_time_total": {
-        "name": "Calkowity czas"
+        "name": "Całkowity czas"
       },
       "airfryer_time_remaining": {
-        "name": "Pozostaly czas"
+        "name": "Pozostały czas"
       },
       "airfryer_preset": {
         "name": "Preset"
@@ -221,13 +221,13 @@
         "name": "Przepis"
       },
       "airfryer_error": {
-        "name": "Kod bledu"
+        "name": "Kod błędu"
       },
       "airfryer_preheat_status": {
         "name": "Nagrzewanie"
       },
       "airfryer_keep_warm": {
-        "name": "Utrzymanie ciepla"
+        "name": "Utrzymanie ciepła"
       },
       "airfryer_recipe_id": {
         "name": "ID przepisu"
@@ -236,7 +236,7 @@
         "name": "ID kroku"
       },
       "airfryer_airspeed": {
-        "name": "Predkosc powietrza"
+        "name": "Prędkość powietrza"
       },
       "airfryer_probe_temperature": {
         "name": "Temperatura sondy"
@@ -276,7 +276,7 @@
         "name": "Aktualny etap"
       },
       "airfryer_voltage": {
-        "name": "Napiecie"
+        "name": "Napięcie"
       },
       "airfryer_left_status": {
         "name": "Status lewy kosz"
@@ -297,25 +297,25 @@
         "name": "Czas prawy kosz"
       },
       "multicooker_humidity": {
-        "name": "Wilgotnosc"
+        "name": "Wilgotność"
       },
       "multicooker_ingredient": {
-        "name": "Skladnik"
+        "name": "Składnik"
       },
       "autocook_uuid": {
         "name": "Program AutoCook"
       },
       "autocook_doneness": {
-        "name": "Stopien wypieczenia"
+        "name": "Stopień wypieczenia"
       },
       "autocook_amount": {
-        "name": "Ilosc"
+        "name": "Ilość"
       },
       "autocook_weight": {
         "name": "Waga"
       },
       "autocook_thickness": {
-        "name": "Grubosc"
+        "name": "Grubość"
       },
       "recipe_current_stage": {
         "name": "Aktualny etap przepisu"
@@ -324,13 +324,13 @@
         "name": "Wersja firmware"
       },
       "firmware_available": {
-        "name": "Firmware dostepny"
+        "name": "Firmware dostępny"
       },
       "espresso_mainstate": {
         "name": "Stan maszyny"
       },
       "espresso_brewing_progress": {
-        "name": "Postep parzenia"
+        "name": "Postęp parzenia"
       },
       "espresso_water_level": {
         "name": "Poziom wody"
@@ -348,16 +348,16 @@
         "name": "Pojemnik na fusy"
       },
       "espresso_switch_state": {
-        "name": "Stan przelacznika"
+        "name": "Stan przełącznika"
       },
       "espresso_last_error": {
-        "name": "Ostatni blad"
+        "name": "Ostatni błąd"
       },
       "espresso_active_user": {
-        "name": "Aktywny uzytkownik"
+        "name": "Aktywny użytkownik"
       },
       "espresso_water_hardness": {
-        "name": "Twardosc wody"
+        "name": "Twardość wody"
       },
       "espresso_auto_standby_time": {
         "name": "Czas auto standby"
@@ -431,16 +431,16 @@
         "name": "Szuflada"
       },
       "airfryer_shake_reminder": {
-        "name": "Przypomnienie o wstrzasnieciu"
+        "name": "Przypomnienie o wstrząśnięciu"
       },
       "airfryer_flip_reminder": {
-        "name": "Przypomnienie o odwroceniu"
+        "name": "Przypomnienie o odwróceniu"
       },
       "airfryer_preheat_active": {
         "name": "Nagrzewanie aktywne"
       },
       "airfryer_probe_unplugged": {
-        "name": "Sonda odlaczona"
+        "name": "Sonda odłączona"
       },
       "airfryer_probe_required": {
         "name": "Sonda wymagana"
@@ -478,7 +478,7 @@
         "name": "Stop"
       },
       "airfryer_keep_warm": {
-        "name": "Utrzymanie ciepla"
+        "name": "Utrzymanie ciepła"
       },
       "airfryer_refresh_recipe": {
         "name": "Odśwież przepisy"
@@ -519,28 +519,28 @@
     },
     "number": {
       "airfryer_set_temperature": {
-        "name": "Ustaw temperature"
+        "name": "Ustaw temperaturę"
       },
       "airfryer_set_time": {
         "name": "Ustaw czas"
       },
       "airfryer_set_airspeed": {
-        "name": "Ustaw predkosc"
+        "name": "Ustaw prędkość"
       },
       "airfryer_set_probe_temperature": {
         "name": "Ustaw temp. sondy"
       },
       "set_beep_volume": {
-        "name": "Glosnosc sygnalu"
+        "name": "Głośność sygnału"
       },
       "set_air_quality_threshold": {
-        "name": "Prog jakosci powietrza"
+        "name": "Próg jakości powietrza"
       },
       "set_keep_warm_time": {
-        "name": "Czas utrzymania ciepla"
+        "name": "Czas utrzymania ciepła"
       },
       "set_keep_warm_temp": {
-        "name": "Temp. utrzymania ciepla"
+        "name": "Temp. utrzymania ciepła"
       },
       "espresso_grinder_dose": {
         "name": "Dawka mielenia"
@@ -549,10 +549,10 @@
         "name": "Temperatura parzenia"
       },
       "espresso_brew_count": {
-        "name": "Liczba parzen"
+        "name": "Liczba parzeń"
       },
       "espresso_primary_dose": {
-        "name": "Dawka glowna"
+        "name": "Dawka główna"
       },
       "espresso_secondary_dose": {
         "name": "Dawka dodatkowa"
@@ -633,7 +633,7 @@
     },
     "switch": {
       "child_lock": {
-        "name": "Blokada dziecieca"
+        "name": "Blokada dziecięca"
       },
       "preheat": {
         "name": "Nagrzewanie"

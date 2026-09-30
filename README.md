@@ -60,7 +60,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Air quality sensors: PM2.5 and indoor air quality index
 - Fan speed: the speed the fan is running at, as the purifier reports it
 - Settings: beep volume, air quality threshold, sensor monitor in standby
-- Filter tracking: lifetime and remaining hours for the clean and replace filters, with buttons to restart either timer after cleaning or replacing the filter
+- Filter tracking: remaining and total hours of the filter's clean and replace timers, with buttons to restart either timer after cleaning or replacing the filter
 
 ### Air Fryers
 - Cooking status, temperature (target/current), time remaining
@@ -273,29 +273,20 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 
 | Type | Entity | Description |
 |------|--------|-------------|
-| Fan | Air Purifier | Power on/off and preset modes (MUJI uses preset modes, not a percentage speed) |
-| Select | Operation Mode | MUJI operation mode as a dropdown on the device page (same modes as the fan presets) |
-| Sensor | PM1.0 / PM2.5 / PM10 | Particulate matter readings |
+| Fan | Air Purifier | Power on/off and preset modes (preset modes, not a percentage speed) |
+| Select | Operation Mode | Operation mode as a dropdown on the device page (same modes as the fan presets) |
+| Sensor | PM2.5 | Particulate matter reading |
 | Sensor | Indoor Air Index | Indoor air-quality index reading (0-12) |
-| Sensor | Total VOC | Volatile organic compounds |
-| Sensor | Gas Level | Gas/formaldehyde level |
-| Sensor | Allergen Index | Allergen level indicator |
-| Sensor | Humidity / Temperature | Environmental readings |
-| Sensor | Pre-filter / HEPA / Carbon | Filter remaining life |
-| Sensor | Display Brightness | Current brightness level |
-| Sensor | Total Runtime | Device runtime in hours |
-| Sensor | Mode / Fan Speed | Current settings |
-| Sensor | Error Code | Device error status |
-| Sensor | Firmware Version | Installed firmware version |
-| Sensor | Firmware Available | Available firmware upgrade |
-| Binary Sensor | Filter Replace Required | Filter needs replacement |
-| Binary Sensor | Water Tank Empty | Water tank status |
-| Switch | Child Lock | Child lock control |
-| Switch | Sensor Monitor in Standby | Keep sensors active in standby (MUJI only) |
-| Number | Beep Volume / Air Quality Threshold | Device settings (MUJI only) |
-| Sensor | Filter Clean / Replace Total Lifetime / Remaining | Filter clean and replace timers in hours (MUJI only) |
-| Button | Reset Filter Clean / Replace Timer | Restart the filter clean or replace timer, as the app does after servicing the filter (MUJI only) |
-| Sensor | Fan Speed | Speed the fan is running at, raw device value (MUJI only) |
+| Sensor | Fan Speed | Speed the fan is running at, raw device value |
+| Sensor | Filter Clean / Replace Remaining | Hours left before the filter needs cleaning or replacing |
+| Sensor | Filter Clean / Replace Total Lifetime | Full length of the clean and replace timers in hours (diagnostic) |
+| Button | Reset Filter Clean / Replace Timer | Restart the clean or replace timer, as the app does after servicing the filter |
+| Number | Beep Volume / Air Quality Threshold | Device settings |
+| Switch | Sensor Monitor in Standby | Keep sensors active in standby |
+| Sensor | Firmware Update State | OTA download and validation state from the shadow (diagnostic) |
+| Binary Sensor | Firmware Update Available | A firmware job is queued in the cloud, read-only (diagnostic) |
+
+The integration also has air purifier entities for other property names (PM1.0/PM10, total VOC, gas, allergen index, humidity, temperature, pre-filter/HEPA/carbon/wick filter life, water level, display brightness, runtime, mode, legacy fan speed, error code, firmware version and available upgrade, filter replace required, water tank, child lock). Like every entity here they are only created when the device reports the property. The supported models report their readings under different codes, so these are not expected to appear on them.
 
 </details>
 

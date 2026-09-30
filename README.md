@@ -161,7 +161,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 1. Authenticates with Philips via email OTP (one-time password)
 2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
-4. If your account has no devices in the Home ID backend, the integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC1715) are registered against a separate Philips app account, so this extra step is what makes an Air+-app-only device show up.
+4. The integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC1715) are registered against a separate Philips app account, so this extra step is what makes a device paired in the Air+ app show up. Both lists are offered together, so an account with an airfryer in HomeID and a purifier in Air+ can add either; Air+ devices are marked `[Air+]` in the device list. This check is skipped when setup started from a device found on the local network.
 
 The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 

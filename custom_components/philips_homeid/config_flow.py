@@ -30,6 +30,7 @@ import logging
 from collections.abc import Mapping
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
@@ -167,8 +168,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cloud_vtoken: str = ""
         self._cloud_session_token: str = ""
         self._cloud_tokens: dict[str, Any] = {}
-        self._cloud_devices: list[dict[str, Any]] = []
-        self._cloud_source: str = ""  # "homeid" or "iot"
+        self._airplus_tokens: dict[str, Any] = {}
+        # (source, record) pairs, source being "homeid", "iot" or "airplus"
+        self._cloud_devices: list[tuple[str, dict[str, Any]]] = []
 
     async def _close_cloud_api(self) -> None:
         """Close cloud API session if open."""
@@ -612,8 +614,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             appliances = []
 
                         if appliances:
-                            self._cloud_devices = appliances
-                            self._cloud_source = "homeid"
+                            found = [("homeid", a) for a in appliances]
                             # An appliance set up outside the HomeID app pairing
                             # flow (e.g. via the machine's own screen) can show up
                             # here without credentials and without an
@@ -640,68 +641,29 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                         "IoT device registry lookup failed (non-fatal)",
                                         exc_info=True,
                                     )
-                            return await self.async_step_cloud_devices()
-
-                        # Fall back to IoT API
-                        _LOGGER.debug("No Home ID appliances, trying IoT API")
-
-                        # Verify token with user profile (IoT)
-                        try:
-                            profile = await self._cloud_api.get_user_profile(
-                                tokens["access_token"]
-                            )
-                            _LOGGER.debug(
-                                "IoT user resolved: %s", bool(profile.get("id"))
-                            )
-                        except CloudAuthError:
-                            _LOGGER.warning(
-                                "Could not fetch IoT user profile (non-fatal)"
-                            )
-
-                        try:
-                            devices = await self._cloud_api.get_devices(
-                                tokens["access_token"]
-                            )
-                        except CloudAuthError:
-                            # With the HomeID backend already broken for this
-                            # account, a refusal here is just the second door
-                            # shutting. Keep the HomeID diagnosis rather than
-                            # reporting it as an auth failure.
-                            if not homeid_failed:
-                                raise
-                            _LOGGER.debug(
-                                "IoT device registry lookup failed after the "
-                                "HomeID backend error",
-                                exc_info=True,
-                            )
-                            devices = []
-
-                        # Also query homes for debug context
-                        try:
-                            homes = await self._cloud_api.get_homes(
-                                tokens["access_token"]
-                            )
-                            if homes:
-                                _LOGGER.debug("IoT homes: %d found", len(homes))
-                        except Exception as err:  # noqa: BLE001
-                            # A debug aid only. The device list gathered above
-                            # is what the step actually needs to continue.
-                            _LOGGER.debug("IoT home list unavailable: %s", err)
-
-                        if devices:
-                            self._cloud_devices = devices
-                            self._cloud_source = "iot"
-                            return await self.async_step_cloud_devices()
+                        else:
+                            found = [
+                                ("iot", d)
+                                for d in await self._discover_iot_devices(
+                                    tokens, homeid_failed
+                                )
+                            ]
 
                         # Air+ app pairing: a purifier paired in the standalone
                         # Philips Air+ app is registered against the Air+ OAuth
                         # client, so it is invisible to the HomeID-audience
-                        # token used above. Mint an Air+ token from the same
-                        # OTP session and query the same DA registry (issue #33).
-                        airplus_devices = await self._discover_airplus_devices()
-                        if airplus_devices:
-                            self._cloud_devices = airplus_devices
-                            self._cloud_source = OAUTH_CLIENT_AIRPLUS
+                        # token used above whatever else the account holds.
+                        # Query it every time so an account with devices in
+                        # both apps can add either (issue #33). A device found
+                        # on the local network is never an Air+ purifier.
+                        if self._discovered_device is None:
+                            found += [
+                                (OAUTH_CLIENT_AIRPLUS, d)
+                                for d in await self._discover_airplus_devices()
+                            ]
+
+                        if found:
+                            self._cloud_devices = found
                             return await self.async_step_cloud_devices()
 
                         errors["base"] = (
@@ -736,15 +698,62 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def _discover_iot_devices(
+        self, tokens: dict[str, Any], homeid_failed: bool
+    ) -> list[dict[str, Any]]:
+        """List the account's devices in the IoT registry.
+
+        Used when the HomeID backend lists no appliance. A refusal is raised
+        as CloudAuthError, unless the HomeID backend already failed for this
+        account, in which case it only means nothing more can be found.
+        """
+        api = self._cloud_api
+        if api is None:
+            return []
+
+        _LOGGER.debug("No Home ID appliances, trying IoT API")
+
+        # Verify token with user profile (IoT)
+        try:
+            profile = await api.get_user_profile(tokens["access_token"])
+            _LOGGER.debug("IoT user resolved: %s", bool(profile.get("id")))
+        except CloudAuthError:
+            _LOGGER.warning("Could not fetch IoT user profile (non-fatal)")
+
+        try:
+            devices = await api.get_devices(tokens["access_token"])
+        except CloudAuthError:
+            # With the HomeID backend already broken for this account, a
+            # refusal here is just the second door shutting. Keep the HomeID
+            # diagnosis rather than reporting it as an auth failure.
+            if not homeid_failed:
+                raise
+            _LOGGER.debug(
+                "IoT device registry lookup failed after the HomeID backend error",
+                exc_info=True,
+            )
+            devices = []
+
+        # Also query homes for debug context
+        try:
+            homes = await api.get_homes(tokens["access_token"])
+            if homes:
+                _LOGGER.debug("IoT homes: %d found", len(homes))
+        except Exception as err:  # noqa: BLE001
+            # A debug aid only. The device list gathered above is what the
+            # step actually needs to continue.
+            _LOGGER.debug("IoT home list unavailable: %s", err)
+        return devices
+
     async def _discover_airplus_devices(self) -> list[dict[str, Any]]:
         """Discover purifiers paired in the Philips Air+ app.
 
         Mints an Air+-client token from the existing Gigya OTP session and
         queries the DA IoT device registry, which lists a device only to the
-        OAuth client it was paired with. On success the Air+ tokens replace
-        self._cloud_tokens so the entry stores an Air+ refresh token. Returns
-        an empty list on any failure so the caller falls through to
-        no_cloud_devices.
+        OAuth client it was paired with. The Air+ tokens are kept apart from
+        the HomeID ones so each entry stores the refresh token of the client
+        its device was found with. This runs on every cloud login, so any
+        failure only returns an empty list and never ends the flow.
         """
         if not self._cloud_api or not self._cloud_session_token:
             return []
@@ -753,14 +762,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._cloud_session_token, client=OAUTH_CLIENT_AIRPLUS
             )
             devices = await self._cloud_api.get_devices(tokens["access_token"])
-        except CloudAuthError as err:
-            # CloudConnectionError subclasses CloudAuthError; either way the
-            # Air+ path simply yields nothing and the flow reports no devices.
+        except (CloudAuthError, aiohttp.ClientError, TimeoutError) as err:
+            # CloudConnectionError subclasses CloudAuthError, and the device
+            # list does not wrap transport errors. Either way the Air+ path
+            # simply yields nothing.
             _LOGGER.debug("Air+ discovery failed: %s", err)
             return []
         if devices:
             _LOGGER.info("Air+ discovery found %d device(s)", len(devices))
-            self._cloud_tokens = tokens
+            self._airplus_tokens = tokens
         return devices
 
     async def async_step_cloud_devices(
@@ -772,18 +782,19 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None and self._cloud_api:
             selected = user_input.get("device")
             if selected:
+                source = ""
                 device_data = None
-                for idx, dev in enumerate(self._cloud_devices):
+                for idx, (src, dev) in enumerate(self._cloud_devices):
                     if str(idx) == selected:
-                        device_data = dev
+                        source, device_data = src, dev
                         break
 
                 if device_data:
-                    if self._cloud_source == "homeid":
+                    if source == "homeid":
                         result = await self._create_entry_from_homeid(
                             device_data, errors
                         )
-                    elif self._cloud_source == OAUTH_CLIENT_AIRPLUS:
+                    elif source == OAUTH_CLIENT_AIRPLUS:
                         result = await self._create_fusion_entry_from_device(
                             device_data, errors
                         )
@@ -794,8 +805,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Build device selection dropdown (use index as key for both sources)
         device_options: dict[str, str] = {}
-        for idx, dev in enumerate(self._cloud_devices):
-            if self._cloud_source == "homeid":
+        for idx, (source, dev) in enumerate(self._cloud_devices):
+            if source == "homeid":
                 name = dev.get("name", "") or "Unknown"
                 mac = dev.get("macAddress", "")
                 label = f"{name} ({mac})" if mac else name
@@ -808,6 +819,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 ctn = dev.get("ctn", "")
                 label = f"{name} ({ctn})" if ctn else name
+                if source == OAUTH_CLIENT_AIRPLUS:
+                    label += " [Air+]"
             device_options[str(idx)] = label
 
         return self.async_show_form(
@@ -1058,6 +1071,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ``oauth_client`` records which OAuth client the stored refresh token
         belongs to, so the runtime relay refreshes it with the same client.
         """
+        tokens = (
+            self._airplus_tokens
+            if oauth_client == OAUTH_CLIENT_AIRPLUS
+            else self._cloud_tokens
+        )
         return {
             CONF_HOST: host,
             CONF_CPP_ID: mac or device_id,
@@ -1068,7 +1086,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_TENANT: FUSION_TENANT,
             CONF_MQTT_HOST: FUSION_MQTT_HOST,
             CONF_PLATFORM_REST_URL: FUSION_PLATFORM_REST_URL,
-            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens.get("refresh_token", ""),
+            CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
             CONF_OAUTH_CLIENT: oauth_client,
         }
 
@@ -1099,7 +1117,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "cloud_credentials_not_found"
             return None
 
-        if not self._cloud_tokens.get("refresh_token"):
+        if not self._airplus_tokens.get("refresh_token"):
             _LOGGER.error(
                 "Air+ OAuth returned no refresh_token; cannot create FUSION entry"
             )

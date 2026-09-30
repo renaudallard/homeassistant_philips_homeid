@@ -327,7 +327,19 @@
         "name": "Tillgänglig firmware"
       },
       "espresso_mainstate": {
-        "name": "Maskinstatus"
+        "name": "Maskinstatus",
+        "state": {
+          "undefined": "Odefinierad",
+          "standby": "Viloläge",
+          "ready": "Redo",
+          "brewing": "Brygger",
+          "processing": "Bearbetar",
+          "action_required": "Åtgärd krävs",
+          "error": "Fel",
+          "suspended": "Avbruten",
+          "unknown": "Okänd",
+          "out_of_order": "Ur funktion"
+        }
       },
       "espresso_brewing_progress": {
         "name": "Bryggningsförlopp"
@@ -366,22 +378,91 @@
         "name": "Automatisk standbytid"
       },
       "rita_machine_state": {
-        "name": "Maskinläge"
+        "name": "Maskinläge",
+        "state": {
+          "not_used": "Används inte",
+          "brewing": "Brygger",
+          "action_required": "Åtgärd krävs",
+          "unrecoverable_error": "Fel som inte kan åtgärdas"
+        }
       },
       "rita_machine_status": {
-        "name": "Maskinstatus"
+        "name": "Maskinstatus",
+        "state": {
+          "not_used": "Används inte",
+          "running": "Pågår",
+          "suspended_alarm": "Avbruten av larm",
+          "suspended_resumable": "Avbruten, kan återupptas",
+          "finishing_successfully": "Avslutas utan fel",
+          "finishing_unsuccessfully": "Avslutas med fel"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "Extra maskininformation"
+        "name": "Extra maskininformation",
+        "state": {
+          "not_used": "Används inte",
+          "bean_lack": "Slut på bönor",
+          "water_lack": "Slut på vatten",
+          "ground_container_full": "Sumpbehållaren full",
+          "brew_unit_missing": "Bryggruppen saknas",
+          "water_container_should_be_removed": "Ta bort vattentanken",
+          "drip_tray_removed": "Droppbrickan borttagen",
+          "door_open": "Luckan öppen",
+          "ground_container_removed": "Sumpbehållaren borttagen",
+          "masterpiece_alarm": "Masterpiece-larm",
+          "user_abort_or_suspend_timeout": "Avbruten av användaren eller paustiden gick ut",
+          "brew_abort_refill_required": "Bryggning avbruten, påfyllning krävs",
+          "brew_abort_heater_fail": "Bryggning avbruten, fel på värmaren",
+          "brew_abort_bu_fail": "Bryggning avbruten, fel på bryggruppen",
+          "brew_abort_grinder_fail": "Bryggning avbruten, fel på kvarnen",
+          "error_1": "Fel 1",
+          "error_2": "Fel 2",
+          "error_3": "Fel 3",
+          "error_4": "Fel 4",
+          "error_5": "Fel 5",
+          "error_10": "Fel 10",
+          "error_11": "Fel 11",
+          "error_14": "Fel 14",
+          "error_15": "Fel 15",
+          "error_19": "Fel 19",
+          "error_24": "Fel 24"
+        }
       },
       "rita_control_status": {
-        "name": "Styrstatus"
+        "name": "Styrstatus",
+        "state": {
+          "machine_notification": "Maskinavisering",
+          "no_error": "Inget fel",
+          "invalid_command": "Ogiltigt kommando",
+          "non_existent_or_invalid_recipe": "Receptet saknas eller är ogiltigt",
+          "machine_busy": "Maskinen är upptagen",
+          "machine_in_alarm_or_error_state": "Maskinen i larm- eller felläge",
+          "profiles_full": "Profilerna är fulla",
+          "unavailable_color": "Färgen är inte tillgänglig",
+          "invalid_profile_name": "Ogiltigt profilnamn",
+          "no_recipe_selected": "Inget recept valt",
+          "recipes_full": "Recepten är fulla",
+          "invalid_recipe_name": "Ogiltigt receptnamn",
+          "invalid_profile_id": "Ogiltigt profil-ID",
+          "invalid_profile_order": "Ogiltig profilordning",
+          "invalid_barista_assistant_settings": "Ogiltiga Barista Assistant-inställningar"
+        }
       },
       "rita_bean_type": {
-        "name": "Bönsort"
+        "name": "Bönsort",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Blandning",
+          "other": "Annan"
+        }
       },
       "rita_roast_level": {
-        "name": "Rostningsgrad"
+        "name": "Rostningsgrad",
+        "state": {
+          "light": "Ljus",
+          "medium": "Mellan",
+          "dark": "Mörk"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean-filternummer"
@@ -408,7 +489,15 @@
         "name": "Produktfel"
       },
       "ota_state": {
-        "name": "Status för firmware-uppdatering"
+        "name": "Status för firmware-uppdatering",
+        "state": {
+          "no_download": "Ingen nedladdning",
+          "ncp_download_in_progress": "Laddar ned NCP-firmware",
+          "host_download_in_progress": "Laddar ned värdens firmware",
+          "host_download_paused": "Nedladdning av värdens firmware pausad",
+          "ncp_validating": "Validerar NCP-firmware",
+          "host_validating": "Validerar värdens firmware"
+        }
       },
       "device_name": {
         "name": "Enhetsnamn"

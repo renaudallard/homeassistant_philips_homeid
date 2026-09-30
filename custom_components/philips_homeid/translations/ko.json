@@ -327,7 +327,19 @@
         "name": "사용 가능한 펌웨어"
       },
       "espresso_mainstate": {
-        "name": "머신 상태"
+        "name": "머신 상태",
+        "state": {
+          "undefined": "정의되지 않음",
+          "standby": "대기",
+          "ready": "준비됨",
+          "brewing": "추출 중",
+          "processing": "처리 중",
+          "action_required": "조치 필요",
+          "error": "오류",
+          "suspended": "일시 중단됨",
+          "unknown": "알 수 없음",
+          "out_of_order": "고장"
+        }
       },
       "espresso_brewing_progress": {
         "name": "추출 진행률"
@@ -363,22 +375,91 @@
         "name": "자동 대기 시간"
       },
       "rita_machine_state": {
-        "name": "머신 상태"
+        "name": "머신 상태",
+        "state": {
+          "not_used": "사용 안 함",
+          "brewing": "추출 중",
+          "action_required": "조치 필요",
+          "unrecoverable_error": "복구할 수 없는 오류"
+        }
       },
       "rita_machine_status": {
-        "name": "동작 상태"
+        "name": "동작 상태",
+        "state": {
+          "not_used": "사용 안 함",
+          "running": "실행 중",
+          "suspended_alarm": "알람으로 중단됨",
+          "suspended_resumable": "중단됨, 재개 가능",
+          "finishing_successfully": "정상 종료 중",
+          "finishing_unsuccessfully": "비정상 종료 중"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "부가 정보"
+        "name": "부가 정보",
+        "state": {
+          "not_used": "사용 안 함",
+          "bean_lack": "원두 없음",
+          "water_lack": "물 없음",
+          "ground_container_full": "커피 찌꺼기 용기 가득 참",
+          "brew_unit_missing": "브루잉 그룹 없음",
+          "water_container_should_be_removed": "물통을 분리하세요",
+          "drip_tray_removed": "물받이 분리됨",
+          "door_open": "도어 열림",
+          "ground_container_removed": "커피 찌꺼기 용기 분리됨",
+          "masterpiece_alarm": "Masterpiece 알람",
+          "user_abort_or_suspend_timeout": "사용자 취소 또는 일시정지 시간 초과",
+          "brew_abort_refill_required": "추출 중단, 보충 필요",
+          "brew_abort_heater_fail": "추출 중단, 히터 고장",
+          "brew_abort_bu_fail": "추출 중단, 브루잉 그룹 고장",
+          "brew_abort_grinder_fail": "추출 중단, 그라인더 고장",
+          "error_1": "오류 1",
+          "error_2": "오류 2",
+          "error_3": "오류 3",
+          "error_4": "오류 4",
+          "error_5": "오류 5",
+          "error_10": "오류 10",
+          "error_11": "오류 11",
+          "error_14": "오류 14",
+          "error_15": "오류 15",
+          "error_19": "오류 19",
+          "error_24": "오류 24"
+        }
       },
       "rita_control_status": {
-        "name": "제어 상태"
+        "name": "제어 상태",
+        "state": {
+          "machine_notification": "머신 알림",
+          "no_error": "오류 없음",
+          "invalid_command": "잘못된 명령",
+          "non_existent_or_invalid_recipe": "레시피가 없거나 잘못됨",
+          "machine_busy": "머신 사용 중",
+          "machine_in_alarm_or_error_state": "머신 알람 또는 오류 상태",
+          "profiles_full": "프로필 가득 참",
+          "unavailable_color": "색상 사용 불가",
+          "invalid_profile_name": "잘못된 프로필 이름",
+          "no_recipe_selected": "선택된 레시피 없음",
+          "recipes_full": "레시피 가득 참",
+          "invalid_recipe_name": "잘못된 레시피 이름",
+          "invalid_profile_id": "잘못된 프로필 ID",
+          "invalid_profile_order": "잘못된 프로필 순서",
+          "invalid_barista_assistant_settings": "잘못된 Barista Assistant 설정"
+        }
       },
       "rita_bean_type": {
-        "name": "원두 종류"
+        "name": "원두 종류",
+        "state": {
+          "arabica": "아라비카",
+          "mix": "블렌드",
+          "other": "기타"
+        }
       },
       "rita_roast_level": {
-        "name": "로스팅 레벨"
+        "name": "로스팅 레벨",
+        "state": {
+          "light": "약배전",
+          "medium": "중배전",
+          "dark": "강배전"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean 필터 번호"
@@ -405,7 +486,15 @@
         "name": "제품 오류"
       },
       "ota_state": {
-        "name": "펌웨어 업데이트 상태"
+        "name": "펌웨어 업데이트 상태",
+        "state": {
+          "no_download": "다운로드 없음",
+          "ncp_download_in_progress": "NCP 펌웨어 다운로드 중",
+          "host_download_in_progress": "호스트 펌웨어 다운로드 중",
+          "host_download_paused": "호스트 펌웨어 다운로드 일시정지됨",
+          "ncp_validating": "NCP 펌웨어 검증 중",
+          "host_validating": "호스트 펌웨어 검증 중"
+        }
       },
       "device_name": {
         "name": "기기 이름"

@@ -327,7 +327,19 @@
         "name": "Firmware dostępny"
       },
       "espresso_mainstate": {
-        "name": "Stan maszyny"
+        "name": "Stan maszyny",
+        "state": {
+          "undefined": "Nieokreślony",
+          "standby": "Czuwanie",
+          "ready": "Gotowy",
+          "brewing": "Parzenie",
+          "processing": "Przetwarzanie",
+          "action_required": "Wymagane działanie",
+          "error": "Błąd",
+          "suspended": "Wstrzymany",
+          "unknown": "Nieznany",
+          "out_of_order": "Niesprawny"
+        }
       },
       "espresso_brewing_progress": {
         "name": "Postęp parzenia"
@@ -363,22 +375,91 @@
         "name": "Czas auto standby"
       },
       "rita_machine_state": {
-        "name": "Stan maszyny"
+        "name": "Stan maszyny",
+        "state": {
+          "not_used": "Nieużywany",
+          "brewing": "Parzenie",
+          "action_required": "Wymagane działanie",
+          "unrecoverable_error": "Błąd nieusuwalny"
+        }
       },
       "rita_machine_status": {
-        "name": "Status pracy"
+        "name": "Status pracy",
+        "state": {
+          "not_used": "Nieużywany",
+          "running": "Pracuje",
+          "suspended_alarm": "Wstrzymany przez alarm",
+          "suspended_resumable": "Wstrzymany, można wznowić",
+          "finishing_successfully": "Kończenie pomyślne",
+          "finishing_unsuccessfully": "Kończenie z błędem"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "Dodatkowe informacje"
+        "name": "Dodatkowe informacje",
+        "state": {
+          "not_used": "Nieużywany",
+          "bean_lack": "Brak ziaren",
+          "water_lack": "Brak wody",
+          "ground_container_full": "Pojemnik na fusy pełny",
+          "brew_unit_missing": "Brak zaparzacza",
+          "water_container_should_be_removed": "Wyjmij zbiornik na wodę",
+          "drip_tray_removed": "Tacka ociekowa wyjęta",
+          "door_open": "Drzwiczki otwarte",
+          "ground_container_removed": "Pojemnik na fusy wyjęty",
+          "masterpiece_alarm": "Alarm Masterpiece",
+          "user_abort_or_suspend_timeout": "Przerwane przez użytkownika lub upłynął czas wstrzymania",
+          "brew_abort_refill_required": "Parzenie przerwane, wymagane uzupełnienie",
+          "brew_abort_heater_fail": "Parzenie przerwane, awaria grzałki",
+          "brew_abort_bu_fail": "Parzenie przerwane, awaria zaparzacza",
+          "brew_abort_grinder_fail": "Parzenie przerwane, awaria młynka",
+          "error_1": "Błąd 1",
+          "error_2": "Błąd 2",
+          "error_3": "Błąd 3",
+          "error_4": "Błąd 4",
+          "error_5": "Błąd 5",
+          "error_10": "Błąd 10",
+          "error_11": "Błąd 11",
+          "error_14": "Błąd 14",
+          "error_15": "Błąd 15",
+          "error_19": "Błąd 19",
+          "error_24": "Błąd 24"
+        }
       },
       "rita_control_status": {
-        "name": "Status komendy"
+        "name": "Status komendy",
+        "state": {
+          "machine_notification": "Powiadomienie maszyny",
+          "no_error": "Brak błędu",
+          "invalid_command": "Nieprawidłowe polecenie",
+          "non_existent_or_invalid_recipe": "Przepis nie istnieje lub jest nieprawidłowy",
+          "machine_busy": "Maszyna zajęta",
+          "machine_in_alarm_or_error_state": "Maszyna w stanie alarmu lub błędu",
+          "profiles_full": "Brak miejsca na profile",
+          "unavailable_color": "Kolor niedostępny",
+          "invalid_profile_name": "Nieprawidłowa nazwa profilu",
+          "no_recipe_selected": "Nie wybrano przepisu",
+          "recipes_full": "Brak miejsca na przepisy",
+          "invalid_recipe_name": "Nieprawidłowa nazwa przepisu",
+          "invalid_profile_id": "Nieprawidłowy identyfikator profilu",
+          "invalid_profile_order": "Nieprawidłowa kolejność profili",
+          "invalid_barista_assistant_settings": "Nieprawidłowe ustawienia Barista Assistant"
+        }
       },
       "rita_bean_type": {
-        "name": "Typ ziarna"
+        "name": "Typ ziarna",
+        "state": {
+          "arabica": "Arabika",
+          "mix": "Mieszanka",
+          "other": "Inne"
+        }
       },
       "rita_roast_level": {
-        "name": "Stopień palenia"
+        "name": "Stopień palenia",
+        "state": {
+          "light": "Jasny",
+          "medium": "Średni",
+          "dark": "Ciemny"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "Numer filtra AquaClean"
@@ -405,7 +486,15 @@
         "name": "Błąd produktu"
       },
       "ota_state": {
-        "name": "Stan aktualizacji firmware"
+        "name": "Stan aktualizacji firmware",
+        "state": {
+          "no_download": "Brak pobierania",
+          "ncp_download_in_progress": "Pobieranie oprogramowania NCP",
+          "host_download_in_progress": "Pobieranie oprogramowania hosta",
+          "host_download_paused": "Pobieranie oprogramowania hosta wstrzymane",
+          "ncp_validating": "Weryfikacja oprogramowania NCP",
+          "host_validating": "Weryfikacja oprogramowania hosta"
+        }
       },
       "device_name": {
         "name": "Nazwa urządzenia"

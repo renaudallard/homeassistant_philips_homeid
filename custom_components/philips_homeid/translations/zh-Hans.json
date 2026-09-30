@@ -327,7 +327,19 @@
         "name": "可用固件"
       },
       "espresso_mainstate": {
-        "name": "机器状态"
+        "name": "机器状态",
+        "state": {
+          "undefined": "未定义",
+          "standby": "待机",
+          "ready": "就绪",
+          "brewing": "冲煮中",
+          "processing": "处理中",
+          "action_required": "需要操作",
+          "error": "错误",
+          "suspended": "已暂停",
+          "unknown": "未知",
+          "out_of_order": "故障"
+        }
       },
       "espresso_brewing_progress": {
         "name": "冲泡进度"
@@ -363,22 +375,91 @@
         "name": "自动待机时间"
       },
       "rita_machine_state": {
-        "name": "机器状态"
+        "name": "机器状态",
+        "state": {
+          "not_used": "未使用",
+          "brewing": "冲煮中",
+          "action_required": "需要操作",
+          "unrecoverable_error": "不可恢复的错误"
+        }
       },
       "rita_machine_status": {
-        "name": "运行状态"
+        "name": "运行状态",
+        "state": {
+          "not_used": "未使用",
+          "running": "运行中",
+          "suspended_alarm": "因报警暂停",
+          "suspended_resumable": "已暂停，可继续",
+          "finishing_successfully": "正在正常结束",
+          "finishing_unsuccessfully": "正在异常结束"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "附加信息"
+        "name": "附加信息",
+        "state": {
+          "not_used": "未使用",
+          "bean_lack": "缺少咖啡豆",
+          "water_lack": "缺水",
+          "ground_container_full": "咖啡渣盒已满",
+          "brew_unit_missing": "冲煮组缺失",
+          "water_container_should_be_removed": "请取下水箱",
+          "drip_tray_removed": "滴水盘已取出",
+          "door_open": "门已打开",
+          "ground_container_removed": "咖啡渣盒已取出",
+          "masterpiece_alarm": "Masterpiece 报警",
+          "user_abort_or_suspend_timeout": "用户中止或暂停超时",
+          "brew_abort_refill_required": "冲煮中止，需要加注",
+          "brew_abort_heater_fail": "冲煮中止，加热器故障",
+          "brew_abort_bu_fail": "冲煮中止，冲煮组故障",
+          "brew_abort_grinder_fail": "冲煮中止，研磨器故障",
+          "error_1": "错误 1",
+          "error_2": "错误 2",
+          "error_3": "错误 3",
+          "error_4": "错误 4",
+          "error_5": "错误 5",
+          "error_10": "错误 10",
+          "error_11": "错误 11",
+          "error_14": "错误 14",
+          "error_15": "错误 15",
+          "error_19": "错误 19",
+          "error_24": "错误 24"
+        }
       },
       "rita_control_status": {
-        "name": "控制状态"
+        "name": "控制状态",
+        "state": {
+          "machine_notification": "机器通知",
+          "no_error": "无错误",
+          "invalid_command": "无效命令",
+          "non_existent_or_invalid_recipe": "配方不存在或无效",
+          "machine_busy": "机器忙",
+          "machine_in_alarm_or_error_state": "机器处于报警或错误状态",
+          "profiles_full": "档案已满",
+          "unavailable_color": "颜色不可用",
+          "invalid_profile_name": "无效的档案名称",
+          "no_recipe_selected": "未选择配方",
+          "recipes_full": "配方已满",
+          "invalid_recipe_name": "无效的配方名称",
+          "invalid_profile_id": "无效的档案 ID",
+          "invalid_profile_order": "无效的档案顺序",
+          "invalid_barista_assistant_settings": "无效的 Barista Assistant 设置"
+        }
       },
       "rita_bean_type": {
-        "name": "咖啡豆种类"
+        "name": "咖啡豆种类",
+        "state": {
+          "arabica": "阿拉比卡",
+          "mix": "混合",
+          "other": "其他"
+        }
       },
       "rita_roast_level": {
-        "name": "烘焙程度"
+        "name": "烘焙程度",
+        "state": {
+          "light": "浅",
+          "medium": "中",
+          "dark": "深"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean 滤芯编号"
@@ -405,7 +486,15 @@
         "name": "产品错误"
       },
       "ota_state": {
-        "name": "固件更新状态"
+        "name": "固件更新状态",
+        "state": {
+          "no_download": "无下载",
+          "ncp_download_in_progress": "正在下载 NCP 固件",
+          "host_download_in_progress": "正在下载主机固件",
+          "host_download_paused": "主机固件下载已暂停",
+          "ncp_validating": "正在验证 NCP 固件",
+          "host_validating": "正在验证主机固件"
+        }
       },
       "device_name": {
         "name": "设备名称"

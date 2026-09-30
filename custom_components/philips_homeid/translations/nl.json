@@ -327,7 +327,19 @@
         "name": "Firmware beschikbaar"
       },
       "espresso_mainstate": {
-        "name": "Machine status"
+        "name": "Machine status",
+        "state": {
+          "undefined": "Ongedefinieerd",
+          "standby": "Stand-by",
+          "ready": "Gereed",
+          "brewing": "Zetten",
+          "processing": "Verwerken",
+          "action_required": "Actie nodig",
+          "error": "Fout",
+          "suspended": "Onderbroken",
+          "unknown": "Onbekend",
+          "out_of_order": "Buiten gebruik"
+        }
       },
       "espresso_brewing_progress": {
         "name": "Zetvoortgang"
@@ -363,22 +375,91 @@
         "name": "Automatische standby tijd"
       },
       "rita_machine_state": {
-        "name": "Machinestatus"
+        "name": "Machinestatus",
+        "state": {
+          "not_used": "Niet gebruikt",
+          "brewing": "Zetten",
+          "action_required": "Actie nodig",
+          "unrecoverable_error": "Onherstelbare fout"
+        }
       },
       "rita_machine_status": {
-        "name": "Werkingsstatus"
+        "name": "Werkingsstatus",
+        "state": {
+          "not_used": "Niet gebruikt",
+          "running": "Bezig",
+          "suspended_alarm": "Onderbroken door alarm",
+          "suspended_resumable": "Onderbroken, kan hervatten",
+          "finishing_successfully": "Wordt succesvol afgerond",
+          "finishing_unsuccessfully": "Wordt afgerond met fout"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "Extra info"
+        "name": "Extra info",
+        "state": {
+          "not_used": "Niet gebruikt",
+          "bean_lack": "Bonen op",
+          "water_lack": "Water op",
+          "ground_container_full": "Koffiedikbak vol",
+          "brew_unit_missing": "Zetgroep ontbreekt",
+          "water_container_should_be_removed": "Verwijder het waterreservoir",
+          "drip_tray_removed": "Lekbak verwijderd",
+          "door_open": "Deur open",
+          "ground_container_removed": "Koffiedikbak verwijderd",
+          "masterpiece_alarm": "Masterpiece-alarm",
+          "user_abort_or_suspend_timeout": "Afgebroken door gebruiker of pauze verlopen",
+          "brew_abort_refill_required": "Zetten afgebroken, bijvullen nodig",
+          "brew_abort_heater_fail": "Zetten afgebroken, verwarmingsfout",
+          "brew_abort_bu_fail": "Zetten afgebroken, zetgroepfout",
+          "brew_abort_grinder_fail": "Zetten afgebroken, maalwerkfout",
+          "error_1": "Fout 1",
+          "error_2": "Fout 2",
+          "error_3": "Fout 3",
+          "error_4": "Fout 4",
+          "error_5": "Fout 5",
+          "error_10": "Fout 10",
+          "error_11": "Fout 11",
+          "error_14": "Fout 14",
+          "error_15": "Fout 15",
+          "error_19": "Fout 19",
+          "error_24": "Fout 24"
+        }
       },
       "rita_control_status": {
-        "name": "Commandostatus"
+        "name": "Commandostatus",
+        "state": {
+          "machine_notification": "Machinemelding",
+          "no_error": "Geen fout",
+          "invalid_command": "Ongeldige opdracht",
+          "non_existent_or_invalid_recipe": "Recept bestaat niet of is ongeldig",
+          "machine_busy": "Machine bezet",
+          "machine_in_alarm_or_error_state": "Machine in alarm- of foutstatus",
+          "profiles_full": "Profielen vol",
+          "unavailable_color": "Kleur niet beschikbaar",
+          "invalid_profile_name": "Ongeldige profielnaam",
+          "no_recipe_selected": "Geen recept geselecteerd",
+          "recipes_full": "Recepten vol",
+          "invalid_recipe_name": "Ongeldige receptnaam",
+          "invalid_profile_id": "Ongeldige profiel-ID",
+          "invalid_profile_order": "Ongeldige profielvolgorde",
+          "invalid_barista_assistant_settings": "Ongeldige Barista Assistant-instellingen"
+        }
       },
       "rita_bean_type": {
-        "name": "Boontype"
+        "name": "Boontype",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mix",
+          "other": "Andere"
+        }
       },
       "rita_roast_level": {
-        "name": "Brandingsniveau"
+        "name": "Brandingsniveau",
+        "state": {
+          "light": "Licht",
+          "medium": "Midden",
+          "dark": "Donker"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean filternummer"
@@ -405,7 +486,15 @@
         "name": "Productfout"
       },
       "ota_state": {
-        "name": "Firmware-updatestatus"
+        "name": "Firmware-updatestatus",
+        "state": {
+          "no_download": "Geen download",
+          "ncp_download_in_progress": "NCP-firmware downloaden",
+          "host_download_in_progress": "Host-firmware downloaden",
+          "host_download_paused": "Download host-firmware gepauzeerd",
+          "ncp_validating": "NCP-firmware controleren",
+          "host_validating": "Host-firmware controleren"
+        }
       },
       "device_name": {
         "name": "Apparaatnaam"

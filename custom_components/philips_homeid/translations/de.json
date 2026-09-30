@@ -327,7 +327,19 @@
         "name": "Firmware verfügbar"
       },
       "espresso_mainstate": {
-        "name": "Maschinenstatus"
+        "name": "Maschinenstatus",
+        "state": {
+          "undefined": "Undefiniert",
+          "standby": "Standby",
+          "ready": "Bereit",
+          "brewing": "Brüht",
+          "processing": "Verarbeitung",
+          "action_required": "Aktion erforderlich",
+          "error": "Fehler",
+          "suspended": "Unterbrochen",
+          "unknown": "Unbekannt",
+          "out_of_order": "Außer Betrieb"
+        }
       },
       "espresso_brewing_progress": {
         "name": "Brühfortschritt"
@@ -363,22 +375,91 @@
         "name": "Automatische Standby-Zeit"
       },
       "rita_machine_state": {
-        "name": "Maschinenzustand"
+        "name": "Maschinenzustand",
+        "state": {
+          "not_used": "Nicht verwendet",
+          "brewing": "Brüht",
+          "action_required": "Aktion erforderlich",
+          "unrecoverable_error": "Nicht behebbarer Fehler"
+        }
       },
       "rita_machine_status": {
-        "name": "Maschinenstatus"
+        "name": "Maschinenstatus",
+        "state": {
+          "not_used": "Nicht verwendet",
+          "running": "Läuft",
+          "suspended_alarm": "Durch Alarm unterbrochen",
+          "suspended_resumable": "Unterbrochen, fortsetzbar",
+          "finishing_successfully": "Wird erfolgreich beendet",
+          "finishing_unsuccessfully": "Wird mit Fehler beendet"
+        }
       },
       "rita_machine_extra_info": {
-        "name": "Zusatzinformation"
+        "name": "Zusatzinformation",
+        "state": {
+          "not_used": "Nicht verwendet",
+          "bean_lack": "Keine Bohnen",
+          "water_lack": "Kein Wasser",
+          "ground_container_full": "Kaffeesatzbehälter voll",
+          "brew_unit_missing": "Brühgruppe fehlt",
+          "water_container_should_be_removed": "Wassertank entnehmen",
+          "drip_tray_removed": "Abtropfschale entnommen",
+          "door_open": "Tür offen",
+          "ground_container_removed": "Kaffeesatzbehälter entnommen",
+          "masterpiece_alarm": "Masterpiece-Alarm",
+          "user_abort_or_suspend_timeout": "Vom Benutzer abgebrochen oder Pause abgelaufen",
+          "brew_abort_refill_required": "Brühen abgebrochen, Nachfüllen erforderlich",
+          "brew_abort_heater_fail": "Brühen abgebrochen, Heizungsfehler",
+          "brew_abort_bu_fail": "Brühen abgebrochen, Brühgruppenfehler",
+          "brew_abort_grinder_fail": "Brühen abgebrochen, Mahlwerkfehler",
+          "error_1": "Fehler 1",
+          "error_2": "Fehler 2",
+          "error_3": "Fehler 3",
+          "error_4": "Fehler 4",
+          "error_5": "Fehler 5",
+          "error_10": "Fehler 10",
+          "error_11": "Fehler 11",
+          "error_14": "Fehler 14",
+          "error_15": "Fehler 15",
+          "error_19": "Fehler 19",
+          "error_24": "Fehler 24"
+        }
       },
       "rita_control_status": {
-        "name": "Steuerungsstatus"
+        "name": "Steuerungsstatus",
+        "state": {
+          "machine_notification": "Maschinenmeldung",
+          "no_error": "Kein Fehler",
+          "invalid_command": "Ungültiger Befehl",
+          "non_existent_or_invalid_recipe": "Rezept fehlt oder ist ungültig",
+          "machine_busy": "Maschine beschäftigt",
+          "machine_in_alarm_or_error_state": "Maschine im Alarm- oder Fehlerzustand",
+          "profiles_full": "Profile voll",
+          "unavailable_color": "Farbe nicht verfügbar",
+          "invalid_profile_name": "Ungültiger Profilname",
+          "no_recipe_selected": "Kein Rezept ausgewählt",
+          "recipes_full": "Rezepte voll",
+          "invalid_recipe_name": "Ungültiger Rezeptname",
+          "invalid_profile_id": "Ungültige Profil-ID",
+          "invalid_profile_order": "Ungültige Profilreihenfolge",
+          "invalid_barista_assistant_settings": "Ungültige Barista-Assistant-Einstellungen"
+        }
       },
       "rita_bean_type": {
-        "name": "Bohnensorte"
+        "name": "Bohnensorte",
+        "state": {
+          "arabica": "Arabica",
+          "mix": "Mischung",
+          "other": "Andere"
+        }
       },
       "rita_roast_level": {
-        "name": "Röststufe"
+        "name": "Röststufe",
+        "state": {
+          "light": "Hell",
+          "medium": "Mittel",
+          "dark": "Dunkel"
+        }
       },
       "rita_aquaclean_filter_number": {
         "name": "AquaClean Filternummer"
@@ -405,7 +486,15 @@
         "name": "Produktfehler"
       },
       "ota_state": {
-        "name": "Firmware-Update-Status"
+        "name": "Firmware-Update-Status",
+        "state": {
+          "no_download": "Kein Download",
+          "ncp_download_in_progress": "NCP-Firmware wird heruntergeladen",
+          "host_download_in_progress": "Host-Firmware wird heruntergeladen",
+          "host_download_paused": "Download der Host-Firmware pausiert",
+          "ncp_validating": "NCP-Firmware wird geprüft",
+          "host_validating": "Host-Firmware wird geprüft"
+        }
       },
       "device_name": {
         "name": "Gerätename"

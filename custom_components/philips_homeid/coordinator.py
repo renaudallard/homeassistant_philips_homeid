@@ -1332,6 +1332,17 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self.async_request_refresh()
         return result
 
+    async def async_reset_filter(self, key: str, hours: int) -> bool:
+        """Restart a MUJI air purifier filter timer.
+
+        The app writes the full lifetime back into the remaining-hours
+        property on the filtWr NCP port (APK MujiFilterControlPort). Only
+        FUSION purifiers have that port.
+        """
+        if not self._is_fusion:
+            return False
+        return await self._mqtt_command("filtWr", {key: hours})
+
     # --- Recipe cache ---
 
     async def _proactive_mqtt_refresh(self) -> None:

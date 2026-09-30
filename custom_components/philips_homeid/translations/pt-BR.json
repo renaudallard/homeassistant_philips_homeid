@@ -509,6 +509,12 @@
       },
       "espresso_brew_espresso": {
         "name": "Preparar espresso"
+      },
+      "muji_reset_filter_clean": {
+        "name": "Redefinir timer de limpeza do filtro"
+      },
+      "muji_reset_filter_replace": {
+        "name": "Redefinir timer de troca do filtro"
       }
     },
     "number": {

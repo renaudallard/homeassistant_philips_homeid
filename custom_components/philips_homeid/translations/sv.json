@@ -509,6 +509,12 @@
       },
       "espresso_brew_espresso": {
         "name": "Brygg espresso"
+      },
+      "muji_reset_filter_clean": {
+        "name": "Återställ filterrengöringstimer"
+      },
+      "muji_reset_filter_replace": {
+        "name": "Återställ filterbytestimer"
       }
     },
     "number": {

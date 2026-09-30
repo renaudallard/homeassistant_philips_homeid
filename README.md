@@ -60,7 +60,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Air quality sensors: PM2.5 and indoor air quality index
 - Fan speed: the speed the fan is running at, as the purifier reports it
 - Settings: beep volume, air quality threshold, sensor monitor in standby
-- Filter tracking: lifetime and remaining hours for the clean and replace filters
+- Filter tracking: lifetime and remaining hours for the clean and replace filters, with buttons to restart either timer after cleaning or replacing the filter
 
 ### Air Fryers
 - Cooking status, temperature (target/current), time remaining
@@ -294,6 +294,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Switch | Sensor Monitor in Standby | Keep sensors active in standby (MUJI only) |
 | Number | Beep Volume / Air Quality Threshold | Device settings (MUJI only) |
 | Sensor | Filter 0/1 Lifetime / Remaining | Filter tracking (MUJI only) |
+| Button | Reset Filter Clean / Replace Timer | Restart the filter clean (filter 0) or replace (filter 1) timer, as the app does after servicing the filter (MUJI only) |
 | Sensor | Fan Speed | Speed the fan is running at, raw device value (MUJI only) |
 
 </details>

@@ -509,6 +509,12 @@
       },
       "airfryer_autocook_send": {
         "name": "Envoyer le programme AutoCook"
+      },
+      "muji_reset_filter_clean": {
+        "name": "Réinitialiser le compteur de nettoyage du filtre"
+      },
+      "muji_reset_filter_replace": {
+        "name": "Réinitialiser le compteur de remplacement du filtre"
       }
     },
     "number": {

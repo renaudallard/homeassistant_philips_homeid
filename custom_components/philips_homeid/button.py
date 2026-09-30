@@ -33,6 +33,7 @@ from typing import Any
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -180,6 +181,29 @@ ESPRESSO_BREW_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
 )
 
 
+# MUJI air purifier filter timer resets (APK AirResetCleaningFilterSerializer
+# and AirResetReplaceFilterSerializer). The app writes the same full lifetime
+# for every MUJI model. Filter 0 is the clean timer, filter 1 the replace one.
+AIR_PURIFIER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
+    PhilipsHomeIDButtonEntityDescription(
+        key="muji_reset_filter_clean",
+        translation_key="muji_reset_filter_clean",
+        icon="mdi:air-filter",
+        entity_category=EntityCategory.CONFIG,
+        press_fn=lambda c: c.async_reset_filter("D0520D", 720),
+        available_key="D0520D",
+    ),
+    PhilipsHomeIDButtonEntityDescription(
+        key="muji_reset_filter_replace",
+        translation_key="muji_reset_filter_replace",
+        icon="mdi:air-filter",
+        entity_category=EntityCategory.CONFIG,
+        press_fn=lambda c: c.async_reset_filter("D0540E", 4800),
+        available_key="D0540E",
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -207,6 +231,10 @@ async def async_setup_entry(
             # Rita espresso machine (FUSION / cloud)
             button_descriptions = RITA_BUTTONS
             watch_prop = ("McState", "airfryer")
+    elif device_type == "air_purifier":
+        # Only MUJI purifiers report the filtRd port, flattened to top level.
+        button_descriptions = AIR_PURIFIER_BUTTONS
+        watch_prop = ("D0520D", None)
     else:
         _LOGGER.debug("Skipping button entities for device: %s", model_name)
         return

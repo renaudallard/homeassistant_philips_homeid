@@ -41,15 +41,15 @@
       },
       "confirm": {
         "title": "기기 확인",
-        "description": "{host}의 {name}을(를) 추가하시겠습니까?\n\n모델: {model}"
+        "description": "{host}의 {name}을(를) 추가하시겠습니까?\n\n모델: {model}\n\n**참고:** 모든 엔티티가 장치 인증을 완료하는 동안 몇 분 동안 표시되지 않을 수 있습니다."
       },
       "zeroconf_confirm": {
         "title": "필립스 기기 발견",
-        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}\n\n이 기기를 추가하시겠습니까?\n\n**참고:** 모든 엔티티가 장치 인증을 완료하는 동안 몇 분 동안 표시되지 않을 수 있습니다."
       },
       "ssdp_confirm": {
         "title": "필립스 기기 발견",
-        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}"
+        "description": "네트워크에서 필립스 기기가 발견되었습니다:\n\n**{name}**\nIP: {host}\n모델: {model}\n\n이 기기를 추가하시겠습니까?\n\n**참고:** 모든 엔티티가 장치 인증을 완료하는 동안 몇 분 동안 표시되지 않을 수 있습니다."
       },
       "manual_credentials": {
         "title": "{name} 자격 증명",

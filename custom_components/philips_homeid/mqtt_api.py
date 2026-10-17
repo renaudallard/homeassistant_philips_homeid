@@ -30,6 +30,7 @@ import copy
 import json
 import logging
 import random
+import re
 import secrets
 import ssl
 import threading
@@ -174,6 +175,9 @@ MQTT_CONNECT_TIMEOUT = 30
 # QoS levels (from APK fv/a enum)
 QOS_AT_MOST_ONCE = 0  # subscriptions
 QOS_AT_LEAST_ONCE = 1  # publishes (shadow + NCP commands)
+
+# Matches the client id in paho's "Sending CONNECT ... client_id=..." line
+_CLIENT_ID_RE = re.compile(r"client_id=\S+")
 
 
 @dataclass
@@ -493,13 +497,16 @@ class PhilipsMQTTClient:
         client.on_disconnect = self._on_disconnect
         client.on_message = self._on_message
 
-        # Detailed protocol logging for debugging connection issues
+        # Detailed protocol logging for debugging connection issues.
+        # paho prints the full client id on CONNECT, and its prefix is
+        # the Philips account id.
         def _on_log(
             _client: mqtt.Client,
             _userdata: Any,
             level: int,
             buf: str,
         ) -> None:
+            buf = _CLIENT_ID_RE.sub("client_id=<redacted>", buf)
             _LOGGER.debug("paho: [%s] %s", level, buf)
 
         client.on_log = _on_log

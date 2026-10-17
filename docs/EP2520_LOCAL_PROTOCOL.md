@@ -6,7 +6,7 @@ series espresso machines, confirmed on an **EP2520** (`Flash_Entry_P`, sold as
 covers **power** and **brew** control.
 
 These machines speak the same `PHILIPS-Condor` HTTPS protocol as the airfryers
-(see `APK_DECOMPILED_ANALYSIS.md` §0 for the challenge-response auth and TLS
+(see the quick start in `PROTOCOL.md` for the challenge-response auth and TLS
 notes). They stay reachable on the LAN **while in standby**, and — importantly —
 the HomeID app drives power/brew over this **local** path, not the cloud. There
 is **no certificate pinning on the local device connection**, so the protocol

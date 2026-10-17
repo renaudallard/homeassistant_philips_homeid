@@ -586,8 +586,8 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 | Cloud Relay | FUSION devices via MQTT over WSS (AWS IoT, paho-mqtt, NCP port commands) |
 | Translations | 12 languages: EN, FR, DE, NL, IT, ES, PT, PT-BR, PL, ZH-HANS, KO, SV |
 
-For in-depth protocol documentation based on decompiled APK analysis, see:
-- [APK Decompiled Analysis](docs/APK_DECOMPILED_ANALYSIS.md) - Complete annotated code analysis of the Philips HomeID APK (includes OAuth/OIDC flow in Appendix E)
+For in-depth protocol documentation, see:
+- [Protocol notes](docs/PROTOCOL.md) - How the Philips HomeID app talks to appliances: local pairing and PhilipsCondor auth, payload encryption, discovery, the FUSION MQTT relay and the Gigya OIDC cloud login
 
 ---
 

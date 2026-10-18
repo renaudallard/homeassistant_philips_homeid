@@ -224,7 +224,7 @@ The included credential extractor tool automatically tries all known storage loc
      sh /data/local/tmp/extract_creds.sh --dump-all e4:bc:96:00:00:00
      ```
    - Look for `client_id` / `DEVICE_CLIENT_ID` and `client_secret` / `DEVICE_CLIENT_SECRET` in the output
-   - Note: `encryption_key` is only needed for HTTP devices (e.g., HD9285). If left empty, the integration will try to fetch it automatically from the device.
+   - Note: `encryption_key` is only used when a device answers on plain HTTP instead of HTTPS. Every device seen so far uses HTTPS, so it can normally stay empty. If it is needed and left empty, the integration tries to fetch it from the device.
 
 4. **If the extractor found no credentials**, your firmware may require an extra step. On some firmwares, the app initially communicates with the device via Philips cloud servers only and does not store local credentials until you explicitly trigger local authentication:
    - Make sure the VM is on the **same network** as your Philips device
@@ -495,7 +495,7 @@ logger:
 - Check that the device is powered on and connected
 - If running HA in Docker without `--network=host`, mDNS/SSDP discovery will not work. Use `--network=host` or add the device manually by IP address.
 - If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
-- Some devices (e.g., HD9285) use HTTP on port 80 instead of HTTPS on port 443. The integration tries both protocols concurrently when probing.
+- The integration probes HTTPS (port 443) and plain HTTP (port 80) concurrently. Every device seen so far answers on HTTPS.
 - The device's web server has limited capacity. Avoid sending too many requests in quick succession or the web server may crash, requiring a power cycle.
 
 ### Local Device Stops Responding
@@ -535,7 +535,7 @@ On some firmwares, the Philips app initially communicates with the device via **
 To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool).
 
 ### "Could not obtain encryption key" or "credentials invalid" with HTTP Toolkit credentials
-HTTP devices (e.g., HD9285) require an `encryption_key` in addition to `client_id` and `client_secret`. When you enter credentials without an encryption key, the integration tries to fetch it from the device automatically. If that fails, the most common causes are:
+The integration only needs an `encryption_key` when the device was detected on plain HTTP (port 80) rather than HTTPS (port 443). Every device seen so far uses HTTPS and plain JSON, so first make sure the device is reachable on port 443. When a device is detected on HTTP and you enter credentials without an encryption key, the integration tries to fetch it from the device automatically. If that fails, the most common causes are:
 
 - **Cloud vs local credentials**: HTTP Toolkit captures all traffic. Make sure the credentials you captured came from requests to the **device's local IP address**, not to Philips cloud servers. Cloud credentials will not work for local control.
 - **Device not in correct state**: The encryption key exchange requires valid local credentials. If the device doesn't recognize the credentials, the exchange will fail.
@@ -577,9 +577,9 @@ If `network_node.db` is empty in the SQLite editor, your device firmware stores 
 
 | Aspect | Details |
 |--------|---------|
-| Protocol | HTTPS (port 443) or HTTP (port 80) depending on device model/firmware |
+| Protocol | HTTPS (port 443). Plain HTTP (port 80) is also probed, but no known device uses it |
 | Authentication | PHILIPS-Condor challenge-response (SHA256) |
-| Payload Encryption | AES-128-CBC/PKCS7 for HTTP devices (key fetched from `/security` endpoint) |
+| Payload Encryption | None over HTTPS. A device answering on plain HTTP would get AES-128-CBC/PKCS7 bodies (key fetched from `/security`), a path no known device uses |
 | Discovery | Zeroconf (`_philipscondor._tcp.local.` or `_http._tcp.local.`) / SSDP (`urn:philips-com:device:DiProduct:1`) |
 | Polling | Local devices: configurable via integration options (default: 60s idle, 10s cooking). A cycle whose first read goes unanswered stops there instead of timing out on every port. FUSION devices push their state, with a heartbeat every 5 minutes (20s while an air fryer is cooking) |
 | Port Discovery | Model-based lookup (HD9280 -> `airfryer`, HD9880 -> `venusaf`, etc.), falls back to probing |

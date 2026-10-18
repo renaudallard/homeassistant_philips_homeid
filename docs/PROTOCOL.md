@@ -189,21 +189,21 @@ Other airfryer port names in use: `venusaf` (HD9880), `venus1af` (HD9875/76), `n
 - Cipher suites: `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256`, `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256`, `TLS_RSA_WITH_AES_128_CBC_SHA256`.
 - Accepting any certificate also works. The app itself has a trust-everything mode (`createTLSTrustEverythingSSLContext`).
 
-### AES payload encryption (plain HTTP devices)
+### AES payload encryption (UDP events only)
 
-Some older devices serve plain HTTP on port 80 instead of HTTPS on 443 and encrypt their response bodies. The key comes from the security port:
+HTTP request and response bodies are plain JSON over HTTPS; the app never encrypts them. AES is only used for the change events a device pushes over UDP to a subscriber (see "UDP event subscriptions"). The key comes from the security port:
 
 ```
 GET /di/v1/products/0/security
 {"key": "abcdef0123456789abcdef0123456789"}
 ```
 
-The key is 32 hex characters, which is a 16 byte AES-128 key. To decrypt a response body:
+The key is 32 hex characters, which is a 16 byte AES-128 key. To decrypt an event payload:
 
-1. Strip surrounding whitespace and base64 decode the body.
+1. Strip surrounding whitespace and base64 decode the payload.
 2. Decrypt with AES-128 in CBC mode, IV of 16 zero bytes.
 3. Remove the PKCS7 padding.
-4. Drop the first 2 bytes, a random prefix the sender adds before encrypting.
+4. Drop the first 2 bytes, a random prefix the sender adds before encrypting (the app keeps data shorter than 3 bytes as is).
 5. Decode the rest as UTF-8 JSON.
 
 ```python
@@ -213,9 +213,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 
 
-def decrypt_body(body: str, key_hex: str) -> str:
+def decrypt_event(payload: str, key_hex: str) -> str:
     key = bytes.fromhex(key_hex)
-    data = base64.b64decode(body.strip())
+    data = base64.b64decode(payload.strip())
     dec = Cipher(algorithms.AES(key), modes.CBC(bytes(16))).decryptor()
     padded = dec.update(data) + dec.finalize()
     unpadder = PKCS7(128).unpadder()
@@ -281,7 +281,7 @@ HOST: 192.168.1.50:8080\r\n
 <base64 AES encrypted JSON>
 ```
 
-The body after the blank line is encrypted with the same AES key as the HTTP responses. Once decrypted it is a partial update to merge into the cached state.
+The body after the blank line is encrypted with the key from the security port, as described above. Once decrypted it is a partial update to merge into the cached state.
 
 ## Architecture
 
@@ -529,7 +529,7 @@ When it runs:
 
 ## Payload encryption
 
-Some devices encrypt their response bodies. The same scheme protects UDP change events. The app does this in `Crypto`.
+The app uses AES for one thing only: the payload of UDP change events (`Crypto.decryptData`, whose single caller is `LocalSubscriptionHandler`). HTTP traffic is never encrypted at the payload level. Every LAN request goes to an `https://` URL with a plain JSON body, the response body is passed on as it arrives, and the `https` flag in the device database is always written as true and never read. Nothing in the app encrypts, so the 2 byte prefix below is added by the device.
 
 ### Parameters
 
@@ -544,7 +544,7 @@ Some devices encrypt their response bodies. The same scheme protects UDP change 
 
 The app turns the hex key into bytes through a big-integer conversion and drops a leading sign byte if one appears. For a 32-digit key whose first byte is not zero this is the same as plain hex decoding.
 
-### Decrypting a body
+### Decrypting an event payload
 
 1. Strip leading and trailing characters with a code point at or below space.
 2. Base64-decode.
@@ -673,7 +673,7 @@ Devices can push state changes over UDP (`LocalSubscriptionHandler`).
 3. The device acknowledges with HTTP 200 and the header `X-Condor-Features: changeindication-port`.
 4. When its state changes, the device sends an encrypted packet to that UDP port.
 5. The receiver hands each packet over with its port name and sender IP. Packets are ignored unless the sender IP equals the device's IP and the payload is non-empty.
-6. The payload is decrypted exactly like an HTTP body (see "Payload encryption"). On success the JSON goes to the subscribers of that port. On failure the subscribers get a decryption failure event, and because the same decryptor is shared with the request path, a new key exchange is triggered.
+6. The payload is decrypted as described under "Payload encryption". On success the JSON goes to the subscribers of that port. On failure the subscribers get a decryption failure event, and the LAN strategy clears the stored key and runs a new key exchange.
 
 Disabling the subscription detaches the device from the shared receiver.
 
@@ -1102,7 +1102,7 @@ The byte helpers in `ByteUtil` (`connectivity/condor/core/security/`) define a f
 - `client_id` is 16 bytes (128 bits) from a secure random generator, base64 encoded.
 - Hashing is SHA-256.
 - Base64 encoding uses no line wrapping. Decoding accepts default base64.
-- Before AES encryption, 2 random bytes are prepended to the plaintext. After decryption the first 2 bytes are dropped, unless the data is shorter than 3 bytes, in which case it is returned unchanged.
+- After AES decryption the first 2 bytes are dropped, unless the data is shorter than 3 bytes, in which case it is returned unchanged. A matching helper that prepends 2 random bytes before encryption exists but is never called.
 - Hex strings are converted two characters per byte; bytes are rendered as uppercase hex.
 - When a property map contains binary values, they are replaced by their base64 string before sending (this is how HSDP `values` are built).
 - A separate random number helper uses a length of 224 bits.
@@ -1489,9 +1489,9 @@ def condor_authorization(www_authenticate: str, client_id_b64: str,
     return "PHILIPS-Condor " + base64.b64encode(cid + digest).decode()
 ```
 
-### C.4 AES decryption pipeline (encrypted devices)
+### C.4 AES decryption pipeline (UDP events)
 
-Some devices (those marked `https=0` in the app's device database, i.e. plain HTTP devices with payload encryption) send base64 encoded AES ciphertext instead of JSON. The earlier analysis first placed this decryption in the HTTP response path. C.12j corrects that: in the app it runs on UDP subscription events. The decryption itself is as follows.
+UDP change events carry base64 encoded AES ciphertext instead of JSON. The earlier analysis first placed this decryption in the HTTP response path, for devices marked `https=0`. C.12j corrects that: the app only runs it on UDP subscription events, and it writes `https` as true for every device. The decryption itself is as follows.
 
 1. Empty input gives no result.
 2. If the node has no encryption key, decryption fails and a key re-exchange is triggered (step 9).
@@ -1902,7 +1902,7 @@ An earlier version of this analysis said the LAN transport decrypts every HTTP r
 
 - The default conversion of response bytes to JSON is a plain UTF-8 decode, and the LAN transport does not override it.
 - AES decryption (C.4) is applied only to UDP subscription events, in the local subscription handler.
-- The HTTP response body is read as a string. If a device encrypts its HTTP responses, the base64 body has to be decrypted before it is handed to the port's response processing. In the app this happens further down the response handling chain, not in the byte to JSON conversion.
+- The HTTP response body is read as a string and handed to the port's response processing unchanged. No step further down decrypts it either: the only caller of the decryptor is the local subscription handler. The request body is plain JSON as well, sent to an `https://` URL that the app builds with a fixed scheme.
 - A decryption failure triggers a key re-exchange.
 
 ### C.12 HSDP subscription (cloud push events)
@@ -2923,3 +2923,4 @@ Points where an earlier reading of the app was wrong or incomplete, settled by a
 - The raw binary firmware upload has no usable URL in the APK (it resolves to host `{ip}firmwaredata`, path `/`); there is no evidence for a `/firmwaredata` path on the device.
 - The UDP receiver keeps the product ID in the port identifier (`1/air`, not `air`). Checked against the smali.
 - The `Pair`/`Unpair` method parameters are `[type, trustee]` (for cloud control: `control` and the app's HSDP identifier), not an HSDP ID and a secret. Checked against the smali.
+- No device traffic over HTTP is encrypted at the payload level, and the app never uses plain HTTP for it. LAN request URLs are built with a fixed `https://` scheme, request bodies are plain JSON, response bodies are passed on unchanged, and the `https` database flag is always written as true and never read. The only AES on device data is the decryption of UDP change events. Checked against the smali.

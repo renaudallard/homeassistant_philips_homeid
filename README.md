@@ -510,7 +510,7 @@ The `Request failed for GET <url>` lines then name the failure. `ConnectionTimeo
 A wedged web server does not recover on its own. Power-cycle the appliance, or disconnect it at the access point and let it reconnect, which is enough to restart its network services. The appliance keeps answering pings the whole time, so being able to reach it says nothing about its web server.
 
 ### Cloud Login Not Available
-Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM), the integration will fall back to the manual credentials form automatically. You can also check **Enter credentials manually instead** on the email form. See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
+Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM) and the device has a local server, check **Enter credentials manually instead** on the email form (shown when setting up a local device by IP). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 ### "The Philips HomeID backend returned a server error for your account"
 This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile. It is a problem on Philips's servers with your account data, not a device or network fault, and the integration sends the same request the official app does. The usual cause is a stale or broken device record on the account.

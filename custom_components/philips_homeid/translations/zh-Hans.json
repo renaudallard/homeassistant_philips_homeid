@@ -87,7 +87,7 @@
       "otp_failed": "验证码无效",
       "account_not_registered": "此电子邮件不是完整注册的 Philips HomeID 账户。请使用此电子邮件在 Philips HomeID 应用中登录一次，然后重试，或者重新开始并手动输入凭据。",
       "no_cloud_devices": "未找到设备",
-      "cloud_credentials_not_found": "无法从云端获取凭据",
+      "cloud_credentials_not_found": "无法从飞利浦云端获取此设备的连接信息。请确认设备已在飞利浦官方应用中完成配对。",
       "cloud_no_ip": "IP地址不可用",
       "cloud_oauth_failed": "云端身份验证失败。请查看 Home Assistant 日志了解详情。您也可以手动输入凭据。",
       "cloud_unreachable": "Philips 云服务暂时无法访问，请稍后再试。",

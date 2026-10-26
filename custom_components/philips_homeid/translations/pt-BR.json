@@ -87,7 +87,7 @@
       "otp_failed": "Código de verificação inválido",
       "account_not_registered": "Este email não é uma conta Philips HomeID totalmente registrada. Faça login uma vez no aplicativo Philips HomeID com este email e tente novamente, ou recomece e insira as credenciais manualmente.",
       "no_cloud_devices": "Nenhum dispositivo encontrado na sua conta Philips",
-      "cloud_credentials_not_found": "Não foi possível obter credenciais da nuvem",
+      "cloud_credentials_not_found": "Não foi possível obter os dados de conexão deste dispositivo da nuvem Philips. Verifique se ele está totalmente pareado no aplicativo oficial da Philips.",
       "cloud_no_ip": "Endereço IP não disponível",
       "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os logs do Home Assistant para mais detalhes. Você também pode inserir as credenciais manualmente.",
       "cloud_unreachable": "A nuvem da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",

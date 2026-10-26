@@ -87,7 +87,7 @@
       "otp_failed": "Nieprawidłowy kod",
       "account_not_registered": "Ten adres e-mail nie jest w pełni zarejestrowanym kontem Philips HomeID. Zaloguj się raz w aplikacji Philips HomeID przy użyciu tego adresu e-mail i spróbuj ponownie albo zacznij od nowa i wprowadź dane logowania ręcznie.",
       "no_cloud_devices": "Nie znaleziono urządzeń",
-      "cloud_credentials_not_found": "Nie można pobrać danych z chmury",
+      "cloud_credentials_not_found": "Nie można pobrać danych połączenia tego urządzenia z chmury Philips. Upewnij się, że jest w pełni sparowane w oficjalnej aplikacji Philips.",
       "cloud_no_ip": "Adres IP niedostępny",
       "cloud_oauth_failed": "Uwierzytelnianie w chmurze nie powiodło się. Sprawdź logi Home Assistant. Możesz też wprowadzić dane uwierzytelniające ręcznie.",
       "cloud_unreachable": "Chmura Philips jest tymczasowo niedostępna. Poczekaj chwilę i spróbuj ponownie.",

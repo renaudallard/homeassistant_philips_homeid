@@ -90,7 +90,7 @@
       "cloud_unreachable": "Philips molntjänst går inte att nå för tillfället. Vänta en stund och försök igen.",
       "cloud_profile_error": "Philips HomeID-tjänsten returnerade ett serverfel för ditt konto. Öppna Philips HomeID-appen, ta bort enheten och parkoppla den på nytt även om den fortfarande visas, och försök sedan igen. Felet kan också vara tillfälligt, så det kan hjälpa att vänta några minuter.",
       "no_cloud_devices": "Inga enheter hittades på ditt Philips-konto.",
-      "cloud_credentials_not_found": "Det gick inte att hämta enhetens autentiseringsuppgifter från molnet. Försök att ange dem manuellt.",
+      "cloud_credentials_not_found": "Det gick inte att hämta enhetens anslutningsuppgifter från Philips-molnet. Kontrollera att den är helt parkopplad i den officiella Philips-appen.",
       "cloud_no_ip": "Enhetens IP-adress är inte tillgänglig via molnet. Försök att ange IP-adressen manuellt.",
       "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt."
     },

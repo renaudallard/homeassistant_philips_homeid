@@ -123,7 +123,7 @@ Then click **Download** and restart Home Assistant.
 ### Manual Installation
 
 1. Download `philips_homeid.zip` from the latest [GitHub Release](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
-2. Extract and copy the `philips_homeid` folder to your Home Assistant's `custom_components` directory
+2. Extract it into a new `philips_homeid` folder in your Home Assistant's `custom_components` directory
 3. Restart Home Assistant
 
 ---

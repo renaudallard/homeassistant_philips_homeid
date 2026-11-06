@@ -45,9 +45,14 @@ jobs:
       - name: Create release zip
         if: steps.check_release.outputs.exists == 'false'
         run: |
-          cd custom_components
-          zip -r ../philips_homeid.zip philips_homeid
-          cd ..
+          # The files of the integration at the root of the zip: hacs.json
+          # names it, and HACS and the Marketplace extract it into
+          # custom_components/philips_homeid/
+          cd custom_components/philips_homeid
+          zip -qr ../../philips_homeid.zip . \
+            -x '*.pyc' '__pycache__/*' '*/__pycache__/*'
+          cd ../..
+          unzip -l philips_homeid.zip
 
       - name: Create release
         if: steps.check_release.outputs.exists == 'false'

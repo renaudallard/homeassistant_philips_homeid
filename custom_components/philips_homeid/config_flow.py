@@ -1004,15 +1004,15 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # thingName != externalDeviceId: they are separate fields in the
         # IoT API. thingName is the AWS IoT thing name for MQTT topics.
-        thing_name = None
+        iot_device = None
         access_token = self._cloud_tokens.get("access_token", "")
         if access_token and self._cloud_api:
-            thing_name = await self._cloud_api.get_thing_name(
+            iot_device = await self._cloud_api.find_device(
                 access_token,
                 device_id=external_id,
                 mac_address=mac,
             )
-        if not thing_name:
+        if not iot_device:
             _LOGGER.error(
                 "Could not resolve thingName for device %s (mac=%s)",
                 external_id,
@@ -1020,8 +1020,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             errors["base"] = "cloud_credentials_not_found"
             return None
+        thing_name = iot_device["thingName"]
 
-        # Use discovered device model if available
+        # The model picks the device type, so take it from the discovered
+        # device or the registry CTN. The HomeID name is what the user called
+        # the appliance, and can be blank or the MAC (issue #46).
         model = ""
         if self._discovered_device:
             parts = [
@@ -1030,7 +1033,7 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ]
             model = " ".join(filter(None, parts))
         if not model:
-            model = name
+            model = iot_device.get("ctn", "") or name
 
         host = ""
         if self._discovered_device:
@@ -1046,8 +1049,9 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         _LOGGER.info(
-            "Creating FUSION entry: name=%s, thing=%s, mac=%s, fw=%s",
+            "Creating FUSION entry: name=%s, model=%s, thing=%s, mac=%s, fw=%s",
             name,
+            model,
             thing_name,
             mac,
             fw,

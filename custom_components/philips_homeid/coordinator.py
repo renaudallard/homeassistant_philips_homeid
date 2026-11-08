@@ -1854,7 +1854,7 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
                 # The IoT device list may key a device by id, thingName or MAC;
                 # externalDeviceId (CONF_DEVICE_ID) is not guaranteed to equal
                 # dev["id"], so match on any of the identifiers we hold (as
-                # get_thing_name does) to find this machine's CTN.
+                # find_device does) to find this machine's CTN.
                 thing_name = self.config_entry.data.get(CONF_THING_NAME, "")
                 mac = self.config_entry.data.get(CONF_CPP_ID, "")
                 ctn = ""

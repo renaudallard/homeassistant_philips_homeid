@@ -199,39 +199,39 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
     # --- IoT API ---
 
-    async def get_thing_name(
+    async def find_device(
         self,
         access_token: str,
         device_id: str = "",
         mac_address: str = "",
-    ) -> str | None:
-        """Get the AWS IoT thingName for a device.
+    ) -> dict[str, Any] | None:
+        """Find a device's IoT registry record, which names its AWS IoT thing.
 
         The HomeID appliance record and the IoT device registry are separate
         backends that can format the same MAC or device id differently (colon
         vs dash vs bare hex, upper vs lower case, or wrapped in a UUID). Both
         sides are normalized before matching so a format mismatch does not hide
-        an otherwise valid thingName.
+        an otherwise valid record. Only a record with a thingName is returned.
         """
         devices = await self.get_devices(access_token)
         norm_id = normalize_unique_id(device_id)
         norm_mac = normalize_unique_id(mac_address)
         for dev in devices:
+            if not dev.get("thingName"):
+                continue
             if device_id and normalize_unique_id(dev.get("id", "")) == norm_id:
-                thing = dev.get("thingName", "")
-                if thing:
-                    _LOGGER.debug(
-                        "Found thingName=%s for device id=%s", thing, device_id
-                    )
-                    return thing
+                _LOGGER.debug(
+                    "Found thingName=%s for device id=%s", dev["thingName"], device_id
+                )
+                return dev
             if (
                 mac_address
                 and normalize_unique_id(dev.get("macAddress", "")) == norm_mac
             ):
-                thing = dev.get("thingName", "")
-                if thing:
-                    _LOGGER.debug("Found thingName=%s for mac=%s", thing, mac_address)
-                    return thing
+                _LOGGER.debug(
+                    "Found thingName=%s for mac=%s", dev["thingName"], mac_address
+                )
+                return dev
         _LOGGER.warning(
             "No thingName found for device_id=%s, mac=%s", device_id, mac_address
         )

@@ -71,6 +71,8 @@ async def test_discovered_model_wins_over_the_registry_ctn():
 @pytest.mark.asyncio
 async def test_no_registry_record_still_fails():
     flow = _flow(None)
+    # Not in the HomeID pet registry either, so not a feeder.
+    flow._create_feeder_entry = AsyncMock(return_value=None)
     errors: dict[str, str] = {}
 
     result = await flow._create_fusion_entry(dict(APPLIANCE), errors)

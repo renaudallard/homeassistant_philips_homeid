@@ -37,6 +37,7 @@ from .const import (
     CONF_CLIENT_SECRET,
     CONF_CLOUD_REFRESH_TOKEN,
     CONF_ENCRYPTION_KEY,
+    CONF_IS_FEEDER,
     DOMAIN,
 )
 from .coordinator import PhilipsHomeIDCoordinator
@@ -69,6 +70,11 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import feeder_diagnostics
+
+        return feeder_diagnostics(hass, entry)
+
     coordinator: PhilipsHomeIDCoordinator | None = hass.data.get(DOMAIN, {}).get(
         entry.entry_id
     )

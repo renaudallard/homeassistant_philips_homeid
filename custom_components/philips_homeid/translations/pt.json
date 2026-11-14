@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os registos do Home Assistant para mais detalhes. Também pode inserir as credenciais manualmente.",
       "cloud_unreachable": "A cloud da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",
       "cloud_profile_error": "O servidor Philips HomeID devolveu um erro para a sua conta. Abra a aplicação Philips HomeID, remova o dispositivo e emparelhe-o novamente mesmo que ainda apareça, e tente de novo. O erro também pode ser temporário, por isso aguardar alguns minutos pode ajudar.",
-      "invalid_host": "Indique apenas um endereço IP ou nome de host (sem esquema, porta ou caminho)."
+      "invalid_host": "Indique apenas um endereço IP ou nome de host (sem esquema, porta ou caminho).",
+      "feeder_unavailable": "Não foi possível verificar este aparelho no serviço de animais do HomeID. Verifique a ligação na aplicação HomeID e tente novamente."
     },
     "abort": {
       "already_configured": "Dispositivo já configurado",
@@ -507,6 +508,18 @@
       },
       "espresso_bean_level": {
         "name": "Nível de grãos"
+      },
+      "feeder_last_feeding": {
+        "name": "Última refeição"
+      },
+      "feeder_last_food_low": {
+        "name": "Último alerta de pouca ração"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Último alerta de saída de ração bloqueada"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Substituição do dessecante prevista"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Atualização de firmware disponível"
+      },
+      "feeder_connectivity": {
+        "name": "Ligação à nuvem"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Purificador de ar"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Programação de refeições"
+      },
+      "feeder_history": {
+        "name": "Histórico de refeições"
       }
     }
   }

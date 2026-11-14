@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "클라우드 인증에 실패했습니다. 자세한 내용은 Home Assistant 로그를 확인하세요. 자격 증명을 수동으로 입력할 수도 있습니다.",
       "cloud_unreachable": "Philips 클라우드에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
       "cloud_profile_error": "Philips HomeID 서버가 계정에 대해 서버 오류를 반환했습니다. Philips HomeID 앱에서 기기가 아직 표시되더라도 기기를 삭제한 후 다시 등록하고 재시도하세요. 일시적인 오류일 수도 있으므로 몇 분 뒤에 다시 시도해 보세요.",
-      "invalid_host": "스키마, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요."
+      "invalid_host": "스키마, 포트, 경로 없이 IP 주소 또는 호스트 이름만 입력하세요.",
+      "feeder_unavailable": "HomeID 반려동물 서비스에서 이 기기를 확인할 수 없습니다. HomeID 앱에서 연결 상태를 확인한 후 다시 시도하세요."
     },
     "abort": {
       "already_configured": "이미 구성된 기기",
@@ -507,6 +508,18 @@
       },
       "espresso_bean_level": {
         "name": "원두 잔량"
+      },
+      "feeder_last_feeding": {
+        "name": "마지막 급식"
+      },
+      "feeder_last_food_low": {
+        "name": "마지막 사료 부족 알림"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "마지막 사료 배출구 막힘 알림"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "제습제 교체 예정일"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "펌웨어 업데이트 사용 가능"
+      },
+      "feeder_connectivity": {
+        "name": "클라우드 연결"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "공기청정기"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "급식 일정"
+      },
+      "feeder_history": {
+        "name": "급식 기록"
       }
     }
   }

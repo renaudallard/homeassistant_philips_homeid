@@ -92,7 +92,8 @@
       "no_cloud_devices": "Inga enheter hittades på ditt Philips-konto.",
       "cloud_credentials_not_found": "Det gick inte att hämta enhetens anslutningsuppgifter från Philips-molnet. Kontrollera att den är helt parkopplad i den officiella Philips-appen.",
       "cloud_no_ip": "Enhetens IP-adress är inte tillgänglig via molnet. Försök att ange IP-adressen manuellt.",
-      "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt."
+      "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt.",
+      "feeder_unavailable": "Det gick inte att kontrollera apparaten i HomeID:s djurtjänst. Kontrollera anslutningen i HomeID-appen och försök igen."
     },
     "abort": {
       "already_configured": "Enheten är redan konfigurerad",
@@ -507,6 +508,18 @@
       },
       "device_ctn": {
         "name": "Modellnummer"
+      },
+      "feeder_last_feeding": {
+        "name": "Senaste utfodring"
+      },
+      "feeder_last_food_low": {
+        "name": "Senaste varning för lite foder"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Senaste varning för blockerat foderutlopp"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Byte av torkmedel planerat"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Firmware-uppdatering tillgänglig"
+      },
+      "feeder_connectivity": {
+        "name": "Molnanslutning"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Luftrenare"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Utfodringsschema"
+      },
+      "feeder_history": {
+        "name": "Utfodringshistorik"
       }
     }
   }

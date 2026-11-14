@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "Falha na autenticação em nuvem. Verifique os logs do Home Assistant para mais detalhes. Você também pode inserir as credenciais manualmente.",
       "cloud_unreachable": "A nuvem da Philips está temporariamente indisponível. Aguarde um momento e tente novamente.",
       "cloud_profile_error": "O servidor Philips HomeID retornou um erro para a sua conta. Abra o aplicativo Philips HomeID, remova o dispositivo e pareie-o novamente mesmo que ele ainda apareça, e tente de novo. O erro também pode ser temporário, então esperar alguns minutos pode ajudar.",
-      "invalid_host": "Informe apenas um endereço IP ou nome de host (sem esquema, porta ou caminho)."
+      "invalid_host": "Informe apenas um endereço IP ou nome de host (sem esquema, porta ou caminho).",
+      "feeder_unavailable": "Não foi possível verificar este aparelho no serviço de pets do HomeID. Verifique a conexão dele no app HomeID e tente novamente."
     },
     "abort": {
       "already_configured": "Dispositivo já configurado",
@@ -507,6 +508,18 @@
       },
       "espresso_bean_level": {
         "name": "Nível de grãos"
+      },
+      "feeder_last_feeding": {
+        "name": "Última refeição"
+      },
+      "feeder_last_food_low": {
+        "name": "Último alerta de pouca ração"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Último alerta de saída de ração travada"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Troca do dessecante prevista"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Atualização de firmware disponível"
+      },
+      "feeder_connectivity": {
+        "name": "Conexão com a nuvem"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Purificador de ar"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Programação de refeições"
+      },
+      "feeder_history": {
+        "name": "Histórico de refeições"
       }
     }
   }

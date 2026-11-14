@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "Autenticazione cloud fallita. Controllare i log di Home Assistant per i dettagli. È anche possibile inserire le credenziali manualmente.",
       "cloud_unreachable": "Il cloud Philips è temporaneamente irraggiungibile. Attendere un momento e riprovare.",
       "cloud_profile_error": "Il backend Philips HomeID ha restituito un errore del server per il tuo account. Apri l'app Philips HomeID, rimuovi il dispositivo e associalo di nuovo anche se è ancora presente, quindi riprova. L'errore può anche essere temporaneo, quindi attendere qualche minuto può aiutare.",
-      "invalid_host": "Inserisci solo un indirizzo IP o un nome host (senza schema, porta o percorso)."
+      "invalid_host": "Inserisci solo un indirizzo IP o un nome host (senza schema, porta o percorso).",
+      "feeder_unavailable": "Impossibile verificare questo apparecchio nel servizio animali di HomeID. Controlla la sua connessione nell’app HomeID e riprova."
     },
     "abort": {
       "already_configured": "Dispositivo già configurato",
@@ -507,6 +508,18 @@
       },
       "espresso_bean_level": {
         "name": "Livello chicchi"
+      },
+      "feeder_last_feeding": {
+        "name": "Ultimo pasto"
+      },
+      "feeder_last_food_low": {
+        "name": "Ultimo avviso di cibo scarso"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Ultimo avviso di uscita del cibo bloccata"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Sostituzione dell’essiccante prevista"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Aggiornamento firmware disponibile"
+      },
+      "feeder_connectivity": {
+        "name": "Connessione al cloud"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Purificatore d'aria"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Programma dei pasti"
+      },
+      "feeder_history": {
+        "name": "Cronologia dei pasti"
       }
     }
   }

@@ -31,6 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud | Schedules, history and status; no feed-now yet, see [Pet Feeder](#pet-feeder-paw5320) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -53,6 +54,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
+| **Pet Feeder** | PAW5320 schedules, feeding history and status through the HomeID pet cloud (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -86,6 +88,13 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Abort, resume and skip step during a brew
 - Select roast level (light/medium/dark) and bean type (arabica/mix/other)
 - Sensors: machine state, running status, active alert, control status, autonomies (AquaClean, descale, coffee, brew group), AquaClean filter number
+
+### Pet Feeder (PAW5320)
+- Weekly feeding schedule as a read-only calendar (edit meals in the HomeID app)
+- Feeding history as a calendar, and a **Last feeding** sensor
+- **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
+- **Desiccant replacement due** timestamp from the device settings
+- See [Pet Feeder (PAW5320)](#pet-feeder-paw5320) for what is and is not verified
 
 ---
 
@@ -419,6 +428,46 @@ Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 </details>
 
 > **Note:** Entities are automatically filtered by device type. Only relevant sensors appear for your specific model.
+
+---
+
+## Pet Feeder (PAW5320)
+
+The Philips Smart Feeder with Camera is supported by the HomeID app from
+version 8.23.0. It is not a FUSION device: the app keeps it on the HomeID pet
+backend, which accepts the same HomeID login this integration already uses.
+Add it with **Cloud Login** like any other cloud device; the integration
+recognises a feeder only when the HomeID pet registry lists the selected
+appliance as a PAW5320. Nothing extra is installed.
+
+What you get:
+
+- **Feeding schedule** calendar: the enabled weekly meals stored in HomeID.
+  Planned times are a prediction, not proof that food was dispensed. The
+  schedule is read only here; add or change meals in the HomeID app. This
+  version of the integration never writes anything to HomeID.
+- Meal times are either in the HomeID home's time zone (they follow daylight
+  saving time) or in UTC. If HomeID reports no time zone for the home,
+  home-time meals cannot be shown; UTC meals and history still work.
+- **Feeding history** calendar and **Last feeding** sensor: the meals HomeID
+  reports as dispensed (`meal_dispensed` events), never inferred from a
+  schedule or a button. The sensor covers the last 7 days and lists up to 20
+  recent feedings. `amount` is shown as reported; its unit is not documented,
+  so it is not labelled as grams.
+- **Last food low alert** / **Last food outlet stuck alert**: when HomeID last
+  reported that condition in the past 7 days. HomeID sends no "resolved" event,
+  so these are timestamps, not on/off problem sensors.
+- **Cloud connection**: on if the feeder's latest connectivity event in the
+  past 7 days was `device_online`, off if it was `device_offline`, unknown if
+  there was none.
+- **Desiccant replacement due**: the replacement time from the feeder's
+  settings in HomeID, with the last replacement time as an attribute. Unknown
+  if HomeID does not report it.
+
+Feeding on demand ("feed now") is not part of this version: it needs the
+feeder's Tuya channel and is planned for a follow-up. Camera and video are out
+of scope. The protocol and the limits of what has been verified on a real
+feeder are in [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
 
 ---
 

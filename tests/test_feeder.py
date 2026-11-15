@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.components.calendar import trigger as calendar_trigger
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -507,3 +508,31 @@ def test_feeder_entries_offer_no_options_dialog():
     other = MagicMock(data={})
     assert PhilipsHomeIDConfigFlow.async_supports_options_flow(feeder) is False
     assert PhilipsHomeIDConfigFlow.async_supports_options_flow(other) is True
+
+
+@pytest.mark.asyncio
+async def test_schedule_end_trigger_fires_across_a_scan_window_boundary():
+    """HA scans calendars in 15 minute windows and queues an end trigger only
+    from the window holding the end, so a meal that started in the previous
+    window must still be returned."""
+    data = FeederData(
+        meals=[Meal("m", "Lunch", 2, "08:15Z", (1, 2, 3, 4, 5, 6, 7), True)],
+        meals_ok=True,
+    )
+    calendar = FeederScheduleCalendar(entity_coordinator(data))
+    with patch.object(calendar_trigger, "get_entity", return_value=calendar):
+        fetch = calendar_trigger.queued_event_fetcher(
+            calendar_trigger.event_fetcher(MagicMock(), {"calendar.x"}),
+            "end",
+            timedelta(0),
+        )
+        start = datetime(2026, 11, 16, 8, 0, 20, tzinfo=UTC)
+        first = calendar_trigger.Timespan(
+            start, start + calendar_trigger.UPDATE_INTERVAL
+        )
+        second = first.next_upcoming(first.end, calendar_trigger.UPDATE_INTERVAL)
+        assert await fetch(first) == []
+        queued = await fetch(second)
+    assert [item.trigger_time for item in queued] == [
+        datetime(2026, 11, 16, 8, 16, tzinfo=UTC)
+    ]

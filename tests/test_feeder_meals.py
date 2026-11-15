@@ -397,9 +397,15 @@ def test_occurrences_bounds_weekdays_disabled_empty_and_sorting():
     assert result[0].start == start
     assert result[2].start == start + timedelta(days=7)
     assert occurrences(meals, start - timedelta(minutes=1), start, "UTC") == []
+    # A meal in progress overlaps the range and is returned; one that ended
+    # exactly at the range start is not.
+    in_progress = occurrences(
+        meals, start + timedelta(seconds=1), start + timedelta(minutes=1), "UTC"
+    )
+    assert [item.meal_id for item in in_progress] == ["a", "z"]
     assert (
         occurrences(
-            meals, start + timedelta(seconds=1), start + timedelta(minutes=1), "UTC"
+            meals, start + timedelta(minutes=1), start + timedelta(minutes=2), "UTC"
         )
         == []
     )

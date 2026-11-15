@@ -56,6 +56,8 @@ STATUS_EVENT_TYPES = (
     "device_offline",
 )
 _TEXT_LIMIT = 80
+# How long a planned meal lasts on the calendar; display only.
+_MEAL_DURATION = timedelta(minutes=1)
 
 
 class MealsError(FeederError, ValueError):
@@ -449,12 +451,14 @@ class MealManager:
 def occurrences(
     meals: Iterable[Meal], start: datetime, end: datetime, time_zone: str | None
 ) -> list[Occurrence]:
-    """Expand planned weekly start times in [start, end), at most 366 days.
+    """Expand planned weekly meals overlapping [start, end), at most 366 days.
 
-    Weekdays belong to the schedule's timezone: UTC for HH:MMZ, otherwise the
-    explicit home IANA zone (required only for local schedules). Skip nonexistent
-    wall times; choose fold=0 (the
-    first instant) during a repeated hour. One minute is display duration only.
+    Overlapping, not only starting, as HA's calendar triggers expect: an end
+    trigger needs a meal that started just before its scan window. Weekdays
+    belong to the schedule's timezone: UTC for HH:MMZ, otherwise the explicit
+    home IANA zone (required only for local schedules). Skip nonexistent wall
+    times; choose fold=0 (the first instant) during a repeated hour. One minute
+    is display duration only.
     """
     start, end = _bounds(start, end, 366)
     result: list[Occurrence] = []
@@ -468,7 +472,8 @@ def occurrences(
             continue
         zone = UTC if feed_time.endswith("Z") else _zone(time_zone)
         hour, minute = map(int, feed_time.removesuffix("Z").split(":"))
-        day, last_day = start.astimezone(zone).date(), end.astimezone(zone).date()
+        day = (start - _MEAL_DURATION).astimezone(zone).date()
+        last_day = end.astimezone(zone).date()
         while day <= last_day:
             if day.isoweekday() in days:
                 local = datetime(
@@ -479,12 +484,13 @@ def occurrences(
                 if (
                     when.astimezone(zone).replace(tzinfo=None)
                     == local.replace(tzinfo=None)
-                    and start <= when < end
+                    and when < end
+                    and when + _MEAL_DURATION > start
                 ):
                     result.append(
                         Occurrence(
                             when,
-                            when + timedelta(minutes=1),
+                            when + _MEAL_DURATION,
                             meal.name,
                             meal.portions,
                             meal.id,

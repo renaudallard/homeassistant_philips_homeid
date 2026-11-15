@@ -170,10 +170,13 @@ async def find_feeder(
     """Find the selected appliance in the pet registry. Read only.
 
     Only the registry's exact vendorId match counts; a name or ID prefix never
-    does. ``None`` means this appliance is not a supported feeder.
+    does. ``None`` means this appliance is not a supported feeder. A home
+    whose devices cannot be read does not hide a feeder found in another one,
+    but with no match it leaves the answer unknown, so its error is raised.
     """
     identifier(vendor_id)
     matches: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    unread: FeederError | None = None
     for home in list_items(await get("/api/homes")):
         home_id = home.get("id")
         if isinstance(home_id, int) and not isinstance(home_id, bool):
@@ -181,10 +184,17 @@ async def find_feeder(
         if not isinstance(home_id, str) or not home_id:
             continue
         path = f"/api/homes/{quote(identifier(home_id), safe='')}/devices"
-        for device in list_items(await get(path)):
+        try:
+            devices = list_items(await get(path))
+        except FeederError as err:
+            unread = unread or err
+            continue
+        for device in devices:
             if device.get("vendorId") == vendor_id:
                 matches.append(({**home, "id": home_id}, device))
     if not matches:
+        if unread is not None:
+            raise unread
         return None
     if len(matches) > 1:
         raise FeederError("HomeID feeder identity is ambiguous")

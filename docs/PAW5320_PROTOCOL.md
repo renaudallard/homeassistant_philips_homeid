@@ -62,7 +62,10 @@ Two different identifiers exist, and neither substitutes for the other:
   thing for the feeder. The integration then looks for a pet registry device
   whose `vendorId` equals the appliance's `externalDeviceId` exactly and whose
   `productCtn` model is `PAW5320`. Names and ID prefixes never count. Two
-  matches are an error, not a guess. *Live:* discovery of a PAW5320.
+  matches are an error, not a guess. A home whose devices cannot be read is
+  skipped when the feeder is found in another; with no match anywhere its
+  error is raised, since the answer is then unknown. *Live:* discovery of a
+  PAW5320.
 - Meals belong to the feeder when `deviceId` equals its Philips ID.
 - Events: the integration asks only for this feeder's events
   (`deviceIds` = its Philips ID) and takes an event as the feeder's when its

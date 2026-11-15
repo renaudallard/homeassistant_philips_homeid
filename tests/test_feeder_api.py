@@ -226,6 +226,32 @@ async def test_bad_registry_envelope_is_an_error(bad):
 
 
 @pytest.mark.asyncio
+async def test_unreadable_home_does_not_hide_a_feeder_in_another():
+    async def get(path):
+        if path == "/api/homes":
+            return {"item": [{"id": "shared"}, {"id": "own"}]}
+        if path == "/api/homes/shared/devices":
+            raise FeederAuthRejected(403)
+        return {"item": [DEVICE]}
+
+    feeder = await find_feeder(get, "tuya-1")
+    assert feeder is not None and feeder.home_id == "own"
+
+
+@pytest.mark.asyncio
+async def test_unreadable_home_without_a_match_is_an_error_not_a_miss():
+    async def get(path):
+        if path == "/api/homes":
+            return {"item": [{"id": "shared"}, {"id": "own"}]}
+        if path == "/api/homes/shared/devices":
+            raise FeederHTTPError(500)
+        return {"item": []}
+
+    with pytest.raises(FeederHTTPError):
+        await find_feeder(get, "tuya-1")
+
+
+@pytest.mark.asyncio
 async def test_integer_home_id_is_quoted_path_segment():
     paths = []
 

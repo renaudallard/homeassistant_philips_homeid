@@ -1,11 +1,11 @@
-"""Event-derived feeder status and the device settings' replacement timer."""
+"""Event-derived feeder status and the desiccant bag timer."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.philips_homeid.feeder_api import FeederDevice
+from custom_components.philips_homeid.feeder_api import FeederDevice, FeederHTTPError
 from custom_components.philips_homeid.feeder_meals import (
     STATUS_EVENT_TYPES,
     DesiccantTimer,
@@ -134,45 +134,56 @@ async def test_status_window_is_bounded_before_requesting():
 
 
 @pytest.mark.asyncio
-async def test_desiccant_reads_settings_of_the_internal_device_id():
+async def test_desiccant_reads_the_timer_of_the_internal_device_id():
     request = AsyncMock(
-        return_value={
-            "filter_replacement_time": {
-                "type": "feeder",
-                "value": "2026-12-01T10:00:00Z",
-                "format": "datetime",
-            },
-            "filter_application_time": {"value": "2026-11-01T10:00:00+01:00"},
-            "feeder_voice_audio_id": {"audioId": "ignored", "url": "ignored"},
-        }
+        return_value={"expiryDate": "2026-12-01", "lastReplacedDate": "2026-11-01"}
     )
     assert await manager(request).desiccant() == DesiccantTimer(
-        datetime(2026, 12, 1, 10, tzinfo=UTC), datetime(2026, 11, 1, 9, tzinfo=UTC)
+        date(2026, 12, 1), date(2026, 11, 1)
     )
-    request.assert_awaited_once_with("GET", "/api/homes/home/devices/internal/settings")
+    request.assert_awaited_once_with(
+        "GET", "/api/homes/home/devices/internal/desiccant-timer"
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "settings",
-    [{}, {"filter_replacement_time": None}, {"filter_replacement_time": {}}],
-)
-async def test_missing_desiccant_timer_is_unknown(settings):
-    timer = await manager(AsyncMock(return_value=settings)).desiccant()
-    assert timer == DesiccantTimer(None, None)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "settings",
+    ("timer", "expected"),
     [
-        None,
-        [],
-        {"filter_replacement_time": "2026-12-01T10:00:00Z"},
-        {"filter_replacement_time": {"value": "2026-12-01T10:00:00"}},
-        {"filter_replacement_time": {"value": 1764583200}},
+        ({}, DesiccantTimer(None, None)),
+        (
+            {"expiryDate": None, "lastReplacedDate": "2026-11-01"},
+            DesiccantTimer(None, None),
+        ),
+        ({"expiryDate": "2026-12-01T10:00:00Z"}, DesiccantTimer(None, None)),
+        ({"expiryDate": "2026-13-01"}, DesiccantTimer(None, None)),
+        ({"expiryDate": 1764583200}, DesiccantTimer(None, None)),
+        ({"expiryDate": "2026-12-01"}, DesiccantTimer(date(2026, 12, 1), None)),
+        (
+            {"expiryDate": "2026-12-01", "lastReplacedDate": "yesterday"},
+            DesiccantTimer(date(2026, 12, 1), None),
+        ),
     ],
 )
-async def test_unsupported_settings_are_errors_not_unknown(settings):
+async def test_unusable_desiccant_dates_are_unknown_like_the_app(timer, expected):
+    assert await manager(AsyncMock(return_value=timer)).desiccant() == expected
+
+
+@pytest.mark.asyncio
+async def test_desiccant_404_means_no_timer():
+    request = AsyncMock(side_effect=FeederHTTPError(404))
+    assert await manager(request).desiccant() == DesiccantTimer(None, None)
+
+
+@pytest.mark.asyncio
+async def test_desiccant_other_http_errors_propagate():
+    request = AsyncMock(side_effect=FeederHTTPError(500))
+    with pytest.raises(FeederHTTPError):
+        await manager(request).desiccant()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timer", [None, [], "2026-12-01"])
+async def test_unsupported_desiccant_responses_are_errors(timer):
     with pytest.raises(MealsError):
-        await manager(AsyncMock(return_value=settings)).desiccant()
+        await manager(AsyncMock(return_value=timer)).desiccant()

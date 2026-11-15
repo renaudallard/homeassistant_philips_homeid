@@ -34,7 +34,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, TypeVar
 
 from homeassistant.components.binary_sensor import (
@@ -188,7 +188,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         reasons = {
             "Invalid identifier": "identifier",
             "Unsupported HomeID list response": "list_shape",
-            "Unsupported device settings response": "settings_shape",
+            "Unsupported desiccant timer response": "desiccant_shape",
             "Invalid feeding event timestamp": "timestamp",
             "Invalid feeding event text": "event_text",
             "Invalid feeding event amount": "event_amount",
@@ -282,16 +282,17 @@ class FeederEntity(CoordinatorEntity[FeederCoordinator]):
 class _TimestampSpec:
     key: str
     available: Callable[[FeederData], bool]
-    value: Callable[[FeederData], datetime | None]
+    value: Callable[[FeederData], datetime | date | None]
     icon: str
     diagnostic: bool = False
+    device_class: SensorDeviceClass = SensorDeviceClass.TIMESTAMP
 
 
 def _last_feeding(data: FeederData) -> datetime | None:
     return max((item.time for item in data.history), default=None)
 
 
-def _desiccant_replace(data: FeederData) -> datetime | None:
+def _desiccant_replace(data: FeederData) -> date | None:
     return data.desiccant.replace_at if data.desiccant else None
 
 
@@ -320,6 +321,7 @@ _TIMESTAMPS = (
         _desiccant_replace,
         "mdi:water-off-outline",
         diagnostic=True,
+        device_class=SensorDeviceClass.DATE,
     ),
 )
 
@@ -327,11 +329,10 @@ _TIMESTAMPS = (
 class FeederTimestampSensor(FeederEntity, SensorEntity):
     """The latest reported time; unknown when none was reported in the window."""
 
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
-
     def __init__(self, coordinator: FeederCoordinator, spec: _TimestampSpec) -> None:
         super().__init__(coordinator, spec.key)
         self._spec = spec
+        self._attr_device_class = spec.device_class
         self._attr_icon = spec.icon
         if spec.diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
@@ -342,7 +343,7 @@ class FeederTimestampSensor(FeederEntity, SensorEntity):
         return super().available and data is not None and self._spec.available(data)
 
     @property
-    def native_value(self) -> datetime | None:
+    def native_value(self) -> datetime | date | None:
         data = self.coordinator.data
         return self._spec.value(data) if data is not None else None
 

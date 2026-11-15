@@ -22,7 +22,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Device-scoped HomeID meals, events and settings, without HA or HTTP.
+"""Device-scoped HomeID meals, events and desiccant timer, without HA or HTTP.
 
 Read only. The request callback owns authentication, HTTP status handling
 and redirects. URLs found in responses are never used.
@@ -34,12 +34,12 @@ import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
 from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .feeder_api import FeederDevice, FeederError
+from .feeder_api import FeederDevice, FeederError, FeederHTTPError
 
 # Event types whose latest occurrence is exposed as feeder status. These come
 # from the pet backend's event model; none has a matching "resolved" event.
@@ -235,22 +235,20 @@ def _event_text(value: object) -> str:
 
 @dataclass(frozen=True)
 class DesiccantTimer:
-    """The device settings' replacement timer, as reported by HomeID."""
+    """The desiccant bag timer the HomeID app shows, as plain dates."""
 
-    replace_at: datetime | None
-    applied_at: datetime | None
+    replace_at: date | None
+    applied_at: date | None
 
 
-def _setting_time(data: dict[str, Any], key: str) -> datetime | None:
-    field = data.get(key)
-    if field is None:
+def _timer_date(value: object) -> date | None:
+    """An ISO date as the app parses it; anything else counts as absent."""
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         return None
-    if not isinstance(field, dict):
-        raise MealsError("Unsupported device settings response")
-    value = field.get("value")
-    if value is None or value == "":
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
         return None
-    return _timestamp(value)
 
 
 class MealManager:
@@ -434,20 +432,26 @@ class MealManager:
         return latest
 
     async def desiccant(self) -> DesiccantTimer:
-        """Read the device settings' filter replacement/application times.
+        """Read the desiccant bag timer like the HomeID app does.
 
-        For the pet backend's devices this is the consumable timer the HomeID
-        app shows; that it is the PAW5320's desiccant timer is unverified on a
-        live feeder, so absent or empty values stay unknown.
+        A 404 or an unusable expiryDate means no timer, as in the app, and
+        both dates then stay unknown.
         """
-        path = f"{self._root}/devices/{quote(self._philips_id, safe='')}/settings"
-        data = await self._request("GET", path)
-        if not isinstance(data, dict):
-            raise MealsError("Unsupported device settings response")
-        return DesiccantTimer(
-            replace_at=_setting_time(data, "filter_replacement_time"),
-            applied_at=_setting_time(data, "filter_application_time"),
+        path = (
+            f"{self._root}/devices/{quote(self._philips_id, safe='')}/desiccant-timer"
         )
+        try:
+            data = await self._request("GET", path)
+        except FeederHTTPError as err:
+            if err.status == 404:
+                return DesiccantTimer(None, None)
+            raise
+        if not isinstance(data, dict):
+            raise MealsError("Unsupported desiccant timer response")
+        expiry = _timer_date(data.get("expiryDate"))
+        if expiry is None:
+            return DesiccantTimer(None, None)
+        return DesiccantTimer(expiry, _timer_date(data.get("lastReplacedDate")))
 
 
 def occurrences(

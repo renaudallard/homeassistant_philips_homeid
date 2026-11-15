@@ -93,7 +93,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Weekly feeding schedule as a read-only calendar (edit meals in the HomeID app)
 - Feeding history as a calendar, and a **Last feeding** sensor
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
-- **Desiccant replacement due** timestamp from the device settings
+- **Desiccant replacement due** date from the HomeID desiccant timer
 - See [Pet Feeder (PAW5320)](#pet-feeder-paw5320) for what is and is not verified
 
 ---
@@ -460,9 +460,9 @@ What you get:
 - **Cloud connection**: on if the feeder's latest connectivity event in the
   past 7 days was `device_online`, off if it was `device_offline`, unknown if
   there was none.
-- **Desiccant replacement due**: the replacement time from the feeder's
-  settings in HomeID, with the last replacement time as an attribute. Unknown
-  if HomeID does not report it.
+- **Desiccant replacement due**: the expiry date of the desiccant timer in
+  HomeID, with the last replacement date as an attribute. Unknown if no timer
+  is set, as in the app.
 
 Feeding on demand ("feed now") is not part of this version: it needs the
 feeder's Tuya channel and is planned for a follow-up. Camera and video are out

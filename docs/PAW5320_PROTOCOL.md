@@ -47,7 +47,7 @@ endpoint's errors carry server text. Lists use the envelope `{"item": [...]}`.
 | Devices of a home | `GET /api/homes/{home}/devices` → `id`, `vendorId`, `externalId`, `productCtn`, `name` |
 | Meals of a home | `GET /api/homes/{home}/meals` |
 | Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&clustered=false` |
-| Device settings | `GET /api/homes/{home}/devices/{device}/settings` |
+| Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
 
 ## Identity
 
@@ -116,13 +116,15 @@ Event fields used: `id`, `type`, `time` (ISO 8601 with offset), `deviceId`,
 
 ## Desiccant timer
 
-`GET …/devices/{Philips ID}/settings` returns objects of the form
-`{"type": …, "value": <ISO 8601>, "format": "datetime"}` under
-`filter_replacement_time` and `filter_application_time` (shape from
-`petsseries`, where the fountain's filter uses it). The integration reports
-`filter_replacement_time` as **Desiccant replacement due** and
-`filter_application_time` as its `last_replaced` attribute. Absent or empty
-values stay unknown; any other shape makes the sensor unavailable.
+`GET …/devices/{Philips ID}/desiccant-timer` returns `expiryDate` and
+`lastReplacedDate`, both ISO dates (`YYYY-MM-DD`), as the HomeID app 8.23.0
+reads them. The integration follows the app: a 404, or an `expiryDate` that
+is missing or not an ISO date, means no timer and the sensor is unknown; a
+`lastReplacedDate` that is not an ISO date is left out. `expiryDate` is
+reported as **Desiccant replacement due** and `lastReplacedDate` as its
+`last_replaced` attribute. The device settings
+(`…/devices/{Philips ID}/settings`) hold only `feeder_voice_audio_id` in the
+app and are not read.
 
 ## Verification status
 
@@ -132,7 +134,7 @@ values stay unknown; any other shape makes the sensor unavailable.
 | Reading meals, home time zone | live, read only |
 | `meal_dispensed` history and its identity pair | live, read only |
 | `food_level_low`, `food_outlet_stuck`, `device_online`, `device_offline` on a PAW5320 | **not observed live**; types from `petsseries` |
-| Settings response of a PAW5320, and that it is the desiccant timer | **not observed live**; the HomeID app shows no desiccant timer for the test feeder |
+| Desiccant timer response of a PAW5320 | **not observed live**; endpoint and fields from the HomeID app 8.23.0 |
 | `clustered=false`, pagination, `mealAmount` unit | not established |
 | Feeder behaviour at DST changes | not established |
 
@@ -140,6 +142,7 @@ values stay unknown; any other shape makes the sensor unavailable.
 
 1. Which status event types does a PAW5320 actually emit, and with which
    `deviceId` / `deviceExternalId` pair?
-2. Does the PAW5320 settings response contain `filter_replacement_time`, with
-   which `type`, and does it match the desiccant date shown in the app?
+2. What does the desiccant timer return for a PAW5320 that never had one
+   set, a 404 or an empty object, and does `expiryDate` match the date shown
+   in the app?
 3. Are event lists paginated or capped for busy homes?

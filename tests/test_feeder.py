@@ -1,7 +1,7 @@
 """PAW5320 feeder entry: setup, polling, entities, config and options flows."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -49,6 +49,7 @@ from custom_components.philips_homeid.feeder_meals import (
 )
 
 NOW = datetime(2026, 11, 14, 12, 0, tzinfo=UTC)
+TODAY = date(2026, 11, 14)
 FEEDER = FeederDevice(
     "tuya-1", "philips-1", "home", "PAW5320", "Cat", None, "Europe/Riga"
 )
@@ -60,7 +61,7 @@ def manager():
     m.list_meals = AsyncMock(return_value=[Meal("m", "Lunch", 2, "10:00", (1,), True)])
     m.history = AsyncMock(return_value=[FeedingEvent("e", NOW, "Lunch", 2, "schedule")])
     m.latest_status = AsyncMock(return_value={"device_online": NOW})
-    m.desiccant = AsyncMock(return_value=DesiccantTimer(NOW, None))
+    m.desiccant = AsyncMock(return_value=DesiccantTimer(TODAY, None))
     return m
 
 
@@ -79,7 +80,7 @@ async def test_poll_reads_every_part():
     m = manager()
     data = await bare_coordinator(m)._async_update_data()
     assert data.meals_ok and data.history_ok and data.status_ok
-    assert data.desiccant == DesiccantTimer(NOW, None)
+    assert data.desiccant == DesiccantTimer(TODAY, None)
     assert data.time_zone == "Europe/Riga"
     start, end = m.history.await_args.args
     assert end - start == timedelta(days=7)
@@ -207,7 +208,7 @@ def test_timestamp_sensors_report_latest_or_unknown():
         history_ok=True,
         status={"food_level_low": NOW},
         status_ok=True,
-        desiccant=DesiccantTimer(None, NOW),
+        desiccant=DesiccantTimer(None, TODAY),
     )
     coord = entity_coordinator(data)
     values = {s.key: FeederTimestampSensor(coord, s).native_value for s in _TIMESTAMPS}
@@ -226,7 +227,8 @@ def test_timestamp_sensors_report_latest_or_unknown():
     ]
     assert "grams" not in str(recent)
     desiccant = FeederTimestampSensor(coord, spec("feeder_desiccant_replacement"))
-    assert desiccant.extra_state_attributes == {"last_replaced": NOW.isoformat()}
+    assert desiccant.device_class == "date"
+    assert desiccant.extra_state_attributes == {"last_replaced": TODAY.isoformat()}
 
 
 def test_failed_reads_make_entities_unavailable():

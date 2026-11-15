@@ -295,6 +295,19 @@ async def test_unreachable_token_endpoint_backs_off_across_setup_retries():
 
 
 @pytest.mark.asyncio
+async def test_back_off_does_not_delay_a_reauth_token():
+    hass, entry = fake_hass()
+    cloud = cloud_returning(CloudConnectionError("down"), tokens("a", "r"))
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch(CLOUD, return_value=cloud):
+        with pytest.raises(CloudConnectionError):
+            await owner.access_token()
+        entry.data = {CONF_CLOUD_REFRESH_TOKEN: "reauth-token"}
+        assert await owner.access_token() == "a"
+    assert cloud.refresh_tokens.await_args_list[1].args[0] == "reauth-token"
+
+
+@pytest.mark.asyncio
 async def test_rejected_refresh_token_is_not_spent_again_until_reauth():
     hass, entry = fake_hass()
     cloud = cloud_returning(CloudAuthError("invalid_grant"), tokens("a", "r"))

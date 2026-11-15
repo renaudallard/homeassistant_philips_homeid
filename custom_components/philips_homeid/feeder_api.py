@@ -253,6 +253,7 @@ class FeederTokenOwner:
         self._expires = 0.0
         self._issued_at = -math.inf
         self._retry_after = 0.0
+        self._retry_for = ""
         self._rejected = ""
 
     @classmethod
@@ -285,7 +286,9 @@ class FeederTokenOwner:
                     return self._access
                 if refresh == self._rejected:
                     raise CloudAuthError("HomeID refresh token was rejected")
-                if now < self._retry_after:
+                # The back-off belongs to the token that failed; a reauth's
+                # new token is tried at once.
+                if refresh == self._retry_for and now < self._retry_after:
                     raise CloudConnectionError("HomeID token refresh is backing off")
                 task = asyncio.get_running_loop().create_task(self._refresh(refresh))
                 task.add_done_callback(_consume_exception)
@@ -311,6 +314,7 @@ class FeederTokenOwner:
         # transport errors and the server's error_description.
         except CloudConnectionError:
             self._retry_after = time.monotonic() + _REFRESH_RETRY_AFTER
+            self._retry_for = refresh
             raise CloudConnectionError("HomeID token refresh failed") from None
         except CloudAuthError:
             self._rejected = refresh

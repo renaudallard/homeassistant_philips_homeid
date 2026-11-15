@@ -13,7 +13,6 @@ from custom_components.philips_homeid.feeder_api import (
 from custom_components.philips_homeid.feeder_meals import (
     STATUS_EVENT_TYPES,
     DesiccantTimer,
-    EventOwnershipError,
     MealManager,
     MealsError,
 )
@@ -22,12 +21,10 @@ START = datetime(2026, 11, 7, tzinfo=UTC)
 END = START + timedelta(days=7)
 
 
-def manager(request, external_id=None):
+def manager(request):
     return MealManager.for_device(
         request,
-        FeederDevice(
-            "tuya-vendor", "internal", "home", "PAW5320", "Cat", external_id, None
-        ),
+        FeederDevice("tuya-vendor", "internal", "home", "PAW5320", "Cat", None),
     )
 
 
@@ -37,7 +34,6 @@ def event(kind, time, **changes):
         "type": kind,
         "time": time,
         "deviceId": "internal",
-        "deviceExternalId": "tuya-vendor",
         **changes,
     }
 
@@ -52,12 +48,8 @@ async def test_latest_status_per_type_with_exact_query():
         event("food_outlet_stuck", "2026-11-01T00:00:00Z"),  # outside window
         event("meal_dispensed", "2026-11-09T00:00:00Z"),  # not a status type
         event("motion_detected", "2026-11-09T00:00:00Z", deviceId=None),
-        event(
-            "food_level_low",
-            "2026-11-13T00:00:00Z",
-            deviceId="other",
-            deviceExternalId="other-vendor",
-        ),
+        event("food_level_low", "2026-11-13T00:00:00Z", deviceId="other"),
+        event("device_online", "2026-11-13T00:00:00Z", deviceId=None),
     ]
     request = AsyncMock(return_value={"item": rows})
     result = await manager(request).latest_status(START, END)
@@ -73,17 +65,10 @@ async def test_latest_status_per_type_with_exact_query():
             ("from", START.isoformat()),
             ("to", END.isoformat()),
             *(("types", kind) for kind in STATUS_EVENT_TYPES),
+            ("deviceIds", "internal"),
             ("clustered", "false"),
         ],
     )
-
-
-@pytest.mark.asyncio
-async def test_internal_id_without_the_vendor_pair_is_unavailable():
-    row = event("device_online", "2026-11-09T00:00:00Z", deviceExternalId=None)
-    request = AsyncMock(return_value={"item": [row]})
-    with pytest.raises(EventOwnershipError):
-        await manager(request).latest_status(START, END)
 
 
 @pytest.mark.asyncio
@@ -94,34 +79,8 @@ async def test_no_status_events_is_empty_not_healthy():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "row",
-    [
-        event("device_online", "2026-11-09T00:00:00Z", deviceId=None),
-        event("device_online", "2026-11-09T00:00:00Z", deviceExternalId="other"),
-    ],
-)
-async def test_unverifiable_own_status_event_makes_status_unavailable(row):
-    request = AsyncMock(return_value={"item": [row]})
-    with pytest.raises(EventOwnershipError):
-        await manager(request).latest_status(START, END)
-
-
-@pytest.mark.asyncio
-async def test_status_vendor_pair_never_overrides_known_external_id():
-    row = event("device_online", "2026-11-09T00:00:00Z")
-    request = AsyncMock(return_value={"item": [row]})
-    with pytest.raises(EventOwnershipError):
-        await manager(request, external_id="registry-ext").latest_status(START, END)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
     "bad",
-    [
-        {"item": None},
-        [event("device_online", "2026-11-09T00:00:00")],  # naive timestamp
-        [event("device_online", 5)],
-    ],
+    [{"item": None}, {"item": [1]}, "x"],
 )
 async def test_bad_status_responses_are_errors(bad):
     request = AsyncMock(return_value=bad if isinstance(bad, dict) else {"item": bad})

@@ -95,8 +95,8 @@ class FeederDevice:
 
     ``vendor_id`` is the appliance's externalDeviceId in the HomeID appliance
     list (the Tuya device ID). ``philips_id`` is the pet backend's own device
-    ID and ``external_id`` the registry's optional externalId. The three are
-    distinct fields and are never substituted for one another.
+    ID, the one its meals and events name. The two are distinct fields and
+    are never substituted for one another.
     """
 
     vendor_id: str
@@ -104,7 +104,6 @@ class FeederDevice:
     home_id: str
     model: str
     name: str
-    external_id: str | None
     time_zone: str | None
 
 
@@ -194,7 +193,6 @@ async def find_feeder(
     model = ctn.upper().split("/")[0] if isinstance(ctn, str) else ""
     if model not in SUPPORTED_MODELS:
         return None
-    external = device.get("externalId")
     zone = home.get("timeZone")
     name = device.get("name")
     return FeederDevice(
@@ -203,7 +201,6 @@ async def find_feeder(
         home_id=home["id"],
         model=model,
         name=name[:80] if isinstance(name, str) and name.strip() else model,
-        external_id=None if external is None else identifier(external),
         time_zone=zone if isinstance(zone, str) and zone else None,
     )
 

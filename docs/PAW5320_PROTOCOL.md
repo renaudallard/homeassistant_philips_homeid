@@ -44,20 +44,19 @@ endpoint's errors carry server text. Lists use the envelope `{"item": [...]}`.
 | Purpose | Request |
 |---|---|
 | Homes | `GET /api/homes` → `id`, `timeZone` (IANA name) |
-| Devices of a home | `GET /api/homes/{home}/devices` → `id`, `vendorId`, `externalId`, `productCtn`, `name` |
+| Devices of a home | `GET /api/homes/{home}/devices` → `id`, `vendorId`, `productCtn`, `name` |
 | Meals of a home | `GET /api/homes/{home}/meals` |
-| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&clustered=false` |
+| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&deviceIds=…&clustered=false` |
 | Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
 
 ## Identity
 
-Three different identifiers exist, and none substitutes for another:
+Two different identifiers exist, and neither substitutes for the other:
 
 | Name | Where | Meaning |
 |---|---|---|
 | vendor ID | HomeID appliance `externalDeviceId`; pet registry `vendorId` | Tuya device ID |
 | Philips ID | pet registry `id`; meal and event `deviceId` | pet backend's own device ID |
-| registry external ID | pet registry `externalId` | optional; absent on the live PAW5320 |
 
 - Discovery (config flow, read only): the HomeID appliance list has no IoT
   thing for the feeder. The integration then looks for a pet registry device
@@ -65,15 +64,12 @@ Three different identifiers exist, and none substitutes for another:
   `productCtn` model is `PAW5320`. Names and ID prefixes never count. Two
   matches are an error, not a guess. *Live:* discovery of a PAW5320.
 - Meals belong to the feeder when `deviceId` equals its Philips ID.
-- Events: *live* `meal_dispensed` events carry `deviceId` = Philips ID and
-  `deviceExternalId` = the vendor ID, while the registry has no `externalId`.
-  While the registry has no `externalId`, only that exact pair is accepted:
-  the Philips ID alone, the vendor ID alone, or either one paired with a
-  different ID is unverifiable. The pair never overrides a known, different
-  registry `externalId`. Events that positively
-  name another device are skipped. An event that matches this feeder by one ID
-  and contradicts it by the other, or that cannot be attributed, makes that
-  read unavailable instead of silently empty.
+- Events: the integration asks only for this feeder's events
+  (`deviceIds` = its Philips ID) and takes an event as the feeder's when its
+  `deviceId` is the Philips ID, as the HomeID app 8.23.0 does. The app's event
+  model also has `deviceVendorId` but never reads it; *live* `meal_dispensed`
+  events were seen with `deviceExternalId` = the vendor ID. Neither is used.
+  Events naming another device or none are skipped.
 
 ## Schedules
 
@@ -98,8 +94,8 @@ Meal fields: `id`, `deviceId`, `name`, `portionAmount` (older rows: `amount`),
 ## History and status events
 
 Event fields used: `id`, `type`, `time` (ISO 8601 with offset), `deviceId`,
-`deviceExternalId`, and for `meal_dispensed` also `mealName`, `mealAmount`,
-`source`. `url`, `mealUrl`, thumbnails and `metadata` are ignored.
+and for `meal_dispensed` also `mealName`, `mealAmount`, `source`. An event
+whose `time` is not ISO 8601 with an offset is skipped, as in the app. `url`, `mealUrl`, thumbnails and `metadata` are ignored.
 
 - History requests only `types=meal_dispensed`, in windows of at most 31 days
   (the history calendar splits up to 93 days). Nothing is synthesised from
@@ -134,7 +130,7 @@ app and are not read.
 |---|---|
 | Discovery through the pet registry | live, read only |
 | Reading meals, home time zone | live, read only |
-| `meal_dispensed` history and its identity pair | live, read only |
+| `meal_dispensed` history | live, read only |
 | `food_level_low`, `food_outlet_stuck`, `device_online`, `device_offline` on a PAW5320 | **not observed live**; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | **not observed live**; endpoint and fields from the HomeID app 8.23.0 |
 | `clustered=false`, pagination, `mealAmount` unit | not established |
@@ -142,8 +138,7 @@ app and are not read.
 
 ## Open questions
 
-1. Which status event types does a PAW5320 actually emit, and with which
-   `deviceId` / `deviceExternalId` pair?
+1. Which status event types does a PAW5320 actually emit?
 2. What does the desiccant timer return for a PAW5320 that never had one
    set, a 404 or an empty object, and does `expiryDate` match the date shown
    in the app?

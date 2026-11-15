@@ -187,7 +187,6 @@ async def test_exact_vendor_id_and_supported_model_identify_a_feeder():
         "Kitchen",
         "Europe/Riga",
     )
-    assert feeder.external_id is None
 
 
 @pytest.mark.asyncio

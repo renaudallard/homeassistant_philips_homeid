@@ -39,7 +39,6 @@ def event_row(**changes):
     return {
         "id": "event-1",
         "deviceId": "internal",
-        "deviceExternalId": "external",
         "type": "meal_dispensed",
         "time": "2026-01-05T08:30:00Z",
         "mealName": "Breakfast",
@@ -52,14 +51,7 @@ def event_row(**changes):
 
 
 def manager(request):
-    return MealManager(
-        request,
-        "home /?#",
-        "internal",
-        "tuya-vendor",
-        "Europe/Riga",
-        external_device_id="external",
-    )
+    return MealManager(request, "home /?#", "internal", "Europe/Riga")
 
 
 def schedule(**changes):
@@ -164,9 +156,9 @@ async def test_history_scope_dedup_sort_fields_and_neutral_amount():
                 event_row(),
                 first,
                 event_row(),
-                event_row(id="external-only", deviceId=None, mealAmount=0),
-                event_row(id="internal-only", deviceExternalId=None),
-                event_row(id="foreign", deviceId="other", deviceExternalId="other"),
+                event_row(id="no-device", deviceId=None),
+                event_row(id="other-ids", deviceExternalId="x", mealAmount=0),
+                event_row(id="foreign", deviceId="other"),
                 event_row(id="other-type", type="meal_upcoming"),
                 event_row(id="at-end", time="2026-01-06T00:00:00Z"),
                 event_row(id="before", time="2026-01-04T23:59:59Z"),
@@ -175,12 +167,7 @@ async def test_history_scope_dedup_sort_fields_and_neutral_amount():
     )
     start, end = utc("2026-01-05"), utc("2026-01-06")
     events = await manager(request).history(start, end)
-    assert [event.id for event in events] == [
-        "first",
-        "event-1",
-        "external-only",
-        "internal-only",
-    ]
+    assert [event.id for event in events] == ["first", "event-1", "other-ids"]
     assert events[0] == FeedingEvent(
         "first", utc("2026-01-05T06:00"), "Breakfast", None, "schedule"
     )
@@ -195,68 +182,10 @@ async def test_history_scope_dedup_sort_fields_and_neutral_amount():
             ("from", start.isoformat()),
             ("to", end.isoformat()),
             ("types", "meal_dispensed"),
+            ("deviceIds", "internal"),
             ("clustered", "false"),
         ],
     )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "registry_external,internal,external,accepted",
-    [
-        ("external", "internal", "external", True),
-        ("external", "internal", None, True),
-        ("external", None, "external", True),
-        ("external", "foreign", "external", "unverifiable"),
-        ("external", "internal", "tuya-vendor", "unverifiable"),
-        ("external", "tuya-vendor", "external", "unverifiable"),
-        ("external", "external", "external", "unverifiable"),
-        ("external", None, "internal", False),
-        ("external", None, "tuya-vendor", False),
-        ("external", None, None, "unverifiable"),
-        # The Philips ID alone is not the verified pair.
-        (None, "internal", None, "unverifiable"),
-        (None, "internal", "external", "unverifiable"),
-        (None, "internal", "tuya-vendor", True),
-        (None, None, "external", "unverifiable"),
-        (None, None, "tuya-vendor", "unverifiable"),
-        (None, None, None, "unverifiable"),
-    ],
-)
-async def test_history_registry_external_id_is_distinct_from_tuya_vendor_id(
-    registry_external, internal, external, accepted
-):
-    request = AsyncMock(
-        return_value=[event_row(deviceId=internal, deviceExternalId=external)]
-    )
-    api = MealManager(
-        request,
-        "home",
-        "internal",
-        "tuya-vendor",
-        None,
-        external_device_id=registry_external,
-    )
-    if accepted == "unverifiable":
-        with pytest.raises(MealsError, match="ownership"):
-            await api.history(utc("2026-01-05"), utc("2026-01-06"))
-    else:
-        events = await api.history(utc("2026-01-05"), utc("2026-01-06"))
-        assert bool(events) is accepted
-
-
-@pytest.mark.asyncio
-async def test_unknown_registry_external_id_does_not_return_partial_history():
-    request = AsyncMock(
-        return_value=[
-            event_row(id="internal-only", deviceExternalId=None),
-            event_row(id="unverified-external"),
-            event_row(id="vendor-is-not-external", deviceExternalId="tuya-vendor"),
-        ]
-    )
-    api = MealManager(request, "home", "internal", "tuya-vendor", None)
-    with pytest.raises(MealsError, match="ownership"):
-        await api.history(utc("2026-01-05"), utc("2026-01-06"))
 
 
 @pytest.mark.asyncio
@@ -264,11 +193,11 @@ async def test_unknown_registry_external_id_does_not_return_partial_history():
 async def test_history_and_meal_reads_work_without_a_resolvable_home_zone(zone):
     request = AsyncMock(
         side_effect=[
-            [event_row(deviceExternalId="tuya-vendor")],
+            [event_row()],
             [meal_row(), meal_row(id="meal-2", feedTime="08:30Z")],
         ]
     )
-    api = MealManager(request, "home", "internal", "tuya-vendor", zone)
+    api = MealManager(request, "home", "internal", zone)
     assert len(await api.history(utc("2026-01-05"), utc("2026-01-06"))) == 1
     assert [meal.time for meal in await api.list_meals()] == ["08:30", "08:30Z"]
     assert all(call.args[0] == "GET" for call in request.await_args_list)
@@ -278,9 +207,6 @@ async def test_history_and_meal_reads_work_without_a_resolvable_home_zone(zone):
 @pytest.mark.parametrize(
     "changes",
     [
-        {"time": None},
-        {"time": "bad"},
-        {"time": "2026-01-05T08:30:00"},
         {"id": ""},
         {"mealAmount": "2"},
         {"mealAmount": True},

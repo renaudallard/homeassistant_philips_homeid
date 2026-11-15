@@ -43,7 +43,6 @@ from custom_components.philips_homeid.feeder_api import (
 )
 from custom_components.philips_homeid.feeder_meals import (
     DesiccantTimer,
-    EventOwnershipError,
     FeedingEvent,
     Meal,
     MealsError,
@@ -51,9 +50,7 @@ from custom_components.philips_homeid.feeder_meals import (
 
 NOW = datetime(2026, 11, 14, 12, 0, tzinfo=UTC)
 TODAY = date(2026, 11, 14)
-FEEDER = FeederDevice(
-    "tuya-1", "philips-1", "home", "PAW5320", "Cat", None, "Europe/Riga"
-)
+FEEDER = FeederDevice("tuya-1", "philips-1", "home", "PAW5320", "Cat", "Europe/Riga")
 
 
 def manager():
@@ -107,7 +104,7 @@ async def test_one_failing_part_leaves_the_rest_available(part):
 @pytest.mark.asyncio
 async def test_failed_history_is_unavailable_not_empty():
     m = manager()
-    m.history.side_effect = EventOwnershipError((True,) * 7)
+    m.history.side_effect = MealsError("Invalid feeding event amount")
     data = await bare_coordinator(m)._async_update_data()
     assert not data.history_ok and data.history == []
 
@@ -141,7 +138,7 @@ async def test_expired_login_in_a_part_starts_reauth():
 @pytest.mark.asyncio
 async def test_warnings_are_fixed_codes_once_per_change(caplog):
     m = manager()
-    m.history.side_effect = MealsError("Invalid feeding event timestamp")
+    m.history.side_effect = MealsError("Invalid feeding event amount")
     m.latest_status.side_effect = FeederHTTPError(500)
     coord = bare_coordinator(m)
     with caplog.at_level(logging.WARNING):
@@ -149,14 +146,14 @@ async def test_warnings_are_fixed_codes_once_per_change(caplog):
         await coord._async_update_data()
     messages = [r.getMessage() for r in caplog.records]
     assert messages == [
-        "HomeID feeder history unavailable (timestamp)",
+        "HomeID feeder history unavailable (event_amount)",
         "HomeID feeder status unavailable (http_500)",
     ]
-    m.history.side_effect = EventOwnershipError((True, False, True, 1, 0, 0, 0))
+    m.history.side_effect = MealsError("Conflicting feeding event identity")
     with caplog.at_level(logging.WARNING):
         caplog.clear()
         await coord._async_update_data()
-    assert caplog.records[0].getMessage().endswith("(event_ownership)")
+    assert caplog.records[0].getMessage().endswith("(event_duplicate)")
 
 
 @pytest.mark.asyncio

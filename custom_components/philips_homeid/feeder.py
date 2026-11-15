@@ -67,7 +67,6 @@ from .feeder_api import (
 )
 from .feeder_meals import (
     DesiccantTimer,
-    EventOwnershipError,
     FeedingEvent,
     Meal,
     MealManager,
@@ -189,23 +188,15 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "Invalid identifier": "identifier",
             "Unsupported HomeID list response": "list_shape",
             "Unsupported desiccant timer response": "desiccant_shape",
-            "Invalid feeding event timestamp": "timestamp",
             "Invalid feeding event text": "event_text",
             "Invalid feeding event amount": "event_amount",
-            "Feeding event ownership could not be verified": "event_ownership",
             "Conflicting feeding event identity": "event_duplicate",
             "An explicit home IANA time zone is required": "home_time_zone",
             "HomeID feeder was not found": "not_found",
             "HomeID feeder identity is ambiguous": "ambiguous",
         }
         reason = "connection"
-        if isinstance(error, EventOwnershipError) and all(
-            type(flag) is bool for flag in error.flags
-        ):
-            reason = "event_ownership_" + "".join(
-                "1" if flag else "0" for flag in error.flags
-            )
-        elif isinstance(error, FeederHTTPError) and 100 <= error.status <= 599:
+        if isinstance(error, FeederHTTPError) and 100 <= error.status <= 599:
             reason = f"http_{error.status}"
         elif isinstance(error, MealsError):
             reason = reasons.get(str(error), "schema")

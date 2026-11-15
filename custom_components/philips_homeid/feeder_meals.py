@@ -64,16 +64,6 @@ class MealsError(FeederError, ValueError):
     """Invalid input or unsupported response; messages contain no response data."""
 
 
-class EventOwnershipError(MealsError):
-    """Only boolean identity comparisons, never the identifiers themselves."""
-
-    def __init__(self, flags: tuple[bool, ...]) -> None:
-        super().__init__("Feeding event ownership could not be verified")
-        # present internal/external, known registry external, matches internal/
-        # external, internal/external equal this device's confirmed Tuya vendor ID.
-        self.flags = flags
-
-
 class Request(Protocol):
     """Authenticated JSON read supplied by the caller."""
 
@@ -207,16 +197,20 @@ def _meal(row: dict[str, Any]) -> Meal:
     )
 
 
-def _timestamp(value: object) -> datetime:
+def _event_time(value: object) -> datetime | None:
+    """An event time with an offset, in UTC; None for anything else.
+
+    The app parses it with Instant.parse and drops the event when that fails.
+    """
     if not isinstance(value, str):
-        raise MealsError("Invalid feeding event timestamp")
+        return None
     try:
         parsed = datetime.fromisoformat(value)
         if parsed.tzinfo is not None and parsed.utcoffset() is not None:
             return parsed.astimezone(UTC)
     except (ValueError, OverflowError):
         pass
-    raise MealsError("Invalid feeding event timestamp")
+    return None
 
 
 def _event_text(value: object) -> str:
@@ -253,34 +247,18 @@ class MealManager:
         request: Request,
         home_id: str,
         philips_device_id: str,
-        tuya_device_id: str,
         time_zone: str | None,
-        *,
-        external_device_id: str | None = None,
     ) -> None:
         self._request = request
         self._root = f"/api/homes/{quote(identifier(home_id), safe='')}"
         self._philips_id = identifier(philips_device_id)
-        # vendorId (Tuya) and externalId are distinct registry fields. Only an
-        # explicitly supplied externalId can verify an event's deviceExternalId.
-        self._tuya_id = identifier(tuya_device_id)
-        self._external_id = (
-            identifier(external_device_id) if external_device_id is not None else None
-        )
         # History has absolute timestamps and must remain usable without a home
         # timezone. Resolve the zone only when a local-time schedule needs it.
         self.time_zone = time_zone or None
 
     @classmethod
     def for_device(cls, request: Request, device: FeederDevice) -> MealManager:
-        return cls(
-            request,
-            device.home_id,
-            device.philips_id,
-            device.vendor_id,
-            device.time_zone,
-            external_device_id=device.external_id,
-        )
+        return cls(request, device.home_id, device.philips_id, device.time_zone)
 
     async def list_meals(self) -> list[Meal]:
         """Keep disabled/empty-repeat meals; reject unsupported selected schedules."""
@@ -303,53 +281,13 @@ class MealManager:
             raise MealsError("Conflicting meal ownership")
         return meals
 
-    def _ownership_error(self, internal: Any, external: Any) -> EventOwnershipError:
-        return EventOwnershipError(
-            (
-                internal is not None,
-                external is not None,
-                self._external_id is not None,
-                internal == self._philips_id,
-                self._external_id is not None and external == self._external_id,
-                internal == self._tuya_id,
-                external == self._tuya_id,
-            )
-        )
-
     def _event_owned(self, row: dict[str, Any]) -> bool:
-        internal, external = row.get("deviceId"), row.get("deviceExternalId")
-        internal_matches = internal == self._philips_id
-        if self._external_id is None:
-            # Observed HomeID shape: registry externalId is absent, while the
-            # event pairs the exact Philips internal ID with the exact Tuya
-            # vendor ID. Only that pair is accepted. One of the two alone, or
-            # one contradicted by the other, is unverifiable, not foreign.
-            vendor_matches = external == self._tuya_id
-            if internal_matches and vendor_matches:
-                return True
-            if internal_matches or vendor_matches:
-                raise self._ownership_error(internal, external)
-            if internal is not None:
-                identifier(internal)
-                return False  # positively identified as another Philips device
-            raise self._ownership_error(internal, external)
-        # A known registry externalId is never overridden by the vendor ID.
-        external_matches = external == self._external_id
-        if internal_matches or external_matches:
-            # A partially matching own event with an unknown/conflicting second
-            # ID is an unverifiable read, not evidence of an empty history.
-            if (internal is not None and not internal_matches) or (
-                external is not None and not external_matches
-            ):
-                raise self._ownership_error(internal, external)
-            return True
-        if internal is not None:
-            identifier(internal)
-            return False  # positively identified as another Philips device
-        if external is not None:
-            identifier(external)
-            return False  # positively identified as another external device
-        raise self._ownership_error(internal, external)
+        """An event is this feeder's when its deviceId is, as in the app.
+
+        The app asks the backend for this device's events and reads no other
+        identifier from them.
+        """
+        return row.get("deviceId") == self._philips_id
 
     async def history(self, start: datetime, end: datetime) -> list[FeedingEvent]:
         """Cloud meal_dispensed events in [start, end), at most 31 days.
@@ -365,8 +303,8 @@ class MealManager:
         for row in rows:
             if row.get("type") != "meal_dispensed" or not self._event_owned(row):
                 continue
-            when = _timestamp(row.get("time"))
-            if not start <= when < end:
+            when = _event_time(row.get("time"))
+            if when is None or not start <= when < end:
                 continue
             amount = row.get("mealAmount")
             if amount is not None and (
@@ -390,11 +328,11 @@ class MealManager:
     async def _events(
         self, start: datetime, end: datetime, types: Iterable[str]
     ) -> list[dict[str, Any]]:
-        # One "types" pair per type, the way the app's Retrofit client sends
-        # a list query parameter.
+        # One pair per list element, the way the app's Retrofit client sends
+        # a list query parameter, and only this device's events, as the app.
         params = [("from", start.isoformat()), ("to", end.isoformat())]
         params += [("types", kind) for kind in types]
-        params.append(("clustered", "false"))
+        params += [("deviceIds", self._philips_id), ("clustered", "false")]
         return list_items(
             await self._request("GET", f"{self._root}/events", params=params)
         )
@@ -416,8 +354,10 @@ class MealManager:
             kind = row.get("type")
             if kind not in STATUS_EVENT_TYPES or not self._event_owned(row):
                 continue
-            when = _timestamp(row.get("time"))
-            if start <= when < end and (kind not in latest or when > latest[kind]):
+            when = _event_time(row.get("time"))
+            if when is None or not start <= when < end:
+                continue
+            if kind not in latest or when > latest[kind]:
                 latest[kind] = when
         return latest
 

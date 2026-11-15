@@ -1,6 +1,8 @@
 """HomeID pet REST transport, discovery and refresh-token ownership."""
 
 import asyncio
+import base64
+import json
 import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -525,3 +527,73 @@ async def test_cold_read_refreshes_once_then_reads():
     cloud.refresh_tokens.assert_awaited_once()
     assert entry.data[CONF_CLOUD_REFRESH_TOKEN] == "refresh-2"
     assert authorizations(session) == ["Bearer access-1"]
+
+
+# --- id token for the Tuya login ---------------------------------------------
+
+
+def jwt(exp):
+    def part(data):
+        raw = json.dumps(data).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    return f"{part({'alg': 'none'})}.{part({'exp': exp})}.sig"
+
+
+def with_id(access, refresh, id_token):
+    return {**tokens(access, refresh), "id_token": id_token}
+
+
+@pytest.mark.asyncio
+async def test_id_token_comes_from_the_same_refresh_and_is_cached():
+    hass, entry = fake_hass()
+    idt = jwt(time.time() + 3600)
+    cloud = cloud_returning(with_id("access-1", "refresh-2", idt))
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch(CLOUD, return_value=cloud):
+        assert await owner.access_token() == "access-1"
+        assert await owner.id_token() == idt
+        assert await owner.id_token() == idt
+    cloud.refresh_tokens.assert_awaited_once()
+    assert entry.data[CONF_CLOUD_REFRESH_TOKEN] == "refresh-2"
+
+
+@pytest.mark.asyncio
+async def test_expired_id_token_refreshes_once_for_all_callers():
+    hass, entry = fake_hass()
+    old, new = jwt(time.time() + 30), jwt(time.time() + 3600)
+    cloud = cloud_returning(with_id("a1", "r2", old), with_id("a2", "r3", new))
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch(CLOUD, return_value=cloud):
+        assert await owner.access_token() == "a1"
+        # Inside the margin: the access token stays cached, the id token not.
+        results = await asyncio.gather(*(owner.id_token() for _ in range(3)))
+        assert results == [new] * 3
+        assert await owner.access_token() == "a2"
+    assert cloud.refresh_tokens.await_count == 2
+    assert cloud.refresh_tokens.await_args_list[1].args[0] == "r2"
+    assert entry.data[CONF_CLOUD_REFRESH_TOKEN] == "r3"
+
+
+@pytest.mark.asyncio
+async def test_refresh_without_id_token_is_not_success_for_tuya():
+    hass, _ = fake_hass()
+    cloud = cloud_returning(tokens("access-1", "refresh-2"))
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch(CLOUD, return_value=cloud):
+        with pytest.raises(CloudConnectionError):
+            await owner.id_token()
+        assert await owner.access_token() == "access-1"
+    cloud.refresh_tokens.assert_awaited_once()
+
+
+@pytest.mark.parametrize("bad", ["opaque", "a.!!!.c", jwt("soon"), jwt(True)])
+@pytest.mark.asyncio
+async def test_unreadable_id_token_is_handed_out_once_not_cached(bad):
+    hass, _ = fake_hass()
+    cloud = cloud_returning(with_id("a1", "r2", bad), with_id("a2", "r3", "y"))
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch(CLOUD, return_value=cloud):
+        assert await owner.id_token() == bad
+        assert await owner.id_token() == "y"
+    assert cloud.refresh_tokens.await_count == 2

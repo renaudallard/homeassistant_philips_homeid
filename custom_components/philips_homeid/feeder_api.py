@@ -38,6 +38,8 @@ body, URL, identifier or token.
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import math
 import time
 from collections.abc import Awaitable, Callable
@@ -238,6 +240,33 @@ def _lifetime(tokens: dict[str, Any]) -> float:
     return min(float(value), _MAX_LIFETIME)
 
 
+@dataclass(frozen=True)
+class _Issued:
+    """What one refresh returned. ``id_token`` may be empty."""
+
+    access_token: str
+    id_token: str
+
+
+def _id_lifetime(id_token: str) -> float:
+    """Seconds left on an id token by its own exp claim, 0 if unreadable."""
+    try:
+        payload = id_token.split(".")[1]
+        claims = json.loads(
+            base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
+        )
+        exp = claims["exp"]
+    except (IndexError, KeyError, TypeError, ValueError):
+        return 0.0
+    if (
+        isinstance(exp, bool)
+        or not isinstance(exp, (int, float))
+        or not math.isfinite(exp)
+    ):
+        return 0.0
+    return min(float(exp) - time.time(), _MAX_LIFETIME)
+
+
 class FeederTokenOwner:
     """The only code that spends a feeder entry's single-use refresh token.
 
@@ -248,14 +277,18 @@ class FeederTokenOwner:
     cached access token, an in-flight refresh and the back-off. The refresh
     token itself is always read from, and rotated into, the config entry, so
     a reauth is picked up and nothing else keeps a stale copy.
+
+    The id token of the same refresh is kept for the Tuya login of feed now.
     """
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
         self._hass = hass
         self._entry_id = entry_id
         self._lock = asyncio.Lock()
-        self._task: asyncio.Task[str] | None = None
+        self._task: asyncio.Task[_Issued] | None = None
         self._access = ""
+        self._id_token = ""
+        self._id_expires = 0.0
         self._issued_for = ""
         self._expires = 0.0
         self._issued_at = -math.inf
@@ -284,13 +317,26 @@ class FeederTokenOwner:
 
     async def access_token(self) -> str:
         """Return a cached access token, or refresh once for every caller."""
+        return (await self._issue(False)).access_token
+
+    async def id_token(self) -> str:
+        """Return a cached id token, or refresh once for every caller."""
+        token = (await self._issue(True)).id_token
+        if not token:
+            raise CloudConnectionError("HomeID returned no id token")
+        return token
+
+    async def _issue(self, want_id: bool) -> _Issued:
         async with self._lock:
             task = self._task
             if task is None or task.done():
                 refresh = self._refresh_token()
                 now = time.monotonic()
-                if self._access and self._issued_for == refresh and now < self._expires:
-                    return self._access
+                if self._issued_for == refresh:
+                    if want_id and self._id_token and now < self._id_expires:
+                        return _Issued(self._access, self._id_token)
+                    if not want_id and self._access and now < self._expires:
+                        return _Issued(self._access, self._id_token)
                 if refresh == self._rejected:
                     raise CloudAuthError("HomeID refresh token was rejected")
                 # The back-off belongs to the token that failed; a reauth's
@@ -305,7 +351,7 @@ class FeederTokenOwner:
             # instead of spending the token a second time.
             return await asyncio.shield(task)
 
-    async def _refresh(self, refresh: str) -> str:
+    async def _refresh(self, refresh: str) -> _Issued:
         from .cloud_api import PhilipsCloudAPI
 
         entry = self._hass.config_entries.async_get_entry(self._entry_id)
@@ -345,12 +391,17 @@ class FeederTokenOwner:
         access = tokens.get("access_token")
         if not isinstance(access, str) or not access:
             raise CloudConnectionError("HomeID returned no access token")
+        id_token = tokens.get("id_token")
+        if not isinstance(id_token, str):
+            id_token = ""
         now = time.monotonic()
         self._access = access
+        self._id_token = id_token
         self._issued_for = rotated
         self._issued_at = now
         self._expires = now + max(0.0, _lifetime(tokens) - _ACCESS_MARGIN)
-        return access
+        self._id_expires = now + max(0.0, _id_lifetime(id_token) - _ACCESS_MARGIN)
+        return _Issued(access, id_token)
 
     def invalidate(self, access: str) -> bool:
         """Forget an access token the pet backend refused.
@@ -367,7 +418,7 @@ class FeederTokenOwner:
         return True
 
 
-def _consume_exception(task: asyncio.Task[str]) -> None:
+def _consume_exception(task: asyncio.Task[_Issued]) -> None:
     if not task.cancelled():
         task.exception()
 

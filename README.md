@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud | Schedules, history and status; no feed-now yet, see [Pet Feeder](#pet-feeder-paw5320) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -54,7 +54,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
-| **Pet Feeder** | PAW5320 schedules, feeding history and status through the HomeID pet cloud (requires internet) |
+| **Pet Feeder** | PAW5320 schedules, feeding history and status through the HomeID pet cloud, feed now through Tuya (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -94,6 +94,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Feeding history as a calendar, and a **Last feeding** sensor
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
 - **Desiccant replacement due** date from the HomeID desiccant timer
+- **Feed now** button, dispensing the number of **Feed portions** set (1 to 20)
 - See [Pet Feeder (PAW5320)](#pet-feeder-paw5320) for what is and is not verified
 
 ---
@@ -444,8 +445,7 @@ What you get:
 
 - **Feeding schedule** calendar: the enabled weekly meals stored in HomeID.
   Planned times are a prediction, not proof that food was dispensed. The
-  schedule is read only here; add or change meals in the HomeID app. This
-  version of the integration never writes anything to HomeID.
+  schedule is read only here; add or change meals in the HomeID app.
 - Meal times are either in the HomeID home's time zone (they follow daylight
   saving time) or in UTC. If HomeID reports no time zone for the home, the
   Home Assistant time zone is used, as the app uses the phone's.
@@ -463,11 +463,22 @@ What you get:
 - **Desiccant replacement due**: the expiry date of the desiccant timer in
   HomeID, with the last replacement date as an attribute. Unknown if no timer
   is set, as in the app.
+- **Feed now** and **Feed portions**: pressing the button dispenses the set
+  number of portions (1 to 20, as in the app; default 1, kept across
+  restarts). Changing the number sends nothing. Like the app, the integration
+  sends the feed through Tuya: on the first press it logs in to Tuya with
+  your HomeID login and keeps that session. The login names the dial code
+  of the HomeID country matching your Home Assistant country, as the app
+  names the country chosen in it (31, the app's default, if none matches).
+  A press feeds at most once: if Tuya's answer cannot be read, the feed is
+  retried only when Tuya confirms the old session is gone. A successful
+  press means Tuya accepted the command; the dispensed meal shows in the
+  feeding history.
 
-Feeding on demand ("feed now") is not part of this version: it needs the
-feeder's Tuya channel and is planned for a follow-up. Camera and video are out
-of scope. The protocol and the limits of what has been verified on a real
-feeder are in [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
+Feed now has not yet been confirmed on a real feeder through this
+integration. Camera and video are out of scope. The protocol and the limits
+of what has been verified on a real feeder are in
+[docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
 
 ---
 

@@ -33,7 +33,11 @@ from custom_components.philips_homeid.feeder import (
     FeederConnectivitySensor,
     FeederCoordinator,
     FeederData,
+    FeederFeedButton,
+    FeederPortionsNumber,
     FeederTimestampSensor,
+    async_setup_feeder_buttons,
+    async_setup_feeder_numbers,
 )
 from custom_components.philips_homeid.feeder_api import (
     FeederAuthRejected,
@@ -41,12 +45,14 @@ from custom_components.philips_homeid.feeder_api import (
     FeederError,
     FeederHTTPError,
 )
+from custom_components.philips_homeid.feeder_feed import FeederFeed
 from custom_components.philips_homeid.feeder_meals import (
     DesiccantTimer,
     FeedingEvent,
     Meal,
     MealsError,
 )
+from custom_components.philips_homeid.tuya_api import TuyaError
 
 NOW = datetime(2026, 11, 14, 12, 0, tzinfo=UTC)
 TODAY = date(2026, 11, 14)
@@ -286,7 +292,13 @@ async def test_setup_and_unload_use_only_feeder_platforms():
     hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         entry, FEEDER_PLATFORMS
     )
-    assert {str(p) for p in FEEDER_PLATFORMS} == {"binary_sensor", "calendar", "sensor"}
+    assert {str(p) for p in FEEDER_PLATFORMS} == {
+        "binary_sensor",
+        "button",
+        "calendar",
+        "number",
+        "sensor",
+    }
     assert await async_unload_entry(hass, entry)
     coord.async_shutdown.assert_awaited_once()
     assert "entry" not in hass.data[DOMAIN]
@@ -545,3 +557,109 @@ async def test_schedule_end_trigger_fires_across_a_scan_window_boundary():
     assert [item.trigger_time for item in queued] == [
         datetime(2026, 11, 16, 8, 16, tzinfo=UTC)
     ]
+
+
+# --- feed now ----------------------------------------------------------------
+
+
+def feed_entities():
+    coord = entity_coordinator(None)
+    coord.async_request_refresh = AsyncMock()
+    feed = MagicMock(spec=FeederFeed)
+    feed.portions = 1
+    feed.feed = AsyncMock()
+    return coord, feed
+
+
+@pytest.mark.asyncio
+async def test_feed_button_sends_the_set_portions_then_refreshes():
+    coord, feed = feed_entities()
+    feed.portions = 4
+    await FeederFeedButton(coord, feed).async_press()
+    feed.feed.assert_awaited_once_with(4)
+    coord.async_request_refresh.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (TuyaError("x", "PERMISSION_DENIED"), "not confirmed by Tuya"),
+        (CloudConnectionError("x"), "cloud unavailable"),
+        (CloudAuthError("x"), "login expired"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_feed_button_failures_are_reported_not_refreshed(error, message):
+    coord, feed = feed_entities()
+    feed.feed.side_effect = error
+    with pytest.raises(HomeAssistantError, match=message):
+        await FeederFeedButton(coord, feed).async_press()
+    coord.async_request_refresh.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_portions_number_sets_and_validates():
+    coord, feed = feed_entities()
+    number = FeederPortionsNumber(coord, feed)
+    number.async_write_ha_state = MagicMock()
+    await number.async_set_native_value(7.0)
+    assert feed.portions == 7 and number.native_value == 7
+    for bad in (0.0, 21.0, 2.5):
+        with pytest.raises(HomeAssistantError):
+            await number.async_set_native_value(bad)
+    assert feed.portions == 7
+    feed.feed.assert_not_called()
+
+
+@pytest.mark.parametrize(("stored", "expected"), [(5.0, 5), (40.0, 1), (None, 1)])
+@pytest.mark.asyncio
+async def test_portions_number_restores_only_a_valid_value(stored, expected):
+    coord, feed = feed_entities()
+    number = FeederPortionsNumber(coord, feed)
+    last = None if stored is None else MagicMock(native_value=stored)
+    with (
+        patch.object(
+            number, "async_get_last_number_data", AsyncMock(return_value=last)
+        ),
+        patch(
+            "homeassistant.helpers.update_coordinator.CoordinatorEntity.async_added_to_hass",
+            AsyncMock(),
+        ),
+    ):
+        await number.async_added_to_hass()
+    assert feed.portions == expected
+
+
+@pytest.mark.parametrize("supported", [True, False])
+@pytest.mark.asyncio
+async def test_feed_entities_exist_only_for_feed_capable_models(supported):
+    coord, feed = feed_entities()
+    coord.feed = feed if supported else None
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"entry": coord}}
+    entry = MagicMock(entry_id="entry")
+    added = []
+    await async_setup_feeder_buttons(hass, entry, added.extend)
+    await async_setup_feeder_numbers(hass, entry, added.extend)
+    assert [type(e) for e in added] == (
+        [FeederFeedButton, FeederPortionsNumber] if supported else []
+    )
+
+
+def test_coordinator_offers_feed_only_for_known_models():
+    for model, supported in (("PAW5320", True), ("PAW3300", False), (None, False)):
+        hass = MagicMock()
+        entry = MagicMock(entry_id="entry")
+        entry.data = {CONF_DEVICE_ID: "tuya-1", CONF_MODEL: model}
+        with (
+            patch("custom_components.philips_homeid.feeder.async_get_clientsession"),
+            patch(
+                "custom_components.philips_homeid.feeder_feed.async_get_clientsession"
+            ),
+            patch(
+                "homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__",
+                return_value=None,
+            ),
+        ):
+            coord = FeederCoordinator(hass, entry)
+        assert (coord.feed is not None) is supported

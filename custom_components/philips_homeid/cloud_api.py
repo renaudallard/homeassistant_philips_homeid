@@ -446,7 +446,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
 
     # --- Home ID backend API ---
 
-    async def _homeid_discovery(self) -> dict[str, Any]:
+    async def homeid_discovery(self) -> dict[str, Any]:
         """Fetch the HomeID tenant discovery document.
 
         Plain GET — must NOT send Content-Type (sending
@@ -487,7 +487,7 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             _LOGGER.error("No OIDC access_token available")
             return []
 
-        discovery = await self._homeid_discovery()
+        discovery = await self.homeid_discovery()
         if not discovery:
             return []
 

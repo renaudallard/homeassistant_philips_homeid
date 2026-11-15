@@ -22,10 +22,10 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""PAW5320 feeder entries: coordinator, sensors and setup.
+"""PAW5320 feeder entries: coordinator, entities and setup.
 
-Read only: nothing here changes the feeder's schedule or settings, and the
-transport refuses every method but GET.
+Schedules and settings are read only: the pet REST transport refuses every
+method but GET. The one write is feed now, sent through Tuya by feeder_feed.
 """
 
 from __future__ import annotations
@@ -41,11 +41,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.components.button import ButtonEntity
+from homeassistant.components.number import NumberMode, RestoreNumber
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -65,6 +67,7 @@ from .feeder_api import (
     FeederTokenOwner,
     find_feeder,
 )
+from .feeder_feed import FEED_DPS, MAX_PORTIONS, MIN_PORTIONS, FeederFeed
 from .feeder_meals import (
     DesiccantTimer,
     FeedingEvent,
@@ -72,10 +75,17 @@ from .feeder_meals import (
     MealManager,
     MealsError,
 )
+from .tuya_api import TuyaError
 
 _LOGGER = logging.getLogger(__name__)
 
-FEEDER_PLATFORMS = [Platform.BINARY_SENSOR, Platform.CALENDAR, Platform.SENSOR]
+FEEDER_PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.CALENDAR,
+    Platform.NUMBER,
+    Platform.SENSOR,
+]
 UPDATE_INTERVAL = timedelta(minutes=2)
 LOOKBACK = timedelta(days=7)
 # The registry rarely changes; re-resolve IDs and the home time zone this often.
@@ -112,11 +122,15 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             config_entry=entry,
             update_interval=UPDATE_INTERVAL,
         )
-        self.client = FeederClient(
-            async_get_clientsession(hass),
-            FeederTokenOwner.for_entry(hass, entry.entry_id),
-        )
+        owner = FeederTokenOwner.for_entry(hass, entry.entry_id)
+        self.client = FeederClient(async_get_clientsession(hass), owner)
         self.vendor_id: str = entry.data[CONF_DEVICE_ID]
+        model = entry.data.get(CONF_MODEL)
+        self.feed: FeederFeed | None = (
+            FeederFeed(hass, owner, self.vendor_id, model)
+            if model in FEED_DPS
+            else None
+        )
         self._manager: MealManager | None = None
         self._manager_until = 0.0
         self._logged: dict[str, str] = {}
@@ -213,7 +227,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
 
 
 async def async_setup_feeder_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up a feeder entry. It only reads."""
+    """Set up a feeder entry."""
     coordinator = FeederCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -252,6 +266,10 @@ def feeder_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any
         "status_types": sorted(data.status) if data else None,
         "desiccant_available": data.desiccant is not None if data else None,
         "home_time_zone_known": data.time_zone_from_home if data else None,
+        "feed_supported": bool(coordinator and coordinator.feed),
+        "tuya_logged_in": bool(
+            coordinator and coordinator.feed and coordinator.feed.logged_in
+        ),
     }
 
 
@@ -409,6 +427,63 @@ class FeederConnectivitySensor(FeederEntity, BinarySensorEntity):
         }
 
 
+class FeederFeedButton(FeederEntity, ButtonEntity):
+    """Dispense the portions set on the portions number, as the app's feed now."""
+
+    _attr_icon = "mdi:food-drumstick"
+
+    def __init__(self, coordinator: FeederCoordinator, feed: FeederFeed) -> None:
+        super().__init__(coordinator, "feeder_feed")
+        self._feed = feed
+
+    async def async_press(self) -> None:
+        try:
+            await self._feed.feed(self._feed.portions)
+        except TuyaError as err:
+            _LOGGER.warning("HomeID feed now failed (%s)", err.code or "no code")
+            raise HomeAssistantError("Feed now was not confirmed by Tuya") from err
+        # CloudConnectionError subclasses CloudAuthError, so it comes first.
+        except CloudConnectionError as err:
+            raise HomeAssistantError("HomeID cloud unavailable") from err
+        except CloudAuthError as err:
+            raise HomeAssistantError("HomeID login expired") from err
+        await self.coordinator.async_request_refresh()
+
+
+class FeederPortionsNumber(FeederEntity, RestoreNumber):
+    """Portions for the feed now button. Kept in HA, never sent on its own."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:counter"
+    _attr_mode = NumberMode.BOX
+    _attr_native_min_value = MIN_PORTIONS
+    _attr_native_max_value = MAX_PORTIONS
+    _attr_native_step = 1
+
+    def __init__(self, coordinator: FeederCoordinator, feed: FeederFeed) -> None:
+        super().__init__(coordinator, "feeder_portions")
+        self._feed = feed
+
+    @property
+    def native_value(self) -> float:
+        return self._feed.portions
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        value = last.native_value if last else None
+        if value is not None and MIN_PORTIONS <= value <= MAX_PORTIONS:
+            self._feed.portions = int(value)
+
+    async def async_set_native_value(self, value: float) -> None:
+        if not (value.is_integer() and MIN_PORTIONS <= value <= MAX_PORTIONS):
+            raise HomeAssistantError(
+                f"Choose {MIN_PORTIONS} to {MAX_PORTIONS} whole portions"
+            )
+        self._feed.portions = int(value)
+        self.async_write_ha_state()
+
+
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
 
@@ -425,3 +500,19 @@ async def async_setup_feeder_binary_sensors(
 ) -> None:
     coordinator: FeederCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([FeederConnectivitySensor(coordinator)])
+
+
+async def async_setup_feeder_buttons(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    coordinator: FeederCoordinator = hass.data[DOMAIN][entry.entry_id]
+    if coordinator.feed is not None:
+        async_add_entities([FeederFeedButton(coordinator, coordinator.feed)])
+
+
+async def async_setup_feeder_numbers(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    coordinator: FeederCoordinator = hass.data[DOMAIN][entry.entry_id]
+    if coordinator.feed is not None:
+        async_add_entities([FeederPortionsNumber(coordinator, coordinator.feed)])

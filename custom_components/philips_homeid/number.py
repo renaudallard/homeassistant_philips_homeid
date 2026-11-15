@@ -41,7 +41,7 @@ from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import CONF_IS_FEEDER, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -236,6 +236,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up number entities from config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_setup_feeder_numbers
+
+        await async_setup_feeder_numbers(hass, entry, async_add_entities)
+        return
+
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     model_name = coordinator.device_info.model_name or ""

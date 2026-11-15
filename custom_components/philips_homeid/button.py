@@ -37,7 +37,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_CLOUD_REFRESH_TOKEN, DOMAIN
+from .const import CONF_CLOUD_REFRESH_TOKEN, CONF_IS_FEEDER, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -210,6 +210,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up buttons from config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_setup_feeder_buttons
+
+        await async_setup_feeder_buttons(hass, entry, async_add_entities)
+        return
+
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     model_name = coordinator.device_info.model_name or ""

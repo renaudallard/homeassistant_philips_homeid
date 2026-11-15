@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "Azzera timer sostituzione filtro"
+      },
+      "feeder_feed": {
+        "name": "Dai da mangiare ora"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secondaria"
+      },
+      "feeder_portions": {
+        "name": "Porzioni di cibo"
       }
     },
     "select": {

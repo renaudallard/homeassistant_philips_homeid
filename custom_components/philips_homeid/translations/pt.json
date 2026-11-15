@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "Repor temporizador de substituição do filtro"
+      },
+      "feeder_feed": {
+        "name": "Alimentar agora"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Dose secundária"
+      },
+      "feeder_portions": {
+        "name": "Porções de ração"
       }
     },
     "select": {

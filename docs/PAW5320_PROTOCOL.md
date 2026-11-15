@@ -1,11 +1,11 @@
-# PAW5320 Pet Feeder — HomeID Pet REST Protocol
+# PAW5320 Pet Feeder: HomeID Pet REST and Tuya Feed Now
 
 The Philips Smart Feeder with Camera (PAW5320) is supported by the HomeID app
 from version 8.23.0. It is not a FUSION device and has no AWS IoT thing: the
 app keeps schedules, events and settings on the HomeID pet backend described
-here, and talks to the feeder itself over Tuya. This integration uses only the
-REST backend. Feeding on demand needs the Tuya channel and is planned for a
-follow-up; the camera is out of scope.
+here, and talks to the feeder itself over Tuya. This integration reads the
+REST backend and sends feed now over Tuya, as the app does; the camera is out
+of scope.
 
 Sources: the integration's own read-only checks against a real PAW5320 (noted
 as *live* below), the maintainer's check of `GET homes` with and without a
@@ -34,7 +34,7 @@ a dependency.
 
 ## Requests
 
-The integration only reads: its transport refuses every method but `GET`.
+The REST transport only reads: it refuses every method but `GET`.
 Only fixed paths under `/api/homes` on the fixed host are requested. URLs in
 responses (`url`, `mealUrl`, `Location`, media links) are never followed and
 redirects are refused (`allow_redirects=False`). Errors are re-raised without
@@ -131,6 +131,48 @@ reported as **Desiccant replacement due** and `lastReplacedDate` as its
 (`…/devices/{Philips ID}/settings`) hold only `feeder_voice_audio_id` in the
 app and are not read.
 
+## Feed now (Tuya)
+
+The app feeds through the Tuya (ThingClips) SDK it bundles, not through the
+pet backend. The integration signs the same requests itself (`tuya_api.py`,
+on hashlib, hmac and cryptography), so nothing extra is installed.
+
+- Login, as `TuyaAuthClientImpl`: `thing.m.user.third.login` with
+  `countryCode`, `accessToken` = the HomeID OIDC id token, `type` `jwt` and
+  `extraInfo` `{"platform":"PhilipsDA"}`. The app's `countryCode` is the
+  `dialCode` of the HomeID space chosen in it, `31` if none. The integration
+  takes the space of `/.well-known/tenant/oneka` whose `countryCode` is Home
+  Assistant's country, and `31` otherwise. The id token comes from the same
+  refresh as the access token, through `FeederTokenOwner`, so the refresh
+  token is still spent once; a refresh returns a new id token valid for an
+  hour.
+- Transport: form POSTs to `https://a1.tuyaeu.com/api.json`, then to the
+  login reply's `domain.mobileApiUrl` when that is one of Tuya's regional
+  hosts (no other host is accepted, redirects are refused). `sign` is
+  HMAC-SHA256 over the sorted signed parameters, `postData` is AES-GCM sealed
+  with a key derived from the request ID and the session's `ecode`, and the
+  reply comes back sealed the same way. The app identity used for signing
+  (app ID and secret from the APK manifest, app key and certificate hash from
+  `petsseries`) is the same in every copy of the HomeID app.
+- Feed: `thing.m.device.dp.publish` with `devId` = `gwId` = the vendor ID and
+  `dps` `{"201": n}`. `n` is 1 to 20, the range `QuickFeedApiImpl` clamps to;
+  201 is the data point of a feeder with camera
+  (`SingleContainerDispenseSerializer`). Feeders without camera use 101 and
+  the dual container 236; neither model is supported here.
+- Session: one per entry, made on the first press and kept in memory. A
+  session made during development still answered after 25.8 hours, and a
+  second login did not end the first. `petsseries` reports a daily login cap
+  (`USER_SESSION_LIMIT`), so the integration logs in again only when Tuya
+  says the session is gone.
+- One press feeds at most once. Tuya answers a session it no longer knows
+  with `USER_SESSION_LOSS`, or with a reply that opens with neither key, and
+  the latter cannot be told from other unreadable replies. So after either,
+  the integration checks the session with a harmless read
+  (`m.life.home.space.list`) and logs in and sends the feed again only if
+  that read fails too.
+- A publish that Tuya accepts says only that the cloud took the command;
+  whether food came out shows in the history as `meal_dispensed`.
+
 ## Verification status
 
 | Area | Status |
@@ -143,6 +185,9 @@ app and are not read.
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
 | `clustered=false`, pagination, `mealAmount` unit | not established |
 | Feeder behaviour at DST changes | not established |
+| Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
+| `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |
+| Feed now `{"201": n}` on a PAW5320 | **not yet run by this integration**; dispensed from the tester's own prototype |
 
 ## Open questions
 
@@ -152,3 +197,7 @@ app and are not read.
    set, a 404 or an empty object, and does `expiryDate` match the date shown
    in the app?
 3. Are event lists paginated or capped for busy homes?
+4. Does a feed from Home Assistant show as `meal_dispensed`, and with which
+   `source`?
+5. Does a HomeID account outside Tuya's EU region log in at the EU host, or
+   is it moved to another one?

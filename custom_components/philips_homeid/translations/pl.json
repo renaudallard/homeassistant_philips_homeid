@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "Resetuj licznik wymiany filtra"
+      },
+      "feeder_feed": {
+        "name": "Nakarm teraz"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Dawka dodatkowa"
+      },
+      "feeder_portions": {
+        "name": "Porcje karmy"
       }
     },
     "select": {

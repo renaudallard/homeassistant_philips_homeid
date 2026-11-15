@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "필터 교체 타이머 초기화"
+      },
+      "feeder_feed": {
+        "name": "지금 급식"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "부 용량"
+      },
+      "feeder_portions": {
+        "name": "급식 분량"
       }
     },
     "select": {

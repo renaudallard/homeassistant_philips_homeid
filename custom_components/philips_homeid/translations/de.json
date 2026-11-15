@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "Filterwechsel-Timer zurücksetzen"
+      },
+      "feeder_feed": {
+        "name": "Jetzt füttern"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Sekundärdosis"
+      },
+      "feeder_portions": {
+        "name": "Futterportionen"
       }
     },
     "select": {

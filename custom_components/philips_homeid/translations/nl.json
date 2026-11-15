@@ -619,6 +619,9 @@
       },
       "muji_reset_filter_replace": {
         "name": "Vervangteller filter resetten"
+      },
+      "feeder_feed": {
+        "name": "Nu voeren"
       }
     },
     "number": {
@@ -660,6 +663,9 @@
       },
       "espresso_secondary_dose": {
         "name": "Secundaire dosis"
+      },
+      "feeder_portions": {
+        "name": "Voerporties"
       }
     },
     "select": {

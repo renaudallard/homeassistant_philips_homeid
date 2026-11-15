@@ -518,7 +518,7 @@
         "name": "Ultimo avviso di uscita del cibo bloccata"
       },
       "feeder_desiccant_replacement": {
-        "name": "Sostituzione dell’essiccante prevista"
+        "name": "Sostituzione dell'essiccante prevista"
       }
     },
     "binary_sensor": {

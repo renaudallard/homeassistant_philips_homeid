@@ -71,7 +71,8 @@ Two different identifiers exist, and neither substitutes for the other:
   (`deviceIds` = its Philips ID) and takes an event as the feeder's when its
   `deviceId` is the Philips ID, as the HomeID app 8.23.0 does. The app's event
   model also has `deviceVendorId` but never reads it; *live* `meal_dispensed`
-  events were seen with `deviceExternalId` = the vendor ID. Neither is used.
+  events carry both `deviceVendorId` and `deviceExternalId`, each equal to
+  the vendor ID. Neither is used.
   Events naming another device or none are skipped.
 
 ## Schedules
@@ -137,14 +138,16 @@ app and are not read.
 | Discovery through the pet registry | live, read only |
 | Reading meals, home time zone | live, read only |
 | `meal_dispensed` history | live, read only |
-| `food_level_low`, `food_outlet_stuck`, `device_online`, `device_offline` on a PAW5320 | **not observed live**; types from `petsseries` |
-| Desiccant timer response of a PAW5320 | **not observed live**; endpoint and fields from the HomeID app 8.23.0 |
+| `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
+| `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
+| Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
 | `clustered=false`, pagination, `mealAmount` unit | not established |
 | Feeder behaviour at DST changes | not established |
 
 ## Open questions
 
-1. Which status event types does a PAW5320 actually emit?
+1. Does a PAW5320 emit `device_online` and `device_offline`, for example
+   after a power cut?
 2. What does the desiccant timer return for a PAW5320 that never had one
    set, a 404 or an empty object, and does `expiryDate` match the date shown
    in the app?

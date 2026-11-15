@@ -39,7 +39,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DOMAIN
+from .const import CONF_IS_FEEDER, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 
@@ -59,6 +59,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up sensors from config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_setup_feeder_sensors
+
+        await async_setup_feeder_sensors(hass, entry, async_add_entities)
+        return
+
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Determine device type from model name

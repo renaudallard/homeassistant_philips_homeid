@@ -39,7 +39,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, OTA_UPDATE_KEY
+from .const import CONF_IS_FEEDER, DOMAIN, OTA_UPDATE_KEY
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .sensor import get_device_type
@@ -221,6 +221,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up binary sensors from config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_setup_feeder_binary_sensors
+
+        await async_setup_feeder_binary_sensors(hass, entry, async_add_entities)
+        return
+
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     # Determine device type from model name

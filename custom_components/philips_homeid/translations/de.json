@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "Cloud-Authentifizierung fehlgeschlagen. Überprüfen Sie die Home Assistant-Logs für Details. Sie können auch die Zugangsdaten manuell eingeben.",
       "cloud_unreachable": "Die Philips-Cloud ist vorübergehend nicht erreichbar. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
       "cloud_profile_error": "Der Philips HomeID-Server hat für Ihr Konto einen Serverfehler zurückgegeben. Öffnen Sie die Philips HomeID-App, entfernen Sie das Gerät und koppeln Sie es erneut, auch wenn es dort noch angezeigt wird, und versuchen Sie es dann erneut. Der Fehler kann auch vorübergehend sein, warten Sie in dem Fall einige Minuten.",
-      "invalid_host": "Geben Sie nur eine IP-Adresse oder einen Hostnamen ein (ohne Schema, Port oder Pfad)."
+      "invalid_host": "Geben Sie nur eine IP-Adresse oder einen Hostnamen ein (ohne Schema, Port oder Pfad).",
+      "feeder_unavailable": "Dieses Gerät konnte im HomeID-Tierdienst nicht geprüft werden. Prüfen Sie seine Verbindung in der HomeID-App und versuchen Sie es erneut."
     },
     "abort": {
       "already_configured": "Gerät bereits konfiguriert",
@@ -507,6 +508,18 @@
       },
       "espresso_bean_level": {
         "name": "Bohnenstand"
+      },
+      "feeder_last_feeding": {
+        "name": "Letzte Fütterung"
+      },
+      "feeder_last_food_low": {
+        "name": "Letzte Warnung: wenig Futter"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Letzte Warnung: Futterausgabe blockiert"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Trockenmittelwechsel fällig"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Firmware-Update verfügbar"
+      },
+      "feeder_connectivity": {
+        "name": "Cloud-Verbindung"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Luftreiniger"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Fütterungsplan"
+      },
+      "feeder_history": {
+        "name": "Fütterungsverlauf"
       }
     }
   }

@@ -60,6 +60,7 @@ from .const import (
     CONF_CPP_ID,
     CONF_DEVICE_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_IS_FEEDER,
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
@@ -150,6 +151,14 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Philips HomeID."""
 
     VERSION = 1
+
+    @classmethod
+    @callback
+    def async_supports_options_flow(
+        cls, config_entry: config_entries.ConfigEntry
+    ) -> bool:
+        """Feeder entries have nothing to configure; polling is fixed."""
+        return not config_entry.data.get(CONF_IS_FEEDER)
 
     @staticmethod
     @callback
@@ -1013,6 +1022,12 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 mac_address=mac,
             )
         if not iot_device:
+            # A HomeID pet feeder has no IoT thing: it lives in the HomeID pet
+            # registry. Only that registry's exact match makes it a feeder,
+            # never its name or an ID prefix.
+            feeder_result = await self._create_feeder_entry(external_id, mac, errors)
+            if feeder_result or errors:
+                return feeder_result
             _LOGGER.error(
                 "Could not resolve thingName for device %s (mac=%s)",
                 external_id,
@@ -1059,6 +1074,47 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         await self._close_cloud_api()
         return self.async_create_entry(title=f"{name} (Cloud)", data=entry_data)
+
+    async def _create_feeder_entry(
+        self, external_id: str, mac: str, errors: dict[str, str]
+    ) -> ConfigFlowResult | None:
+        """Create a PAW5320 entry if the pet registry confirms the appliance.
+
+        Read only, with the access token from this login; the refresh token
+        then passes to the entry, which becomes its only user.
+        """
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        from .feeder_api import FeederAuthRejected, FeederError, discover_feeder
+
+        access_token = self._cloud_tokens.get("access_token", "")
+        if not external_id or not access_token:
+            return None
+        try:
+            feeder = await discover_feeder(
+                async_get_clientsession(self.hass), access_token, external_id
+            )
+        except FeederAuthRejected:
+            errors["base"] = "cloud_oauth_failed"
+            return None
+        except FeederError as err:
+            # Only the error class: never the response, URL or identifiers.
+            _LOGGER.warning("HomeID pet registry lookup failed: %s", type(err).__name__)
+            errors["base"] = "feeder_unavailable"
+            return None
+        if feeder is None:
+            return None
+        data = {
+            CONF_IS_FEEDER: True,
+            CONF_DEVICE_ID: external_id,
+            CONF_CPP_ID: mac or external_id,
+            CONF_MODEL: feeder.model,
+            CONF_CLOUD_REFRESH_TOKEN: self._cloud_tokens["refresh_token"],
+            CONF_OAUTH_CLIENT: OAUTH_CLIENT_HOMEID,
+        }
+        _LOGGER.info("Creating HomeID feeder entry: model=%s", feeder.model)
+        await self._close_cloud_api()
+        return self.async_create_entry(title=feeder.name, data=data)
 
     def _fusion_entry_data(
         self,

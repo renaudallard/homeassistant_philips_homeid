@@ -92,7 +92,8 @@
       "cloud_oauth_failed": "L'authentification cloud a échoué. Consultez les logs de Home Assistant pour plus de détails. Vous pouvez aussi saisir les identifiants manuellement.",
       "cloud_unreachable": "Le cloud Philips est temporairement injoignable. Patientez un instant et réessayez.",
       "cloud_profile_error": "Le serveur Philips HomeID a renvoyé une erreur pour votre compte. Ouvrez l'application Philips HomeID, supprimez l'appareil et associez-le de nouveau, même s'il y figure encore, puis réessayez. L'erreur peut aussi être temporaire, auquel cas patientez quelques minutes.",
-      "invalid_host": "Entrez uniquement une adresse IP ou un nom d'hôte (sans schéma, port, ni chemin)."
+      "invalid_host": "Entrez uniquement une adresse IP ou un nom d'hôte (sans schéma, port, ni chemin).",
+      "feeder_unavailable": "Impossible de vérifier cet appareil dans le service animaux de HomeID. Vérifiez sa connexion dans l’application HomeID puis réessayez."
     },
     "abort": {
       "already_configured": "Appareil déjà configuré",
@@ -507,6 +508,18 @@
       },
       "device_ctn": {
         "name": "Numéro de modèle"
+      },
+      "feeder_last_feeding": {
+        "name": "Dernier repas"
+      },
+      "feeder_last_food_low": {
+        "name": "Dernière alerte de niveau de croquettes bas"
+      },
+      "feeder_last_outlet_stuck": {
+        "name": "Dernière alerte de sortie de croquettes bloquée"
+      },
+      "feeder_desiccant_replacement": {
+        "name": "Remplacement du déshydratant prévu"
       }
     },
     "binary_sensor": {
@@ -554,6 +567,9 @@
       },
       "firmware_update_available": {
         "name": "Mise à jour du firmware disponible"
+      },
+      "feeder_connectivity": {
+        "name": "Connexion au cloud"
       }
     },
     "button": {
@@ -742,6 +758,14 @@
     "fan": {
       "air_purifier": {
         "name": "Purificateur d'air"
+      }
+    },
+    "calendar": {
+      "feeder_schedule": {
+        "name": "Programmation des repas"
+      },
+      "feeder_history": {
+        "name": "Historique des repas"
       }
     }
   }

@@ -89,6 +89,8 @@ CONF_APPLIANCE_ID = "appliance_id"
 
 # FUSION (cloud MQTT relay) configuration keys
 CONF_IS_FUSION = "is_fusion"
+# HomeID pet feeder (PAW5320) reached through the pet REST backend
+CONF_IS_FEEDER = "is_feeder"
 CONF_THING_NAME = "thing_name"
 CONF_TENANT = "tenant"
 CONF_MQTT_HOST = "mqtt_host"

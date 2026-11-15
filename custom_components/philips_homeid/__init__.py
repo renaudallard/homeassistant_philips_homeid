@@ -43,6 +43,7 @@ from .const import (
     CONF_CLOUD_REFRESH_TOKEN,
     CONF_CPP_ID,
     CONF_ENCRYPTION_KEY,
+    CONF_IS_FEEDER,
     CONF_IS_FUSION,
     CONF_MODEL,
     CONF_MQTT_HOST,
@@ -82,6 +83,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Philips HomeID from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_setup_feeder_entry
+
+        return await async_setup_feeder_entry(hass, entry)
     if entry.data.get(CONF_IS_FUSION):
         return await _async_setup_fusion_entry(hass, entry)
     return await _async_setup_local_entry(hass, entry)
@@ -547,6 +552,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     platform unload succeeded so we don't leak the paho thread or aiohttp
     session if HA reports an entity still in use.
     """
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder import async_unload_feeder_entry
+
+        return await async_unload_feeder_entry(hass, entry)
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -567,3 +577,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception("Local API close raised during unload")
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Forget a removed feeder's cached access token and back-off."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder_api import FeederTokenOwner
+
+        FeederTokenOwner.discard(hass, entry.entry_id)

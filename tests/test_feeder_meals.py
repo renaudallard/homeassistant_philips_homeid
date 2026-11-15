@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from custom_components.philips_homeid.feeder_api import FeederError
 from custom_components.philips_homeid.feeder_meals import (
     FeedingEvent,
     Meal,
@@ -104,7 +105,7 @@ async def test_list_exact_device_preserves_disabled_empty_and_aliases():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("response", [{}, None, {"item": {}}, {"item": [None]}])
 async def test_bad_list_envelope_is_not_empty_success(response):
-    with pytest.raises(MealsError):
+    with pytest.raises(FeederError):
         await manager(AsyncMock(return_value=response)).list_meals()
 
 
@@ -135,7 +136,7 @@ async def test_bad_list_envelope_is_not_empty_success(response):
 )
 async def test_unsupported_selected_meal_fails_entire_read(changes):
     request = AsyncMock(return_value={"item": [meal_row(), meal_row(**changes)]})
-    with pytest.raises(MealsError):
+    with pytest.raises(FeederError):
         await manager(request).list_meals()
     assert request.await_count == 1
 
@@ -291,7 +292,7 @@ async def test_history_and_meal_reads_work_without_a_resolvable_home_zone(zone):
     ],
 )
 async def test_bad_selected_history_data_never_manufactured(changes):
-    with pytest.raises(MealsError):
+    with pytest.raises(FeederError):
         await manager(AsyncMock(return_value=[event_row(**changes)])).history(
             utc("2026-01-05"), utc("2026-01-06")
         )

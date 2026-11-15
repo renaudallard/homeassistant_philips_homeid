@@ -5,7 +5,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.philips_homeid.feeder_api import FeederDevice, FeederHTTPError
+from custom_components.philips_homeid.feeder_api import (
+    FeederDevice,
+    FeederError,
+    FeederHTTPError,
+)
 from custom_components.philips_homeid.feeder_meals import (
     STATUS_EVENT_TYPES,
     DesiccantTimer,
@@ -121,7 +125,7 @@ async def test_status_vendor_pair_never_overrides_known_external_id():
 )
 async def test_bad_status_responses_are_errors(bad):
     request = AsyncMock(return_value=bad if isinstance(bad, dict) else {"item": bad})
-    with pytest.raises(MealsError):
+    with pytest.raises(FeederError):
         await manager(request).latest_status(START, END)
 
 

@@ -39,7 +39,13 @@ from typing import Any, Protocol
 from urllib.parse import quote
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .feeder_api import FeederDevice, FeederError, FeederHTTPError
+from .feeder_api import (
+    FeederDevice,
+    FeederError,
+    FeederHTTPError,
+    identifier,
+    list_items,
+)
 
 # Event types whose latest occurrence is exposed as feeder status. These come
 # from the pet backend's event model; none has a matching "resolved" event.
@@ -112,12 +118,6 @@ class Occurrence:
     meal_id: str
 
 
-def _identifier(value: object) -> str:
-    if not isinstance(value, str) or not value.strip() or value in (".", ".."):
-        raise MealsError("Invalid identifier")
-    return value
-
-
 def _name(value: object) -> str:
     if not isinstance(value, str) or not value.strip() or not 1 <= len(value) <= 80:
         raise MealsError("Meal name must contain 1 to 80 characters")
@@ -188,17 +188,9 @@ def _bounds(start: datetime, end: datetime, max_days: int) -> tuple[datetime, da
     return start, end
 
 
-def _items(data: Any) -> list[dict[str, Any]]:
-    if isinstance(data, dict):
-        data = data.get("item")
-    if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
-        raise MealsError("Unsupported HomeID list response")
-    return data
-
-
 def _meal(row: dict[str, Any]) -> Meal:
     return Meal(
-        id=_identifier(row.get("id")),
+        id=identifier(row.get("id")),
         name=_name(row.get("name")),
         portions=_portions(
             row.get("portionAmount")
@@ -265,13 +257,13 @@ class MealManager:
         external_device_id: str | None = None,
     ) -> None:
         self._request = request
-        self._root = f"/api/homes/{quote(_identifier(home_id), safe='')}"
-        self._philips_id = _identifier(philips_device_id)
+        self._root = f"/api/homes/{quote(identifier(home_id), safe='')}"
+        self._philips_id = identifier(philips_device_id)
         # vendorId (Tuya) and externalId are distinct registry fields. Only an
         # explicitly supplied externalId can verify an event's deviceExternalId.
-        self._tuya_id = _identifier(tuya_device_id)
+        self._tuya_id = identifier(tuya_device_id)
         self._external_id = (
-            _identifier(external_device_id) if external_device_id is not None else None
+            identifier(external_device_id) if external_device_id is not None else None
         )
         # History has absolute timestamps and must remain usable without a home
         # timezone. Resolve the zone only when a local-time schedule needs it.
@@ -290,12 +282,12 @@ class MealManager:
 
     async def list_meals(self) -> list[Meal]:
         """Keep disabled/empty-repeat meals; reject unsupported selected schedules."""
-        rows = _items(await self._request("GET", f"{self._root}/meals"))
+        rows = list_items(await self._request("GET", f"{self._root}/meals"))
         meals: list[Meal] = []
         seen: set[str] = set()
         foreign_ids: set[str] = set()
         for row in rows:
-            device_id = _identifier(row.get("deviceId"))
+            device_id = identifier(row.get("deviceId"))
             if device_id != self._philips_id:
                 if isinstance(row.get("id"), str):
                     foreign_ids.add(row["id"])
@@ -336,7 +328,7 @@ class MealManager:
             if internal_matches or vendor_matches:
                 raise self._ownership_error(internal, external)
             if internal is not None:
-                _identifier(internal)
+                identifier(internal)
                 return False  # positively identified as another Philips device
             raise self._ownership_error(internal, external)
         # A known registry externalId is never overridden by the vendor ID.
@@ -350,10 +342,10 @@ class MealManager:
                 raise self._ownership_error(internal, external)
             return True
         if internal is not None:
-            _identifier(internal)
+            identifier(internal)
             return False  # positively identified as another Philips device
         if external is not None:
-            _identifier(external)
+            identifier(external)
             return False  # positively identified as another external device
         raise self._ownership_error(internal, external)
 
@@ -382,7 +374,7 @@ class MealManager:
             ):
                 raise MealsError("Invalid feeding event amount")
             event = FeedingEvent(
-                id=_identifier(row.get("id")),
+                id=identifier(row.get("id")),
                 time=when,
                 name=_event_text(row.get("mealName")),
                 amount=amount,
@@ -396,7 +388,7 @@ class MealManager:
     async def _events(
         self, start: datetime, end: datetime, types: str
     ) -> list[dict[str, Any]]:
-        return _items(
+        return list_items(
             await self._request(
                 "GET",
                 f"{self._root}/events",
@@ -467,7 +459,7 @@ def occurrences(
     start, end = _bounds(start, end, 366)
     result: list[Occurrence] = []
     for meal in meals:
-        _identifier(meal.id)
+        identifier(meal.id)
         _name(meal.name)
         _portions(meal.portions)
         feed_time = _time(meal.time)

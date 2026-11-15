@@ -6,7 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.philips_homeid.feeder_feed import FeederFeed
-from custom_components.philips_homeid.tuya_api import TuyaError, TuyaSessionLost
+from custom_components.philips_homeid.tuya_api import (
+    TuyaError,
+    TuyaSession,
+    TuyaSessionLost,
+)
+
+from .test_tuya_api import DUMMY, LOGIN_OK, FakeTuya
 
 CLOUD = "custom_components.philips_homeid.cloud_api.PhilipsCloudAPI"
 TENANT = {
@@ -30,6 +36,9 @@ class FakeSession:
         await asyncio.sleep(0)
         self.logins.append((id_token, dial_code))
         self.logged_in = True
+
+    def forget(self):
+        self.logged_in = False
 
     async def alive(self):
         self.alive_checks += 1
@@ -96,19 +105,49 @@ async def test_concurrent_presses_share_one_login():
 
 
 @pytest.mark.asyncio
-async def test_dead_session_logs_in_again_and_feeds_once():
+async def test_dead_session_is_dropped_and_the_feed_not_sent_again():
     session = FakeSession(None, TuyaSessionLost("x"), alive=False)
     feed, owner, cloud = make_feed(session)
     with patch(CLOUD, return_value=cloud):
         await feed.feed(1)
-        await feed.feed(2)
+        with pytest.raises(TuyaSessionLost):
+            await feed.feed(2)
+        assert session.alive_checks == 1
+        assert not session.logged_in
+        assert len(session.logins) == 1
+        # The next press logs in again.
+        await feed.feed(3)
     assert len(session.logins) == 2
-    assert session.alive_checks == 1
-    # The refused attempt and its single retry.
-    assert session.published[1:] == [("tuya-1", {"201": 2})] * 2
+    assert session.published == [
+        ("tuya-1", {"201": 1}),
+        ("tuya-1", {"201": 2}),
+        ("tuya-1", {"201": 3}),
+    ]
     assert owner.id_token.await_count == 2
     # The dial code is looked up once.
     cloud.homeid_discovery.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_unreadable_replies_never_publish_twice_for_one_press():
+    unreadable = {"_sealed": {"result": True, "success": True}, "_ecode": "other"}
+    ok = {"_sealed": {"result": True, "success": True}, "_ecode": "ec-1"}
+    # Publish, then the press whose publish and session check cannot be read.
+    fake = FakeTuya(LOGIN_OK, ok, unreadable, unreadable, LOGIN_OK, ok)
+    feed, _, cloud = make_feed(TuyaSession(fake.http, DUMMY))
+    with patch(CLOUD, return_value=cloud):
+        await feed.feed(1)
+        with pytest.raises(TuyaSessionLost):
+            await feed.feed(2)
+        assert [data["a"] for _, data in fake.calls[2:]] == [
+            "thing.m.device.dp.publish",
+            "m.life.home.space.list",
+        ]
+        assert not feed.logged_in
+        await feed.feed(3)
+    actions = [data["a"] for _, data in fake.calls]
+    assert actions.count("thing.m.device.dp.publish") == 3
+    assert actions.count("thing.m.user.third.login") == 2
 
 
 @pytest.mark.asyncio
@@ -120,6 +159,7 @@ async def test_unreadable_reply_on_a_live_session_is_never_sent_again():
         with pytest.raises(TuyaSessionLost):
             await feed.feed(2)
     assert len(session.logins) == 1
+    assert session.logged_in
     assert session.published == [("tuya-1", {"201": 1}), ("tuya-1", {"201": 2})]
 
 
@@ -161,10 +201,11 @@ async def test_no_country_uses_the_app_fallback_without_a_lookup():
 )
 @pytest.mark.asyncio
 async def test_unknown_country_falls_back_and_is_kept(tenant):
-    session = FakeSession(None, TuyaSessionLost("x"))
+    session = FakeSession()
     feed, _, cloud = make_feed(session, country="US", tenant=tenant)
     with patch(CLOUD, return_value=cloud):
         await feed.feed(1)
+        session.forget()
         await feed.feed(1)
     assert [dial for _, dial in session.logins] == ["31", "31"]
     cloud.homeid_discovery.assert_awaited_once()
@@ -176,10 +217,11 @@ async def test_unknown_country_falls_back_and_is_kept(tenant):
 )
 @pytest.mark.asyncio
 async def test_unanswered_tenant_falls_back_and_is_asked_again(tenant):
-    session = FakeSession(None, TuyaSessionLost("x"))
+    session = FakeSession()
     feed, _, cloud = make_feed(session, tenant=tenant)
     with patch(CLOUD, return_value=cloud):
         await feed.feed(1)
+        session.forget()
         await feed.feed(1)
     assert [dial for _, dial in session.logins] == ["31", "31"]
     assert cloud.homeid_discovery.await_count == 2

@@ -164,12 +164,13 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   second login did not end the first. `petsseries` reports a daily login cap
   (`USER_SESSION_LIMIT`), so the integration logs in again only when Tuya
   says the session is gone.
-- One press feeds at most once. Tuya answers a session it no longer knows
+- One press sends the feed once. Tuya answers a session it no longer knows
   with `USER_SESSION_LOSS`, or with a reply that opens with neither key, and
-  the latter cannot be told from other unreadable replies. So after either,
-  the integration checks the session with a harmless read
-  (`m.life.home.space.list`) and logs in and sends the feed again only if
-  that read fails too.
+  the latter cannot be told from other unreadable replies: Tuya may have
+  carried out the feed. So after either, the integration never sends the
+  feed again. It checks the session with a harmless read
+  (`m.life.home.space.list`) and, only if that read fails too, drops the
+  session so the next press logs in again.
 - A publish that Tuya accepts says only that the cloud took the command;
   whether food came out shows in the history as `meal_dispensed`.
 

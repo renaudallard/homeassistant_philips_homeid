@@ -470,10 +470,12 @@ What you get:
   your HomeID login and keeps that session. The login names the dial code
   of the HomeID country matching your Home Assistant country, as the app
   names the country chosen in it (31, the app's default, if none matches).
-  A press feeds at most once: if Tuya's answer cannot be read, the feed is
-  retried only when Tuya confirms the old session is gone. A successful
-  press means Tuya accepted the command; the dispensed meal shows in the
-  feeding history.
+  A press sends the feed once and never resends it, since an unreadable
+  answer may still come from a feed that reached the feeder. If
+  Tuya no longer accepts the session, the press fails and the next one logs
+  in again, so check whether food came out before pressing again. A
+  successful press means Tuya accepted the command; the dispensed meal
+  shows in the feeding history.
 
 Feed now has not yet been confirmed on a real feeder through this
 integration. Camera and video are out of scope. The protocol and the limits

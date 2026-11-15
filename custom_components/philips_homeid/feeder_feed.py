@@ -26,8 +26,9 @@
 
 The HomeID app clamps a quick feed to 1 to 20 portions and publishes it as
 one data point: "201" on a feeder with camera such as the PAW5320. A feed is
-sent at most once per press: after a refusal it is sent again only when Tuya
-proved the session dead, so the first attempt cannot have reached the feeder.
+sent once per press and never again: a reply that cannot be read may still
+come from a feed that reached the feeder. A session Tuya no longer accepts is
+dropped, so the next press logs in afresh.
 """
 
 from __future__ import annotations
@@ -74,17 +75,15 @@ class FeederFeed:
         async with self._lock:
             if not self._session.logged_in:
                 await self._login()
-                await self._session.publish(self._device_id, dps)
-                return
             try:
                 await self._session.publish(self._device_id, dps)
             except TuyaSessionLost:
-                # An unreadable reply also lands here. Only a session that
-                # fails a harmless read too is dead; then nothing was fed.
-                if await self._session.alive():
-                    raise
-                await self._login()
-                await self._session.publish(self._device_id, dps)
+                # An unreadable reply also lands here, and Tuya may have fed.
+                # Drop the session only if a harmless read fails too, since
+                # petsseries reports a daily login cap.
+                if not await self._session.alive():
+                    self._session.forget()
+                raise
 
     async def _login(self) -> None:
         dial_code = self._dial_code or await self._lookup_dial_code()

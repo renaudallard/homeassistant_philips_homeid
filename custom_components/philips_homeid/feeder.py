@@ -96,6 +96,7 @@ class FeederData:
     status_ok: bool = False
     desiccant: DesiccantTimer | None = None
     time_zone: str | None = None
+    time_zone_from_home: bool = False
 
 
 class FeederCoordinator(DataUpdateCoordinator[FeederData]):
@@ -163,7 +164,11 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             status=status or {},
             status_ok=status is not None,
             desiccant=desiccant,
-            time_zone=manager.time_zone,
+            # The app shows meal times in the phone's zone, which onboarding
+            # also stores on the home; HA's zone stands in when HomeID sends
+            # none.
+            time_zone=manager.time_zone or self.hass.config.time_zone,
+            time_zone_from_home=bool(manager.time_zone),
         )
 
     async def _optional(
@@ -246,7 +251,7 @@ def feeder_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any
         "status_available": data.status_ok if data else None,
         "status_types": sorted(data.status) if data else None,
         "desiccant_available": data.desiccant is not None if data else None,
-        "home_time_zone_known": bool(data.time_zone) if data else None,
+        "home_time_zone_known": data.time_zone_from_home if data else None,
     }
 
 

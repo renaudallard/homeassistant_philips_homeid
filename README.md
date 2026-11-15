@@ -447,8 +447,8 @@ What you get:
   schedule is read only here; add or change meals in the HomeID app. This
   version of the integration never writes anything to HomeID.
 - Meal times are either in the HomeID home's time zone (they follow daylight
-  saving time) or in UTC. If HomeID reports no time zone for the home,
-  home-time meals cannot be shown; UTC meals and history still work.
+  saving time) or in UTC. If HomeID reports no time zone for the home, the
+  Home Assistant time zone is used, as the app uses the phone's.
 - **Feeding history** calendar and **Last feeding** sensor: the meals HomeID
   reports as dispensed (`meal_dispensed` events), never inferred from a
   schedule or a button. The sensor covers the last 7 days and lists up to 20

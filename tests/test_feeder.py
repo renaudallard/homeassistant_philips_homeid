@@ -65,6 +65,8 @@ def manager():
 
 def bare_coordinator(m):
     coord = FeederCoordinator.__new__(FeederCoordinator)
+    coord.hass = MagicMock()
+    coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
@@ -79,7 +81,7 @@ async def test_poll_reads_every_part():
     data = await bare_coordinator(m)._async_update_data()
     assert data.meals_ok and data.history_ok and data.status_ok
     assert data.desiccant == DesiccantTimer(TODAY, None)
-    assert data.time_zone == "Europe/Riga"
+    assert data.time_zone == "Europe/Riga" and data.time_zone_from_home
     start, end = m.history.await_args.args
     assert end - start == timedelta(days=7)
 
@@ -99,6 +101,14 @@ async def test_one_failing_part_leaves_the_rest_available(part):
         "desiccant": data.desiccant is not None,
     }
     assert [name for name, ok in flags.items() if not ok] == [part]
+
+
+@pytest.mark.asyncio
+async def test_home_without_time_zone_uses_the_ha_time_zone():
+    m = manager()
+    m.time_zone = None
+    data = await bare_coordinator(m)._async_update_data()
+    assert data.time_zone == "Europe/Brussels" and not data.time_zone_from_home
 
 
 @pytest.mark.asyncio

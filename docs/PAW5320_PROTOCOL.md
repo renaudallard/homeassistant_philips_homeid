@@ -78,8 +78,11 @@ Meal fields: `id`, `deviceId`, `name`, `portionAmount` (older rows: `amount`),
 
 - `feedTime` is `HH:MM` in the home's IANA `timeZone`, or `HH:MMZ` for UTC.
   Weekdays are 1 = Monday … 7 = Sunday, in the same zone as the time. Disabled
-  meals and meals with no repeat days are kept, never dropped or rewritten. No
-  Home Assistant time zone is substituted for a missing home zone.
+  meals and meals with no repeat days are kept, never dropped or rewritten.
+- The app's home model has no `timeZone`: it shows meal times in the phone's
+  zone, and its onboarding stores that zone on the home with `PATCH
+  homes/{home}`. *Live:* the home carried it. When it is missing, the
+  integration uses the Home Assistant time zone instead.
 - Calendar occurrences are predictions: nonexistent local times in a DST gap
   are skipped, a repeated hour uses its first instant. What the feeder itself
   does at DST changes is unknown.

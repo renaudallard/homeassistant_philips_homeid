@@ -191,12 +191,12 @@ async def test_history_scope_dedup_sort_fields_and_neutral_amount():
     request.assert_awaited_once_with(
         "GET",
         "/api/homes/home%20%2F%3F%23/events",
-        params={
-            "from": start.isoformat(),
-            "to": end.isoformat(),
-            "types": "meal_dispensed",
-            "clustered": "false",
-        },
+        params=[
+            ("from", start.isoformat()),
+            ("to", end.isoformat()),
+            ("types", "meal_dispensed"),
+            ("clustered", "false"),
+        ],
     )
 
 

@@ -46,7 +46,7 @@ endpoint's errors carry server text. Lists use the envelope `{"item": [...]}`.
 | Homes | `GET /api/homes` → `id`, `timeZone` (IANA name) |
 | Devices of a home | `GET /api/homes/{home}/devices` → `id`, `vendorId`, `externalId`, `productCtn`, `name` |
 | Meals of a home | `GET /api/homes/{home}/meals` |
-| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&clustered=false` |
+| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&clustered=false` |
 | Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
 
 ## Identity
@@ -106,9 +106,11 @@ Event fields used: `id`, `type`, `time` (ISO 8601 with offset), `deviceId`,
   schedules or commands. `mealAmount` has no documented unit and is shown as
   a plain number. *Live:* reading with `clustered=false`. Whether results are
   paginated or capped has not been observed.
-- Status requests `types=food_level_low,food_outlet_stuck,device_online,device_offline`
-  over the last 7 days, separately from history so that a status event that
-  cannot be attributed does not hide the feeding history. The integration keeps
+- Status requests `food_level_low`, `food_outlet_stuck`, `device_online` and
+  `device_offline`, one `types` parameter each as the app's Retrofit client
+  encodes a list (the app itself never filters by type), over the last 7
+  days, separately from history so that a status event that cannot be
+  attributed does not hide the feeding history. The integration keeps
   the latest time per type. These are one-shot reports: no event says that
   food was refilled or an outlet cleared, so no healthy state is inferred and
   the alerts are timestamps. Connectivity is whichever of `device_online` /

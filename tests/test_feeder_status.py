@@ -69,12 +69,12 @@ async def test_latest_status_per_type_with_exact_query():
     request.assert_awaited_once_with(
         "GET",
         "/api/homes/home/events",
-        params={
-            "from": START.isoformat(),
-            "to": END.isoformat(),
-            "types": ",".join(STATUS_EVENT_TYPES),
-            "clustered": "false",
-        },
+        params=[
+            ("from", START.isoformat()),
+            ("to", END.isoformat()),
+            *(("types", kind) for kind in STATUS_EVENT_TYPES),
+            ("clustered", "false"),
+        ],
     )
 
 

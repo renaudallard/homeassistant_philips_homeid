@@ -140,7 +140,7 @@ async def pet_request(
     method: str,
     path: str,
     *,
-    params: dict[str, str] | None = None,
+    params: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Send one read. Anything but GET is refused before it is sent."""
     if method != "GET":
@@ -377,7 +377,7 @@ class FeederClient:
         method: str,
         path: str,
         *,
-        params: dict[str, str] | None = None,
+        params: list[tuple[str, str]] | None = None,
     ) -> Any:
         """A read retries once if the pet backend refused an older token."""
         if method != "GET":

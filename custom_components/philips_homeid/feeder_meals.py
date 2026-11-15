@@ -82,7 +82,7 @@ class Request(Protocol):
         method: str,
         path: str,
         *,
-        params: dict[str, str] | None = None,
+        params: list[tuple[str, str]] | None = None,
     ) -> Any: ...
 
 
@@ -360,7 +360,7 @@ class MealManager:
         start, end = _bounds(start, end, 31)
         if start == end:
             return []
-        rows = await self._events(start, end, "meal_dispensed")
+        rows = await self._events(start, end, ("meal_dispensed",))
         events: dict[str, FeedingEvent] = {}
         for row in rows:
             if row.get("type") != "meal_dispensed" or not self._event_owned(row):
@@ -388,19 +388,15 @@ class MealManager:
         return sorted(events.values(), key=lambda event: (event.time, event.id))
 
     async def _events(
-        self, start: datetime, end: datetime, types: str
+        self, start: datetime, end: datetime, types: Iterable[str]
     ) -> list[dict[str, Any]]:
+        # One "types" pair per type, the way the app's Retrofit client sends
+        # a list query parameter.
+        params = [("from", start.isoformat()), ("to", end.isoformat())]
+        params += [("types", kind) for kind in types]
+        params.append(("clustered", "false"))
         return list_items(
-            await self._request(
-                "GET",
-                f"{self._root}/events",
-                params={
-                    "from": start.isoformat(),
-                    "to": end.isoformat(),
-                    "types": types,
-                    "clustered": "false",
-                },
-            )
+            await self._request("GET", f"{self._root}/events", params=params)
         )
 
     async def latest_status(
@@ -416,7 +412,7 @@ class MealManager:
         if start == end:
             return {}
         latest: dict[str, datetime] = {}
-        for row in await self._events(start, end, ",".join(STATUS_EVENT_TYPES)):
+        for row in await self._events(start, end, STATUS_EVENT_TYPES):
             kind = row.get("type")
             if kind not in STATUS_EVENT_TYPES or not self._event_owned(row):
                 continue

@@ -92,8 +92,7 @@
       "no_cloud_devices": "Inga enheter hittades på ditt Philips-konto.",
       "cloud_credentials_not_found": "Det gick inte att hämta enhetens anslutningsuppgifter från Philips-molnet. Kontrollera att den är helt parkopplad i den officiella Philips-appen.",
       "cloud_no_ip": "Enhetens IP-adress är inte tillgänglig via molnet. Försök att ange IP-adressen manuellt.",
-      "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt.",
-      "feeder_unavailable": "Det gick inte att kontrollera apparaten i HomeID:s djurtjänst. Kontrollera anslutningen i HomeID-appen och försök igen."
+      "cloud_oauth_failed": "Molnautentiseringen misslyckades. Kontrollera Home Assistants loggar för mer information. Du kan också ange autentiseringsuppgifterna manuellt."
     },
     "abort": {
       "already_configured": "Enheten är redan konfigurerad",

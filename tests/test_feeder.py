@@ -412,8 +412,10 @@ async def test_fusion_miss_creates_a_verified_feeder_entry():
     ("outcome", "error"),
     [
         (None, "cloud_credentials_not_found"),
-        (FeederError("x"), "feeder_unavailable"),
-        (FeederAuthRejected(401), "cloud_oauth_failed"),
+        # Nothing says a device is a feeder until the registry answers, so a
+        # failed lookup is reported like any unresolved device.
+        (FeederError("x"), "cloud_credentials_not_found"),
+        (FeederAuthRejected(401), "cloud_credentials_not_found"),
     ],
 )
 async def test_non_feeders_and_lookup_failures_create_no_entry(outcome, error):

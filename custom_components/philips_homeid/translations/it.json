@@ -92,8 +92,7 @@
       "cloud_oauth_failed": "Autenticazione cloud fallita. Controllare i log di Home Assistant per i dettagli. È anche possibile inserire le credenziali manualmente.",
       "cloud_unreachable": "Il cloud Philips è temporaneamente irraggiungibile. Attendere un momento e riprovare.",
       "cloud_profile_error": "Il backend Philips HomeID ha restituito un errore del server per il tuo account. Apri l'app Philips HomeID, rimuovi il dispositivo e associalo di nuovo anche se è ancora presente, quindi riprova. L'errore può anche essere temporaneo, quindi attendere qualche minuto può aiutare.",
-      "invalid_host": "Inserisci solo un indirizzo IP o un nome host (senza schema, porta o percorso).",
-      "feeder_unavailable": "Impossibile verificare questo apparecchio nel servizio animali di HomeID. Controlla la sua connessione nell’app HomeID e riprova."
+      "invalid_host": "Inserisci solo un indirizzo IP o un nome host (senza schema, porta o percorso)."
     },
     "abort": {
       "already_configured": "Dispositivo già configurato",

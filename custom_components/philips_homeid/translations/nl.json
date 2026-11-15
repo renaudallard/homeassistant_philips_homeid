@@ -92,8 +92,7 @@
       "cloud_oauth_failed": "Cloud-authenticatie mislukt. Bekijk de Home Assistant logs voor details. U kunt ook de gegevens handmatig invoeren.",
       "cloud_unreachable": "De Philips-cloud is tijdelijk onbereikbaar. Wacht een moment en probeer het opnieuw.",
       "cloud_profile_error": "De Philips HomeID-server gaf een serverfout voor uw account. Open de Philips HomeID-app, verwijder het apparaat en koppel het opnieuw, ook als het er nog staat, en probeer het daarna opnieuw. De fout kan ook tijdelijk zijn, wacht in dat geval enkele minuten.",
-      "invalid_host": "Voer alleen een IP-adres of hostnaam in (zonder schema, poort of pad).",
-      "feeder_unavailable": "Dit apparaat kon niet worden gecontroleerd in de HomeID-huisdierendienst. Controleer de verbinding in de HomeID-app en probeer het opnieuw."
+      "invalid_host": "Voer alleen een IP-adres of hostnaam in (zonder schema, poort of pad)."
     },
     "abort": {
       "already_configured": "Apparaat is al geconfigureerd",

@@ -1025,8 +1025,8 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # A HomeID pet feeder has no IoT thing: it lives in the HomeID pet
             # registry. Only that registry's exact match makes it a feeder,
             # never its name or an ID prefix.
-            feeder_result = await self._create_feeder_entry(external_id, mac, errors)
-            if feeder_result or errors:
+            feeder_result = await self._create_feeder_entry(external_id, mac)
+            if feeder_result:
                 return feeder_result
             _LOGGER.error(
                 "Could not resolve thingName for device %s (mac=%s)",
@@ -1076,16 +1076,18 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title=f"{name} (Cloud)", data=entry_data)
 
     async def _create_feeder_entry(
-        self, external_id: str, mac: str, errors: dict[str, str]
+        self, external_id: str, mac: str
     ) -> ConfigFlowResult | None:
         """Create a PAW5320 entry if the pet registry confirms the appliance.
 
         Read only, with the access token from this login; the refresh token
-        then passes to the entry, which becomes its only user.
+        then passes to the entry, which becomes its only user. When the
+        registry cannot be read, nothing says the appliance is a feeder at
+        all, so the caller reports it like any other unresolved device.
         """
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-        from .feeder_api import FeederAuthRejected, FeederError, discover_feeder
+        from .feeder_api import FeederError, FeederHTTPError, discover_feeder
 
         access_token = self._cloud_tokens.get("access_token", "")
         if not external_id or not access_token:
@@ -1094,13 +1096,13 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             feeder = await discover_feeder(
                 async_get_clientsession(self.hass), access_token, external_id
             )
-        except FeederAuthRejected:
-            errors["base"] = "cloud_oauth_failed"
-            return None
         except FeederError as err:
-            # Only the error class: never the response, URL or identifiers.
-            _LOGGER.warning("HomeID pet registry lookup failed: %s", type(err).__name__)
-            errors["base"] = "feeder_unavailable"
+            # Only the error class and status: never the response, URL or IDs.
+            _LOGGER.warning(
+                "HomeID pet registry lookup failed: %s%s",
+                type(err).__name__,
+                f" {err.status}" if isinstance(err, FeederHTTPError) else "",
+            )
             return None
         if feeder is None:
             return None

@@ -168,9 +168,10 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   with `USER_SESSION_LOSS`, or with a reply that opens with neither key, and
   the latter cannot be told from other unreadable replies: Tuya may have
   carried out the feed. So after either, the integration never sends the
-  feed again. It checks the session with a harmless read
-  (`m.life.home.space.list`) and, only if that read fails too, drops the
-  session so the next press logs in again.
+  feed again. After `USER_SESSION_LOSS` it drops the session, so the next
+  press logs in again. After an unreadable reply it checks the session with
+  a harmless read (`m.life.home.space.list`) and drops it only if that read
+  fails too.
 - A publish that Tuya accepts says only that the cloud took the command;
   whether food came out shows in the history as `meal_dispensed`.
 

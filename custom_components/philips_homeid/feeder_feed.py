@@ -39,7 +39,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .feeder_api import FeederTokenOwner
-from .tuya_api import TuyaSession, TuyaSessionLost
+from .tuya_api import SESSION_LOST, TuyaSession, TuyaSessionLost
 
 # Feed data point per model, from SingleContainerDispenseSerializer.
 FEED_DPS = {"PAW5320": "201"}
@@ -77,11 +77,12 @@ class FeederFeed:
                 await self._login()
             try:
                 await self._session.publish(self._device_id, dps)
-            except TuyaSessionLost:
-                # An unreadable reply also lands here, and Tuya may have fed.
-                # Drop the session only if a harmless read fails too, since
+            except TuyaSessionLost as err:
+                # Tuya said the session is gone, so drop it. An unreadable
+                # reply also lands here and Tuya may have fed: drop the
+                # session then only if a harmless read fails too, since
                 # petsseries reports a daily login cap.
-                if not await self._session.alive():
+                if err.code == SESSION_LOST or not await self._session.alive():
                     self._session.forget()
                 raise
 

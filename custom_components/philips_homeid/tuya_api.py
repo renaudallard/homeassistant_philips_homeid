@@ -101,7 +101,7 @@ _SIGNED = frozenset(
         "v",
     }
 )
-_SESSION_LOST = "USER_SESSION_LOSS"
+SESSION_LOST = "USER_SESSION_LOSS"
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
 _MAX_REPLY = 1 << 20
 _CODE = re.compile(r"[A-Za-z0-9_.-]{1,64}")
@@ -193,7 +193,7 @@ def unseal(key: bytes, value: str) -> Any:
 
 def _refusal(code: Any) -> TuyaError:
     code = code if isinstance(code, str) else ""
-    if code == _SESSION_LOST:
+    if code == SESSION_LOST:
         return TuyaSessionLost("Tuya session expired", code)
     return TuyaError("Tuya refused the request", code)
 

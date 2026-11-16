@@ -151,6 +151,39 @@ async def test_unreadable_replies_never_publish_twice_for_one_press():
 
 
 @pytest.mark.asyncio
+async def test_explicit_session_loss_drops_the_session_without_a_check():
+    session = FakeSession(None, TuyaSessionLost("x", "USER_SESSION_LOSS"))
+    feed, _, cloud = make_feed(session)
+    with patch(CLOUD, return_value=cloud):
+        await feed.feed(1)
+        with pytest.raises(TuyaSessionLost):
+            await feed.feed(2)
+    assert session.alive_checks == 0
+    assert not session.logged_in
+
+
+@pytest.mark.asyncio
+async def test_explicit_session_loss_logs_in_again_on_the_next_press():
+    # No session check is made, so one that fails cannot keep the session.
+    lost = {"_sealed": {"success": False, "errorCode": "USER_SESSION_LOSS"}}
+    ok = {"_sealed": {"result": True, "success": True}, "_ecode": "ec-1"}
+    fake = FakeTuya(LOGIN_OK, lost, LOGIN_OK, ok)
+    feed, _, cloud = make_feed(TuyaSession(fake.http, DUMMY))
+    with patch(CLOUD, return_value=cloud):
+        with pytest.raises(TuyaSessionLost):
+            await feed.feed(1)
+        assert not feed.logged_in
+        await feed.feed(2)
+    actions = [data["a"] for _, data in fake.calls]
+    assert actions == [
+        "thing.m.user.third.login",
+        "thing.m.device.dp.publish",
+        "thing.m.user.third.login",
+        "thing.m.device.dp.publish",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_unreadable_reply_on_a_live_session_is_never_sent_again():
     session = FakeSession(None, TuyaSessionLost("x"), alive=True)
     feed, _, cloud = make_feed(session)

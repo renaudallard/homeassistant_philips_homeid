@@ -330,6 +330,20 @@ async def test_failed_status_is_refused_before_reading():
 
 
 @pytest.mark.parametrize(
+    "code",
+    [
+        "bf12ab34cd56ef78gh90",
+        "1e2d3c4b-0000-4000-8000-000000000000",
+        "eu1712345678901abcde",
+        "Bearer.abc",
+        "A" * 65,
+    ],
+)
+def test_error_code_that_looks_like_an_id_is_dropped(code):
+    assert TuyaError("x", code).code == ""
+
+
+@pytest.mark.parametrize(
     "reply",
     [{}, {"result": True}, {"success": "true"}, {"success": 1}, {"status": "ok"}],
 )

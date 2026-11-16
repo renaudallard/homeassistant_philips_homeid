@@ -104,7 +104,8 @@ _SIGNED = frozenset(
         "v",
     }
 )
-SESSION_LOST = "USER_SESSION_LOSS"
+# Codes the Tuya SDK reads as a session gone, to log in again.
+SESSION_LOST = frozenset({"USER_SESSION_LOSS", "USER_SESSION_INVALID"})
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
 _MAX_REPLY = 1 << 20
 # Tuya error codes are upper case words; ids and tokens are not.
@@ -197,7 +198,7 @@ def unseal(key: bytes, value: str) -> Any:
 
 def _refusal(code: Any) -> TuyaError:
     code = code if isinstance(code, str) else ""
-    if code == SESSION_LOST:
+    if code in SESSION_LOST:
         return TuyaSessionLost("Tuya session expired", code)
     return TuyaError("Tuya refused the request", code)
 

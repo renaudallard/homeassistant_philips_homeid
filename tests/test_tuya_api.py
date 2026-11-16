@@ -289,6 +289,12 @@ async def test_login_to_an_unknown_host_is_refused():
             TuyaSessionLost,
             "USER_SESSION_LOSS",
         ),
+        # The Tuya SDK reads USER_SESSION_INVALID the same way.
+        (
+            {"_sealed": {"success": False, "errorCode": "USER_SESSION_INVALID"}},
+            TuyaSessionLost,
+            "USER_SESSION_INVALID",
+        ),
         # Or sealed with a key we cannot derive.
         ({"_sealed": {"success": True}, "_ecode": "other"}, TuyaSessionLost, ""),
         (

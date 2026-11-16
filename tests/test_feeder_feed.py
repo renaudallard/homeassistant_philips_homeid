@@ -150,9 +150,10 @@ async def test_unreadable_replies_never_publish_twice_for_one_press():
     assert actions.count("thing.m.user.third.login") == 2
 
 
+@pytest.mark.parametrize("code", ["USER_SESSION_LOSS", "USER_SESSION_INVALID"])
 @pytest.mark.asyncio
-async def test_explicit_session_loss_drops_the_session_without_a_check():
-    session = FakeSession(None, TuyaSessionLost("x", "USER_SESSION_LOSS"))
+async def test_explicit_session_loss_drops_the_session_without_a_check(code):
+    session = FakeSession(None, TuyaSessionLost("x", code))
     feed, _, cloud = make_feed(session)
     with patch(CLOUD, return_value=cloud):
         await feed.feed(1)

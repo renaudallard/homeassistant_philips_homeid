@@ -82,7 +82,7 @@ class FeederFeed:
                 # reply also lands here and Tuya may have fed: drop the
                 # session then only if a harmless read fails too, since
                 # petsseries reports a daily login cap.
-                if err.code == SESSION_LOST or not await self._session.alive():
+                if err.code in SESSION_LOST or not await self._session.alive():
                     self._session.forget()
                 raise
 

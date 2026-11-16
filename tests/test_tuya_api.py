@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -252,7 +253,8 @@ async def test_login_to_an_unknown_host_is_refused():
                     "ecode": "e",
                     "uid": "u",
                     "domain": {"mobileApiUrl": "https://evil.example"},
-                }
+                },
+                "success": True,
             }
         }
     )
@@ -325,6 +327,43 @@ async def test_failed_status_is_refused_before_reading():
     with pytest.raises(TuyaError):
         await session.publish("dev-1", {"201": 1})
     assert fake.chunks_read == before
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [{}, {"result": True}, {"success": "true"}, {"success": 1}, {"status": "ok"}],
+)
+@pytest.mark.asyncio
+async def test_publish_needs_tuya_to_say_success(reply):
+    _, session = await logged_in({"_sealed": reply, "_ecode": "ec-1"})
+    with pytest.raises(TuyaError) as caught:
+        await session.publish("dev-1", {"201": 1})
+    assert type(caught.value) is TuyaError
+    assert caught.value.code == ""
+
+
+@pytest.mark.asyncio
+async def test_login_needs_tuya_to_say_success():
+    fake = FakeTuya({"_sealed": {"result": LOGIN_OK["_sealed"]["result"]}})
+    session = TuyaSession(fake.http, DUMMY)
+    with pytest.raises(TuyaError):
+        await session.login("id-token", "32")
+    assert not session.logged_in
+
+
+@pytest.mark.asyncio
+async def test_debug_log_names_only_the_reply_keys(caplog):
+    caplog.set_level(logging.DEBUG, logger=tuya_api.__name__)
+    _, session = await logged_in(
+        {"_sealed": {"result": True, "success": True, "t": 1}, "_ecode": "ec-1"}
+    )
+    await session.publish("dev-1", {"201": 1})
+    lines = [r.getMessage() for r in caplog.records]
+    assert "Tuya thing.m.device.dp.publish reply keys: ['result', 'success', 't']" in (
+        lines
+    )
+    for secret in ("sid-1", "ec-1", "uid-1", "id-token", "tuyaus"):
+        assert not any(secret in line for line in lines)
 
 
 @pytest.mark.asyncio

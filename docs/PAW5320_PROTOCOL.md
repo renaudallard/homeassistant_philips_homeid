@@ -172,6 +172,11 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   press logs in again. After an unreadable reply it checks the session with
   a harmless read (`m.life.home.space.list`) and drops it only if that read
   fails too.
+- Every opened reply seen live carries `success` and `status`: `true` and
+  `ok` on a session read, `false` and `error` with `errorCode` and
+  `errorMsg` on a refused publish. A reply that does not say `success: true`
+  is not taken as done. What an accepted `dp.publish` returns has not been
+  seen; the integration logs the key names of each reply at debug level.
 - A publish that Tuya accepts says only that the cloud took the command;
   whether food came out shows in the history as `meal_dispensed`.
 
@@ -189,6 +194,7 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | Feeder behaviour at DST changes | not established |
 | Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
 | `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |
+| Reply wrapper `success`, `status` | live on a session read and a refused publish; an accepted publish not seen |
 | Feed now `{"201": n}` on a PAW5320 | **not yet run by this integration**; dispensed from the tester's own prototype |
 
 ## Open questions

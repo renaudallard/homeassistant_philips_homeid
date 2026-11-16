@@ -32,7 +32,7 @@ hmac and cryptography, so feed now needs no extra requirement.
 It logs in, checks a session and publishes data points, nothing else. It only
 talks to Tuya's regional API hosts and never follows redirects. Errors carry
 a fixed message and at most Tuya's error code, never a token, session,
-identifier or reply body.
+identifier or reply body; the debug log names only a reply's keys.
 """
 
 from __future__ import annotations
@@ -42,6 +42,7 @@ import binascii
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import time
@@ -53,6 +54,8 @@ from urllib.parse import urlsplit
 import aiohttp
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+_LOGGER = logging.getLogger(__name__)
 
 # Identity of the HomeID 8.23.0 app in Tuya's cloud, the same in every copy
 # of the app. APP_ID and APP_SECRET are THING_SMART_APPKEY and
@@ -199,16 +202,24 @@ def _refusal(code: Any) -> TuyaError:
 
 
 def _payload(data: Any) -> dict[str, Any]:
-    """Unwrap nested results, refusing at the first level that failed."""
+    """Unwrap nested results, refusing at the first level that failed.
+
+    Tuya marks every reply with ``success``: a reply that does not say
+    ``true`` is not taken as done.
+    """
     if not isinstance(data, dict):
         raise TuyaError("Tuya reply was not readable")
+    done = data.get("success") is True
     while True:
         if data.get("success") is False or data.get("errorCode"):
             raise _refusal(data.get("errorCode"))
         inner = data.get("result")
         if not isinstance(inner, dict):
-            return data
+            break
         data = inner
+    if not done:
+        raise TuyaError("Tuya request was not confirmed")
+    return data
 
 
 def _text(value: Any) -> str:
@@ -353,7 +364,10 @@ class TuyaSession:
         sealed = envelope.get("result")
         if not isinstance(sealed, str):
             raise _refusal(envelope.get("errorCode") or envelope.get("code"))
-        return _payload(self._open(request_id, key, sealed))
+        reply = self._open(request_id, key, sealed)
+        if isinstance(reply, dict):
+            _LOGGER.debug("Tuya %s reply keys: %s", action, sorted(reply))
+        return _payload(reply)
 
     def _open(self, request_id: str, key: bytes, sealed: str) -> Any:
         try:

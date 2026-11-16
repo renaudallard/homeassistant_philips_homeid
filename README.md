@@ -478,7 +478,14 @@ What you get:
   shows in the feeding history.
 
 Feed now has not yet been confirmed on a real feeder through this
-integration. Camera and video are out of scope. The protocol and the limits
+integration. To see what Tuya answers, enable debug logging; it names only
+the keys of each reply, never their values:
+```yaml
+logger:
+  logs:
+    custom_components.philips_homeid.tuya_api: debug
+```
+Camera and video are out of scope. The protocol and the limits
 of what has been verified on a real feeder are in
 [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
 

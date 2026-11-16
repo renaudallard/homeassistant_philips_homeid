@@ -124,6 +124,7 @@ class FakeTuya:
         self.replies = list(replies)
         self.ecode = ecode
         self.calls = []
+        self.chunks_read = 0
         self.http = MagicMock()
         self.http.post.side_effect = self._post
 
@@ -137,12 +138,18 @@ class FakeTuya:
         if isinstance(body, dict) and "_sealed" in body:
             key = DUMMY.request_key(data["requestId"], body.get("_ecode", ""))
             body = {"result": seal(key, body["_sealed"]), "t": 1}
+        raw = body if isinstance(body, bytes) else json.dumps(body).encode()
         response = MagicMock(status=status)
-        response.read = AsyncMock(return_value=json.dumps(body).encode())
+        response.content.iter_chunked = lambda size: self._chunks(raw, size)
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=response)
         context.__aexit__ = AsyncMock(return_value=False)
         return context
+
+    async def _chunks(self, raw, size):
+        for start in range(0, len(raw), size):
+            self.chunks_read += 1
+            yield raw[start : start + size]
 
     def payload(self, index, ecode=""):
         data = self.calls[index][1]
@@ -293,6 +300,25 @@ async def test_refusals_are_typed_and_keep_only_a_safe_code(reply, error, code):
         await session.publish("dev-1", {"201": 1})
     assert type(caught.value) is error
     assert caught.value.code == code
+
+
+@pytest.mark.asyncio
+async def test_oversized_reply_is_refused_while_reading():
+    size = 1 << 16
+    fake, session = await logged_in(b" " * (tuya_api._MAX_REPLY * 4))
+    before = fake.chunks_read
+    with pytest.raises(TuyaError):
+        await session.publish("dev-1", {"201": 1})
+    assert fake.chunks_read - before == tuya_api._MAX_REPLY // size + 1
+
+
+@pytest.mark.asyncio
+async def test_failed_status_is_refused_before_reading():
+    fake, session = await logged_in((502, {"result": "x"}))
+    before = fake.chunks_read
+    with pytest.raises(TuyaError):
+        await session.publish("dev-1", {"201": 1})
+    assert fake.chunks_read == before
 
 
 @pytest.mark.asyncio

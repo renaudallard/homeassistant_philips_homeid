@@ -329,13 +329,16 @@ class TuyaSession:
             async with self._http.post(
                 self._url, data=params, timeout=_TIMEOUT, allow_redirects=False
             ) as response:
-                status = response.status
-                body = await response.read()
+                if response.status != 200:
+                    raise TuyaError("Tuya request was not confirmed")
+                body = bytearray()
+                async for chunk in response.content.iter_chunked(1 << 16):
+                    body += chunk
+                    if len(body) > _MAX_REPLY:
+                        raise TuyaError("Tuya request was not confirmed")
         except (aiohttp.ClientError, TimeoutError):
             # Not chained: the request carries the session and the id token.
             raise TuyaError("Tuya request was not confirmed") from None
-        if status != 200 or len(body) > _MAX_REPLY:
-            raise TuyaError("Tuya request was not confirmed")
         try:
             envelope = json.loads(body)
         except ValueError:

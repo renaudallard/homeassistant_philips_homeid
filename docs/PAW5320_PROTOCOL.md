@@ -7,11 +7,11 @@ here, and talks to the feeder itself over Tuya. This integration reads the
 REST backend and sends feed now over Tuya, as the app does; the camera is out
 of scope.
 
-Sources: the integration's own read-only checks against a real PAW5320 (noted
-as *live* below), the maintainer's check of `GET homes` with and without a
-token, and the MIT-licensed [`petsseries`](https://github.com/AboveColin/petsseries)
-client (v1.2.0) for request and event shapes. `petsseries` is a reference, not
-a dependency.
+Sources: the integration's own checks against a real PAW5320, read only apart
+from two feed now presses (noted as *live* below), the maintainer's check of
+`GET homes` with and without a token, and the MIT-licensed
+[`petsseries`](https://github.com/AboveColin/petsseries) client (v1.2.0) for
+request and event shapes. `petsseries` is a reference, not a dependency.
 
 ## Authentication
 
@@ -107,8 +107,9 @@ whose `time` is not ISO 8601 with an offset is skipped, as in the app. `url`, `m
 - History requests only `types=meal_dispensed`, in windows of at most 31 days
   (the history calendar splits up to 93 days). Nothing is synthesised from
   schedules or commands. `mealAmount` has no documented unit and is shown as
-  a plain number. *Live:* reading with `clustered=false`. Whether results are
-  paginated or capped has not been observed.
+  a plain number; after a feed now of 1 and of 2 portions it was 1 and 2,
+  nothing was weighed. *Live:* reading with `clustered=false`. Whether
+  results are paginated or capped has not been observed.
 - Status requests `food_level_low`, `food_outlet_stuck`, `device_online` and
   `device_offline`, one `types` parameter each as the app's Retrofit client
   encodes a list (the app itself never filters by type), over the last 7
@@ -180,6 +181,12 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   seen; the integration logs the key names of each reply at debug level.
 - A publish that Tuya accepts says only that the cloud took the command;
   whether food came out shows in the history as `meal_dispensed`.
+- *Live* on a tester's PAW5320 with build 090a418: a press of 1 portion,
+  then one of 2 portions 90 seconds later in the same Home Assistant run.
+  Each dispensed what was asked and showed as one `meal_dispensed` event
+  with `source` `device`, 8 and 12 seconds after the press. The HomeID app
+  on the phone stayed signed in. How many Tuya logins the two presses took
+  was not seen.
 
 ## Verification status
 
@@ -191,12 +198,13 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
 | `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
-| `clustered=false`, pagination, `mealAmount` unit | not established |
+| `clustered=false`, pagination, `mealAmount` unit | not established; `mealAmount` equalled the portions in two feeds |
 | Feeder behaviour at DST changes | not established |
 | Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
 | `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |
 | Reply wrapper `success`, `status` | live on a session read and a refused publish; an accepted publish not seen |
-| Feed now `{"201": n}` on a PAW5320 | **not yet run by this integration**; dispensed from the tester's own prototype |
+| Feed now `{"201": n}` on a PAW5320 | live: 1 and 2 portions dispensed, one `meal_dispensed` each with `source` `device` (build 090a418) |
+| Feed now session over a day, expired session, failure paths | not established |
 
 ## Open questions
 
@@ -206,7 +214,5 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
    set, a 404 or an empty object, and does `expiryDate` match the date shown
    in the app?
 3. Are event lists paginated or capped for busy homes?
-4. Does a feed from Home Assistant show as `meal_dispensed`, and with which
-   `source`?
-5. Does a HomeID account outside Tuya's EU region log in at the EU host, or
+4. Does a HomeID account outside Tuya's EU region log in at the EU host, or
    is it moved to another one?

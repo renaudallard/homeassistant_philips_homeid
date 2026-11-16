@@ -453,7 +453,8 @@ What you get:
   reports as dispensed (`meal_dispensed` events), never inferred from a
   schedule or a button. The sensor covers the last 7 days and lists up to 20
   recent feedings. `amount` is shown as reported; its unit is not documented,
-  so it is not labelled as grams.
+  so it is not labelled as grams. After a feed now it has matched the number
+  of portions.
 - **Last food low alert** / **Last food outlet stuck alert**: when HomeID last
   reported that condition in the past 7 days. HomeID sends no "resolved" event,
   so these are timestamps, not on/off problem sensors.
@@ -477,9 +478,12 @@ What you get:
   successful press means Tuya accepted the command; the dispensed meal
   shows in the feeding history.
 
-Feed now has not yet been confirmed on a real feeder through this
-integration. To see what Tuya answers, enable debug logging; it names only
-the keys of each reply, never their values:
+Feed now has been confirmed on a tester's PAW5320: a press of 1 portion and
+one of 2 portions each dispensed and showed in the feeding history as one
+feeding of that amount. Keeping a session for a day or more, and a session
+Tuya has dropped, have not been tried on a real feeder yet. To see what
+Tuya answers, enable debug logging; it names only the keys of each reply,
+never their values:
 ```yaml
 logger:
   logs:

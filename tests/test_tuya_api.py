@@ -109,12 +109,18 @@ def test_login_may_move_to_a_regional_host(url):
         "https://a1.tuyaeu.com/other",
         "https://a1.tuyaeu.com/?x=1",
         "https://user@a1.tuyaeu.com",
+        "https://a1.tuyaeu.com:x0x0/",
+        "https://a1.tuyaeu.com:99999/",
+        "https://[x0x0/",
         42,
     ],
 )
 def test_login_never_moves_elsewhere(url):
-    with pytest.raises(TuyaError):
+    with pytest.raises(TuyaError) as caught:
         tuya_api._api_url(url)
+    assert "x0x0" not in str(caught.value)
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
 
 
 class FakeTuya:

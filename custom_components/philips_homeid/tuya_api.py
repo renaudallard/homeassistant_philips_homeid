@@ -219,15 +219,20 @@ def _api_url(value: Any) -> str:
     """The mobile API URL a login names, if it is one of Tuya's hosts."""
     if not isinstance(value, str):
         raise TuyaError("Tuya login named no API host")
-    parts = urlsplit(value)
-    if (
-        parts.scheme != "https"
-        or parts.hostname not in _API_HOSTS
-        or parts.port is not None
-        or parts.path not in ("", "/")
-        or parts.query
-        or parts.username
-    ):
+    try:
+        parts = urlsplit(value)
+        unexpected = (
+            parts.scheme != "https"
+            or parts.hostname not in _API_HOSTS
+            or parts.port is not None
+            or parts.path not in ("", "/")
+            or parts.query
+            or parts.username
+        )
+    except ValueError:
+        # Its message can quote the URL.
+        unexpected = True
+    if unexpected:
         raise TuyaError("Tuya login named an unexpected API host")
     return f"https://{parts.hostname}/api.json"
 

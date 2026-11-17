@@ -76,9 +76,10 @@ def test_seal_round_trip_and_gzip_reply():
 
 
 def test_oversized_gzip_reply_is_refused():
+    # Valid JSON, so only the size limit can refuse it.
     key = DUMMY.request_key("r", "")
     nonce = b"\0" * 12
-    body = gzip.compress(b" " * (tuya_api._MAX_REPLY + 1))
+    body = gzip.compress(b'"' + b"a" * tuya_api._MAX_REPLY + b'"')
     sealed = tuya_api.base64.b64encode(
         nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
     ).decode()
@@ -360,13 +361,23 @@ async def test_reply_in_another_encoding_is_refused_before_reading(encoding):
 
 @pytest.mark.asyncio
 async def test_gzip_encoded_reply_inflates_to_at_most_the_cap():
+    # A valid refusal padded to 64 MiB: without the limit it would be read
+    # as PERMISSION_DENIED.
     deflate = zlib.compressobj(9, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
-    block = b" " * (1 << 20)
-    bomb = b"".join(deflate.compress(block) for _ in range(64)) + deflate.flush()
+    head = b'{"errorCode": "PERMISSION_DENIED", "success": false, "pad": "'
+    block = b"a" * (1 << 20)
+    bomb = (
+        deflate.compress(head)
+        + b"".join(deflate.compress(block) for _ in range(64))
+        + deflate.compress(b'"}')
+        + deflate.flush()
+    )
     assert len(bomb) < tuya_api._MAX_REPLY
     _, session = await logged_in((200, bomb, "gzip"))
-    with pytest.raises(TuyaError):
+    with pytest.raises(TuyaError) as caught:
         await session.publish("dev-1", {"201": 1})
+    assert str(caught.value) == "Tuya reply was not readable"
+    assert caught.value.code == ""
 
 
 @pytest.mark.asyncio

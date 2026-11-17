@@ -184,8 +184,10 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 - Every opened reply seen live carries `success` and `status`: `true` and
   `ok` on a session read, `false` and `error` with `errorCode` and
   `errorMsg` on a refused publish. A reply that does not say `success: true`
-  is not taken as done. What an accepted `dp.publish` returns has not been
-  seen; the integration logs the key names of each reply at debug level.
+  is not taken as done. A login and an accepted `dp.publish` both answered
+  with the keys `result`, `status`, `success` and `t`, and the publish
+  passed that check, so its `success` was `true`. The integration logs the
+  key names of each reply at debug level.
 - A publish that Tuya accepts says only that the cloud took the command;
   whether food came out shows in the history as `meal_dispensed`.
 - *Live* on a tester's PAW5320 with build 090a418: a press of 1 portion,
@@ -194,6 +196,10 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   with `source` `device`, 8 and 12 seconds after the press. The HomeID app
   on the phone stayed signed in. How many Tuya logins the two presses took
   was not seen.
+- *Live* on the same feeder with build 6767ad8 and the debug log on: one
+  press of 1 portion dispensed and showed as one `meal_dispensed` event
+  with `source` `device` and `mealAmount` 1, about 9 seconds after the
+  press. The log had one login reply and one publish reply.
 
 ## Verification status
 
@@ -209,7 +215,7 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | Feeder behaviour at DST changes | not established |
 | Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
 | `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |
-| Reply wrapper `success`, `status` | live on a session read and a refused publish; an accepted publish not seen |
+| Reply wrapper `success`, `status` | live on a session read, a refused publish, a login and an accepted publish (build 6767ad8) |
 | Feed now `{"201": n}` on a PAW5320 | live: 1 and 2 portions dispensed, one `meal_dispensed` each with `source` `device` (build 090a418) |
 | Feed now session over a day, expired session, failure paths | not established |
 

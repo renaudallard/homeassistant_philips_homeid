@@ -219,9 +219,19 @@ async def test_gzip_encoded_reply_inflates_to_at_most_the_limit():
 
 
 @pytest.mark.parametrize("raw", [b"", b" \n"])
+@pytest.mark.parametrize("encoding", ["identity", "gzip"])
 @pytest.mark.asyncio
-async def test_empty_reply_is_none_as_before(raw):
-    session = fake_session(200, raw=raw)
+async def test_empty_reply_is_none_as_before(raw, encoding):
+    if encoding == "gzip" and raw:
+        raw = gzip.compress(raw)
+    session = fake_session(200, raw=raw, headers={"Content-Encoding": encoding})
+    assert await pet_request(session, "a", "GET", "/api/homes") is None
+
+
+@pytest.mark.asyncio
+async def test_gzip_member_of_nothing_is_none():
+    raw = gzip.compress(b"")
+    session = fake_session(200, raw=raw, headers={"Content-Encoding": "gzip"})
     assert await pet_request(session, "a", "GET", "/api/homes") is None
 
 

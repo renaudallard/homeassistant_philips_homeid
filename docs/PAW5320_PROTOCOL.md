@@ -38,11 +38,11 @@ The REST transport only reads: it refuses every method but `GET`.
 Only fixed paths under `/api/homes` on the fixed host are requested. URLs in
 responses (`url`, `mealUrl`, `Location`, media links) are never followed and
 redirects are refused (`allow_redirects=False`). A reply is read up to 4 MiB
-and, if gzip encoded, inflated by the integration to at most 4 MiB, since
-aiohttp sets no limit on a whole reply; other encodings are refused. Errors
-are re-raised without their cause, because aiohttp errors carry the request
-URL and the token endpoint's errors carry server text. Lists use the envelope
-`{"item": [...]}`.
+and, if gzip encoded, inflated by the integration to at most 4 MiB for all
+its members together, since aiohttp sets no limit on a whole reply; other
+encodings are refused. Errors are re-raised without their cause, because
+aiohttp errors carry the request URL and the token endpoint's errors carry
+server text. Lists use the envelope `{"item": [...]}`.
 
 | Purpose | Request |
 |---|---|
@@ -156,12 +156,16 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   HMAC-SHA256 over the sorted signed parameters, `postData` is AES-GCM sealed
   with a key derived from the request ID and the session's `ecode`, and the
   reply comes back sealed the same way. A reply is read up to 1 MiB and,
-  if gzip encoded, inflated by the integration to at most 1 MiB, not by
-  aiohttp, whose older releases inflate without a limit; other encodings are
-  refused. Tuya was seen answering with no `Content-Encoding`. The app
-  identity used for signing (app ID and secret from the APK manifest, app
-  key and certificate hash from `petsseries`) is the same in every copy of
-  the HomeID app.
+  if gzip encoded, inflated by the integration to at most 1 MiB for all its
+  members together, not by aiohttp, whose older releases inflate without a
+  limit; other encodings are refused. Tuya was seen answering with no
+  `Content-Encoding`. The sealed payload may itself be gzip; the app inflates
+  it with `GZIPInputStream`, which stops at bytes after a member that do not
+  start a whole gzip header. The integration does the same, except that a
+  header damaged past its first three bytes is refused. The app identity
+  used for signing (app ID and secret from the APK manifest, app key and
+  certificate hash from `petsseries`) is the same in every copy of the
+  HomeID app.
 - Feed: `thing.m.device.dp.publish` with `devId` = `gwId` = the vendor ID and
   `dps` `{"201": n}`. `n` is 1 to 20, the range `QuickFeedApiImpl` clamps to;
   201 is the data point of a feeder with camera

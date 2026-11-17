@@ -6,20 +6,37 @@ import zlib
 
 import aiohttp
 
+# zlib copies the rest of the input at the end of each member, so the
+# number of members has to be bounded as well as their size.
+_MAX_MEMBERS = 16
 
-def gunzip(data: bytes, limit: int) -> bytes | None:
-    """One gzip member inflated to at most ``limit`` bytes.
 
-    None if it is not gzip, is cut short or would inflate to more.
+def gunzip(data: bytes, limit: int, *, ignore_trailing: bool = False) -> bytes | None:
+    """Every gzip member inflated, at most ``limit`` bytes together.
+
+    None if it is not gzip, would inflate to more, has a member cut short
+    or has anything after a member that is not another one. With
+    ``ignore_trailing``, bytes after a member that do not start with a whole
+    gzip header end the input instead, as Java's GZIPInputStream reads it.
     """
-    inflate = zlib.decompressobj(16 + zlib.MAX_WBITS)
-    try:
-        plain = inflate.decompress(data, limit)
-    except zlib.error:
-        return None
-    if not plain or inflate.unconsumed_tail or not inflate.eof:
-        return None
-    return plain
+    plain = b""
+    for _ in range(_MAX_MEMBERS):
+        inflate = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        try:
+            # One byte more than the room left, so that a member too large
+            # shows. It also never asks for 0, which zlib takes as no limit.
+            plain += inflate.decompress(data, limit - len(plain) + 1)
+        except zlib.error:
+            return None
+        if len(plain) > limit or not inflate.eof:
+            return None
+        data = inflate.unused_data
+        if not data:
+            return plain
+        # GZIPInputStream stops at anything that is not a whole fixed header.
+        if ignore_trailing and (len(data) < 10 or data[:3] != b"\x1f\x8b\x08"):
+            return plain
+    return None
 
 
 async def read_reply(response: aiohttp.ClientResponse, limit: int) -> bytes | None:
@@ -40,7 +57,8 @@ async def read_reply(response: aiohttp.ClientResponse, limit: int) -> bytes | No
         body += chunk
         if len(body) > limit:
             return None
-    if encoding == "gzip":
+    # An empty body is empty in any encoding, as aiohttp reads it.
+    if encoding == "gzip" and body:
         return gunzip(bytes(body), limit)
     return bytes(body)
 

@@ -190,7 +190,9 @@ def unseal(key: bytes, value: str) -> Any:
         raise TuyaError("Tuya reply was not readable")
     plain = AESGCM(key).decrypt(raw[:12], raw[12:], None)
     if plain[:2] == b"\x1f\x8b":
-        inflated = gunzip(plain, _MAX_REPLY)
+        # The app inflates this with GZIPInputStream, which ignores bytes
+        # after a member that do not start another one.
+        inflated = gunzip(plain, _MAX_REPLY, ignore_trailing=True)
         if inflated is None:
             raise TuyaError("Tuya reply was not readable")
         plain = inflated

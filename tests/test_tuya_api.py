@@ -64,27 +64,39 @@ def test_shipped_identity_has_the_expected_form():
         assert value.isalnum() and "@" not in value
 
 
+def _sealed_raw(key, body):
+    nonce = b"\0" * 12
+    return tuya_api.base64.b64encode(
+        nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
+    ).decode()
+
+
 def test_seal_round_trip_and_gzip_reply():
     key = DUMMY.request_key("r", "")
     assert unseal(key, seal(key, {"x": 1})) == {"x": 1}
-    nonce = b"\0" * 12
-    body = gzip.compress(b'{"y":2}')
-    sealed = tuya_api.base64.b64encode(
-        nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
-    ).decode()
-    assert unseal(key, sealed) == {"y": 2}
+    assert unseal(key, _sealed_raw(key, gzip.compress(b'{"y":2}'))) == {"y": 2}
+
+
+@pytest.mark.parametrize("tail", [b"\0" * 8, b"junk"])
+def test_gzip_reply_ignores_what_the_app_ignores_after_it(tail):
+    key = DUMMY.request_key("r", "")
+    body = gzip.compress(b'{"y":2}') + tail
+    assert unseal(key, _sealed_raw(key, body)) == {"y": 2}
+
+
+def test_gzip_reply_with_a_cut_short_member_after_it_is_refused():
+    key = DUMMY.request_key("r", "")
+    body = gzip.compress(b'{"y":2}') + gzip.compress(b"{}")[:-4]
+    with pytest.raises(TuyaError):
+        unseal(key, _sealed_raw(key, body))
 
 
 def test_oversized_gzip_reply_is_refused():
     # Valid JSON, so only the size limit can refuse it.
     key = DUMMY.request_key("r", "")
-    nonce = b"\0" * 12
     body = gzip.compress(b'"' + b"a" * tuya_api._MAX_REPLY + b'"')
-    sealed = tuya_api.base64.b64encode(
-        nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
-    ).decode()
     with pytest.raises(TuyaError):
-        unseal(key, sealed)
+        unseal(key, _sealed_raw(key, body))
 
 
 @pytest.mark.parametrize("bad", ["", "not base64!", "c2hvcnQ="])
@@ -464,13 +476,6 @@ async def test_transport_errors_do_not_chain_the_request():
     assert caught.value.__cause__ is None
     assert caught.value.__context__ is None
     assert "secret" not in str(caught.value)
-
-
-def _sealed_raw(key, body):
-    nonce = b"\0" * 12
-    return tuya_api.base64.b64encode(
-        nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
-    ).decode()
 
 
 @pytest.mark.parametrize(

@@ -161,8 +161,9 @@ async def pet_request(
             if status != 200:
                 raise FeederHTTPError(status)
             return await response.json(content_type=None)
-    except (aiohttp.ClientError, TimeoutError, ValueError):
-        # Not chained: aiohttp errors carry the request URL, with home IDs.
+    except (aiohttp.ClientError, TimeoutError, ValueError, RecursionError):
+        # RecursionError is json.loads on deeply nested input. Not chained:
+        # aiohttp errors carry the request URL, with home IDs.
         raise FeederError("HomeID pet request was not confirmed") from None
 
 

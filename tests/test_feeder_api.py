@@ -153,6 +153,16 @@ async def test_network_failure_is_a_feeder_error():
         await pet_request(session, "a", "GET", "/api/homes")
 
 
+@pytest.mark.asyncio
+async def test_deeply_nested_reply_is_a_feeder_error():
+    def deep(**kwargs):
+        return json.loads(b"[" * 200000)
+
+    session = fake_session(200, json_error=deep)
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
+
+
 # --- discovery -------------------------------------------------------------
 
 

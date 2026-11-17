@@ -208,7 +208,8 @@ def _gunzip(data: bytes) -> bytes:
 def _json(data: bytes) -> Any:
     try:
         return json.loads(data)
-    except ValueError:
+    # Deep nesting raises RecursionError, not ValueError.
+    except (ValueError, RecursionError):
         pass
     raise TuyaError("Tuya reply was not readable")
 

@@ -478,6 +478,15 @@ def _sealed_raw(key, body):
         },
         {"result": "not base64!"},
         {"_sealed": {"success": True}, "_ecode": "other"},
+        pytest.param(b"[" * 200000, id="deep-envelope"),
+        pytest.param(
+            lambda data: {
+                "result": _sealed_raw(
+                    DUMMY.request_key(data["requestId"], "ec-1"), b"[" * 200000
+                )
+            },
+            id="deep-sealed",
+        ),
     ],
 )
 @pytest.mark.asyncio

@@ -108,8 +108,9 @@ _SIGNED = frozenset(
 SESSION_LOST = frozenset({"USER_SESSION_LOSS", "USER_SESSION_INVALID"})
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
 _MAX_REPLY = 1 << 20
-# Tuya error codes are upper case words; ids and tokens are not.
-_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+# Tuya error codes are upper case words; ids and tokens are not, and
+# carry digits even when upper case.
+_CODE = re.compile(r"[A-Z][A-Z_]{0,63}")
 
 
 class TuyaError(Exception):

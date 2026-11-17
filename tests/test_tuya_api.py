@@ -343,6 +343,7 @@ async def test_failed_status_is_refused_before_reading():
         "eu1712345678901abcde",
         "Bearer.abc",
         "A" * 65,
+        "AB12CD34EF56AB78CD90",
     ],
 )
 def test_error_code_that_looks_like_an_id_is_dropped(code):

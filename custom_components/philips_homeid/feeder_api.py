@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import codecs
 import json
 import math
 import time
@@ -133,6 +134,16 @@ def list_items(data: Any) -> list[dict[str, Any]]:
     return data
 
 
+def _charset(name: str | None) -> str:
+    """The declared charset, or UTF-8 when Python does not know it."""
+    if name:
+        try:
+            return codecs.lookup(name).name
+        except (LookupError, ValueError):
+            pass
+    return "utf-8"
+
+
 def _check_path(path: str) -> None:
     if not path.startswith("/api/homes") or any(c in path for c in "?#\\"):
         raise FeederError("Unsupported HomeID request")
@@ -167,7 +178,7 @@ async def pet_request(
                 raise FeederAuthRejected(status)
             if status != 200:
                 raise FeederHTTPError(status)
-            charset = response.charset or "utf-8"
+            charset = _charset(response.charset)
             body = await read_reply(response, _MAX_REPLY)
         if body is None:
             raise FeederError("HomeID pet request was not confirmed")
@@ -182,7 +193,7 @@ async def pet_request(
         LookupError,
     ):
         # RecursionError is json.loads on deeply nested input, LookupError a
-        # charset Python does not know. Not chained: aiohttp errors carry
+        # codec that is not a text encoding. Not chained: aiohttp errors carry
         # the request URL, with home IDs.
         raise FeederError("HomeID pet request was not confirmed") from None
 

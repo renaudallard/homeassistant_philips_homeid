@@ -240,6 +240,9 @@ async def test_gzip_member_of_nothing_is_none():
     [
         (None, '{"name": "Zo\u00eb"}'.encode(), {"name": "Zo\u00eb"}),
         ("iso-8859-1", '{"name": "Zo\u00eb"}'.encode("latin-1"), {"name": "Zo\u00eb"}),
+        # Unknown to Python: read as UTF-8, as aiohttp's response.json() does.
+        ("no-such-charset", '{"name": "Zo\u00eb"}'.encode(), {"name": "Zo\u00eb"}),
+        ("utf\0", b"{}", {}),
     ],
 )
 @pytest.mark.asyncio
@@ -249,7 +252,7 @@ async def test_reply_is_decoded_in_the_declared_charset(charset, raw, expected):
 
 
 @pytest.mark.parametrize(
-    ("charset", "raw"), [("no-such-charset", b"{}"), (None, b'{"name": "Zo\xeb"}')]
+    ("charset", "raw"), [("base64", b"e30="), (None, b'{"name": "Zo\xeb"}')]
 )
 @pytest.mark.asyncio
 async def test_undecodable_reply_is_a_feeder_error(charset, raw):

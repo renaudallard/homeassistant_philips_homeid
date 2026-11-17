@@ -408,5 +408,39 @@ async def test_transport_errors_do_not_chain_the_request():
     with pytest.raises(TuyaError) as caught:
         await TuyaSession(http, DUMMY).login("id-token", "32")
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__
+    assert caught.value.__context__ is None
     assert "secret" not in str(caught.value)
+
+
+def _sealed_raw(key, body):
+    nonce = b"\0" * 12
+    return tuya_api.base64.b64encode(
+        nonce + tuya_api.AESGCM(key).encrypt(nonce, body, None)
+    ).decode()
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        b'{"result": "x", "sid": "secret"',
+        lambda data: {
+            "result": _sealed_raw(
+                DUMMY.request_key(data["requestId"], "ec-1"), b'{"sid": "secret"'
+            )
+        },
+        lambda data: {
+            "result": _sealed_raw(
+                DUMMY.request_key(data["requestId"], "ec-1"), b"\x1f\x8bsecret"
+            )
+        },
+        {"result": "not base64!"},
+        {"_sealed": {"success": True}, "_ecode": "other"},
+    ],
+)
+@pytest.mark.asyncio
+async def test_unreadable_replies_keep_no_original_error(reply):
+    _, session = await logged_in(reply)
+    with pytest.raises(TuyaError) as caught:
+        await session.publish("dev-1", {"201": 1})
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None

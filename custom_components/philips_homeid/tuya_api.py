@@ -175,11 +175,16 @@ def seal(key: bytes, payload: dict[str, Any]) -> str:
 
 
 def unseal(key: bytes, value: str) -> Any:
-    """Open a sealed reply. InvalidTag if this key did not seal it."""
+    """Open a sealed reply. InvalidTag if this key did not seal it.
+
+    Errors here and below are raised after their except block, not inside it
+    with ``from None``: that would still keep the original on
+    ``__context__``, and a JSON error holds the whole reply.
+    """
     try:
         raw = base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError):
-        raise TuyaError("Tuya reply was not readable") from None
+        raw = b""
     if len(raw) < 28:
         raise TuyaError("Tuya reply was not readable")
     plain = AESGCM(key).decrypt(raw[:12], raw[12:], None)
@@ -188,13 +193,18 @@ def unseal(key: bytes, value: str) -> Any:
         try:
             plain = inflate.decompress(plain, _MAX_REPLY)
         except zlib.error:
-            raise TuyaError("Tuya reply was not readable") from None
-        if inflate.unconsumed_tail or not inflate.eof:
+            plain = b""
+        if not plain or inflate.unconsumed_tail or not inflate.eof:
             raise TuyaError("Tuya reply was not readable")
+    return _json(plain)
+
+
+def _json(data: bytes) -> Any:
     try:
-        return json.loads(plain)
+        return json.loads(data)
     except ValueError:
-        raise TuyaError("Tuya reply was not readable") from None
+        pass
+    raise TuyaError("Tuya reply was not readable")
 
 
 def _refusal(code: Any) -> TuyaError:
@@ -345,23 +355,13 @@ class TuyaSession:
             params["sid"] = self._sid
         params["sign"] = self._signer.sign(params)
         try:
-            async with self._http.post(
-                self._url, data=params, timeout=_TIMEOUT, allow_redirects=False
-            ) as response:
-                if response.status != 200:
-                    raise TuyaError("Tuya request was not confirmed")
-                body = bytearray()
-                async for chunk in response.content.iter_chunked(1 << 16):
-                    body += chunk
-                    if len(body) > _MAX_REPLY:
-                        raise TuyaError("Tuya request was not confirmed")
+            body = await self._post(params)
         except (aiohttp.ClientError, TimeoutError):
             # Not chained: the request carries the session and the id token.
-            raise TuyaError("Tuya request was not confirmed") from None
-        try:
-            envelope = json.loads(body)
-        except ValueError:
-            raise TuyaError("Tuya reply was not readable") from None
+            body = None
+        if body is None:
+            raise TuyaError("Tuya request was not confirmed")
+        envelope = _json(body)
         if not isinstance(envelope, dict):
             raise TuyaError("Tuya reply was not readable")
         sealed = envelope.get("result")
@@ -371,6 +371,19 @@ class TuyaSession:
         if isinstance(reply, dict):
             _LOGGER.debug("Tuya %s reply keys: %s", action, sorted(reply))
         return _payload(reply)
+
+    async def _post(self, params: dict[str, str]) -> bytes:
+        async with self._http.post(
+            self._url, data=params, timeout=_TIMEOUT, allow_redirects=False
+        ) as response:
+            if response.status != 200:
+                raise TuyaError("Tuya request was not confirmed")
+            body = bytearray()
+            async for chunk in response.content.iter_chunked(1 << 16):
+                body += chunk
+                if len(body) > _MAX_REPLY:
+                    raise TuyaError("Tuya request was not confirmed")
+        return bytes(body)
 
     def _open(self, request_id: str, key: bytes, sealed: str) -> Any:
         try:
@@ -384,4 +397,5 @@ class TuyaSession:
         try:
             return unseal(self._signer.request_key(request_id, ""), sealed)
         except InvalidTag:
-            raise TuyaSessionLost("Tuya session expired") from None
+            pass
+        raise TuyaSessionLost("Tuya session expired")

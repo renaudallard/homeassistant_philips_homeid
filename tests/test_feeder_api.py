@@ -627,6 +627,8 @@ async def test_refresh_errors_do_not_chain_server_details(failure):
     ):
         await owner.access_token()
     assert "secret-detail" not in "".join(traceback.format_exception(err.value))
+    assert err.value.__cause__ is None
+    assert err.value.__context__ is None
 
 
 @pytest.mark.asyncio

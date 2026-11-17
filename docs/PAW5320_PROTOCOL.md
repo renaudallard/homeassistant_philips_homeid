@@ -40,9 +40,10 @@ responses (`url`, `mealUrl`, `Location`, media links) are never followed and
 redirects are refused (`allow_redirects=False`). A reply is read up to 4 MiB
 and, if gzip encoded, inflated by the integration to at most 4 MiB for all
 its members together, since aiohttp sets no limit on a whole reply; other
-encodings are refused. Errors are re-raised without their cause, because
-aiohttp errors carry the request URL and the token endpoint's errors carry
-server text. Lists use the envelope `{"item": [...]}`.
+encodings are refused. Errors are replaced, keeping the original neither as
+cause nor as context, because aiohttp errors carry the request URL, JSON
+errors the reply and the token endpoint's errors server text. Lists use the
+envelope `{"item": [...]}`.
 
 | Purpose | Request |
 |---|---|

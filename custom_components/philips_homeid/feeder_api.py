@@ -396,19 +396,23 @@ class FeederTokenOwner:
             else OAUTH_CLIENT_HOMEID
         )
         cloud = PhilipsCloudAPI()
+        failure: Exception | None = None
         try:
             tokens = await cloud.refresh_tokens(refresh, client)
-        # Re-raised with fixed messages and no chain: the originals carry
-        # transport errors and the server's error_description.
+        # Replaced with fixed messages, raised after the except blocks so that
+        # not even __context__ keeps the originals: they carry transport
+        # errors and the server's error_description.
         except CloudConnectionError:
             self._retry_after = time.monotonic() + _REFRESH_RETRY_AFTER
             self._retry_for = refresh
-            raise CloudConnectionError("HomeID token refresh failed") from None
+            failure = CloudConnectionError("HomeID token refresh failed")
         except CloudAuthError:
             self._rejected = refresh
-            raise CloudAuthError("HomeID refresh token was rejected") from None
+            failure = CloudAuthError("HomeID refresh token was rejected")
         finally:
             await cloud.close()
+        if failure is not None:
+            raise failure
 
         rotated = tokens.get("refresh_token")
         if not isinstance(rotated, str) or not rotated:

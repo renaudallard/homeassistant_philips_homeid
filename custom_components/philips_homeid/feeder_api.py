@@ -57,12 +57,15 @@ from .const import (
     DOMAIN,
     OAUTH_CLIENT_HOMEID,
 )
+from .util import read_reply
 
 PET_API_URL = "https://petseries.production.nbx.iot.versuni.com"
 SUPPORTED_MODELS = frozenset({"PAW5320"})
 DATA_FEEDER_AUTH = f"{DOMAIN}_feeder_auth"
 
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
+# Largest reply taken, as sent and once inflated.
+_MAX_REPLY = 4 << 20
 # Stop using an access token a minute before the cloud says it expires.
 _ACCESS_MARGIN = 60.0
 _DEFAULT_LIFETIME = 300.0
@@ -151,19 +154,36 @@ async def pet_request(
         async with session.get(
             f"{PET_API_URL}{path}",
             params=params,
-            headers={"Authorization": f"Bearer {access_token}"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept-Encoding": "gzip",
+            },
             timeout=_TIMEOUT,
             allow_redirects=False,
+            auto_decompress=False,
         ) as response:
             status = response.status
             if status in (401, 403):
                 raise FeederAuthRejected(status)
             if status != 200:
                 raise FeederHTTPError(status)
-            return await response.json(content_type=None)
-    except (aiohttp.ClientError, TimeoutError, ValueError, RecursionError):
-        # RecursionError is json.loads on deeply nested input. Not chained:
-        # aiohttp errors carry the request URL, with home IDs.
+            charset = response.charset or "utf-8"
+            body = await read_reply(response, _MAX_REPLY)
+        if body is None:
+            raise FeederError("HomeID pet request was not confirmed")
+        # Decoded as aiohttp's response.json() does: an empty body is None.
+        body = body.strip()
+        return json.loads(body.decode(charset)) if body else None
+    except (
+        aiohttp.ClientError,
+        TimeoutError,
+        ValueError,
+        RecursionError,
+        LookupError,
+    ):
+        # RecursionError is json.loads on deeply nested input, LookupError a
+        # charset Python does not know. Not chained: aiohttp errors carry
+        # the request URL, with home IDs.
         raise FeederError("HomeID pet request was not confirmed") from None
 
 

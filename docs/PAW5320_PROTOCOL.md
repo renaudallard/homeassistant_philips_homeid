@@ -37,9 +37,12 @@ request and event shapes. `petsseries` is a reference, not a dependency.
 The REST transport only reads: it refuses every method but `GET`.
 Only fixed paths under `/api/homes` on the fixed host are requested. URLs in
 responses (`url`, `mealUrl`, `Location`, media links) are never followed and
-redirects are refused (`allow_redirects=False`). Errors are re-raised without
-their cause, because aiohttp errors carry the request URL and the token
-endpoint's errors carry server text. Lists use the envelope `{"item": [...]}`.
+redirects are refused (`allow_redirects=False`). A reply is read up to 4 MiB
+and, if gzip encoded, inflated by the integration to at most 4 MiB, since
+aiohttp sets no limit on a whole reply; other encodings are refused. Errors
+are re-raised without their cause, because aiohttp errors carry the request
+URL and the token endpoint's errors carry server text. Lists use the envelope
+`{"item": [...]}`.
 
 | Purpose | Request |
 |---|---|

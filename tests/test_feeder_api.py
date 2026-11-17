@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import gzip
 import json
 import time
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ import aiohttp
 import pytest
 from multidict import CIMultiDict
 
+from custom_components.philips_homeid import feeder_api
 from custom_components.philips_homeid.cloud_auth import (
     CloudAuthError,
     CloudConnectionError,
@@ -57,15 +59,22 @@ def tokens(access, refresh, expires_in=3600):
     return {"access_token": access, "refresh_token": refresh, "expires_in": expires_in}
 
 
-def fake_session(*statuses, body=None, json_error=None):
+def fake_session(*statuses, body=None, raw=None, headers=None, charset=None):
+    """A session answering each GET with ``raw`` bytes, or ``body`` as JSON."""
+    if raw is None:
+        raw = json.dumps({"item": []} if body is None else body).encode()
     session = MagicMock()
+    session.chunks_read = 0
+
+    async def chunks(size):
+        for start in range(0, len(raw), size):
+            session.chunks_read += 1
+            yield raw[start : start + size]
+
     contexts = []
     for status in statuses:
-        response = MagicMock(status=status)
-        response.json = AsyncMock(
-            return_value={"item": []} if body is None else body,
-            side_effect=json_error,
-        )
+        response = MagicMock(status=status, headers=headers or {}, charset=charset)
+        response.content.iter_chunked = chunks
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=response)
         context.__aexit__ = AsyncMock(return_value=False)
@@ -155,10 +164,86 @@ async def test_network_failure_is_a_feeder_error():
 
 @pytest.mark.asyncio
 async def test_deeply_nested_reply_is_a_feeder_error():
-    def deep(**kwargs):
-        return json.loads(b"[" * 200000)
+    session = fake_session(200, raw=b"[" * 200000)
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
 
-    session = fake_session(200, json_error=deep)
+
+@pytest.mark.asyncio
+async def test_read_is_not_left_to_aiohttp_to_inflate():
+    session = fake_session(200)
+    await pet_request(session, "a", "GET", "/api/homes")
+    kwargs = session.get.call_args.kwargs
+    assert kwargs["auto_decompress"] is False
+    assert kwargs["headers"]["Accept-Encoding"] == "gzip"
+
+
+@pytest.mark.parametrize("encoding", ["gzip", " GZIP ", "identity", ""])
+@pytest.mark.asyncio
+async def test_reply_may_come_gzip_encoded(encoding):
+    raw = b'{"item": [{"id": "h"}]}'
+    if "gzip" in encoding.lower():
+        raw = gzip.compress(raw)
+    session = fake_session(200, raw=raw, headers={"Content-Encoding": encoding})
+    data = await pet_request(session, "a", "GET", "/api/homes")
+    assert data == {"item": [{"id": "h"}]}
+
+
+@pytest.mark.parametrize("encoding", ["br", "deflate", "gzip, br"])
+@pytest.mark.asyncio
+async def test_reply_in_another_encoding_is_refused_before_reading(encoding):
+    session = fake_session(200, headers={"Content-Encoding": encoding})
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
+    assert session.chunks_read == 0
+
+
+@pytest.mark.asyncio
+async def test_oversized_reply_is_refused_while_reading():
+    # Valid JSON, so only the size limit can refuse it.
+    raw = b'"' + b"a" * (feeder_api._MAX_REPLY * 2) + b'"'
+    session = fake_session(200, raw=raw)
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
+    assert session.chunks_read == feeder_api._MAX_REPLY // (1 << 16) + 1
+
+
+@pytest.mark.asyncio
+async def test_gzip_encoded_reply_inflates_to_at_most_the_limit():
+    # Valid JSON again: a few KiB sent, twice the limit once inflated.
+    raw = gzip.compress(b'"' + b"a" * (feeder_api._MAX_REPLY * 2) + b'"')
+    assert len(raw) < 1 << 16
+    session = fake_session(200, raw=raw, headers={"Content-Encoding": "gzip"})
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
+
+
+@pytest.mark.parametrize("raw", [b"", b" \n"])
+@pytest.mark.asyncio
+async def test_empty_reply_is_none_as_before(raw):
+    session = fake_session(200, raw=raw)
+    assert await pet_request(session, "a", "GET", "/api/homes") is None
+
+
+@pytest.mark.parametrize(
+    ("charset", "raw", "expected"),
+    [
+        (None, '{"name": "Zo\u00eb"}'.encode(), {"name": "Zo\u00eb"}),
+        ("iso-8859-1", '{"name": "Zo\u00eb"}'.encode("latin-1"), {"name": "Zo\u00eb"}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_reply_is_decoded_in_the_declared_charset(charset, raw, expected):
+    session = fake_session(200, raw=raw, charset=charset)
+    assert await pet_request(session, "a", "GET", "/api/homes") == expected
+
+
+@pytest.mark.parametrize(
+    ("charset", "raw"), [("no-such-charset", b"{}"), (None, b'{"name": "Zo\xeb"}')]
+)
+@pytest.mark.asyncio
+async def test_undecodable_reply_is_a_feeder_error(charset, raw):
+    session = fake_session(200, raw=raw, charset=charset)
     with pytest.raises(FeederError):
         await pet_request(session, "a", "GET", "/api/homes")
 

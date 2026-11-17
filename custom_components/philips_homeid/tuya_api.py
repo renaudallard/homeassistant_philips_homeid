@@ -392,8 +392,9 @@ class TuyaSession:
         ) as response:
             if response.status != 200:
                 raise TuyaError("Tuya request was not confirmed")
-            encoding = response.headers.get("Content-Encoding", "identity")
-            encoding = encoding.strip().lower()
+            # An empty header means none, as aiohttp reads it.
+            encoding = response.headers.get("Content-Encoding", "")
+            encoding = encoding.strip().lower() or "identity"
             if encoding not in ("identity", "gzip"):
                 raise TuyaError("Tuya reply was not readable")
             body = bytearray()

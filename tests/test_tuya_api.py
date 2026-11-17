@@ -336,7 +336,7 @@ async def test_oversized_reply_is_refused_while_reading():
     assert fake.chunks_read - before == tuya_api._MAX_REPLY // size + 1
 
 
-@pytest.mark.parametrize("encoding", ["gzip", " GZIP ", "identity"])
+@pytest.mark.parametrize("encoding", ["gzip", " GZIP ", "identity", "", " "])
 @pytest.mark.asyncio
 async def test_reply_may_come_gzip_encoded(encoding):
     _, session = await logged_in(

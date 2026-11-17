@@ -261,6 +261,25 @@ async def test_undecodable_reply_is_a_feeder_error(charset, raw):
         await pet_request(session, "a", "GET", "/api/homes")
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        None,
+        aiohttp.ClientConnectionError("https://petseries/api/homes/home-id"),
+        TimeoutError(),
+    ],
+)
+@pytest.mark.asyncio
+async def test_failed_read_keeps_no_original_error(error):
+    session = fake_session(200, raw=b'{"secret": ')
+    if error is not None:
+        session.get.side_effect = error
+    with pytest.raises(FeederError) as caught:
+        await pet_request(session, "a", "GET", "/api/homes")
+    assert caught.value.__cause__ is None
+    assert caught.value.__context__ is None
+
+
 # --- discovery -------------------------------------------------------------
 
 

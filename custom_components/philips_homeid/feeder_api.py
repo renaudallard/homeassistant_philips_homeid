@@ -193,9 +193,12 @@ async def pet_request(
         LookupError,
     ):
         # RecursionError is json.loads on deeply nested input, LookupError a
-        # codec that is not a text encoding. Not chained: aiohttp errors carry
-        # the request URL, with home IDs.
-        raise FeederError("HomeID pet request was not confirmed") from None
+        # codec that is not a text encoding. Raised below, not here with
+        # ``from None``, which would still keep the original on
+        # ``__context__``: aiohttp errors carry the request URL, with home
+        # IDs, and a JSON error the whole reply.
+        pass
+    raise FeederError("HomeID pet request was not confirmed")
 
 
 async def find_feeder(

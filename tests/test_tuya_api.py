@@ -3,6 +3,7 @@
 import gzip
 import json
 import logging
+import zlib
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
@@ -135,18 +136,26 @@ class FakeTuya:
         self.http = MagicMock()
         self.http.post.side_effect = self._post
 
-    def _post(self, url, *, data, timeout, allow_redirects):
-        assert allow_redirects is False
+    def _post(self, url, *, data, headers, timeout, allow_redirects, auto_decompress):
+        assert allow_redirects is False and auto_decompress is False
+        assert headers == {"Accept-Encoding": "gzip"}
         self.calls.append((url, dict(data)))
         reply = self.replies.pop(0)
         if callable(reply):
             reply = reply(data)
-        status, body = reply if isinstance(reply, tuple) else (200, reply)
+        if not isinstance(reply, tuple):
+            reply = (200, reply)
+        status, body, *encoding = reply
         if isinstance(body, dict) and "_sealed" in body:
             key = DUMMY.request_key(data["requestId"], body.get("_ecode", ""))
             body = {"result": seal(key, body["_sealed"]), "t": 1}
         raw = body if isinstance(body, bytes) else json.dumps(body).encode()
-        response = MagicMock(status=status)
+        response = MagicMock(status=status, headers={})
+        if encoding:
+            response.headers["Content-Encoding"] = encoding[0]
+            gzipped = encoding[0].strip().lower() == "gzip"
+            if gzipped and not isinstance(body, bytes):
+                raw = gzip.compress(raw)
         response.content.iter_chunked = lambda size: self._chunks(raw, size)
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=response)
@@ -324,6 +333,40 @@ async def test_oversized_reply_is_refused_while_reading():
     with pytest.raises(TuyaError):
         await session.publish("dev-1", {"201": 1})
     assert fake.chunks_read - before == tuya_api._MAX_REPLY // size + 1
+
+
+@pytest.mark.parametrize("encoding", ["gzip", " GZIP ", "identity"])
+@pytest.mark.asyncio
+async def test_reply_may_come_gzip_encoded(encoding):
+    _, session = await logged_in(
+        (
+            200,
+            {"_sealed": {"result": True, "success": True}, "_ecode": "ec-1"},
+            encoding,
+        )
+    )
+    await session.publish("dev-1", {"201": 1})
+
+
+@pytest.mark.parametrize("encoding", ["br", "deflate", "gzip, br"])
+@pytest.mark.asyncio
+async def test_reply_in_another_encoding_is_refused_before_reading(encoding):
+    fake, session = await logged_in((200, {"result": "x"}, encoding))
+    before = fake.chunks_read
+    with pytest.raises(TuyaError):
+        await session.publish("dev-1", {"201": 1})
+    assert fake.chunks_read == before
+
+
+@pytest.mark.asyncio
+async def test_gzip_encoded_reply_inflates_to_at_most_the_cap():
+    deflate = zlib.compressobj(9, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
+    block = b" " * (1 << 20)
+    bomb = b"".join(deflate.compress(block) for _ in range(64)) + deflate.flush()
+    assert len(bomb) < tuya_api._MAX_REPLY
+    _, session = await logged_in((200, bomb, "gzip"))
+    with pytest.raises(TuyaError):
+        await session.publish("dev-1", {"201": 1})
 
 
 @pytest.mark.asyncio

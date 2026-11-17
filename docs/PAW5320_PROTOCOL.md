@@ -152,9 +152,13 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   hosts (no other host is accepted, redirects are refused). `sign` is
   HMAC-SHA256 over the sorted signed parameters, `postData` is AES-GCM sealed
   with a key derived from the request ID and the session's `ecode`, and the
-  reply comes back sealed the same way. The app identity used for signing
-  (app ID and secret from the APK manifest, app key and certificate hash from
-  `petsseries`) is the same in every copy of the HomeID app.
+  reply comes back sealed the same way. A reply is read up to 1 MiB and,
+  if gzip encoded, inflated by the integration to at most 1 MiB, not by
+  aiohttp, whose older releases inflate without a limit; other encodings are
+  refused. Tuya was seen answering with no `Content-Encoding`. The app
+  identity used for signing (app ID and secret from the APK manifest, app
+  key and certificate hash from `petsseries`) is the same in every copy of
+  the HomeID app.
 - Feed: `thing.m.device.dp.publish` with `devId` = `gwId` = the vendor ID and
   `dps` `{"201": n}`. `n` is 1 to 20, the range `QuickFeedApiImpl` clamps to;
   201 is the data point of a feeder with camera

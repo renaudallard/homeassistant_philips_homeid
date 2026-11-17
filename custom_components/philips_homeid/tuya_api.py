@@ -189,14 +189,20 @@ def unseal(key: bytes, value: str) -> Any:
         raise TuyaError("Tuya reply was not readable")
     plain = AESGCM(key).decrypt(raw[:12], raw[12:], None)
     if plain[:2] == b"\x1f\x8b":
-        inflate = zlib.decompressobj(16 + zlib.MAX_WBITS)
-        try:
-            plain = inflate.decompress(plain, _MAX_REPLY)
-        except zlib.error:
-            plain = b""
-        if not plain or inflate.unconsumed_tail or not inflate.eof:
-            raise TuyaError("Tuya reply was not readable")
+        plain = _gunzip(plain)
     return _json(plain)
+
+
+def _gunzip(data: bytes) -> bytes:
+    """Inflate one gzip member to at most _MAX_REPLY bytes."""
+    inflate = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    try:
+        plain = inflate.decompress(data, _MAX_REPLY)
+    except zlib.error:
+        plain = b""
+    if not plain or inflate.unconsumed_tail or not inflate.eof:
+        raise TuyaError("Tuya reply was not readable")
+    return plain
 
 
 def _json(data: bytes) -> Any:
@@ -373,16 +379,29 @@ class TuyaSession:
         return _payload(reply)
 
     async def _post(self, params: dict[str, str]) -> bytes:
+        # Inflated here, not by aiohttp: older aiohttp releases inflate each
+        # received chunk whole, a few hundred MiB for a small gzip body.
         async with self._http.post(
-            self._url, data=params, timeout=_TIMEOUT, allow_redirects=False
+            self._url,
+            data=params,
+            headers={"Accept-Encoding": "gzip"},
+            timeout=_TIMEOUT,
+            allow_redirects=False,
+            auto_decompress=False,
         ) as response:
             if response.status != 200:
                 raise TuyaError("Tuya request was not confirmed")
+            encoding = response.headers.get("Content-Encoding", "identity")
+            encoding = encoding.strip().lower()
+            if encoding not in ("identity", "gzip"):
+                raise TuyaError("Tuya reply was not readable")
             body = bytearray()
             async for chunk in response.content.iter_chunked(1 << 16):
                 body += chunk
                 if len(body) > _MAX_REPLY:
                     raise TuyaError("Tuya request was not confirmed")
+        if encoding == "gzip":
+            return _gunzip(bytes(body))
         return bytes(body)
 
     def _open(self, request_id: str, key: bytes, sealed: str) -> Any:

@@ -58,16 +58,19 @@ async def test_latest_status_per_type_with_exact_query():
         "device_offline": datetime(2026, 11, 9, tzinfo=UTC),
         "device_online": datetime(2026, 11, 9, 0, 5, tzinfo=UTC),
     }
-    request.assert_awaited_once_with(
-        "GET",
-        "/api/homes/home/events",
-        params=[
-            ("from", START.isoformat()),
-            ("to", END.isoformat()),
+    days = [START + timedelta(days=n) for n in range(7)]
+    assert [call.kwargs["params"] for call in request.await_args_list] == [
+        [
+            ("from", day.isoformat()),
+            ("to", (day + timedelta(days=1)).isoformat()),
             *(("types", kind) for kind in STATUS_EVENT_TYPES),
             ("deviceIds", "internal"),
-            ("clustered", "false"),
-        ],
+        ]
+        for day in days
+    ]
+    assert all(
+        call.args == ("GET", "/api/homes/home/events")
+        for call in request.await_args_list
     )
 
 

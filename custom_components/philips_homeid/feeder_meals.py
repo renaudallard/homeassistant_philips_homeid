@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -56,8 +57,16 @@ STATUS_EVENT_TYPES = (
     "device_offline",
 )
 _TEXT_LIMIT = 80
+# A day's events are kept once it ended this long ago, leaving time for an
+# event the cloud records late, and read again after _DAY_TTL seconds.
+_DAY_GRACE = timedelta(minutes=15)
+_DAY_TTL = 6 * 3600.0
 # How long a planned meal lasts on the calendar; display only.
 _MEAL_DURATION = timedelta(minutes=1)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class MealsError(FeederError, ValueError):
@@ -255,6 +264,11 @@ class MealManager:
         # History has absolute timestamps and must remain usable without a home
         # timezone. Resolve the zone only when a local-time schedule needs it.
         self.time_zone = time_zone or None
+        # Events of ended UTC days by (types, day): (expiry, rows).
+        self._days: dict[
+            tuple[tuple[str, ...], datetime],
+            tuple[float, list[dict[str, Any]]],
+        ] = {}
 
     @classmethod
     def for_device(cls, request: Request, device: FeederDevice) -> MealManager:
@@ -292,7 +306,6 @@ class MealManager:
     async def history(self, start: datetime, end: datetime) -> list[FeedingEvent]:
         """Cloud meal_dispensed events in [start, end), at most 31 days.
 
-        clustered=false is intentional but unverified live (reference uses true).
         No commands issued locally are converted into historical feeding events.
         """
         start, end = _bounds(start, end, 31)
@@ -326,13 +339,41 @@ class MealManager:
         return sorted(events.values(), key=lambda event: (event.time, event.id))
 
     async def _events(
-        self, start: datetime, end: datetime, types: Iterable[str]
+        self, start: datetime, end: datetime, types: tuple[str, ...]
+    ) -> list[dict[str, Any]]:
+        """Events of every UTC day that [start, end) touches, a day at a time.
+
+        The cloud answers a longer range with only its newest events, and the
+        app asks for one day per request. A day that has not begun holds no
+        events and is not asked for. A day that ended _DAY_GRACE ago is kept
+        for _DAY_TTL, so that an update reads only today again.
+        """
+        now = _utcnow()
+        clock = time.monotonic()
+        self._days = {key: kept for key, kept in self._days.items() if clock < kept[0]}
+        rows: list[dict[str, Any]] = []
+        day = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        while day < end and day <= now:
+            next_day = day + timedelta(days=1)
+            kept = self._days.get((types, day))
+            if kept is None:
+                found = await self._day_events(day, next_day, types)
+                if next_day + _DAY_GRACE <= now:
+                    self._days[(types, day)] = (time.monotonic() + _DAY_TTL, found)
+            else:
+                found = kept[1]
+            rows += found
+            day = next_day
+        return rows
+
+    async def _day_events(
+        self, start: datetime, end: datetime, types: tuple[str, ...]
     ) -> list[dict[str, Any]]:
         # One pair per list element, the way the app's Retrofit client sends
         # a list query parameter, and only this device's events, as the app.
         params = [("from", start.isoformat()), ("to", end.isoformat())]
         params += [("types", kind) for kind in types]
-        params += [("deviceIds", self._philips_id), ("clustered", "false")]
+        params += [("deviceIds", self._philips_id)]
         return list_items(
             await self._request("GET", f"{self._root}/events", params=params)
         )

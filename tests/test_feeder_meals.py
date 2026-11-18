@@ -183,7 +183,6 @@ async def test_history_scope_dedup_sort_fields_and_neutral_amount():
             ("to", end.isoformat()),
             ("types", "meal_dispensed"),
             ("deviceIds", "internal"),
-            ("clustered", "false"),
         ],
     )
 
@@ -233,19 +232,16 @@ async def test_history_conflicting_duplicate_id_is_error():
 
 @pytest.mark.asyncio
 async def test_legitimate_empty_history_and_missing_optional_values():
-    request = AsyncMock(
-        side_effect=[
-            {"item": []},
-            [event_row(mealName=None, mealAmount=None, source=None)],
-        ]
-    )
-    api = manager(request)
     start, end = utc("2026-01-05"), utc("2026-01-06")
-    assert await api.history(start, end) == []
+    empty = AsyncMock(return_value={"item": []})
+    assert await manager(empty).history(start, end) == []
+    row = event_row(mealName=None, mealAmount=None, source=None)
+    request = AsyncMock(return_value=[row])
+    api = manager(request)
     events = await api.history(start, end)
     assert (events[0].name, events[0].amount, events[0].source) == ("", None, "")
     assert await api.history(start, start) == []
-    assert request.await_count == 2
+    assert request.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -270,7 +266,7 @@ async def test_history_max_range_uses_elapsed_utc_time():
     start = utc("2026-01-01").astimezone(ZoneInfo("Pacific/Auckland"))
     end = utc("2026-02-01").astimezone(ZoneInfo("America/New_York"))
     assert await manager(request).history(start, end) == []
-    assert request.await_count == 1
+    assert request.await_count == 31
 
 
 def test_occurrences_local_date_and_utc_weekday_across_query_dates():

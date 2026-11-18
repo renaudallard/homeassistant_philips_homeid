@@ -54,7 +54,7 @@ envelope `{"item": [...]}`.
 | Homes | `GET /api/homes` → `id`, `timeZone` (IANA name) |
 | Devices of a home | `GET /api/homes/{home}/devices` → `id`, `vendorId`, `productCtn`, `name` |
 | Meals of a home | `GET /api/homes/{home}/meals` |
-| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&deviceIds=…&clustered=false` |
+| Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&deviceIds=…`, one UTC day per request |
 | Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
 
 ## Identity
@@ -112,12 +112,21 @@ Event fields used: `id`, `type`, `time` (ISO 8601 with offset), `deviceId`,
 and for `meal_dispensed` also `mealName`, `mealAmount`, `source`. An event
 whose `time` is not ISO 8601 with an offset is skipped, as in the app. `url`, `mealUrl`, thumbnails and `metadata` are ignored.
 
-- History requests only `types=meal_dispensed`, in windows of at most 31 days
+- Events are read one UTC day per request, as the app's activity log reads
+  one local day with only `from`, `to` and `deviceIds`. The app never sends
+  `clustered` or `after` there, and `size` only for the 3 latest events on
+  its dashboard; the integration sends none of them. *Live:* a longer window
+  returns only its newest events. Over 12 to 18 November single days gave 30
+  events together, while longer windows lost the oldest, by a number that
+  changed with the window's end. Days that have not begun are not asked
+  for. A day is kept once it ended 15 minutes ago, leaving time for a late
+  event, and read again after 6 hours, so an update reads only today
+  again.
+- History requests only `types=meal_dispensed`, at most 31 days per call
   (the history calendar splits up to 93 days). Nothing is synthesised from
   schedules or commands. `mealAmount` has no documented unit and is shown as
   a plain number; after a feed now of 1 and of 2 portions it was 1 and 2,
-  nothing was weighed. *Live:* reading with `clustered=false`. Whether
-  results are paginated or capped has not been observed.
+  nothing was weighed.
 - Status requests `food_level_low`, `food_outlet_stuck`, `device_online` and
   `device_offline`, one `types` parameter each as the app's Retrofit client
   encodes a list (the app itself never filters by type), over the last 7
@@ -220,7 +229,8 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
 | `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
-| `clustered=false`, pagination, `mealAmount` unit | not established; `mealAmount` equalled the portions in two feeds |
+| Why a long events window loses its oldest events | not established; single days, as the app reads them, gave a consistent set |
+| `mealAmount` unit | not established; it equalled the portions in two feeds |
 | Feeder behaviour at DST changes | not established |
 | Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
 | `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |

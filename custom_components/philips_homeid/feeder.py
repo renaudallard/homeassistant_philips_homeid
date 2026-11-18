@@ -62,6 +62,7 @@ from .cloud_auth import CloudAuthError, CloudConnectionError
 from .const import CONF_CPP_ID, CONF_DEVICE_ID, CONF_MODEL, DOMAIN
 from .feeder_api import (
     FeederClient,
+    FeederDevice,
     FeederError,
     FeederHTTPError,
     FeederTokenOwner,
@@ -132,6 +133,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             else None
         )
         self._manager: MealManager | None = None
+        self._device: FeederDevice | None = None
         self._manager_until = 0.0
         self._logged: dict[str, str] = {}
 
@@ -146,7 +148,11 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         device = await find_feeder(self.client.get, self.vendor_id)
         if device is None:
             raise FeederError("HomeID feeder was not found")
-        self._manager = MealManager.for_device(self.client.request, device)
+        # A new manager drops the events it keeps for ended days, so the
+        # same one stays while the feeder resolves the same.
+        if self._manager is None or device != self._device:
+            self._manager = MealManager.for_device(self.client.request, device)
+            self._device = device
         self._manager_until = time.monotonic() + _IDENTITY_TTL
         return self._manager
 

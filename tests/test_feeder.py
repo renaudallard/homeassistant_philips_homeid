@@ -1,6 +1,7 @@
 """PAW5320 feeder entry: setup, polling, entities, config and options flows."""
 
 import logging
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -186,11 +187,47 @@ async def test_identity_is_cached_then_resolved_again():
     with patch("custom_components.philips_homeid.feeder.find_feeder", find):
         first = await coord.meal_manager()
         assert await coord.meal_manager() is first
-        assert await coord.meal_manager(force_refresh=True) is not first
         find.return_value = None
         with pytest.raises(FeederError):
             await coord.meal_manager(force_refresh=True)
     assert find.await_args.args[1] == "tuya-1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"home_id": "other-home"},
+        {"philips_id": "philips-2"},
+        {"time_zone": "Asia/Tokyo"},
+    ],
+)
+async def test_manager_and_its_days_stay_while_the_feeder_resolves_the_same(change):
+    hass = MagicMock()
+    hass.data = {}
+    entry = MagicMock(entry_id="entry", data={CONF_DEVICE_ID: "tuya-1"})
+    with patch(
+        "custom_components.philips_homeid.feeder.async_get_clientsession",
+        return_value=MagicMock(),
+    ):
+        coord = FeederCoordinator(hass, entry)
+    coord.client = MagicMock(request=AsyncMock(return_value={"item": []}))
+    day = datetime(2026, 11, 12, tzinfo=UTC)
+    find = AsyncMock(return_value=FEEDER)
+    with patch("custom_components.philips_homeid.feeder.find_feeder", find):
+        await (await coord.meal_manager()).history(day, day + timedelta(days=1))
+        same = await coord.meal_manager(force_refresh=True)
+        await same.history(day, day + timedelta(days=1))
+        assert coord.client.request.await_count == 1
+        find.return_value = replace(FEEDER, **change)
+        other = await coord.meal_manager(force_refresh=True)
+        await other.history(day, day + timedelta(days=1))
+    assert coord.client.request.await_count == 2
+    assert other.time_zone == find.return_value.time_zone
+    path = coord.client.request.await_args.args[1]
+    assert path == f"/api/homes/{find.return_value.home_id}/events"
+    params = dict(coord.client.request.await_args.kwargs["params"])
+    assert params["deviceIds"] == find.return_value.philips_id
 
 
 # --- entities --------------------------------------------------------------

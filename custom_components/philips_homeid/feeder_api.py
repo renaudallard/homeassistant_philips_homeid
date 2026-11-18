@@ -50,6 +50,7 @@ from urllib.parse import quote
 
 import aiohttp
 from homeassistant.core import HomeAssistant
+from homeassistant.util.json import json_loads
 
 from .cloud_auth import CloudAuthError, CloudConnectionError
 from .const import (
@@ -182,19 +183,13 @@ async def pet_request(
             body = await read_reply(response, _MAX_REPLY)
         if body is None:
             raise FeederError("HomeID pet request was not confirmed")
-        # Decoded as aiohttp's response.json() does: an empty body is None.
+        # Decoded as response.json() does on HA's session: an empty body is
+        # None, and HA's loader refuses NaN, Infinity and deep nesting.
         body = body.strip()
-        return json.loads(body.decode(charset)) if body else None
-    except (
-        aiohttp.ClientError,
-        TimeoutError,
-        ValueError,
-        RecursionError,
-        LookupError,
-    ):
-        # RecursionError is json.loads on deeply nested input, LookupError a
-        # codec that is not a text encoding. Raised below, not here with
-        # ``from None``, which would still keep the original on
+        return json_loads(body.decode(charset)) if body else None
+    except (aiohttp.ClientError, TimeoutError, ValueError, LookupError):
+        # LookupError is a codec that is not a text encoding. Raised below,
+        # not here with ``from None``, which would still keep the original on
         # ``__context__``: aiohttp errors carry the request URL, with home
         # IDs, and a JSON error the whole reply.
         pass

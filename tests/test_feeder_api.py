@@ -169,6 +169,24 @@ async def test_deeply_nested_reply_is_a_feeder_error():
         await pet_request(session, "a", "GET", "/api/homes")
 
 
+# json.loads reads all of these; response.json() on HA's session did not.
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b"NaN",
+        b"[Infinity]",
+        b'{"mealAmount": -Infinity}',
+        b"1e400",
+        b"[" * 1100 + b"]" * 1100,
+    ],
+)
+@pytest.mark.asyncio
+async def test_reply_is_read_with_the_loader_of_ha_session(raw):
+    session = fake_session(200, raw=raw)
+    with pytest.raises(FeederError):
+        await pet_request(session, "a", "GET", "/api/homes")
+
+
 @pytest.mark.asyncio
 async def test_read_is_not_left_to_aiohttp_to_inflate():
     session = fake_session(200)

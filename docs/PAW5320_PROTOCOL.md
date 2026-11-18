@@ -40,12 +40,14 @@ responses (`url`, `mealUrl`, `Location`, media links) are never followed and
 redirects are refused (`allow_redirects=False`). A reply is read up to 4 MiB
 and, if gzip encoded, inflated by the integration to at most 4 MiB for all
 its members together, since aiohttp sets no limit on a whole reply; other
-encodings are refused. The body is parsed with HA's JSON loader, as
-`response.json()` on HA's session parses it, so `NaN`, `Infinity` and
-nesting deeper than 1024 are refused. Errors are replaced, keeping the
-original neither as cause nor as context, because aiohttp errors carry the
-request URL, JSON errors the reply and the token endpoint's errors server
-text. Lists use the envelope `{"item": [...]}`.
+encodings are refused. The body is decoded and parsed as `response.json()`
+on HA's session does it: in the charset aiohttp's `get_encoding()` takes
+from the header, UTF-8 when there is none or Python does not know it, and
+with HA's JSON loader, so `NaN`, `Infinity` and nesting deeper than 1024
+are refused. Errors are replaced, keeping the original neither as cause
+nor as context, because aiohttp errors carry the request URL, JSON errors
+the reply and the token endpoint's errors server text. Lists use the
+envelope `{"item": [...]}`.
 
 | Purpose | Request |
 |---|---|

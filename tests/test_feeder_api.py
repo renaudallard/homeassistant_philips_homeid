@@ -71,9 +71,12 @@ def fake_session(*statuses, body=None, raw=None, headers=None, charset=None):
             session.chunks_read += 1
             yield raw[start : start + size]
 
+    headers = CIMultiDict(headers or {})
+    if charset is not None:
+        headers.setdefault("Content-Type", f"application/json; charset={charset}")
     contexts = []
     for status in statuses:
-        response = MagicMock(status=status, headers=headers or {}, charset=charset)
+        response = MagicMock(status=status, headers=headers)
         response.content.iter_chunked = chunks
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=response)
@@ -267,6 +270,31 @@ async def test_gzip_member_of_nothing_is_none():
 async def test_reply_is_decoded_in_the_declared_charset(charset, raw, expected):
     session = fake_session(200, raw=raw, charset=charset)
     assert await pet_request(session, "a", "GET", "/api/homes") == expected
+
+
+# Headers on which aiohttp's response.charset and get_encoding() disagree:
+# response.json() went by get_encoding().
+@pytest.mark.parametrize(
+    ("content_type", "raw", "expected"),
+    [
+        ("application/json; charset=latin-1 (comment)", b'"\xe9"', None),
+        ("application/json; charset=latin-1, text/plain", b'"\xc3\xa9"', "\u00e9"),
+        ("application/json; charset='latin-1'", b'"\xc3\xa9"', "\u00c3\u00a9"),
+        ("application/json; charset=utf-8; charset=latin-1", b'"\xc3\xa9"', "\u00e9"),
+        ("APPLICATION/JSON; CHARSET=ISO-8859-1", b'"\xe9"', "\u00e9"),
+        ("text/plain", b'"\xc3\xa9"', "\u00e9"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_charset_is_read_from_the_header_as_get_encoding_reads_it(
+    content_type, raw, expected
+):
+    session = fake_session(200, raw=raw, headers={"Content-Type": content_type})
+    if expected is None:
+        with pytest.raises(FeederError):
+            await pet_request(session, "a", "GET", "/api/homes")
+    else:
+        assert await pet_request(session, "a", "GET", "/api/homes") == expected
 
 
 @pytest.mark.parametrize(

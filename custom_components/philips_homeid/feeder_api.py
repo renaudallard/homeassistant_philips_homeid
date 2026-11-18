@@ -49,6 +49,7 @@ from typing import Any
 from urllib.parse import quote
 
 import aiohttp
+from aiohttp.helpers import parse_mimetype
 from homeassistant.core import HomeAssistant
 from homeassistant.util.json import json_loads
 
@@ -135,8 +136,14 @@ def list_items(data: Any) -> list[dict[str, Any]]:
     return data
 
 
-def _charset(name: str | None) -> str:
-    """The declared charset, or UTF-8 when Python does not know it."""
+def _charset(content_type: str) -> str:
+    """The charset response.json() decodes with, from the Content-Type header.
+
+    Parsed as aiohttp's get_encoding() parses it, which on unusual headers
+    differs from response.charset. UTF-8 when there is none or Python does
+    not know it, as HA's session sets no other fallback.
+    """
+    name = parse_mimetype(content_type.lower()).parameters.get("charset")
     if name:
         try:
             return codecs.lookup(name).name
@@ -179,7 +186,7 @@ async def pet_request(
                 raise FeederAuthRejected(status)
             if status != 200:
                 raise FeederHTTPError(status)
-            charset = _charset(response.charset)
+            charset = _charset(response.headers.get("Content-Type", ""))
             body = await read_reply(response, _MAX_REPLY)
         if body is None:
             raise FeederError("HomeID pet request was not confirmed")

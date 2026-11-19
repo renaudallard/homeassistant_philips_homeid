@@ -66,7 +66,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 
 ### Air Fryers
 - Cooking status, temperature (target/current), time remaining
-- Controls: start, pause, stop, keep warm, temperature, cook time, preheat toggle
+- Controls: start, pause, stop, keep warm, temperature, cook time, preheat toggle, and a power switch on cloud relay (FUSION) devices
 - Cooking method select (architecture-specific presets)
 - Custom "My Presets" select (presets created in the Philips HomeID app; cloud login required)
 - Sensors: drawer state, preheat status, shake/flip reminders
@@ -84,7 +84,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 ### Espresso Machines (Rita)
 - Power on/off via shadow
 - Brew a saved profile recipe, or a built-in drink (espresso, cappuccino, and so on), each from its own dropdown and brew button
-- One-tap Brew Hot Water using the active profile
+- One-tap Brew Hot Water using the profile chosen in the Brew Profile dropdown
 - Abort, resume and skip step during a brew
 - Select roast level (light/medium/dark) and bean type (arabica/mix/other)
 - Sensors: machine state, running status, active alert, control status, autonomies (AquaClean, descale, coffee, brew group), AquaClean filter number
@@ -142,7 +142,7 @@ Then click **Download** and restart Home Assistant.
 
 ### Prerequisites
 
-Your device must first be paired with the **official Philips HomeID app** on Android or iOS. The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for device communication either automatically from the Philips cloud (local credentials or MQTT relay for FUSION devices) or manually from the app's local storage.
+Your device must first be paired with the **official Philips HomeID app** on Android or iOS (or, for the AC0650/AC0651/AC1715 purifiers, the Philips **Air+** app). The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for device communication either automatically from the Philips cloud (local credentials or MQTT relay for FUSION devices) or manually from the app's local storage.
 
 ### Adding a Device
 
@@ -154,7 +154,7 @@ Devices discovered via Zeroconf or SSDP appear automatically as a notification. 
 2. Search for **Philips HomeID**
 3. Choose how to set up:
    - **Set up a local device by IP address** — enter the device's IP and select the model, then confirm the discovered device (local airfryers, espresso machines, and similar local-network devices)
-   - **Sign in with Philips account** — for cloud-relay (FUSION) devices that have no local connection
+   - **Sign in with Philips account** — for cloud-relay (FUSION) devices that have no local connection, and for the PAW5320 pet feeder
 4. Enter your Philips HomeID account email
 5. Enter the verification code sent to your email
 6. Select your device from the list; credentials (or cloud-relay configuration) are retrieved automatically
@@ -163,7 +163,7 @@ Devices discovered via Zeroconf or SSDP appear automatically as a notification. 
 
 > **Note:** All entities may take a few minutes to appear after setup. The integration needs one polling cycle to establish authentication with the device before all sensors become available.
 
-If cloud login is not available on your platform, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form (shown when setting up a local device by IP). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
+If cloud login fails, or you prefer to enter credentials manually, check **Enter credentials manually instead** on the email form (shown for a device entered by IP or found on the local network). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 #### Cloud Login
 
@@ -172,7 +172,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 1. Authenticates with Philips via email OTP (one-time password)
 2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
-4. The integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC1715) are registered against a separate Philips app account, so this extra step is what makes a device paired in the Air+ app show up. Both lists are offered together, so an account with an airfryer in HomeID and a purifier in Air+ can add either; Air+ devices are marked `[Air+]` in the device list. This check is skipped when setup started from a device found on the local network.
+4. The integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC1715) are registered against the Air+ app's OAuth client rather than the HomeID one, so this extra step is what makes a device paired in the Air+ app show up. Both lists are offered together, so an account with an airfryer in HomeID and a purifier in Air+ can add either; Air+ devices are marked `[Air+]` in the device list. This check is skipped when setup started from a device found on the local network.
 
 The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 
@@ -587,7 +587,7 @@ The `Request failed for GET <url>` lines then name the failure. `ConnectionTimeo
 A wedged web server does not recover on its own. Power-cycle the appliance, or disconnect it at the access point and let it reconnect, which is enough to restart its network services. The appliance keeps answering pings the whole time, so being able to reach it says nothing about its web server.
 
 ### Cloud Login Not Available
-Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM) and the device has a local server, check **Enter credentials manually instead** on the email form (shown when setting up a local device by IP). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
+Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM) and the device has a local server, check **Enter credentials manually instead** on the email form (shown for a device entered by IP or found on the local network). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 ### "The Philips HomeID backend returned a server error for your account"
 This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile. It is a problem on Philips's servers with your account data, not a device or network fault, and the integration sends the same request the official app does. The usual cause is a stale or broken device record on the account.

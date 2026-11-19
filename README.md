@@ -680,6 +680,8 @@ If you find this integration useful, you can support its development:
 
 A huge thank you to [LucaTomei](https://github.com/LucaTomei) for his extensive and tireless debugging of the MQTT cloud relay implementation. His detailed testing, logs, and patience were instrumental in getting FUSION device support working. This integration would not support cloud-only devices without his help.
 
+Many thanks to [mira-eisenstein](https://github.com/mira-eisenstein) for the PAW5320 pet feeder support. They wrote the first feeder pull request, reviewed every round of the feed now work line by line, and tested each build on a real feeder. Their reviews caught a path that could have fed twice for one press, and their measurements showed that long history windows lost their oldest events. Thanks as well to the feeder's owner, who allowed every test press.
+
 ---
 
 ## Disclaimer

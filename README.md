@@ -325,9 +325,10 @@ The integration also has air purifier entities for other property names (PM1.0/P
 | Binary Sensor | Preheat Active | Preheat cycle status |
 | Binary Sensor | Probe Unplugged / Required | Probe connection state (Venus only) |
 | Binary Sensor | Resting | Resting phase active (Venus only) |
+| Binary Sensor | Temperature Unit Fahrenheit | On when the appliance reports Fahrenheit (diagnostic) |
 | Button | Start / Pause / Stop | Cooking controls (set temp/time first, then Start) |
 | Button | Keep Warm | Start keep warm mode (1 hour default) |
-| Button | Refresh Recipes | Re-fetch recipe names from cloud API |
+| Button | Refresh Recipes | Re-fetch recipe names, the AutoCook catalog and My Presets from the cloud (asks for a cloud login if the device has none) |
 | Button | Send AutoCook Program | Send the selected built-in AutoCook program to the device (Venus local only) |
 | Number | Set Temperature / Cook Time | Adjustable settings |
 | Number | Set Air Speed | 1=LOW, 2=HIGH (Venus only) |
@@ -339,8 +340,8 @@ The integration also has air purifier entities for other property names (PM1.0/P
 | Switch | Power | Wakes the appliance when turned on, sends standby when turned off (FUSION only) |
 | Switch | Preheat | Enable preheat for next cooking start |
 | Sensor | Current Probe Temperature | Live probe reading (Venus only) |
-| Sensor | AutoCook Program / Doneness | AutoCook state (Venus only) |
-| Sensor | AutoCook Amount / Weight / Thickness | AutoCook parameters (Venus only) |
+| Sensor | AutoCook Program / Doneness | AutoCook state (Venus only; Program is diagnostic) |
+| Sensor | AutoCook Amount / Weight / Thickness | AutoCook parameters (Venus only, diagnostic) |
 | Sensor | Recipe Current Stage | Multi-stage recipe tracking (Venus only) |
 | Sensor | NCP / Host Firmware Version | Reported firmware versions, FUSION only (diagnostic) |
 | Sensor | Product Error | Device error code from shadow, FUSION only (diagnostic) |
@@ -354,7 +355,7 @@ The integration also has air purifier entities for other property names (PM1.0/P
 <details>
 <summary><b>Multicooker Entities (NX0960/NX0950)</b></summary>
 
-All air fryer entities above (including target/current temperature and total cook time), plus:
+All air fryer entities above (including target/current temperature and total cook time), except Drawer and the FUSION NCP / Host Firmware Version, Product Error and Device Name / Serial Number / Model Number sensors, plus:
 
 | Type | Entity | Description |
 |------|--------|-------------|
@@ -374,8 +375,8 @@ Rita-class machines (EP8757 and similar) over FUSION cloud relay:
 |------|--------|-------------|
 | Sensor | Machine State | Idle / brewing / action required / error |
 | Sensor | Machine Status | Running / suspended / finishing status |
-| Sensor | Machine Extra Info | Alerts (bean lack, water lack, door open, etc.) |
-| Sensor | Control Status | Last command status |
+| Sensor | Machine Extra Info | Alerts (bean lack, water lack, door open, etc.) (diagnostic) |
+| Sensor | Control Status | Last command status (diagnostic) |
 | Sensor | Bean Type | Arabica / mix / other |
 | Sensor | Roast Level | Light / medium / dark |
 | Sensor | AquaClean Filter Number | Current filter number (diagnostic) |
@@ -411,20 +412,16 @@ Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 | Sensor | Bean Level | Bean hopper level |
 | Sensor | Descale Status | Descaling needed indicator |
 | Sensor | Filter Status | AquaClean filter state |
-| Sensor | Filter Number | Current filter number |
+| Sensor | Filter Number | Current filter number (diagnostic) |
 | Sensor | Waste Bean Tray | Coffee grounds container status |
 | Sensor | Switch State | Power switch state |
-| Sensor | Last Error | Most recent error code |
+| Sensor | Last Error | Most recent error code (diagnostic) |
 | Sensor | Active User | Selected user profile |
 | Sensor | Water Hardness | Configured water hardness (diagnostic) |
 | Sensor | Auto Standby Time | Auto-off timer setting (diagnostic) |
 | Switch | Power | Turn the machine on or off (command port power enum) |
 | Button | Brew Espresso | Wake the machine and brew the built-in espresso (recipe 2, 40 ml) |
 | Button | Brew Coffee | Wake the machine and brew the built-in coffee (recipe 6, 120 ml) |
-| Number | Grinder Dose | Coffee grinder amount |
-| Number | Brew Temperature | Brewing temperature |
-| Number | Number of Brews | Cups per session |
-| Number | Primary / Secondary Dose | Water dosage settings |
 
 </details>
 

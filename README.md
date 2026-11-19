@@ -584,7 +584,7 @@ The `Request failed for GET <url>` lines then name the failure. `ConnectionTimeo
 A wedged web server does not recover on its own. Power-cycle the appliance, or disconnect it at the access point and let it reconnect, which is enough to restart its network services. The appliance keeps answering pings the whole time, so being able to reach it says nothing about its web server.
 
 ### Cloud Login Not Available
-Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails on your platform (e.g., 32-bit ARM) and the device has a local server, check **Enter credentials manually instead** on the email form (shown for a device entered by IP or found on the local network). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
+Cloud login works on all supported HA installation types (OS, Container, Supervised, Core). If it fails and the device has a local server, check **Enter credentials manually instead** on the email form (shown for a device entered by IP or found on the local network). See [Extracting Credentials](#extracting-credentials-manual-alternative) for how to obtain them.
 
 ### "The Philips HomeID backend returned a server error for your account"
 This message during cloud login means the verification code was accepted but the Philips HomeID backend returned a server error (HTTP 5xx) when the integration requested your account profile. It is a problem on Philips's servers with your account data, not a device or network fault, and the integration sends the same request the official app does. The usual cause is a stale or broken device record on the account.
@@ -608,7 +608,7 @@ On some firmwares, the Philips app initially communicates with the device via **
 
 To generate local credentials, make sure the app and device are on the **same network**, then look for the **"Your appliance needs updating"** banner on the home screen or device dashboard. Tap **"Ok, let's start"** to trigger local authentication, then run the credential extractor again. See step 4 in [Method 1](#method-1-credential-extractor-tool).
 
-### "Could not obtain encryption key" or "credentials invalid" with HTTP Toolkit credentials
+### "Could not obtain encryption key" or "The credentials are invalid or the device rejected them" with HTTP Toolkit credentials
 The integration only needs an `encryption_key` when the device was detected on plain HTTP (port 80) rather than HTTPS (port 443). Every device seen so far uses HTTPS and plain JSON, so first make sure the device is reachable on port 443. When a device is detected on HTTP and you enter credentials without an encryption key, the integration tries to fetch it from the device automatically. If that fails, the most common causes are:
 
 - **Cloud vs local credentials**: HTTP Toolkit captures all traffic. Make sure the credentials you captured came from requests to the **device's local IP address**, not to Philips cloud servers. Cloud credentials will not work for local control.
@@ -633,17 +633,17 @@ FUSION devices have two firmware numbers separated by `/` (NCP firmware / host f
 **Symptoms:**
 - The credential extractor finds no credentials in any method
 - The `--dump-all` flag shows only app settings (no device credentials)
-- `COMMUNICATION_LIB_PREFERENCES` (Method 2) is completely empty
+- `COMMUNICATION_LIB_PREFERENCES` (the extractor's Encrypted Preferences method) is completely empty
 - Traffic interception shows all communication goes through cloud websockets, never to the device's local IP
 - The device is already paired with the app via the cloud
 - Credentials captured from cloud traffic (HTTP Toolkit) do not work for local auth
 
-**What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf) and should support local control. However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are stored on the phone. The credential extractor tool will find nothing.
+**What is happening:** The device does run a local HTTP server (it is discoverable via zeroconf). However, the app chooses to use cloud-only communication on these firmwares. Since the app never performs local authentication, no `client_id` or `client_secret` are stored on the phone. The credential extractor tool will find nothing.
 
 **Resolution:** The integration now supports these devices via **Cloud Relay (MQTT)**. During setup, if no local credentials are available but the device has an `externalDeviceId` (FUSION registration), the integration automatically creates a cloud relay entry. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices).
 
 ### Empty Database
-If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool) or the built-in cloud login, which handles all storage locations including encrypted preferences.
+If `network_node.db` is empty in the SQLite editor, your device firmware stores credentials in EncryptedSharedPreferences instead of SQLite. Use [Method 1: Credential Extractor Tool](#method-1-credential-extractor-tool) or the built-in cloud login, which gets the credentials from the Philips cloud and never reads the phone.
 
 ---
 

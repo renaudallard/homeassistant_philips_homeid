@@ -480,8 +480,9 @@ What you get:
 
 Feed now has been confirmed on a tester's PAW5320: a press of 1 portion and
 one of 2 portions each dispensed and showed in the feeding history as one
-feeding of that amount. Keeping a session for a day or more, and a session
-Tuya has dropped, have not been tried on a real feeder yet. To see what
+feeding of that amount. A press 33 hours after the previous one went out on
+the kept session, with no new login. A session Tuya has dropped has not
+been tried on a real feeder yet. To see what
 Tuya answers, enable debug logging; it names only the keys of each reply,
 never their values:
 ```yaml

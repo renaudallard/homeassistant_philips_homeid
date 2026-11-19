@@ -186,7 +186,7 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   (`SingleContainerDispenseSerializer`). Feeders without camera use 101 and
   the dual container 236; neither model is supported here.
 - Session: one per entry, made on the first press and kept in memory. A
-  session made during development still answered after 25.8 hours, and a
+  session made during development still answered after about 69 hours, and a
   second login did not end the first. `petsseries` reports a daily login cap
   (`USER_SESSION_LIMIT`), so the integration logs in again only when Tuya
   says the session is gone.
@@ -218,6 +218,16 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   press of 1 portion dispensed and showed as one `meal_dispensed` event
   with `source` `device` and `mealAmount` 1, about 9 seconds after the
   press. The log had one login reply and one publish reply.
+- *Live* on the same build, with nothing restarted in between: a press of 1
+  portion 33 hours after the previous one dispensed and showed as one
+  `meal_dispensed` event. The log had a publish reply and no login reply,
+  so the press went out on the kept session.
+- *Live* with build ea5ef1b: a press of 1 portion dispensed, with one login
+  reply and one publish reply in the log.
+- *Live* with build 3891026, reads only: 12 to 15 November gave 15 events,
+  as a 3 day window did on the earlier build, where a 31 day window holding
+  those days gave 13. 13 November alone gave the same 13 events as before,
+  and the schedule the same times.
 
 ## Verification status
 
@@ -229,14 +239,15 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
 | `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
-| Why a long events window loses its oldest events | not established; single days, as the app reads them, gave a consistent set |
+| Why a long events window loses its oldest events | not established; single days, as the app reads them, gave a consistent set, and the integration reads single days since build 3891026 |
 | `mealAmount` unit | not established; it equalled the portions in two feeds |
 | Feeder behaviour at DST changes | not established |
 | Tuya login, session reuse and lifetime with the integration's signer | live, maintainer account without a feeder |
 | `dp.publish` signature and ownership check | live: `PERMISSION_DENIED` for a device not on the account |
 | Reply wrapper `success`, `status` | live on a session read, a refused publish, a login and an accepted publish (build 6767ad8) |
 | Feed now `{"201": n}` on a PAW5320 | live: 1 and 2 portions dispensed, one `meal_dispensed` each with `source` `device` (build 090a418) |
-| Feed now session over a day, expired session, failure paths | not established |
+| Feed now on a session over a day old | live: a press 33 hours after the previous one, no new login (build 6767ad8) |
+| Feed now on an expired session, failure paths | not established |
 
 ## Open questions
 

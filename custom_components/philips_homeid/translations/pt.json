@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "Chave de encriptação (necessária para dispositivos HTTP)"
+          "encryption_key": "Chave de encriptação (opcional, deixe em branco exceto se o dispositivo usar HTTP simples)"
         }
       },
       "reauth_email": {

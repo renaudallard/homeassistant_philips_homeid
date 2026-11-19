@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "Krypteringsnyckel (krävs för HTTP-enheter som HD9285)"
+          "encryption_key": "Krypteringsnyckel (valfri, lämna tom om inte enheten använder vanlig HTTP)"
         }
       },
       "reauth_email": {

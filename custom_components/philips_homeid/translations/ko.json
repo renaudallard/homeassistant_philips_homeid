@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "암호화 키"
+          "encryption_key": "암호화 키 (선택 사항, 기기가 일반 HTTP를 사용하는 경우에만 입력)"
         }
       },
       "reauth_email": {

@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "Clave de cifrado (necesaria para dispositivos HTTP como HD9285)"
+          "encryption_key": "Clave de cifrado (opcional, déjela vacía salvo que el dispositivo use HTTP sin cifrar)"
         }
       },
       "reauth_email": {

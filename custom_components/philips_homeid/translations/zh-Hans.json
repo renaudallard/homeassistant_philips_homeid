@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client Secret",
-          "encryption_key": "加密密钥（HTTP设备需要）"
+          "encryption_key": "加密密钥（可选，除非设备使用普通 HTTP，否则留空）"
         }
       },
       "reauth_email": {

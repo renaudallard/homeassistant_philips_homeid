@@ -57,7 +57,7 @@
         "data": {
           "client_id": "Client-ID",
           "client_secret": "Client-secret",
-          "encryption_key": "Encryptiesleutel (vereist voor HTTP-apparaten zoals HD9285)"
+          "encryption_key": "Encryptiesleutel (optioneel, leeg laten tenzij het apparaat gewoon HTTP gebruikt)"
         }
       },
       "reauth_email": {

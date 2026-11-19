@@ -22,7 +22,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 | Category | Models | Architecture | Notes |
 |----------|--------|--------------|-------|
-| **Air Purifiers** | AC0650, AC0651, AC1715 | MUJI | Cloud relay (FUSION MQTT) |
+| **Air Purifiers** | AC0650, AC0651, AC1715 | MUJI | Cloud relay (FUSION MQTT), paired in the HomeID or Air+ app; AC0650 not yet tested on a device |
 | **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
 | **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |

@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -95,7 +95,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
 - **Desiccant replacement due** date from the HomeID desiccant timer
 - **Feed now** button, dispensing the number of **Feed portions** set (1 to 20)
-- See [Pet Feeder (PAW5320)](#pet-feeder-paw5320) for what is and is not verified
+- See [Pet Feeder (PAW5320) details](#pet-feeder-paw5320-details) for what is and is not verified
 
 ---
 
@@ -432,7 +432,7 @@ Local Condor machines (EP2520 confirmed, EP3546/SM series likely):
 
 ---
 
-## Pet Feeder (PAW5320)
+## Pet Feeder (PAW5320) details
 
 The Philips Smart Feeder with Camera is supported by the HomeID app from
 version 8.23.0. It is not a FUSION device: the app keeps it on the HomeID pet

@@ -454,7 +454,10 @@ What you get:
   schedule or a button. The sensor covers the last 7 days and lists up to 20
   recent feedings. `amount` is shown as reported; its unit is not documented,
   so it is not labelled as grams. After a feed now it has matched the number
-  of portions.
+  of portions. HomeID is read one day at a time, as the app reads it. Today
+  is always read afresh, and a day that ended more than 15 minutes ago is
+  read again every 6 hours, so a feeding HomeID records late for an earlier
+  day can take up to about 6 hours to show.
 - **Last food low alert** / **Last food outlet stuck alert**: when HomeID last
   reported that condition in the past 7 days. HomeID sends no "resolved" event,
   so these are timestamps, not on/off problem sensors.

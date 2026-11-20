@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "喂食记录"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "喂食",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "已出粮"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "粮食提醒",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "粮量不足",
+              "food_outlet_stuck": "出粮口堵塞"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

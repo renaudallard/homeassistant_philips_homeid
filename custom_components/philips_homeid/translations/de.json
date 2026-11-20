@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "Fütterungsverlauf"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Fütterung",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Mahlzeit ausgegeben"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Futterwarnung",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Wenig Futter",
+              "food_outlet_stuck": "Futterausgabe blockiert"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

@@ -11,6 +11,7 @@ from custom_components.philips_homeid.feeder_api import FeederError
 from custom_components.philips_homeid.feeder_meals import (
     STATUS_EVENT_TYPES,
     MealManager,
+    latest_status,
 )
 
 DAY = datetime(2026, 11, 12, tzinfo=UTC)
@@ -159,7 +160,7 @@ async def test_history_and_status_keep_their_days_apart():
     request = serving([row("low", DAY + timedelta(hours=1), "food_level_low")])
     api = MealManager(request, "home", "dev", None)
     assert await api.history(DAY, DAY + timedelta(days=1)) == []
-    assert await api.latest_status(DAY, DAY + timedelta(days=1)) == {
+    assert latest_status(await api.status_events(DAY, DAY + timedelta(days=1))) == {
         "food_level_low": DAY + timedelta(hours=1)
     }
     types = [

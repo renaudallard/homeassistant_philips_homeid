@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status, events and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -54,7 +54,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
-| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history and status through the HomeID pet cloud, feed now through Tuya (requires internet) |
+| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history, status and events through the HomeID pet cloud, feed now through Tuya (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -93,6 +93,7 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Weekly feeding schedule as a calendar, a switch per meal to enable or disable it, and actions to add, edit and delete meals
 - Feeding history as a calendar, and a **Last feeding** sensor
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
+- **Feeding** and **Food alert** event entities for automations, firing for each new feeding, food low or outlet stuck report
 - **Desiccant replacement due** date from the HomeID desiccant timer
 - **Feed now** button, dispensing the number of **Feed portions** set (1 to 20)
 - See [Pet Feeder (PAW5320) details](#pet-feeder-paw5320-details) for what is and is not verified
@@ -464,6 +465,15 @@ What you get:
 - **Last food low alert** / **Last food outlet stuck alert**: when HomeID last
   reported that condition in the past 7 days. HomeID sends no "resolved" event,
   so these are timestamps, not on/off problem sensors.
+- **Feeding** and **Food alert** events: each fires once for every new
+  `meal_dispensed`, or `food_level_low` and `food_outlet_stuck`, event
+  HomeID reports. The event's own time is the `time` attribute; a feeding
+  also has `name`, `amount` and `source`, as in **Last feeding**. They follow
+  the polling, so an event fires up to 2 minutes after HomeID records it,
+  or up to about 6 hours for one HomeID records late for an earlier day.
+  Events already in HomeID when the entity first reads them, such as those
+  from while Home Assistant was stopped, do not fire; the sensors still show
+  them. See [Feeder events in automations](#feeder-events-in-automations).
 - **Cloud connection**: on if the feeder's latest connectivity event in the
   past 7 days was `device_online`, off if it was `device_offline`, unknown if
   there was none.
@@ -537,6 +547,33 @@ delete, which the HTTP library may resend once after a dropped connection
 and which can only delete the same meal. The meals are read again after
 every change, also when HomeID did not confirm it, so the calendar and
 switches show what HomeID really holds. Meal changes have not yet been tried on a real feeder.
+
+### Feeder events in automations
+
+An event entity's state is the time Home Assistant fired its last event,
+and `event_type` says which one it was. Leave out the change from
+`unavailable`, which is not an event:
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: event.cat_feeder_food_alert
+    not_from: unavailable
+conditions:
+  - condition: state
+    entity_id: event.cat_feeder_food_alert
+    attribute: event_type
+    state: food_level_low
+actions:
+  - action: notify.notify
+    data:
+      message: The feeder is low on food.
+```
+
+Only the event types a PAW5320 has been seen to send are used. The app
+knows more (`device_online`, `device_offline`, `meal_upcoming`,
+`meal_enabled`, `filter_replacement_due`); they can be added once a feeder
+is seen to send them.
 
 ---
 

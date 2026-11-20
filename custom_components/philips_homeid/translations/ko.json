@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "급식 기록"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "급식",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "급식 완료"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "사료 알림",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "사료 부족",
+              "food_outlet_stuck": "사료 배출구 막힘"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

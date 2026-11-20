@@ -834,5 +834,82 @@
         "name": "Feeding history"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Add feeder meal",
+      "description": "Plans a weekly meal on a PAW5320 feeder, as the HomeID app does.",
+      "fields": {
+        "device": {
+          "name": "Feeder",
+          "description": "The pet feeder to plan the meal on."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the meal, up to 80 characters."
+        },
+        "time": {
+          "name": "Time",
+          "description": "When the meal is dispensed, in the time zone of the feeder's HomeID home."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Portions to dispense, 1 to 20."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Weekdays the meal repeats on."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Edit feeder meal",
+      "description": "Changes a planned meal. Fields left out keep their current value.",
+      "fields": {
+        "meal": {
+          "name": "Meal",
+          "description": "The switch of the meal to change."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the meal, up to 80 characters."
+        },
+        "time": {
+          "name": "Time",
+          "description": "When the meal is dispensed, in the time zone of the feeder's HomeID home."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Portions to dispense, 1 to 20."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Weekdays the meal repeats on."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Delete feeder meal",
+      "description": "Removes a planned meal from the feeder's schedule.",
+      "fields": {
+        "meal": {
+          "name": "Meal",
+          "description": "The switch of the meal to remove."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    }
   }
 }

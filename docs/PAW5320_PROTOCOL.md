@@ -28,14 +28,16 @@ request and event shapes. `petsseries` is a reference, not a dependency.
   finishes after a reauth stored a newer login is discarded rather than
   written over it. The config flow only uses the access token from the login
   itself and never refreshes.
-- The access token is cached until a minute before `expires_in`. A read that
-  gets 401/403 on a token older than five minutes refreshes once and retries
+- The access token is cached until a minute before `expires_in`. A request
+  that gets 401/403 on a token older than five minutes refreshes once and retries
   once; a 401 on a younger token is reported without spending another refresh.
 
 ## Requests
 
-The REST transport only reads: it refuses every method but `GET`.
-Only fixed paths under `/api/homes` on the fixed host are requested. URLs in
+The REST transport reads with `GET` and writes only the meal changes the app
+makes (see Schedules), with `POST`, `PATCH` and `DELETE`; it refuses any
+other method. A write is confirmed by any 2xx, as in the app, and its reply
+is not read. Only fixed paths under `/api/homes` on the fixed host are requested. URLs in
 responses (`url`, `mealUrl`, `Location`, media links) are never followed and
 redirects are refused (`allow_redirects=False`). A reply is read up to 4 MiB
 and, if gzip encoded, inflated by the integration to at most 4 MiB for all
@@ -56,6 +58,9 @@ envelope `{"item": [...]}`.
 | Meals of a home | `GET /api/homes/{home}/meals` |
 | Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&deviceIds=…`, one UTC day per request |
 | Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
+| New meal | `POST /api/homes/{home}/meals` |
+| Edit, enable or disable a meal | `PATCH /api/homes/{home}/meals/{meal}` |
+| Delete a meal | `DELETE /api/homes/{home}/meals/{meal}` |
 
 ## Identity
 
@@ -87,6 +92,7 @@ Two different identifiers exist, and neither substitutes for the other:
 
 Meal fields: `id`, `deviceId`, `name`, `portionAmount` (older rows: `amount`),
 `feedTime` (older rows: `time`), `repeatDays`, `enabled`. *Live:* reading.
+The HomeID app 8.23.0 reads `amount` and `time`; both spellings are accepted.
 
 - `feedTime` is `HH:MM` in the home's IANA `timeZone`, or `HH:MMZ` for UTC.
   Weekdays are 1 = Monday … 7 = Sunday, in the same zone as the time. Disabled
@@ -98,13 +104,23 @@ Meal fields: `id`, `deviceId`, `name`, `portionAmount` (older rows: `amount`),
 - Calendar occurrences are predictions: nonexistent local times in a DST gap
   are skipped, a repeated hour uses its first instant. What the feeder itself
   does at DST changes is unknown.
-- Editing schedules is not part of this version; meals are changed in the
-  HomeID app. For a later change: `petsseries` creates meals with `POST
-  …/meals` (`deviceId`, `feedTime`, `name`, `portionAmount`, `repeatDays`;
-  201 with `Location`), edits and enables/disables them with `PATCH
-  …/meals/{meal}` and deletes with `DELETE`. None of this has been tried on a
-  feeder. aiohttp resends an idempotent `DELETE` by itself after a dropped
-  connection, so a write path needs a guard against that.
+- Meals are changed as the HomeID app 8.23.0 changes them, not as
+  `petsseries` does (`feedTime`, `portionAmount`):
+  - a new meal is `POST …/meals` and an edit `PATCH …/meals/{meal}`, both
+    with `name`, `time` (`HH:mm`, local, never with `Z`), `amount`,
+    `deviceId` (the Philips ID) and `repeatDays` (1 = Monday … 7 = Sunday).
+    The app reads the new meal's ID from `Location`; the integration reads
+    the meals again instead.
+  - enabling or disabling is a `PATCH` of the same path with
+    `{"enabled": bool}`, and deleting is a `DELETE` of it.
+  - the app's editor keeps the amount within 1 to 20 portions, and a 409 is
+    its `MealTimeConflictException`: another meal is already at that time.
+- Every value is checked before anything is sent. A write is sent once; it is
+  sent again only when the backend refused the token (401/403), so it was not
+  acted on. aiohttp itself resends a `DELETE` once after a dropped
+  connection, never a `POST` or `PATCH`, and that can only delete the same
+  meal. After every write, also one that failed or timed out, the meals are
+  read again, since the change may still have been applied.
 
 ## History and status events
 
@@ -236,6 +252,7 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | Discovery through the pet registry | live, read only |
 | Reading meals, home time zone | live, read only |
 | `meal_dispensed` history | live, read only |
+| Adding, editing, enabling, disabling and deleting meals | **not yet tried on a feeder**; requests from the HomeID app 8.23.0 |
 | `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
 | `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
@@ -259,3 +276,5 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 3. Are event lists paginated or capped for busy homes?
 4. Does a HomeID account outside Tuya's EU region log in at the EU host, or
    is it moved to another one?
+5. Which field names does the backend send back for a meal written with
+   `time` and `amount`, and is a new meal enabled from the start?

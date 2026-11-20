@@ -834,5 +834,82 @@
         "name": "Cronologia dei pasti"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Aggiungi pasto al distributore",
+      "description": "Programma un pasto settimanale su un distributore PAW5320, come l'app HomeID.",
+      "fields": {
+        "device": {
+          "name": "Distributore",
+          "description": "Il distributore su cui programmare il pasto."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome del pasto, fino a 80 caratteri."
+        },
+        "time": {
+          "name": "Ora",
+          "description": "Quando viene erogato il pasto, nel fuso orario della casa HomeID del distributore."
+        },
+        "portions": {
+          "name": "Porzioni",
+          "description": "Porzioni da erogare, da 1 a 20."
+        },
+        "days": {
+          "name": "Giorni",
+          "description": "Giorni della settimana in cui il pasto si ripete."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Modifica pasto del distributore",
+      "description": "Modifica un pasto programmato. I campi omessi mantengono il valore attuale.",
+      "fields": {
+        "meal": {
+          "name": "Pasto",
+          "description": "L'interruttore del pasto da modificare."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome del pasto, fino a 80 caratteri."
+        },
+        "time": {
+          "name": "Ora",
+          "description": "Quando viene erogato il pasto, nel fuso orario della casa HomeID del distributore."
+        },
+        "portions": {
+          "name": "Porzioni",
+          "description": "Porzioni da erogare, da 1 a 20."
+        },
+        "days": {
+          "name": "Giorni",
+          "description": "Giorni della settimana in cui il pasto si ripete."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Elimina pasto del distributore",
+      "description": "Rimuove un pasto programmato dal programma del distributore.",
+      "fields": {
+        "meal": {
+          "name": "Pasto",
+          "description": "L'interruttore del pasto da rimuovere."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Lunedì",
+        "tue": "Martedì",
+        "wed": "Mercoledì",
+        "thu": "Giovedì",
+        "fri": "Venerdì",
+        "sat": "Sabato",
+        "sun": "Domenica"
+      }
+    }
   }
 }

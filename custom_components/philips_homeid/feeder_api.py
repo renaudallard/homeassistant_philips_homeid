@@ -28,11 +28,11 @@ The HomeID app keeps its feeders on the pet backend below, which accepts the
 same HomeID OIDC access token this integration already holds. Everything here
 is plain aiohttp: the feeder needs no extra requirement and no other account.
 
-This version only reads: the transport refuses every method but GET, so
-nothing in the integration can change the feeder's schedule or settings.
-Only fixed paths on the fixed host are requested, URLs found in responses are
-never followed and redirects are refused. Error messages carry no response
-body, URL, identifier or token.
+Reads are GET. The only writes are the meal schedule changes the app makes,
+POST, PATCH and DELETE, whose replies are never read. Only fixed paths on the
+fixed host are requested, URLs found in responses are never followed and
+redirects are refused. Error messages carry no response body, URL,
+identifier or token.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import quote
 
 import aiohttp
@@ -79,6 +79,8 @@ _REFRESH_RETRY_AFTER = 60.0
 # A 401 on a token younger than this is not an expiry; refreshing again would
 # only rotate the single-use refresh token without fixing anything.
 _FORCED_REFRESH_MIN_AGE = 300.0
+_WRITE_METHODS = frozenset({"POST", "PATCH", "DELETE"})
+_T = TypeVar("_T")
 
 
 class FeederError(Exception):
@@ -200,6 +202,39 @@ async def pet_request(
         # ``__context__``: aiohttp errors carry the request URL, with home
         # IDs, and a JSON error the whole reply.
         pass
+    raise FeederError("HomeID pet request was not confirmed")
+
+
+async def pet_write(
+    session: aiohttp.ClientSession,
+    access_token: str,
+    method: str,
+    path: str,
+    body: dict[str, Any] | None = None,
+) -> None:
+    """Send one write. Any 2xx confirms it, as in the app; the reply is unread."""
+    if method not in _WRITE_METHODS:
+        raise FeederError("Unsupported HomeID request")
+    _check_path(path)
+    try:
+        async with session.request(
+            method,
+            f"{PET_API_URL}{path}",
+            json=body,
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=_TIMEOUT,
+            allow_redirects=False,
+        ) as response:
+            status = response.status
+    except (aiohttp.ClientError, TimeoutError):
+        # Raised below for the same reason as in pet_request.
+        pass
+    else:
+        if status in (401, 403):
+            raise FeederAuthRejected(status)
+        if not 200 <= status <= 299:
+            raise FeederHTTPError(status)
+        return
     raise FeederError("HomeID pet request was not confirmed")
 
 
@@ -471,6 +506,20 @@ class FeederClient:
         self._session = session
         self._owner = owner
 
+    async def _authorized(self, send: Callable[[str], Awaitable[_T]]) -> _T:
+        """Retry once if the pet backend refused an older token.
+
+        A refused token means the request was not acted on, so a write is
+        sent again only then, never after a timeout or any other failure.
+        """
+        token = await self._owner.access_token()
+        try:
+            return await send(token)
+        except FeederAuthRejected:
+            if not self._owner.invalidate(token):
+                raise
+        return await send(await self._owner.access_token())
+
     async def request(
         self,
         method: str,
@@ -478,19 +527,24 @@ class FeederClient:
         *,
         params: list[tuple[str, str]] | None = None,
     ) -> Any:
-        """A read retries once if the pet backend refused an older token."""
+        """One read."""
         if method != "GET":
             # Refused before any token work: a write must not even spend
             # the single-use refresh token.
             raise FeederError("Unsupported HomeID request")
-        token = await self._owner.access_token()
-        try:
-            return await pet_request(self._session, token, method, path, params=params)
-        except FeederAuthRejected:
-            if not self._owner.invalidate(token):
-                raise
-        token = await self._owner.access_token()
-        return await pet_request(self._session, token, method, path, params=params)
+        return await self._authorized(
+            lambda token: pet_request(self._session, token, method, path, params=params)
+        )
+
+    async def write(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> None:
+        """One write."""
+        if method not in _WRITE_METHODS:
+            raise FeederError("Unsupported HomeID request")
+        await self._authorized(
+            lambda token: pet_write(self._session, token, method, path, body)
+        )
 
     async def get(self, path: str) -> Any:
         return await self.request("GET", path)

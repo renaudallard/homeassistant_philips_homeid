@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -56,7 +56,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
-| **Pet Feeder** | PAW5320 schedules, feeding history and status through the HomeID pet cloud, feed now through Tuya (requires internet) |
+| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history and status through the HomeID pet cloud, feed now through Tuya (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -95,7 +95,7 @@ The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are
 - Sensors: machine state, running status, active alert, control status, autonomies (AquaClean, descale, coffee, brew group), AquaClean filter number
 
 ### Pet Feeder (PAW5320)
-- Weekly feeding schedule as a read-only calendar (edit meals in the HomeID app)
+- Weekly feeding schedule as a calendar, a switch per meal to enable or disable it, and actions to add, edit and delete meals
 - Feeding history as a calendar, and a **Last feeding** sensor
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
 - **Desiccant replacement due** date from the HomeID desiccant timer
@@ -443,8 +443,14 @@ appliance as a PAW5320. Nothing extra is installed.
 What you get:
 
 - **Feeding schedule** calendar: the enabled weekly meals stored in HomeID.
-  Planned times are a prediction, not proof that food was dispensed. The
-  schedule is read only here; add or change meals in the HomeID app.
+  Planned times are a prediction, not proof that food was dispensed.
+- A **switch per meal**, named after the meal, enables or disables it. Its
+  attributes give the meal's time, portions and days. A meal added or
+  removed in the app gets or loses its switch within one poll (2 minutes).
+- Actions to change meals as the app does (admin users only):
+  `philips_homeid.add_feeder_meal`, `philips_homeid.edit_feeder_meal` and
+  `philips_homeid.delete_feeder_meal`, described in [Editing
+  meals](#editing-meals).
 - Meal times are either in the HomeID home's time zone (they follow daylight
   saving time) or in UTC. If HomeID reports no time zone for the home, the
   Home Assistant time zone is used, as the app uses the phone's.
@@ -495,6 +501,44 @@ logger:
 Camera and video are out of scope. The protocol and the limits
 of what has been verified on a real feeder are in
 [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
+
+### Editing meals
+
+A meal has a name (up to 80 characters), a time, 1 to 20 portions and the
+weekdays it repeats on. The time is in the time zone of the feeder's HomeID
+home, as the app shows it, whole minutes only. Editing and deleting take the
+meal's switch; an edit keeps whatever it leaves out, except the days of a
+meal that repeats on no day and the time of a meal stored in UTC, which the
+app never sends and which must then be given.
+
+```yaml
+action: philips_homeid.add_feeder_meal
+data:
+  device: <the feeder's device id>
+  name: Breakfast
+  time: "07:30"
+  portions: 2
+  days: [mon, tue, wed, thu, fri]
+```
+```yaml
+action: philips_homeid.edit_feeder_meal
+data:
+  meal: switch.cat_feeder_breakfast
+  portions: 3
+```
+```yaml
+action: philips_homeid.delete_feeder_meal
+data:
+  meal: switch.cat_feeder_breakfast
+```
+
+When HomeID answers that another meal is already at that time, the conflict
+the app reports, the action says so.
+A change is never sent again after a timeout or an error, apart from a
+delete, which the HTTP library may resend once after a dropped connection
+and which can only delete the same meal. The meals are read again after
+every change, also when HomeID did not confirm it, so the calendar and
+switches show what HomeID really holds. Meal changes have not yet been tried on a real feeder.
 
 ---
 

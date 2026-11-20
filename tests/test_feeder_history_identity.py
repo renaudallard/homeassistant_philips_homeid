@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.philips_homeid.feeder_meals import MealManager
+from custom_components.philips_homeid.feeder_meals import MealManager, latest_status
 
 START = datetime(2026, 11, 13, tzinfo=UTC)
 END = START + timedelta(days=1)
@@ -60,7 +60,9 @@ async def test_unusable_event_time_drops_only_that_event(time):
         row("bad", type="device_online", time=time),
         row("good", type="device_offline"),
     )
-    assert await status.latest_status(START, END) == {"device_offline": START}
+    assert latest_status(await status.status_events(START, END)) == {
+        "device_offline": START
+    }
 
 
 @pytest.mark.asyncio

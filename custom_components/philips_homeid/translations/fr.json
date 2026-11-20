@@ -833,6 +833,29 @@
       "feeder_history": {
         "name": "Historique des repas"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Repas",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Repas distribué"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Alerte croquettes",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Niveau de croquettes bas",
+              "food_outlet_stuck": "Sortie de croquettes bloquée"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

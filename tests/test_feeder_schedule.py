@@ -346,7 +346,7 @@ async def test_a_poll_never_puts_back_meals_older_than_a_change(changed):
     manager = coord.manager
     manager.time_zone = "Europe/Riga"
     manager.history = AsyncMock(return_value=[])
-    manager.latest_status = AsyncMock(return_value={})
+    manager.status_events = AsyncMock(return_value=[])
     manager.desiccant = AsyncMock(return_value=None)
 
     async def stale_history(start, end):

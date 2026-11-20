@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "Historial de comidas"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Comida",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Comida dispensada"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Alerta de alimento",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Poco alimento",
+              "food_outlet_stuck": "Salida de alimento atascada"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

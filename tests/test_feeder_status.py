@@ -15,6 +15,7 @@ from custom_components.philips_homeid.feeder_meals import (
     DesiccantTimer,
     MealManager,
     MealsError,
+    latest_status,
 )
 
 START = datetime(2026, 11, 7, tzinfo=UTC)
@@ -52,7 +53,7 @@ async def test_latest_status_per_type_with_exact_query():
         event("device_online", "2026-11-13T00:00:00Z", deviceId=None),
     ]
     request = AsyncMock(return_value={"item": rows})
-    result = await manager(request).latest_status(START, END)
+    result = latest_status(await manager(request).status_events(START, END))
     assert result == {
         "food_level_low": datetime(2026, 11, 10, 6, tzinfo=UTC),
         "device_offline": datetime(2026, 11, 9, tzinfo=UTC),
@@ -77,7 +78,7 @@ async def test_latest_status_per_type_with_exact_query():
 @pytest.mark.asyncio
 async def test_no_status_events_is_empty_not_healthy():
     request = AsyncMock(return_value={"item": []})
-    assert await manager(request).latest_status(START, END) == {}
+    assert latest_status(await manager(request).status_events(START, END)) == {}
 
 
 @pytest.mark.asyncio
@@ -88,14 +89,14 @@ async def test_no_status_events_is_empty_not_healthy():
 async def test_bad_status_responses_are_errors(bad):
     request = AsyncMock(return_value=bad if isinstance(bad, dict) else {"item": bad})
     with pytest.raises(FeederError):
-        await manager(request).latest_status(START, END)
+        await manager(request).status_events(START, END)
 
 
 @pytest.mark.asyncio
 async def test_status_window_is_bounded_before_requesting():
     request = AsyncMock()
     with pytest.raises(MealsError):
-        await manager(request).latest_status(START, START + timedelta(days=32))
+        await manager(request).status_events(START, START + timedelta(days=32))
     request.assert_not_called()
 
 

@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "Histórico de refeições"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Refeição",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Alimentação realizada"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Alerta de ração",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Pouca ração",
+              "food_outlet_stuck": "Saída de ração travada"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "Historia karmienia"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Karmienie",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Posiłek wydany"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Alert karmy",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Niski poziom karmy",
+              "food_outlet_stuck": "Zablokowany wylot karmy"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

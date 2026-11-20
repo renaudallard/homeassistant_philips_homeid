@@ -148,10 +148,17 @@ whose `time` is not ISO 8601 with an offset is skipped, as in the app. `url`, `m
   encodes a list (the app itself never filters by type), over the last 7
   days, separately from history so that a status event that cannot be
   attributed does not hide the feeding history. The integration keeps
-  the latest time per type. These are one-shot reports: no event says that
+  the latest time per type. A status event needs an `id`, as in the app,
+  where the field is required. These are one-shot reports: no event says that
   food was refilled or an outlet cleared, so no healthy state is inferred and
   the alerts are timestamps. Connectivity is whichever of `device_online` /
   `device_offline` came last, unknown if neither occurred in the window.
+- Event entities fire once for each `meal_dispensed`, `food_level_low` or
+  `food_outlet_stuck` event, by `id`, that appears after the entity's first
+  successful read; no extra request is made for them. Events already there
+  at that read do not fire. `device_online` and `device_offline` get no
+  event entity until a PAW5320 is seen to send them, nor do the app's
+  `meal_upcoming`, `meal_enabled` and `filter_replacement_due`.
 
 ## Desiccant timer
 

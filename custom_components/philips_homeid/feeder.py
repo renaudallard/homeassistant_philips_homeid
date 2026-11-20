@@ -76,6 +76,8 @@ from .feeder_meals import (
     Meal,
     MealManager,
     MealsError,
+    StatusEvent,
+    latest_status,
 )
 from .tuya_api import TuyaError
 
@@ -85,6 +87,7 @@ FEEDER_PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.CALENDAR,
+    Platform.EVENT,
     Platform.NUMBER,
     Platform.SENSOR,
     Platform.SWITCH,
@@ -105,11 +108,16 @@ class FeederData:
     meals_ok: bool = False
     history: list[FeedingEvent] = field(default_factory=list)
     history_ok: bool = False
-    status: dict[str, datetime] = field(default_factory=dict)
+    status_events: list[StatusEvent] = field(default_factory=list)
     status_ok: bool = False
     desiccant: DesiccantTimer | None = None
     time_zone: str | None = None
     time_zone_from_home: bool = False
+
+    @property
+    def status(self) -> dict[str, datetime]:
+        """Latest time of each status event type."""
+        return latest_status(self.status_events)
 
 
 class FeederCoordinator(DataUpdateCoordinator[FeederData]):
@@ -180,7 +188,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "history", lambda: manager.history(now - LOOKBACK, now)
         )
         status = await self._optional(
-            "status", lambda: manager.latest_status(now - LOOKBACK, now)
+            "status", lambda: manager.status_events(now - LOOKBACK, now)
         )
         desiccant = await self._optional("desiccant", manager.desiccant)
         meals_ok = meals is not None
@@ -193,7 +201,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             meals_ok=meals_ok,
             history=history or [],
             history_ok=history is not None,
-            status=status or {},
+            status_events=status or [],
             status_ok=status is not None,
             desiccant=desiccant,
             # The app shows meal times in the phone's zone, which onboarding
@@ -251,7 +259,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "Unsupported desiccant timer response": "desiccant_shape",
             "Invalid feeding event text": "event_text",
             "Invalid feeding event amount": "event_amount",
-            "Conflicting feeding event identity": "event_duplicate",
+            "Conflicting event identity": "event_duplicate",
             "An explicit home IANA time zone is required": "home_time_zone",
             "HomeID feeder was not found": "not_found",
             "HomeID feeder identity is ambiguous": "ambiguous",

@@ -772,6 +772,29 @@
       "feeder_history": {
         "name": "Voergeschiedenis"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Voeding",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Maaltijd gedoseerd"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Voermelding",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Weinig voer",
+              "food_outlet_stuck": "Voeruitgang geblokkeerd"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

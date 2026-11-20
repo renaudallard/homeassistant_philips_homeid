@@ -52,6 +52,7 @@ from custom_components.philips_homeid.feeder_meals import (
     FeedingEvent,
     Meal,
     MealsError,
+    StatusEvent,
 )
 from custom_components.philips_homeid.tuya_api import TuyaError
 
@@ -65,7 +66,7 @@ def manager():
     m.time_zone = "Europe/Riga"
     m.list_meals = AsyncMock(return_value=[Meal("m", "Lunch", 2, "10:00", (1,), True)])
     m.history = AsyncMock(return_value=[FeedingEvent("e", NOW, "Lunch", 2, "schedule")])
-    m.latest_status = AsyncMock(return_value={"device_online": NOW})
+    m.status_events = AsyncMock(return_value=[StatusEvent("s", "device_online", NOW)])
     m.desiccant = AsyncMock(return_value=DesiccantTimer(TODAY, None))
     return m
 
@@ -96,7 +97,7 @@ async def test_poll_reads_every_part():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "part", ["list_meals", "history", "latest_status", "desiccant"]
+    "part", ["list_meals", "history", "status_events", "desiccant"]
 )
 async def test_one_failing_part_leaves_the_rest_available(part):
     m = manager()
@@ -105,7 +106,7 @@ async def test_one_failing_part_leaves_the_rest_available(part):
     flags = {
         "list_meals": data.meals_ok,
         "history": data.history_ok,
-        "latest_status": data.status_ok,
+        "status_events": data.status_ok,
         "desiccant": data.desiccant is not None,
     }
     assert [name for name, ok in flags.items() if not ok] == [part]
@@ -147,7 +148,7 @@ async def test_registry_failures(error, expected):
 @pytest.mark.asyncio
 async def test_expired_login_in_a_part_starts_reauth():
     m = manager()
-    m.latest_status.side_effect = CloudAuthError("dead")
+    m.status_events.side_effect = CloudAuthError("dead")
     with pytest.raises(ConfigEntryAuthFailed):
         await bare_coordinator(m)._async_update_data()
     m.desiccant.assert_not_called()
@@ -157,7 +158,7 @@ async def test_expired_login_in_a_part_starts_reauth():
 async def test_warnings_are_fixed_codes_once_per_change(caplog):
     m = manager()
     m.history.side_effect = MealsError("Invalid feeding event amount")
-    m.latest_status.side_effect = FeederHTTPError(500)
+    m.status_events.side_effect = FeederHTTPError(500)
     coord = bare_coordinator(m)
     with caplog.at_level(logging.WARNING):
         await coord._async_update_data()
@@ -167,7 +168,7 @@ async def test_warnings_are_fixed_codes_once_per_change(caplog):
         "HomeID feeder history unavailable (event_amount)",
         "HomeID feeder status unavailable (http_500)",
     ]
-    m.history.side_effect = MealsError("Conflicting feeding event identity")
+    m.history.side_effect = MealsError("Conflicting event identity")
     with caplog.at_level(logging.WARNING):
         caplog.clear()
         await coord._async_update_data()
@@ -247,6 +248,10 @@ def entity_coordinator(data):
     return coord
 
 
+def reports(status):
+    return [StatusEvent(kind, kind, when) for kind, when in status.items()]
+
+
 def spec(key):
     return next(s for s in _TIMESTAMPS if s.key == key)
 
@@ -258,7 +263,7 @@ def test_timestamp_sensors_report_latest_or_unknown():
             FeedingEvent("b", NOW, "y", 3, "manual"),
         ],
         history_ok=True,
-        status={"food_level_low": NOW},
+        status_events=[StatusEvent("s", "food_level_low", NOW)],
         status_ok=True,
         desiccant=DesiccantTimer(None, TODAY),
     )
@@ -303,7 +308,7 @@ def test_failed_reads_make_entities_unavailable():
 )
 def test_connectivity_follows_the_latest_report(status, expected):
     sensor = FeederConnectivitySensor(
-        entity_coordinator(FeederData(status=status, status_ok=True))
+        entity_coordinator(FeederData(status_events=reports(status), status_ok=True))
     )
     assert sensor.available and sensor.is_on is expected
 
@@ -334,6 +339,7 @@ async def test_setup_and_unload_use_only_feeder_platforms():
         "binary_sensor",
         "button",
         "calendar",
+        "event",
         "number",
         "sensor",
         "switch",
@@ -536,7 +542,7 @@ def test_schedule_calendar_shows_planned_meals_only_when_available():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "part", ["list_meals", "history", "latest_status", "desiccant"]
+    "part", ["list_meals", "history", "status_events", "desiccant"]
 )
 async def test_transient_refresh_failure_in_a_part_is_not_reauth(part):
     m = manager()
@@ -545,7 +551,7 @@ async def test_transient_refresh_failure_in_a_part_is_not_reauth(part):
     flags = {
         "list_meals": data.meals_ok,
         "history": data.history_ok,
-        "latest_status": data.status_ok,
+        "status_events": data.status_ok,
         "desiccant": data.desiccant is not None,
     }
     assert [name for name, ok in flags.items() if not ok] == [part]

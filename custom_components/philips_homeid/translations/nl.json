@@ -773,5 +773,82 @@
         "name": "Voergeschiedenis"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Voermaaltijd toevoegen",
+      "description": "Plant een wekelijkse maaltijd op een PAW5320-voerautomaat, zoals de HomeID-app.",
+      "fields": {
+        "device": {
+          "name": "Voerautomaat",
+          "description": "De voerautomaat waarop de maaltijd gepland wordt."
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Naam van de maaltijd, tot 80 tekens."
+        },
+        "time": {
+          "name": "Tijd",
+          "description": "Wanneer de maaltijd wordt gegeven, in de tijdzone van het HomeID-huis van de voerautomaat."
+        },
+        "portions": {
+          "name": "Porties",
+          "description": "Te geven porties, 1 tot 20."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Weekdagen waarop de maaltijd herhaalt."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Voermaaltijd bewerken",
+      "description": "Wijzigt een geplande maaltijd. Weggelaten velden houden hun huidige waarde.",
+      "fields": {
+        "meal": {
+          "name": "Maaltijd",
+          "description": "De schakelaar van de te wijzigen maaltijd."
+        },
+        "name": {
+          "name": "Naam",
+          "description": "Naam van de maaltijd, tot 80 tekens."
+        },
+        "time": {
+          "name": "Tijd",
+          "description": "Wanneer de maaltijd wordt gegeven, in de tijdzone van het HomeID-huis van de voerautomaat."
+        },
+        "portions": {
+          "name": "Porties",
+          "description": "Te geven porties, 1 tot 20."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Weekdagen waarop de maaltijd herhaalt."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Voermaaltijd verwijderen",
+      "description": "Verwijdert een geplande maaltijd uit het voerschema.",
+      "fields": {
+        "meal": {
+          "name": "Maaltijd",
+          "description": "De schakelaar van de te verwijderen maaltijd."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Maandag",
+        "tue": "Dinsdag",
+        "wed": "Woensdag",
+        "thu": "Donderdag",
+        "fri": "Vrijdag",
+        "sat": "Zaterdag",
+        "sun": "Zondag"
+      }
+    }
   }
 }

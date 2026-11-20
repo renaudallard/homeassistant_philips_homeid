@@ -773,5 +773,82 @@
         "name": "Histórico de refeições"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Adicionar refeição do alimentador",
+      "description": "Programa uma refeição semanal em um alimentador PAW5320, como o app HomeID.",
+      "fields": {
+        "device": {
+          "name": "Alimentador",
+          "description": "O alimentador em que a refeição é programada."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome da refeição, até 80 caracteres."
+        },
+        "time": {
+          "name": "Horário",
+          "description": "Quando a refeição é servida, no fuso horário da casa HomeID do alimentador."
+        },
+        "portions": {
+          "name": "Porções",
+          "description": "Porções a servir, de 1 a 20."
+        },
+        "days": {
+          "name": "Dias",
+          "description": "Dias da semana em que a refeição se repete."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Editar refeição do alimentador",
+      "description": "Altera uma refeição programada. Os campos omitidos mantêm o valor atual.",
+      "fields": {
+        "meal": {
+          "name": "Refeição",
+          "description": "O interruptor da refeição a alterar."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome da refeição, até 80 caracteres."
+        },
+        "time": {
+          "name": "Horário",
+          "description": "Quando a refeição é servida, no fuso horário da casa HomeID do alimentador."
+        },
+        "portions": {
+          "name": "Porções",
+          "description": "Porções a servir, de 1 a 20."
+        },
+        "days": {
+          "name": "Dias",
+          "description": "Dias da semana em que a refeição se repete."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Excluir refeição do alimentador",
+      "description": "Remove uma refeição programada da programação do alimentador.",
+      "fields": {
+        "meal": {
+          "name": "Refeição",
+          "description": "O interruptor da refeição a remover."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Segunda-feira",
+        "tue": "Terça-feira",
+        "wed": "Quarta-feira",
+        "thu": "Quinta-feira",
+        "fri": "Sexta-feira",
+        "sat": "Sábado",
+        "sun": "Domingo"
+      }
+    }
   }
 }

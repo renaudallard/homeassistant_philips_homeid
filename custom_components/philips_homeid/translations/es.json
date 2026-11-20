@@ -773,5 +773,82 @@
         "name": "Historial de comidas"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Añadir comida del comedero",
+      "description": "Programa una comida semanal en un comedero PAW5320, como la app HomeID.",
+      "fields": {
+        "device": {
+          "name": "Comedero",
+          "description": "El comedero en el que se programa la comida."
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre de la comida, hasta 80 caracteres."
+        },
+        "time": {
+          "name": "Hora",
+          "description": "Cuándo se dispensa la comida, en la zona horaria del hogar HomeID del comedero."
+        },
+        "portions": {
+          "name": "Raciones",
+          "description": "Raciones que se dispensan, de 1 a 20."
+        },
+        "days": {
+          "name": "Días",
+          "description": "Días de la semana en que se repite la comida."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Editar comida del comedero",
+      "description": "Cambia una comida programada. Los campos omitidos conservan su valor actual.",
+      "fields": {
+        "meal": {
+          "name": "Comida",
+          "description": "El interruptor de la comida que se cambia."
+        },
+        "name": {
+          "name": "Nombre",
+          "description": "Nombre de la comida, hasta 80 caracteres."
+        },
+        "time": {
+          "name": "Hora",
+          "description": "Cuándo se dispensa la comida, en la zona horaria del hogar HomeID del comedero."
+        },
+        "portions": {
+          "name": "Raciones",
+          "description": "Raciones que se dispensan, de 1 a 20."
+        },
+        "days": {
+          "name": "Días",
+          "description": "Días de la semana en que se repite la comida."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Eliminar comida del comedero",
+      "description": "Quita una comida programada de la programación del comedero.",
+      "fields": {
+        "meal": {
+          "name": "Comida",
+          "description": "El interruptor de la comida que se quita."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Lunes",
+        "tue": "Martes",
+        "wed": "Miércoles",
+        "thu": "Jueves",
+        "fri": "Viernes",
+        "sat": "Sábado",
+        "sun": "Domingo"
+      }
+    }
   }
 }

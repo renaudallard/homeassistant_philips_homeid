@@ -773,5 +773,82 @@
         "name": "喂食记录"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "添加喂食器餐次",
+      "description": "像 HomeID 应用一样，在 PAW5320 喂食器上计划每周餐次。",
+      "fields": {
+        "device": {
+          "name": "喂食器",
+          "description": "要计划餐次的宠物喂食器。"
+        },
+        "name": {
+          "name": "名称",
+          "description": "餐次名称，最多 80 个字符。"
+        },
+        "time": {
+          "name": "时间",
+          "description": "出粮时间，按喂食器所在 HomeID 家庭的时区。"
+        },
+        "portions": {
+          "name": "份数",
+          "description": "要出粮的份数，1 到 20。"
+        },
+        "days": {
+          "name": "星期",
+          "description": "餐次重复的星期几。"
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "编辑喂食器餐次",
+      "description": "修改已计划的餐次。未填写的字段保持当前值。",
+      "fields": {
+        "meal": {
+          "name": "餐次",
+          "description": "要修改的餐次的开关。"
+        },
+        "name": {
+          "name": "名称",
+          "description": "餐次名称，最多 80 个字符。"
+        },
+        "time": {
+          "name": "时间",
+          "description": "出粮时间，按喂食器所在 HomeID 家庭的时区。"
+        },
+        "portions": {
+          "name": "份数",
+          "description": "要出粮的份数，1 到 20。"
+        },
+        "days": {
+          "name": "星期",
+          "description": "餐次重复的星期几。"
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "删除喂食器餐次",
+      "description": "从喂食计划中移除已计划的餐次。",
+      "fields": {
+        "meal": {
+          "name": "餐次",
+          "description": "要移除的餐次的开关。"
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "星期一",
+        "tue": "星期二",
+        "wed": "星期三",
+        "thu": "星期四",
+        "fri": "星期五",
+        "sat": "星期六",
+        "sun": "星期日"
+      }
+    }
   }
 }

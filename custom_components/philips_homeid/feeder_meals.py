@@ -24,8 +24,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 """Device-scoped HomeID meals, events and desiccant timer, without HA or HTTP.
 
-Read only. The request callback owns authentication, HTTP status handling
-and redirects. URLs found in responses are never used.
+The only writes are the app's own meal changes. The request and write
+callbacks own authentication, HTTP status handling and redirects. URLs found
+in responses are never used.
 """
 
 from __future__ import annotations
@@ -57,6 +58,8 @@ STATUS_EVENT_TYPES = (
     "device_offline",
 )
 _TEXT_LIMIT = 80
+# The app's meal editor keeps the amount within 1 to 20 portions.
+MAX_MEAL_PORTIONS = 20
 # A day's events are kept once it ended this long ago, leaving time for an
 # event the cloud records late, and read again after _DAY_TTL seconds.
 _DAY_GRACE = timedelta(minutes=15)
@@ -83,6 +86,14 @@ class Request(Protocol):
         *,
         params: list[tuple[str, str]] | None = None,
     ) -> Any: ...
+
+
+class Write(Protocol):
+    """Authenticated JSON write supplied by the caller."""
+
+    async def __call__(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -126,7 +137,7 @@ def _name(value: object) -> str:
 
 
 def _portions(value: object) -> int:
-    if type(value) is not int or not 1 <= value <= 20:
+    if type(value) is not int or not 1 <= value <= MAX_MEAL_PORTIONS:
         raise MealsError("Portions must be an integer from 1 to 20")
     return value
 
@@ -137,6 +148,13 @@ def _time(value: object) -> str:
     ):
         raise MealsError("Meal time must be HH:MM or HH:MMZ")
     return value
+
+
+def _write_time(value: object) -> str:
+    """The app sends a local time as HH:mm, never a UTC HH:MMZ."""
+    if _time(value).endswith("Z"):
+        raise MealsError("Meal time must be HH:MM")
+    return str(value)
 
 
 def _days(value: object, *, allow_empty: bool = False) -> tuple[int, ...]:
@@ -249,7 +267,7 @@ def _timer_date(value: object) -> date | None:
 
 
 class MealManager:
-    """Read one feeder's meals, events and settings via home-rooted paths only."""
+    """One feeder's meals, events and settings via home-rooted paths only."""
 
     def __init__(
         self,
@@ -257,8 +275,10 @@ class MealManager:
         home_id: str,
         philips_device_id: str,
         time_zone: str | None,
+        write: Write | None = None,
     ) -> None:
         self._request = request
+        self._write = write
         self._root = f"/api/homes/{quote(identifier(home_id), safe='')}"
         self._philips_id = identifier(philips_device_id)
         # History has absolute timestamps and must remain usable without a home
@@ -271,8 +291,10 @@ class MealManager:
         ] = {}
 
     @classmethod
-    def for_device(cls, request: Request, device: FeederDevice) -> MealManager:
-        return cls(request, device.home_id, device.philips_id, device.time_zone)
+    def for_device(
+        cls, request: Request, device: FeederDevice, write: Write | None = None
+    ) -> MealManager:
+        return cls(request, device.home_id, device.philips_id, device.time_zone, write)
 
     async def list_meals(self) -> list[Meal]:
         """Keep disabled/empty-repeat meals; reject unsupported selected schedules."""
@@ -294,6 +316,55 @@ class MealManager:
         if seen & foreign_ids:
             raise MealsError("Conflicting meal ownership")
         return meals
+
+    def _meal_body(
+        self, name: object, feed_time: object, portions: object, days: object
+    ) -> dict[str, Any]:
+        """The app's body for a new or edited meal, validated before sending."""
+        return {
+            "name": _name(name),
+            "time": _write_time(feed_time),
+            "amount": _portions(portions),
+            "deviceId": self._philips_id,
+            "repeatDays": sorted(_days(days)),
+        }
+
+    async def _send(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> None:
+        if self._write is None:
+            raise MealsError("Meal changes are not available")
+        await self._write(method, path, body)
+
+    def _meal_path(self, meal_id: str) -> str:
+        return f"{self._root}/meals/{quote(identifier(meal_id), safe='')}"
+
+    async def add_meal(
+        self, name: str, feed_time: str, portions: int, days: Iterable[int]
+    ) -> None:
+        """Plan a weekly meal; the new meal shows on the next read."""
+        body = self._meal_body(name, feed_time, portions, tuple(days))
+        await self._send("POST", f"{self._root}/meals", body)
+
+    async def edit_meal(
+        self,
+        meal_id: str,
+        name: str,
+        feed_time: str,
+        portions: int,
+        days: Iterable[int],
+    ) -> None:
+        """Replace a meal's name, time, portions and days, as the app does."""
+        path = self._meal_path(meal_id)
+        body = self._meal_body(name, feed_time, portions, tuple(days))
+        await self._send("PATCH", path, body)
+
+    async def set_meal_enabled(self, meal_id: str, enabled: bool) -> None:
+        path = self._meal_path(meal_id)
+        await self._send("PATCH", path, {"enabled": _enabled(enabled)})
+
+    async def delete_meal(self, meal_id: str) -> None:
+        await self._send("DELETE", self._meal_path(meal_id))
 
     def _event_owned(self, row: dict[str, Any]) -> bool:
         """An event is this feeder's when its deviceId is, as in the app.

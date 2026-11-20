@@ -22,7 +22,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Read-only calendars for planned meals and cloud-reported feedings."""
+"""Calendars for planned meals and cloud-reported feedings."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ async def async_setup_entry(
 
 
 class FeederScheduleCalendar(FeederEntity, CalendarEntity):
-    """Weekly cloud schedule, read only; meals are edited in the HomeID app."""
+    """Weekly cloud schedule; meals are changed by the actions in feeder_schedule."""
 
     _attr_translation_key = "feeder_schedule"
 

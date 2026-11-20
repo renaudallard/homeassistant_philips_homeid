@@ -773,5 +773,82 @@
         "name": "Fütterungsverlauf"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Futtermahlzeit hinzufügen",
+      "description": "Plant eine wöchentliche Mahlzeit auf einem PAW5320-Futterautomaten, wie die HomeID-App.",
+      "fields": {
+        "device": {
+          "name": "Futterautomat",
+          "description": "Der Futterautomat, auf dem die Mahlzeit geplant wird."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name der Mahlzeit, bis zu 80 Zeichen."
+        },
+        "time": {
+          "name": "Uhrzeit",
+          "description": "Wann die Mahlzeit ausgegeben wird, in der Zeitzone des HomeID-Zuhauses des Futterautomaten."
+        },
+        "portions": {
+          "name": "Portionen",
+          "description": "Auszugebende Portionen, 1 bis 20."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Wochentage, an denen sich die Mahlzeit wiederholt."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Futtermahlzeit bearbeiten",
+      "description": "Ändert eine geplante Mahlzeit. Nicht angegebene Felder behalten ihren aktuellen Wert.",
+      "fields": {
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Der Schalter der zu ändernden Mahlzeit."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name der Mahlzeit, bis zu 80 Zeichen."
+        },
+        "time": {
+          "name": "Uhrzeit",
+          "description": "Wann die Mahlzeit ausgegeben wird, in der Zeitzone des HomeID-Zuhauses des Futterautomaten."
+        },
+        "portions": {
+          "name": "Portionen",
+          "description": "Auszugebende Portionen, 1 bis 20."
+        },
+        "days": {
+          "name": "Tage",
+          "description": "Wochentage, an denen sich die Mahlzeit wiederholt."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Futtermahlzeit löschen",
+      "description": "Entfernt eine geplante Mahlzeit aus dem Fütterungsplan.",
+      "fields": {
+        "meal": {
+          "name": "Mahlzeit",
+          "description": "Der Schalter der zu entfernenden Mahlzeit."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Montag",
+        "tue": "Dienstag",
+        "wed": "Mittwoch",
+        "thu": "Donnerstag",
+        "fri": "Freitag",
+        "sat": "Samstag",
+        "sun": "Sonntag"
+      }
+    }
   }
 }

@@ -773,5 +773,82 @@
         "name": "Historique des repas"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Ajouter un repas au distributeur",
+      "description": "Programme un repas hebdomadaire sur un distributeur PAW5320, comme l'app HomeID.",
+      "fields": {
+        "device": {
+          "name": "Distributeur",
+          "description": "Le distributeur sur lequel programmer le repas."
+        },
+        "name": {
+          "name": "Nom",
+          "description": "Nom du repas, jusqu'à 80 caractères."
+        },
+        "time": {
+          "name": "Heure",
+          "description": "Heure de distribution du repas, dans le fuseau horaire du domicile HomeID du distributeur."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Portions à distribuer, de 1 à 20."
+        },
+        "days": {
+          "name": "Jours",
+          "description": "Jours de la semaine où le repas se répète."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Modifier un repas du distributeur",
+      "description": "Modifie un repas programmé. Les champs omis gardent leur valeur actuelle.",
+      "fields": {
+        "meal": {
+          "name": "Repas",
+          "description": "L'interrupteur du repas à modifier."
+        },
+        "name": {
+          "name": "Nom",
+          "description": "Nom du repas, jusqu'à 80 caractères."
+        },
+        "time": {
+          "name": "Heure",
+          "description": "Heure de distribution du repas, dans le fuseau horaire du domicile HomeID du distributeur."
+        },
+        "portions": {
+          "name": "Portions",
+          "description": "Portions à distribuer, de 1 à 20."
+        },
+        "days": {
+          "name": "Jours",
+          "description": "Jours de la semaine où le repas se répète."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Supprimer un repas du distributeur",
+      "description": "Retire un repas programmé de la programmation du distributeur.",
+      "fields": {
+        "meal": {
+          "name": "Repas",
+          "description": "L'interrupteur du repas à retirer."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Lundi",
+        "tue": "Mardi",
+        "wed": "Mercredi",
+        "thu": "Jeudi",
+        "fri": "Vendredi",
+        "sat": "Samedi",
+        "sun": "Dimanche"
+      }
+    }
   }
 }

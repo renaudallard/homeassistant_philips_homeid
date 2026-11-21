@@ -14,6 +14,7 @@ from custom_components.philips_homeid.feeder_meals import (
     MealManager,
     MealsError,
     occurrences,
+    today_in,
 )
 
 
@@ -344,6 +345,13 @@ def test_home_zone_required_for_local_occurrences_only(zone):
         [schedule(time="08:30Z")], utc("2026-01-05"), utc("2026-01-06"), zone
     )
     assert result[0].start == utc("2026-01-05T08:30")
+
+
+@pytest.mark.parametrize("zone", ["Secret/Zone", "Secret\x00", "Secret/"])
+def test_a_refused_zone_is_not_carried_by_the_error(zone):
+    with pytest.raises(MealsError) as raised:
+        today_in(zone)
+    assert raised.value.__context__ is None and raised.value.__cause__ is None
 
 
 def test_occurrences_limit_is_366_days_and_requires_aware_ordered_bounds():

@@ -206,7 +206,9 @@ def _zone(value: str | None) -> ZoneInfo:
     try:
         return ZoneInfo(value)
     except (ValueError, ZoneInfoNotFoundError):
-        raise MealsError("An explicit home IANA time zone is required") from None
+        pass
+    # Raised here, so the zoneinfo error naming the zone is not its context.
+    raise MealsError("An explicit home IANA time zone is required")
 
 
 def _bounds(start: datetime, end: datetime, max_days: int) -> tuple[datetime, datetime]:

@@ -5,6 +5,8 @@ that raises is added to a failed set and never asked for again for the rest
 of the session. A 200 carrying an odd shape has to parse as "nothing found".
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from custom_components.philips_homeid.cloud_api import PhilipsCloudAPI
@@ -91,3 +93,18 @@ def test_my_presets_still_reads_a_normal_response():
             "fahrenheit": True,
         }
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", ["[]", "null", '"text"', "42", "{"])
+async def test_discovery_survives_an_unexpected_shape(body):
+    resp = MagicMock(status=200)
+    resp.text = AsyncMock(return_value=body)
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=resp)
+    context.__aexit__ = AsyncMock(return_value=False)
+    session = MagicMock()
+    session.get.return_value = context
+    api = PhilipsCloudAPI()
+    api._get_session = AsyncMock(return_value=session)
+    assert await api.homeid_discovery() == {}

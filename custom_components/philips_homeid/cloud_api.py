@@ -466,7 +466,11 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 if resp.status != 200:
                     _LOGGER.error("HomeID discovery failed: HTTP %s", resp.status)
                     return {}
-                return json.loads(text)
+                data = json.loads(text)
+                if not isinstance(data, dict):
+                    _LOGGER.error("HomeID discovery: unexpected response")
+                    return {}
+                return data
         except Exception:
             _LOGGER.exception("HomeID discovery request failed")
             return {}

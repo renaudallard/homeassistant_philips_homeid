@@ -303,7 +303,7 @@ class TuyaSession:
     async def login(self, id_token: str, dial_code: str) -> None:
         """thirdLogin with the HomeID id token, as TuyaAuthClientImpl does."""
         self.forget()
-        data = await self._call(
+        call = self._call(
             "thing.m.user.third.login",
             {
                 "countryCode": dial_code,
@@ -313,6 +313,10 @@ class TuyaSession:
                 "options": '{"group": 1}',
             },
         )
+        # Only the call holds the token now, and it drops it once sealed, so
+        # no traceback of a failed login keeps it.
+        del id_token
+        data = await call
         sid, ecode, uid = (_text(data.get(k)) for k in ("sid", "ecode", "uid"))
         if not (sid and ecode and uid):
             raise TuyaError("Tuya login returned no session")
@@ -393,24 +397,26 @@ class TuyaSession:
             "requestId": request_id,
             "postData": seal(key, payload),
         }
+        del payload
         if self._sid:
             params["sid"] = self._sid
         params["sign"] = self._signer.sign(params)
         try:
-            body = await self._post(params)
+            return self._reply(action, request_id, key, await self._post(params))
         except (aiohttp.ClientError, TimeoutError):
-            # Not chained: the request carries the session and the id token.
-            body = None
-        if body is None:
-            raise TuyaError("Tuya request was not confirmed")
-        try:
-            return self._reply(action, request_id, key, body)
+            failure: tuple[type[TuyaError], str, str] = (
+                TuyaError,
+                "Tuya request was not confirmed",
+                "",
+            )
         except TuyaError as err:
             failure = type(err), str(err), err.code
-        # Raised afresh once the reply and its key are dropped: the first
-        # error's traceback keeps the frames that hold the opened reply, such
-        # as a home device list with every device's local key.
-        del body, key
+        # Raised afresh, not chained, once the request, the reply and their
+        # key are dropped: the first error's traceback keeps the frames that
+        # hold them. A login's request holds the id token and its key follows
+        # from the requestId alone; a home device list holds every device's
+        # local key.
+        del params, key
         kind, message, code = failure
         raise kind(message, code)
 

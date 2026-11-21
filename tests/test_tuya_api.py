@@ -512,3 +512,37 @@ async def test_unreadable_replies_keep_no_original_error(reply):
         await session.publish("dev-1", {"201": 1})
     assert caught.value.__cause__ is None
     assert caught.value.__context__ is None
+
+
+class _Drop:
+    """A POST that fails in the transport."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def __call__(self, data):
+        raise self.error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    [
+        (503, {}),
+        {"_sealed": {"success": False, "errorCode": "PERMISSION_DENIED"}},
+        {"_sealed": {"result": {"sid": "s"}, "success": True}},
+        b"not json",
+        _Drop(aiohttp.ClientOSError()),
+        _Drop(TimeoutError()),
+    ],
+)
+async def test_a_failed_login_keeps_neither_the_token_nor_the_request(reply):
+    session = TuyaSession(FakeTuya(reply).http, DUMMY)
+    with pytest.raises(TuyaError) as raised:
+        await session.login("secret-id-token", "32")
+    assert raised.value.__context__ is None and raised.value.__cause__ is None
+    tb = raised.value.__traceback__
+    while tb is not None:
+        held = repr(tb.tb_frame.f_locals)
+        assert "secret-id-token" not in held and "postData" not in held
+        tb = tb.tb_next

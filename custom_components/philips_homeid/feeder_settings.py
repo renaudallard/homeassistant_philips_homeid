@@ -94,14 +94,17 @@ class FeederDesiccantButton(FeederEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         # The app sends a day picked on the phone; today in the home's zone,
-        # or HA's when HomeID gives none, is the nearest. A zone that is not
-        # an IANA name is refused before anything is sent, as for the meals.
-        data = self.coordinator.data
-        zone = data.time_zone if data is not None else None
+        # or HA's when HomeID gives none, is the nearest. The zone is the one
+        # of the manager that sends it, never one from an older poll. A zone
+        # that is not an IANA name is refused before anything is sent, as for
+        # the meals.
+        coordinator = self.coordinator
         await apply_change(
-            self.coordinator,
-            lambda manager: manager.reset_desiccant(today_in(zone)),
-            self.coordinator.async_request_refresh,
+            coordinator,
+            lambda manager: manager.reset_desiccant(
+                today_in(coordinator.home_zone(manager))
+            ),
+            coordinator.async_request_refresh,
             "HomeID did not confirm the desiccant reset",
         )
 

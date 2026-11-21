@@ -3,6 +3,7 @@
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
+from types import MethodType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -307,8 +308,11 @@ def entity_coordinator(data, change=None):
     m = MagicMock()
     m.set_camera = AsyncMock(side_effect=change)
     m.reset_desiccant = AsyncMock(side_effect=change)
+    m.time_zone = None
     coord.meal_manager = AsyncMock(return_value=m)
     coord.async_request_refresh = AsyncMock()
+    coord.hass.config.time_zone = "Europe/Brussels"
+    coord.home_zone = MethodType(FeederCoordinator.home_zone, coord)
     return coord, m
 
 
@@ -389,7 +393,9 @@ CLOCK = "custom_components.philips_homeid.feeder_meals._utcnow"
     ],
 )
 async def test_desiccant_reset_sends_today_in_the_homes_zone(zone, day):
-    coord, m = entity_coordinator(FeederData(time_zone=zone))
+    # A poll before the home moved still holds the old zone.
+    coord, m = entity_coordinator(FeederData(time_zone="Pacific/Kiritimati"))
+    m.time_zone = zone
     with patch(CLOCK, return_value=INSTANT):
         await FeederDesiccantButton(coord).async_press()
     m.reset_desiccant.assert_awaited_once_with(day)
@@ -402,7 +408,9 @@ async def test_desiccant_reset_sends_today_in_the_homes_zone(zone, day):
     [None, "", "Not/AZone", "/etc/localtime", "../etc/passwd", "localtime", "UTC\x00"],
 )
 async def test_a_zone_that_is_not_an_iana_name_sends_nothing(zone):
-    coord, m = entity_coordinator(FeederData(time_zone=zone))
+    coord, m = entity_coordinator(FeederData(time_zone="Europe/Brussels"))
+    m.time_zone = zone
+    coord.hass.config.time_zone = zone
     with (
         patch(CLOCK, return_value=INSTANT),
         pytest.raises(ServiceValidationError, match="IANA time zone"),
@@ -410,6 +418,15 @@ async def test_a_zone_that_is_not_an_iana_name_sends_nothing(zone):
         await FeederDesiccantButton(coord).async_press()
     m.reset_desiccant.assert_not_called()
     coord.async_request_refresh.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_desiccant_reset_falls_back_to_the_ha_zone():
+    coord, m = entity_coordinator(FeederData())
+    coord.hass.config.time_zone = "Asia/Tokyo"
+    with patch(CLOCK, return_value=INSTANT):
+        await FeederDesiccantButton(coord).async_press()
+    m.reset_desiccant.assert_awaited_once_with(date(2026, 11, 21))
 
 
 @pytest.mark.asyncio

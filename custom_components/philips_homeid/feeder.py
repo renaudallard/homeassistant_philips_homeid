@@ -229,12 +229,17 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             desiccant=desiccant,
             camera=camera[0] if camera else None,
             camera_ok=camera is not None,
-            # The app shows meal times in the phone's zone, which onboarding
-            # also stores on the home; HA's zone stands in when HomeID sends
-            # none.
-            time_zone=manager.time_zone or self.hass.config.time_zone,
+            time_zone=self.home_zone(manager),
             time_zone_from_home=bool(manager.time_zone),
         )
+
+    def home_zone(self, manager: MealManager) -> str | None:
+        """The zone of the home's meal times and days.
+
+        The app uses the phone's zone, which onboarding also stores on the
+        home; HA's zone stands in when HomeID sends none.
+        """
+        return manager.time_zone or self.hass.config.time_zone
 
     async def refresh_meals(self) -> None:
         """Read the meals again after a schedule change.

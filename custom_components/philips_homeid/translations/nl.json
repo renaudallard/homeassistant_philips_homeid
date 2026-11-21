@@ -635,6 +635,9 @@
       },
       "feeder_feed": {
         "name": "Nu voeren"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Vervangingsdatum van de zak met droogmiddel opnieuw instellen"
       }
     },
     "number": {
@@ -814,6 +817,9 @@
       },
       "display_light": {
         "name": "Displayverlichting"
+      },
+      "feeder_camera": {
+        "name": "Camera"
       }
     },
     "update": {

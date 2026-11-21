@@ -62,8 +62,10 @@ async def async_setup_entry(
     """Set up switches from config entry."""
     if entry.data.get(CONF_IS_FEEDER):
         from .feeder_schedule import async_setup_feeder_switches
+        from .feeder_settings import async_setup_settings_switches
 
         await async_setup_feeder_switches(hass, entry, async_add_entities)
+        await async_setup_settings_switches(hass, entry, async_add_entities)
         return
 
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]

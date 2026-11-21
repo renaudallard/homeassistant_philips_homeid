@@ -635,6 +635,9 @@
       },
       "feeder_feed": {
         "name": "지금 급식"
+      },
+      "feeder_desiccant_reset": {
+        "name": "방습제 백 교체 날짜 재설정"
       }
     },
     "number": {
@@ -814,6 +817,9 @@
       },
       "display_light": {
         "name": "디스플레이 조명"
+      },
+      "feeder_camera": {
+        "name": "카메라"
       }
     },
     "update": {

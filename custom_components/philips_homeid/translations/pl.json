@@ -635,6 +635,9 @@
       },
       "feeder_feed": {
         "name": "Nakarm teraz"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Zresetuj datę wymiany torby osuszającej"
       }
     },
     "number": {
@@ -814,6 +817,9 @@
       },
       "display_light": {
         "name": "Podświetlenie wyświetlacza"
+      },
+      "feeder_camera": {
+        "name": "Kamera"
       }
     },
     "update": {

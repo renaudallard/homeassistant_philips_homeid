@@ -622,6 +622,9 @@
       },
       "feeder_feed": {
         "name": "Dai da mangiare ora"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Reimposta la data di sostituzione del sacchetto essiccante"
       }
     },
     "number": {
@@ -753,6 +756,9 @@
       },
       "power": {
         "name": "Alimentazione"
+      },
+      "feeder_camera": {
+        "name": "Fotocamera"
       }
     },
     "update": {

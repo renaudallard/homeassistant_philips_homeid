@@ -40,18 +40,16 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import WEEKDAYS
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.service import async_register_admin_service
 
-from .cloud_auth import CloudAuthError
 from .const import CONF_CPP_ID, DOMAIN
-from .feeder import FEEDER_ERRORS, FeederCoordinator, FeederEntity
-from .feeder_api import FeederHTTPError
-from .feeder_meals import MAX_MEAL_PORTIONS, Meal, MealManager, MealsError
+from .feeder import FeederCoordinator, FeederEntity, apply_change
+from .feeder_meals import MAX_MEAL_PORTIONS, Meal, MealManager
 
 SERVICE_ADD_MEAL = "add_feeder_meal"
 SERVICE_EDIT_MEAL = "edit_feeder_meal"
@@ -124,31 +122,14 @@ async def _change(
     coordinator: FeederCoordinator, change: Callable[[MealManager], Awaitable[None]]
 ) -> None:
     """Send one schedule change, then read the meals again whatever happened."""
-    try:
-        manager = await coordinator.meal_manager()
-    except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
-        raise HomeAssistantError("HomeID cloud unavailable") from err
-    except CloudAuthError as err:
-        raise HomeAssistantError("HomeID login expired") from err
-    try:
-        await change(manager)
-    except MealsError as err:
-        # Raised before anything is sent; its messages are fixed text.
-        raise ServiceValidationError(str(err)) from err
-    except FeederHTTPError as err:
-        await coordinator.refresh_meals()
-        if err.status == 409:
-            # The app's MealTimeConflictException.
-            raise HomeAssistantError(
-                "Another meal is already planned at that time"
-            ) from err
-        raise HomeAssistantError("HomeID did not confirm the meal change") from err
-    except FEEDER_ERRORS as err:
-        await coordinator.refresh_meals()
-        raise HomeAssistantError("HomeID did not confirm the meal change") from err
-    except CloudAuthError as err:
-        raise HomeAssistantError("HomeID login expired") from err
-    await coordinator.refresh_meals()
+    await apply_change(
+        coordinator,
+        change,
+        coordinator.refresh_meals,
+        "HomeID did not confirm the meal change",
+        # The app's MealTimeConflictException.
+        conflict="Another meal is already planned at that time",
+    )
 
 
 def _loaded_feeders(hass: HomeAssistant) -> list[FeederCoordinator]:

@@ -212,8 +212,10 @@ async def async_setup_entry(
     """Set up buttons from config entry."""
     if entry.data.get(CONF_IS_FEEDER):
         from .feeder import async_setup_feeder_buttons
+        from .feeder_settings import async_setup_settings_buttons
 
         await async_setup_feeder_buttons(hass, entry, async_add_entities)
+        await async_setup_settings_buttons(hass, entry, async_add_entities)
         return
 
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]

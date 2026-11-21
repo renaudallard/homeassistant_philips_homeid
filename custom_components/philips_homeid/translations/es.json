@@ -622,6 +622,9 @@
       },
       "feeder_feed": {
         "name": "Dar comida ahora"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Restablecer la fecha de sustitución de la bolsa desecante"
       }
     },
     "number": {
@@ -753,6 +756,9 @@
       },
       "power": {
         "name": "Alimentación"
+      },
+      "feeder_camera": {
+        "name": "Cámara"
       }
     },
     "update": {

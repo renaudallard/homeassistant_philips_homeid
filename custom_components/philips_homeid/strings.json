@@ -622,6 +622,9 @@
       },
       "feeder_feed": {
         "name": "Feed now"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Reset desiccant bag replacement date"
       }
     },
     "number": {
@@ -753,6 +756,9 @@
       },
       "power": {
         "name": "Power"
+      },
+      "feeder_camera": {
+        "name": "Camera"
       }
     },
     "update": {

@@ -31,6 +31,7 @@ through Tuya by feeder_feed.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -140,6 +141,8 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._logged: dict[str, str] = {}
         # Counts the meals stored by refresh_meals.
         self._meal_reads = 0
+        # Held by each change from its write to its read back.
+        self.changes = asyncio.Lock()
 
     async def meal_manager(self, *, force_refresh: bool = False) -> MealManager:
         """Resolve the selected appliance to its home and pet backend IDs."""

@@ -123,32 +123,37 @@ def _clock(value: time) -> str:
 async def _change(
     coordinator: FeederCoordinator, change: Callable[[MealManager], Awaitable[None]]
 ) -> None:
-    """Send one schedule change, then read the meals again whatever happened."""
-    try:
-        manager = await coordinator.meal_manager()
-    except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
-        raise HomeAssistantError("HomeID cloud unavailable") from err
-    except CloudAuthError as err:
-        raise HomeAssistantError("HomeID login expired") from err
-    try:
-        await change(manager)
-    except MealsError as err:
-        # Raised before anything is sent; its messages are fixed text.
-        raise ServiceValidationError(str(err)) from err
-    except FeederHTTPError as err:
+    """Send one schedule change, then read the meals again whatever happened.
+
+    Changes go one at a time, so each starts from what the one before it
+    read back.
+    """
+    async with coordinator.changes:
+        try:
+            manager = await coordinator.meal_manager()
+        except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
+            raise HomeAssistantError("HomeID cloud unavailable") from err
+        except CloudAuthError as err:
+            raise HomeAssistantError("HomeID login expired") from err
+        try:
+            await change(manager)
+        except MealsError as err:
+            # Raised before anything is sent; its messages are fixed text.
+            raise ServiceValidationError(str(err)) from err
+        except FeederHTTPError as err:
+            await coordinator.refresh_meals()
+            if err.status == 409:
+                # The app's MealTimeConflictException.
+                raise HomeAssistantError(
+                    "Another meal is already planned at that time"
+                ) from err
+            raise HomeAssistantError("HomeID did not confirm the meal change") from err
+        except FEEDER_ERRORS as err:
+            await coordinator.refresh_meals()
+            raise HomeAssistantError("HomeID did not confirm the meal change") from err
+        except CloudAuthError as err:
+            raise HomeAssistantError("HomeID login expired") from err
         await coordinator.refresh_meals()
-        if err.status == 409:
-            # The app's MealTimeConflictException.
-            raise HomeAssistantError(
-                "Another meal is already planned at that time"
-            ) from err
-        raise HomeAssistantError("HomeID did not confirm the meal change") from err
-    except FEEDER_ERRORS as err:
-        await coordinator.refresh_meals()
-        raise HomeAssistantError("HomeID did not confirm the meal change") from err
-    except CloudAuthError as err:
-        raise HomeAssistantError("HomeID login expired") from err
-    await coordinator.refresh_meals()
 
 
 def _loaded_feeders(hass: HomeAssistant) -> list[FeederCoordinator]:
@@ -169,6 +174,25 @@ def _feeder_of_device(hass: HomeAssistant, device_id: str) -> FeederCoordinator:
     raise ServiceValidationError("Choose a loaded HomeID pet feeder")
 
 
+_NO_MEAL = "Choose a meal switch of a loaded HomeID pet feeder"
+
+
+def _stored_meal(coordinator: FeederCoordinator, meal_id: str) -> Meal:
+    # After a failed poll nothing read back is stored, so the meals held
+    # may predate a change: an edit built on them could undo it.
+    data = coordinator.data
+    if data is None:
+        raise ServiceValidationError(_NO_MEAL)
+    if not (data.meals_ok and coordinator.last_update_success):
+        raise ServiceValidationError(
+            "The feeder's meals could not be read: try again after the next poll"
+        )
+    for meal in data.meals:
+        if meal.id == meal_id:
+            return meal
+    raise ServiceValidationError(_NO_MEAL)
+
+
 def _meal_of_entity(
     hass: HomeAssistant, entity_id: str
 ) -> tuple[FeederCoordinator, Meal]:
@@ -177,13 +201,10 @@ def _meal_of_entity(
         coordinator = hass.data.get(DOMAIN, {}).get(entry.config_entry_id)
         if isinstance(coordinator, FeederCoordinator):
             prefix = _meal_prefix(coordinator)
-            data = coordinator.data
-            if entry.unique_id.startswith(prefix) and data and data.meals_ok:
+            if entry.unique_id.startswith(prefix):
                 meal_id = entry.unique_id.removeprefix(prefix)
-                for meal in data.meals:
-                    if meal.id == meal_id:
-                        return coordinator, meal
-    raise ServiceValidationError("Choose a meal switch of a loaded HomeID pet feeder")
+                return coordinator, _stored_meal(coordinator, meal_id)
+    raise ServiceValidationError(_NO_MEAL)
 
 
 async def _async_add_meal(call: ServiceCall) -> None:
@@ -198,24 +219,32 @@ async def _async_add_meal(call: ServiceCall) -> None:
 
 
 async def _async_edit_meal(call: ServiceCall) -> None:
-    coordinator, meal = _meal_of_entity(call.hass, call.data[ATTR_MEAL])
-    # The app never sends these, so they are not sent back unasked.
-    if ATTR_DAYS not in call.data and not meal.repeat_days:
-        raise ServiceValidationError("This meal repeats on no day: give its days")
-    if ATTR_TIME not in call.data and meal.time.endswith("Z"):
-        raise ServiceValidationError("This meal's time is in UTC: give its time")
-    name = call.data.get(ATTR_NAME, meal.name)
-    feed_time = _clock(call.data[ATTR_TIME]) if ATTR_TIME in call.data else meal.time
-    portions = call.data.get(ATTR_PORTIONS, meal.portions)
-    days = (
-        _iso_days(call.data[ATTR_DAYS])
-        if ATTR_DAYS in call.data
-        else list(meal.repeat_days)
-    )
-    await _change(
-        coordinator,
-        lambda manager: manager.edit_meal(meal.id, name, feed_time, portions, days),
-    )
+    coordinator, found = _meal_of_entity(call.hass, call.data[ATTR_MEAL])
+    feed_time = _clock(call.data[ATTR_TIME]) if ATTR_TIME in call.data else None
+
+    async def edit(manager: MealManager) -> None:
+        # The meal as the change before this one read it back: what was left
+        # out is sent as it is now, not as it was when the action came in.
+        meal = _stored_meal(coordinator, found.id)
+        # The app never sends these, so they are not sent back unasked.
+        if ATTR_DAYS not in call.data and not meal.repeat_days:
+            raise ServiceValidationError("This meal repeats on no day: give its days")
+        if feed_time is None and meal.time.endswith("Z"):
+            raise ServiceValidationError("This meal's time is in UTC: give its time")
+        days = (
+            _iso_days(call.data[ATTR_DAYS])
+            if ATTR_DAYS in call.data
+            else list(meal.repeat_days)
+        )
+        await manager.edit_meal(
+            meal.id,
+            call.data.get(ATTR_NAME, meal.name),
+            feed_time or meal.time,
+            call.data.get(ATTR_PORTIONS, meal.portions),
+            days,
+        )
+
+    await _change(coordinator, edit)
 
 
 async def _async_delete_meal(call: ServiceCall) -> None:

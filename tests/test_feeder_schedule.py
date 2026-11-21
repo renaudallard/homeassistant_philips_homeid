@@ -1,5 +1,6 @@
 """Feeder meal changes: transport, request bodies, actions and meal switches."""
 
+import asyncio
 import json
 import traceback
 from datetime import time
@@ -295,6 +296,7 @@ def coordinator(meals=(BREAKFAST, DINNER), meals_ok=True):
     )
     coord._logged = {}
     coord._meal_reads = 0
+    coord.changes = asyncio.Lock()
     coord.last_update_success = True
     coord.data = FeederData(meals=list(meals), meals_ok=meals_ok)
     coord.manager = MagicMock()
@@ -514,6 +516,81 @@ async def test_edit_of_such_a_meal_goes_out_once_both_are_given():
     coord.manager.edit_meal.assert_awaited_once_with("m-1", "Utc", "08:00", 2, [7])
 
 
+@pytest.mark.asyncio
+async def test_concurrent_edits_each_start_from_the_last_read_back():
+    coord = coordinator(meals=[BREAKFAST])
+    coord.async_set_updated_data = MagicMock(
+        side_effect=lambda data: setattr(coord, "data", data)
+    )
+    cloud = {"meal": BREAKFAST}
+
+    async def edit_meal(meal_id, name, feed_time, portions, days):
+        await asyncio.sleep(0)
+        enabled = cloud["meal"].enabled
+        cloud["meal"] = Meal(meal_id, name, portions, feed_time, tuple(days), enabled)
+
+    async def list_meals():
+        await asyncio.sleep(0)
+        return [cloud["meal"]]
+
+    coord.manager.edit_meal.side_effect = edit_meal
+    coord.manager.list_meals.side_effect = list_meals
+    switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
+    hass, registry = action_hass(coord, [switch])
+    portions = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "portions": 4})
+    moved = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "time": "08:15"})
+    with patch.object(feeder_schedule.er, "async_get", return_value=registry):
+        await asyncio.gather(
+            feeder_schedule._async_edit_meal(call(hass, **portions)),
+            feeder_schedule._async_edit_meal(call(hass, **moved)),
+        )
+    assert cloud["meal"] == Meal("m-1", "Breakfast", 4, "08:15", (1, 3, 5), True)
+
+
+@pytest.mark.asyncio
+async def test_a_change_waits_for_the_read_back_of_the_one_before():
+    coord = coordinator()
+    coord.async_set_updated_data = MagicMock(
+        side_effect=lambda data: setattr(coord, "data", data)
+    )
+    steps = []
+
+    async def delete_meal(meal_id):
+        steps.append(meal_id)
+        await asyncio.sleep(0)
+
+    async def list_meals():
+        await asyncio.sleep(0)
+        steps.append("read")
+        return []
+
+    coord.manager.delete_meal.side_effect = delete_meal
+    coord.manager.list_meals.side_effect = list_meals
+    await asyncio.gather(
+        feeder_schedule._change(coord, lambda manager: manager.delete_meal("m-1")),
+        feeder_schedule._change(coord, lambda manager: manager.delete_meal("m-2")),
+    )
+    assert steps == ["m-1", "read", "m-2", "read"]
+
+
+@pytest.mark.asyncio
+async def test_an_edit_of_a_meal_deleted_meanwhile_sends_nothing():
+    coord = coordinator()
+    switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
+    hass, registry = action_hass(coord, [switch])
+    data = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "portions": 4})
+    with patch.object(feeder_schedule.er, "async_get", return_value=registry):
+        async with coord.changes:
+            edit = asyncio.ensure_future(
+                feeder_schedule._async_edit_meal(call(hass, **data))
+            )
+            await asyncio.sleep(0)
+            coord.data = FeederData(meals=[DINNER], meals_ok=True)
+        with pytest.raises(ServiceValidationError, match="Choose a meal switch"):
+            await edit
+    coord.manager.edit_meal.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("given", "portions"), [(2, 2), (2.0, 2), ("3", 3), ("4.0", 4), (20, 20)]
 )
@@ -558,15 +635,44 @@ async def test_meal_actions_refuse_anything_but_a_known_meal_switch(entry):
 
 
 @pytest.mark.asyncio
-async def test_meal_actions_refuse_while_the_schedule_is_unavailable():
-    coord = coordinator(meals_ok=False)
+@pytest.mark.parametrize(("meals_ok", "success"), [(False, True), (True, False)])
+async def test_meal_actions_refuse_while_the_schedule_is_unavailable(meals_ok, success):
+    coord = coordinator(meals_ok=meals_ok)
+    coord.last_update_success = success
     switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
     hass, registry = action_hass(coord, [switch])
     with (
         patch.object(feeder_schedule.er, "async_get", return_value=registry),
-        pytest.raises(ServiceValidationError),
+        pytest.raises(ServiceValidationError, match="after the next poll"),
     ):
         await feeder_schedule._async_delete_meal(call(hass, meal=switch.entity_id))
+    edit = EDIT_MEAL_SCHEMA({"meal": switch.entity_id, "portions": 4})
+    with (
+        patch.object(feeder_schedule.er, "async_get", return_value=registry),
+        pytest.raises(ServiceValidationError, match="after the next poll"),
+    ):
+        await feeder_schedule._async_edit_meal(call(hass, **edit))
+    coord.manager.delete_meal.assert_not_called()
+    coord.manager.edit_meal.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_an_edit_waiting_behind_one_whose_read_back_was_not_stored_stops():
+    coord = coordinator(meals=[BREAKFAST])
+    switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
+    hass, registry = action_hass(coord, [switch])
+    data = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "portions": 4})
+    with patch.object(feeder_schedule.er, "async_get", return_value=registry):
+        async with coord.changes:
+            edit = asyncio.ensure_future(
+                feeder_schedule._async_edit_meal(call(hass, **data))
+            )
+            await asyncio.sleep(0)
+            # A poll failed meanwhile, so the change before was not read back.
+            coord.last_update_success = False
+        with pytest.raises(ServiceValidationError, match="after the next poll"):
+            await edit
+    coord.manager.edit_meal.assert_not_called()
 
 
 @pytest.mark.parametrize(

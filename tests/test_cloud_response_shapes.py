@@ -9,7 +9,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.philips_homeid.cloud_api import PhilipsCloudAPI
+from custom_components.philips_homeid.cloud_api import (
+    CloudConnectionError,
+    PhilipsCloudAPI,
+)
 
 _food_item = PhilipsCloudAPI._extract_autocook_food_item
 _my_presets = PhilipsCloudAPI._parse_my_presets
@@ -108,3 +111,75 @@ async def test_discovery_survives_an_unexpected_shape(body):
     api = PhilipsCloudAPI()
     api._get_session = AsyncMock(return_value=session)
     assert await api.homeid_discovery() == {}
+
+
+def json_session(*replies):
+    """A session answering each GET with the next JSON reply, status 200."""
+    session = MagicMock()
+    contexts = []
+    for reply in replies:
+        resp = MagicMock(status=200)
+        resp.json = AsyncMock(return_value=reply)
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=resp)
+        context.__aexit__ = AsyncMock(return_value=False)
+        contexts.append(context)
+    session.get.side_effect = contexts
+    return session
+
+
+SPACE = {"spaces": [{"backendBaseUrl": "https://a"}]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "replies",
+    [
+        ([],),
+        (None,),
+        ("text",),
+        ({"spaces": "x"},),
+        ({"spaces": [1]},),
+        ({"spaces": [None]},),
+        ({"spaces": [{"backendBaseUrl": 5}]},),
+        (SPACE, ["root"]),
+        (SPACE, None),
+        (SPACE, {"_links": "x"}),
+    ],
+)
+async def test_root_links_of_an_unexpected_shape_are_retried(replies):
+    # Like a reply that is not JSON, not an answer that there are no links:
+    # the callers would keep that one.
+    api = PhilipsCloudAPI()
+    api._get_session = AsyncMock(return_value=json_session(*replies))
+    with pytest.raises(CloudConnectionError, match="not readable"):
+        await api._get_root_links("token")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "replies",
+    [
+        ({},),
+        ({"spaces": None},),
+        ({"spaces": [{}, {"backendBaseUrl": ""}]},),
+        (SPACE, {}),
+        (SPACE, {"_links": []}),
+    ],
+)
+async def test_root_links_of_a_tenant_without_links_are_empty(replies):
+    api = PhilipsCloudAPI()
+    api._get_session = AsyncMock(return_value=json_session(*replies))
+    assert await api._get_root_links("token") == {}
+
+
+@pytest.mark.asyncio
+async def test_root_links_still_read_a_normal_reply():
+    links = {"self": {"href": "https://a/"}}
+    replies = (
+        {"spaces": ["x", {"backendBaseUrl": "https://a"}]},
+        {"_links": links},
+    )
+    api = PhilipsCloudAPI()
+    api._get_session = AsyncMock(return_value=json_session(*replies))
+    assert await api._get_root_links("token") == links

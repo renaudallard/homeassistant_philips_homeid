@@ -205,7 +205,8 @@ def _zone(value: str | None) -> ZoneInfo:
         raise MealsError("An explicit home IANA time zone is required")
     try:
         return ZoneInfo(value)
-    except (ValueError, ZoneInfoNotFoundError):
+    # A name too long for a file name raises OSError, not "not found".
+    except (ValueError, OSError, ZoneInfoNotFoundError):
         pass
     # Raised here, so the zoneinfo error naming the zone is not its context.
     raise MealsError("An explicit home IANA time zone is required")

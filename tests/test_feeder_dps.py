@@ -142,6 +142,53 @@ async def test_device_dps_refuses_what_it_cannot_read(reply, message):
         await session.device_dps(42, "dev-1")
 
 
+KEYED = {"devId": "keyed", "localKey": "secret-key"}
+
+
+def keyed_reply(**reply):
+    return {"_sealed": {"result": [KEYED], **reply}, "_ecode": "ec-1"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply", "kind", "message"),
+    [
+        (
+            device_list(KEYED, {"devId": "other", "dataPointInfo": {"dps": {}}}),
+            TuyaError,
+            "does not list",
+        ),
+        (
+            device_list(KEYED, {"devId": "dev-1", "dataPointInfo": None}),
+            TuyaError,
+            "not readable",
+        ),
+        (keyed_reply(), TuyaError, "not confirmed"),
+        (keyed_reply(success=False), TuyaError, "refused"),
+        (
+            keyed_reply(success=True, errorCode="PERMISSION_DENIED"),
+            TuyaError,
+            "refused",
+        ),
+        (keyed_reply(errorCode="USER_SESSION_LOSS"), TuyaSessionLost, "expired"),
+    ],
+)
+async def test_a_device_dps_error_keeps_no_local_key(reply, kind, message):
+    _, session = await logged_in(reply)
+    with pytest.raises(kind, match=message) as raised:
+        await session.device_dps(42, "dev-1")
+    assert raised.value.__context__ is None
+    tb = raised.value.__traceback__
+    while tb is not None:
+        frame = tb.tb_frame
+        if frame.f_code.co_filename.endswith("tuya_api.py"):
+            held = dict(frame.f_locals)
+            if "self" in held:
+                held["self"] = vars(held["self"])
+            assert "secret" not in repr(held)
+        tb = tb.tb_next
+
+
 @pytest.mark.asyncio
 async def test_device_dps_needs_tuya_to_say_success():
     _, session = await logged_in(

@@ -262,6 +262,25 @@ def _api_url(value: Any) -> str:
     return f"https://{parts.hostname}/api.json"
 
 
+_UNLISTED = object()
+
+
+def _listed_dps(rows: Any, device_id: str) -> Any:
+    """The dps of one device in a home device list, or _UNLISTED.
+
+    Each row is the SDK's DeviceRespBean, which keeps them only under
+    dataPointInfo: its flat dps setter stores nothing without it. None when
+    the list or the device's row cannot be read.
+    """
+    if not isinstance(rows, list):
+        return None
+    for row in rows:
+        if isinstance(row, dict) and row.get("devId") == device_id:
+            module = row.get("dataPointInfo")
+            return module.get("dps") if isinstance(module, dict) else None
+    return _UNLISTED
+
+
 class TuyaSession:
     """One Tuya mobile session of the HomeID app for one config entry."""
 
@@ -328,27 +347,22 @@ class TuyaSession:
     async def device_dps(self, home: int, device_id: str) -> dict[str, Any]:
         """One device's data points, from the home device list the app reads.
 
-        Each row is the SDK's DeviceRespBean, which keeps them only under
-        dataPointInfo: its flat dps setter stores nothing without it. The
-        rows also carry the devices' local keys: only the data points of the
-        one device asked for leave here.
+        The rows also carry the devices' local keys: only the data points of
+        the one device asked for leave here, and no error refers to the rest.
         """
         if not self.logged_in:
             raise TuyaSessionLost("Tuya session expired")
         data = await self._call(
             "m.life.my.group.device.list", {"gid": home}, version="2.2"
         )
-        rows = data.get("result")
-        if not isinstance(rows, list):
+        dps = _listed_dps(data.get("result"), device_id)
+        # Raised once nothing here refers to the list any more.
+        del data
+        if dps is _UNLISTED:
+            raise TuyaError("Tuya home does not list the feeder")
+        if not isinstance(dps, dict):
             raise TuyaError("Tuya reply was not readable")
-        for row in rows:
-            if isinstance(row, dict) and row.get("devId") == device_id:
-                module = row.get("dataPointInfo")
-                dps = module.get("dps") if isinstance(module, dict) else None
-                if not isinstance(dps, dict):
-                    raise TuyaError("Tuya reply was not readable")
-                return dps
-        raise TuyaError("Tuya home does not list the feeder")
+        return dps
 
     async def _call(
         self, action: str, payload: dict[str, Any], version: str = "1.0"
@@ -389,6 +403,20 @@ class TuyaSession:
             body = None
         if body is None:
             raise TuyaError("Tuya request was not confirmed")
+        try:
+            return self._reply(action, request_id, key, body)
+        except TuyaError as err:
+            failure = type(err), str(err), err.code
+        # Raised afresh once the reply and its key are dropped: the first
+        # error's traceback keeps the frames that hold the opened reply, such
+        # as a home device list with every device's local key.
+        del body, key
+        kind, message, code = failure
+        raise kind(message, code)
+
+    def _reply(
+        self, action: str, request_id: str, key: bytes, body: bytes
+    ) -> dict[str, Any]:
         envelope = _json(body)
         if not isinstance(envelope, dict):
             raise TuyaError("Tuya reply was not readable")

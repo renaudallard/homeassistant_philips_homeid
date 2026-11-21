@@ -46,7 +46,13 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .feeder import FeederCoordinator, FeederEntity, apply_change, tuya_change
+from .feeder import (
+    FeederCoordinator,
+    FeederEntity,
+    apply_change,
+    pet_call,
+    tuya_change,
+)
 from .feeder_feed import (
     CONTRAST_DP,
     MAX_VOLUME,
@@ -150,13 +156,25 @@ class FeederSettingEntity(FeederEntity):
         return getattr(data.settings, self._field)
 
     async def _send(self, dps: dict[str, int | str], **changes: Any) -> None:
-        feed = self.coordinator.feed
+        coordinator = self.coordinator
+        feed = coordinator.feed
         if feed is None:
             raise ServiceValidationError("This feeder has no Tuya settings")
-        await tuya_change(
-            feed.publish(dps), "setting", "Tuya did not confirm the setting change"
-        )
-        self.coordinator.settings_written(**changes)
+        # Waits for a camera change in progress and its read back.
+        async with coordinator.changes:
+            if self._needs_camera:
+                await self._camera_on()
+            await tuya_change(
+                feed.publish(dps), "setting", "Tuya did not confirm the setting change"
+            )
+            coordinator.settings_written(**changes)
+
+    async def _camera_on(self) -> None:
+        # The camera may have been turned off since the last poll, so it is
+        # read again, as HomeID holds it now.
+        manager = await pet_call(self.coordinator.meal_manager())
+        if await pet_call(manager.camera()) is not True:
+            raise ServiceValidationError("Turn the feeder's camera on first")
 
 
 class FeederMotionSelect(FeederSettingEntity, SelectEntity):

@@ -380,6 +380,16 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             self._logged[stage] = reason
 
 
+async def pet_call(call: Awaitable[_T]) -> _T:
+    """One pet REST call made for an action, its failures as HA errors."""
+    try:
+        return await call
+    except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
+        raise HomeAssistantError("HomeID cloud unavailable") from err
+    except CloudAuthError as err:
+        raise HomeAssistantError("HomeID login expired") from err
+
+
 async def apply_change(
     coordinator: FeederCoordinator,
     change: Callable[[MealManager], Awaitable[None]],
@@ -396,12 +406,7 @@ async def apply_change(
     go one at a time, so each starts from what the one before it read back.
     """
     async with coordinator.changes:
-        try:
-            manager = await coordinator.meal_manager()
-        except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
-            raise HomeAssistantError("HomeID cloud unavailable") from err
-        except CloudAuthError as err:
-            raise HomeAssistantError("HomeID login expired") from err
+        manager = await pet_call(coordinator.meal_manager())
         try:
             await _send(manager, change, refresh, unconfirmed, conflict)
         except asyncio.CancelledError:

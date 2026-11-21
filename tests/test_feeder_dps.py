@@ -1,5 +1,6 @@
 """Feeder settings data points: motion sensitivity, high contrast and volume."""
 
+import asyncio
 import json
 import logging
 import math
@@ -28,7 +29,11 @@ from custom_components.philips_homeid.feeder import (
     FeederData,
     feeder_diagnostics,
 )
-from custom_components.philips_homeid.feeder_api import FeederDevice, find_feeder
+from custom_components.philips_homeid.feeder_api import (
+    FeederDevice,
+    FeederHTTPError,
+    find_feeder,
+)
 from custom_components.philips_homeid.feeder_feed import (
     DpSettings,
     read_settings,
@@ -515,6 +520,10 @@ def entity_coordinator(data, publish=None):
     coord.config_entry.title = "Cat"
     coord.feed.publish = AsyncMock(side_effect=publish)
     coord.settings_written = MagicMock()
+    coord.changes = asyncio.Lock()
+    # HomeID's camera setting as read now, which the last poll may predate.
+    coord.camera = MagicMock(camera=AsyncMock(return_value=True))
+    coord.meal_manager = AsyncMock(return_value=coord.camera)
     return coord
 
 
@@ -612,6 +621,66 @@ async def test_a_change_is_sent_once_and_shown(write, dps, changes):
     await write(coord)
     coord.feed.publish.assert_awaited_once_with(dps)
     coord.settings_written.assert_called_once_with(**changes)
+    # Only the settings the app ties to the camera read it again.
+    assert coord.camera.camera.await_count == int("231" not in dps)
+
+
+CAMERA_WRITES = [
+    lambda c: FeederMotionSelect(c).async_select_option("low"),
+    lambda c: FeederHighContrastSwitch(c).async_turn_on(),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("write", CAMERA_WRITES)
+@pytest.mark.parametrize("camera", [False, None])
+async def test_a_camera_setting_is_not_sent_once_the_camera_is_off(write, camera):
+    coord = entity_coordinator(ON)
+    coord.camera.camera.return_value = camera
+    with pytest.raises(ServiceValidationError, match="camera on first"):
+        await write(coord)
+    coord.feed.publish.assert_not_called()
+    coord.settings_written.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("write", CAMERA_WRITES)
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (FeederHTTPError(503), "cloud unavailable"),
+        (CloudConnectionError("down"), "cloud unavailable"),
+        (CloudAuthError("expired"), "login expired"),
+    ],
+)
+async def test_an_unread_camera_sends_nothing(write, error, message):
+    coord = entity_coordinator(ON)
+    coord.camera.camera.side_effect = error
+    with pytest.raises(HomeAssistantError, match=message):
+        await write(coord)
+    coord.feed.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_camera_setting_waits_for_a_camera_change_and_its_read():
+    coord = entity_coordinator(ON)
+    steps = []
+
+    async def camera():
+        steps.append("read")
+        return False
+
+    coord.camera.camera.side_effect = camera
+    async with coord.changes:
+        write = asyncio.ensure_future(
+            FeederMotionSelect(coord).async_select_option("low")
+        )
+        await asyncio.sleep(0)
+        steps.append("camera off")
+    with pytest.raises(ServiceValidationError):
+        await write
+    assert steps == ["camera off", "read"]
+    coord.feed.publish.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -682,6 +682,9 @@
       },
       "feeder_portions": {
         "name": "Foderportioner"
+      },
+      "feeder_volume": {
+        "name": "Ljud"
       }
     },
     "select": {
@@ -799,6 +802,14 @@
         "state": {
           "indoor_air_index": "Luftkvalitetsindex inomhus",
           "pm25": "PM2.5"
+          }
+        },
+      "feeder_motion_sensitivity": {
+        "name": "Rörelsedetekteringskänslighet",
+        "state": {
+          "low": "Låg",
+          "medium": "Medel",
+          "high": "Hög"
         }
       }
     },
@@ -820,6 +831,9 @@
       },
       "feeder_camera": {
         "name": "Kamera"
+      },
+      "feeder_high_contrast": {
+        "name": "Aktivera högkontrastläge"
       }
     },
     "update": {

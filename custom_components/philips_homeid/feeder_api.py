@@ -42,6 +42,7 @@ import base64
 import codecs
 import json
 import math
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -80,6 +81,7 @@ _REFRESH_RETRY_AFTER = 60.0
 # only rotate the single-use refresh token without fixing anything.
 _FORCED_REFRESH_MIN_AGE = 300.0
 _WRITE_METHODS = frozenset({"POST", "PATCH", "DELETE"})
+_LONG = re.compile(r"[+-]?[0-9]+")
 _T = TypeVar("_T")
 
 
@@ -106,7 +108,8 @@ class FeederDevice:
     ``vendor_id`` is the appliance's externalDeviceId in the HomeID appliance
     list (the Tuya device ID). ``philips_id`` is the pet backend's own device
     ID, the one its meals and events name. The two are distinct fields and
-    are never substituted for one another.
+    are never substituted for one another. ``tuya_home`` is the home's Tuya
+    group ID, which the Tuya device list is asked for, or None.
     """
 
     vendor_id: str
@@ -115,6 +118,7 @@ class FeederDevice:
     model: str
     name: str
     time_zone: str | None
+    tuya_home: int | None = None
 
 
 def identifier(value: object) -> str:
@@ -238,6 +242,22 @@ async def pet_write(
     raise FeederError("HomeID pet request was not confirmed")
 
 
+def _tuya_home(home: dict[str, Any]) -> int | None:
+    """vendorIds.tuya read as the app does, with Kotlin's toLongOrNull.
+
+    Moshi reads it as text, and takes a JSON number as its text too.
+    """
+    ids = home.get("vendorIds")
+    value = ids.get("tuya") if isinstance(ids, dict) else None
+    if isinstance(value, int) and not isinstance(value, bool):
+        number = value
+    elif isinstance(value, str) and _LONG.fullmatch(value):
+        number = int(value)
+    else:
+        return None
+    return number if -(1 << 63) <= number < 1 << 63 else None
+
+
 async def find_feeder(
     get: Callable[[str], Awaitable[Any]], vendor_id: str
 ) -> FeederDevice | None:
@@ -286,6 +306,7 @@ async def find_feeder(
         model=model,
         name=name[:80] if isinstance(name, str) and name.strip() else model,
         time_zone=zone if isinstance(zone, str) and zone else None,
+        tuya_home=_tuya_home(home),
     )
 
 

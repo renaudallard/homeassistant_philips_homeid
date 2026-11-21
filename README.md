@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status, events, camera switch, desiccant reset and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status, events, camera switch, motion sensitivity, high contrast mode, sound, desiccant reset and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -56,7 +56,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
-| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history, status, events, camera switch and desiccant reset through the HomeID pet cloud, feed now through Tuya (requires internet) |
+| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history, status, events, camera switch and desiccant reset through the HomeID pet cloud, feed now, motion sensitivity, high contrast mode and sound through Tuya (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -101,6 +101,7 @@ The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are
 - **Feeding** and **Food alert** event entities for automations, firing for each new feeding, food low or outlet stuck report
 - **Desiccant replacement due** date from the HomeID desiccant timer, and a **Reset desiccant bag replacement date** button
 - **Camera** switch to turn the feeder's camera on or off, as in the app's settings
+- **Motion detection sensitivity** (low, medium, high), **Enable high contrast mode** and **Sound** (1 to 10), the app's other feeder settings
 - **Feed now** button, dispensing the number of **Feed portions** set (1 to 20)
 - See [Pet Feeder (PAW5320) details](#pet-feeder-paw5320-details) for what is and is not verified
 
@@ -495,17 +496,27 @@ What you get:
   or off. Off when HomeID holds no value for it, as in the app, and
   unavailable when HomeID lists no camera setting for the feeder, when the
   app shows no switch either.
+- **Motion detection sensitivity**, **Enable high contrast mode** and
+  **Sound**: the app's other feeder settings, which Tuya keeps. They are
+  read on each poll and changed through Tuya, as the app does; a change
+  shows at once and the next poll reads it back. Like the app, motion
+  sensitivity and high contrast mode can only be changed while the camera
+  is on, so they are unavailable while it is off. Sound is the app's 1 to
+  10 scale.
 - **Feed now** and **Feed portions**: pressing the button dispenses the set
   number of portions (1 to 20, as in the app; default 1, kept across
   restarts). Changing the number sends nothing. Like the app, the integration
-  sends the feed through Tuya: on the first press it logs in to Tuya with
-  your HomeID login and keeps that session. The login names the dial code
+  sends the feed through Tuya: the first poll that reads the settings, or
+  the first press, logs in to Tuya with your HomeID login and keeps that
+  session. The login names the dial code
   of the HomeID country matching your Home Assistant country, as the app
   names the country chosen in it (31, the app's default, if none matches).
   A press sends the feed once and never resends it, since an unreadable
   answer may still come from a feed that reached the feeder. If
   Tuya no longer accepts the session, the press fails and the next one logs
-  in again, so check whether food came out before pressing again. A
+  in again, so check whether food came out before pressing again. A poll
+  logs in at most once every 15 minutes, so a login Tuya refuses is not
+  repeated on every poll; a press always tries. A
   successful press means Tuya accepted the command; the dispensed meal
   shows in the feeding history.
 
@@ -521,8 +532,8 @@ logger:
   logs:
     custom_components.philips_homeid.tuya_api: debug
 ```
-The camera switch and the desiccant reset have not yet been tried on a
-real feeder. Live video and pictures are out of scope. The protocol and the limits
+The camera switch, the desiccant reset and the Tuya settings have not yet
+been tried on a real feeder. Live video and pictures are out of scope. The protocol and the limits
 of what has been verified on a real feeder are in
 [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
 

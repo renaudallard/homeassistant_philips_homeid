@@ -682,6 +682,9 @@
       },
       "feeder_portions": {
         "name": "Porzioni di cibo"
+      },
+      "feeder_volume": {
+        "name": "Suono"
       }
     },
     "select": {
@@ -799,6 +802,14 @@
         "state": {
           "indoor_air_index": "Indice aria interna",
           "pm25": "PM2.5"
+          }
+        },
+      "feeder_motion_sensitivity": {
+        "name": "Sensibilità al rilevamento del movimento",
+        "state": {
+          "low": "Bassa",
+          "medium": "Media",
+          "high": "Alta"
         }
       }
     },
@@ -820,6 +831,9 @@
       },
       "feeder_camera": {
         "name": "Fotocamera"
+      },
+      "feeder_high_contrast": {
+        "name": "Abilita la modalità ad alto contrasto"
       }
     },
     "update": {

@@ -682,6 +682,9 @@
       },
       "feeder_portions": {
         "name": "喂食份数"
+      },
+      "feeder_volume": {
+        "name": "声音"
       }
     },
     "select": {
@@ -799,6 +802,14 @@
         "state": {
           "indoor_air_index": "室内空气指数",
           "pm25": "PM2.5"
+          }
+        },
+      "feeder_motion_sensitivity": {
+        "name": "动作侦测灵敏度",
+        "state": {
+          "low": "低",
+          "medium": "中等",
+          "high": "高"
         }
       }
     },
@@ -820,6 +831,9 @@
       },
       "feeder_camera": {
         "name": "相机"
+      },
+      "feeder_high_contrast": {
+        "name": "启用高对比模式"
       }
     },
     "update": {

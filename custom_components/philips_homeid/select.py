@@ -36,7 +36,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, RITA_RECIPES_PER_PROFILE
+from .const import CONF_IS_FEEDER, DOMAIN, RITA_RECIPES_PER_PROFILE
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
 from .fan import MUJI_AC17_MODELS, MUJI_MODE_KEY, MUJI_PICO_MODELS, muji_mode_map
@@ -152,6 +152,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up select entities from config entry."""
+    if entry.data.get(CONF_IS_FEEDER):
+        from .feeder_settings import async_setup_settings_selects
+
+        await async_setup_settings_selects(hass, entry, async_add_entities)
+        return
+
     coordinator: PhilipsHomeIDCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     model_name = coordinator.device_info.model_name or ""

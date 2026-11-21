@@ -4,8 +4,8 @@ The Philips Smart Feeder with Camera (PAW5320) is supported by the HomeID app
 from version 8.23.0. It is not a FUSION device and has no AWS IoT thing: the
 app keeps schedules, events and settings on the HomeID pet backend described
 here, and talks to the feeder itself over Tuya. This integration reads the
-REST backend and sends feed now over Tuya, as the app does; the camera is out
-of scope.
+REST backend and sends feed now over Tuya, as the app does; live video and
+pictures are out of scope.
 
 Sources: the integration's own checks against a real PAW5320, read only apart
 from two feed now presses (noted as *live* below), the maintainer's check of
@@ -58,6 +58,9 @@ envelope `{"item": [...]}`.
 | Meals of a home | `GET /api/homes/{home}/meals` |
 | Events | `GET /api/homes/{home}/events?from=…&to=…&types=…&types=…&deviceIds=…`, one UTC day per request |
 | Desiccant timer | `GET /api/homes/{home}/devices/{device}/desiccant-timer` |
+| Desiccant reset | `POST /api/homes/{home}/devices/{device}/desiccant-timer` |
+| Camera | `GET /api/homes/{home}/modes/home/devices` |
+| Camera on or off | `PATCH /api/homes/{home}/modes/home/devices/{device}` |
 | New meal | `POST /api/homes/{home}/meals` |
 | Edit, enable or disable a meal | `PATCH /api/homes/{home}/meals/{meal}` |
 | Delete a meal | `DELETE /api/homes/{home}/meals/{meal}` |
@@ -172,6 +175,37 @@ reported as **Desiccant replacement due** and `lastReplacedDate` as its
 (`…/devices/{Philips ID}/settings`) hold only `feeder_voice_audio_id` in the
 app and are not read.
 
+The app resets the timer from its desiccant bag screen with `POST` on the
+same path and `{"lastReplacedDate": "YYYY-MM-DD"}`, the day picked there.
+The integration's button sends today in the home's time zone (Home
+Assistant's when HomeID gives none) and reads the feeder again afterwards.
+A home zone that is not an IANA name is refused before anything is sent,
+as it is for the meals.
+
+## Camera switch
+
+The app's only use of `…/modes/home/devices` is the camera switch. `GET`
+returns `{"item": [{"id", "name", "settings": {"device_active": {"category",
+"value"}}}]}`, one row per device of the home with `id` the Philips ID; the
+app takes the first row of the feeder and reads `device_active.value` as
+camera on, a missing or null value as off. It needs an `id` and a
+`settings` map in every row, each entry null or a `{category, value}`
+object with `value` a boolean or null, reads `id`, `name` and `category` as
+text (a number is taken as its text), and fails on anything else; so does
+the integration. With no row for the feeder the app shows no camera
+switch, and the integration's switch is unavailable. It writes
+`PATCH …/modes/home/devices/{Philips ID}` with
+`{"settings": {"device_active": {"value": true}}}`, `false` to turn the
+camera off. The app shows the switch for its camera models, PAW5320,
+PAW5321 and PAW7310, to the home's owner while the feeder is connected.
+
+The other settings on the app's screen are Tuya data points read from its
+SDK's device cache, not from this backend: motion sensitivity (106),
+high contrast mode (108, called night vision on the PAW5321) and volume
+(231). The app greys out motion sensitivity and high contrast mode while
+the camera is off. Slow feed (238) and automatic compartment switching
+(239) are shown only for PAW7310 models, so a PAW5320 has neither.
+
 ## Feed now (Tuya)
 
 The app feeds through the Tuya (ThingClips) SDK it bundles, not through the
@@ -263,6 +297,7 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | `food_level_low`, `food_outlet_stuck` on a PAW5320 | live, read only |
 | `device_online`, `device_offline` on a PAW5320 | **not observed live**: none in a 7 day window; types from `petsseries` |
 | Desiccant timer response of a PAW5320 | live, read only: `expiryDate` and `lastReplacedDate`; not yet compared with the app screen |
+| Desiccant reset, camera read and camera switch | **not yet tried on a feeder**; requests from the HomeID app 8.23.0 |
 | Why a long events window loses its oldest events | not established; single days, as the app reads them, gave a consistent set, and the integration reads single days since build 3891026 |
 | `mealAmount` unit | not established; it equalled the portions in two feeds |
 | Feeder behaviour at DST changes | not established |

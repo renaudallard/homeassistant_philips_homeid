@@ -622,6 +622,9 @@
       },
       "feeder_feed": {
         "name": "Alimentar agora"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Redefinir a data de substituição do saco dessecante"
       }
     },
     "number": {
@@ -753,6 +756,9 @@
       },
       "power": {
         "name": "Energia"
+      },
+      "feeder_camera": {
+        "name": "Câmara"
       }
     },
     "update": {

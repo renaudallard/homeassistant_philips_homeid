@@ -68,6 +68,7 @@ def manager():
     m.history = AsyncMock(return_value=[FeedingEvent("e", NOW, "Lunch", 2, "schedule")])
     m.status_events = AsyncMock(return_value=[StatusEvent("s", "device_online", NOW)])
     m.desiccant = AsyncMock(return_value=DesiccantTimer(TODAY, None))
+    m.camera = AsyncMock(return_value=True)
     return m
 
 
@@ -77,6 +78,7 @@ def bare_coordinator(m):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
+    coord.has_camera = True
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
 
@@ -90,6 +92,7 @@ async def test_poll_reads_every_part():
     data = await bare_coordinator(m)._async_update_data()
     assert data.meals_ok and data.history_ok and data.status_ok
     assert data.desiccant == DesiccantTimer(TODAY, None)
+    assert data.camera is True and data.camera_ok
     assert data.time_zone == "Europe/Riga" and data.time_zone_from_home
     start, end = m.history.await_args.args
     assert end - start == timedelta(days=7)
@@ -97,7 +100,7 @@ async def test_poll_reads_every_part():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "part", ["list_meals", "history", "status_events", "desiccant"]
+    "part", ["list_meals", "history", "status_events", "desiccant", "camera"]
 )
 async def test_one_failing_part_leaves_the_rest_available(part):
     m = manager()
@@ -108,6 +111,7 @@ async def test_one_failing_part_leaves_the_rest_available(part):
         "history": data.history_ok,
         "status_events": data.status_ok,
         "desiccant": data.desiccant is not None,
+        "camera": data.camera_ok,
     }
     assert [name for name, ok in flags.items() if not ok] == [part]
 
@@ -542,7 +546,7 @@ def test_schedule_calendar_shows_planned_meals_only_when_available():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "part", ["list_meals", "history", "status_events", "desiccant"]
+    "part", ["list_meals", "history", "status_events", "desiccant", "camera"]
 )
 async def test_transient_refresh_failure_in_a_part_is_not_reauth(part):
     m = manager()
@@ -553,6 +557,7 @@ async def test_transient_refresh_failure_in_a_part_is_not_reauth(part):
         "history": data.history_ok,
         "status_events": data.status_ok,
         "desiccant": data.desiccant is not None,
+        "camera": data.camera_ok,
     }
     assert [name for name, ok in flags.items() if not ok] == [part]
 

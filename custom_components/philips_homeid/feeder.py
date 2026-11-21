@@ -24,9 +24,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 """PAW5320 feeder entries: coordinator, entities and setup.
 
-Settings are read only. Meals are planned, changed and removed through the
-pet REST backend as the app does (feeder_schedule), and feed now is sent
-through Tuya by feeder_feed.
+Meals (feeder_schedule), the camera switch and the desiccant reset
+(feeder_settings) are changed through the pet REST backend as the app does,
+and feed now is sent through Tuya by feeder_feed.
 """
 
 from __future__ import annotations
@@ -48,7 +48,11 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -94,6 +98,9 @@ FEEDER_PLATFORMS = [
 ]
 UPDATE_INTERVAL = timedelta(minutes=2)
 LOOKBACK = timedelta(days=7)
+# Supported models the app gives a camera switch; its list also has the
+# PAW5321 and PAW7310.
+CAMERA_MODELS = frozenset({"PAW5320"})
 # The registry rarely changes; re-resolve IDs and the home time zone this often.
 _IDENTITY_TTL = 900.0
 FEEDER_ERRORS = (FeederError, CloudConnectionError)
@@ -111,6 +118,8 @@ class FeederData:
     status_events: list[StatusEvent] = field(default_factory=list)
     status_ok: bool = False
     desiccant: DesiccantTimer | None = None
+    camera: bool | None = None
+    camera_ok: bool = False
     time_zone: str | None = None
     time_zone_from_home: bool = False
 
@@ -142,6 +151,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             if model in FEED_DPS
             else None
         )
+        self.has_camera = model in CAMERA_MODELS
         self._manager: MealManager | None = None
         self._device: FeederDevice | None = None
         self._manager_until = 0.0
@@ -191,6 +201,14 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "status", lambda: manager.status_events(now - LOOKBACK, now)
         )
         desiccant = await self._optional("desiccant", manager.desiccant)
+
+        async def read_camera() -> tuple[bool | None]:
+            # Boxed, since None is a value here: HomeID holds none.
+            return (await manager.camera(),)
+
+        camera: tuple[bool | None] | None = None
+        if self.has_camera:
+            camera = await self._optional("camera", read_camera)
         meals_ok = meals is not None
         if reads != self._meal_reads and self.data is not None:
             # A schedule change was read while this poll ran: its meals are
@@ -204,6 +222,8 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             status_events=status or [],
             status_ok=status is not None,
             desiccant=desiccant,
+            camera=camera[0] if camera else None,
+            camera_ok=camera is not None,
             # The app shows meal times in the phone's zone, which onboarding
             # also stores on the home; HA's zone stands in when HomeID sends
             # none.
@@ -257,6 +277,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "Invalid identifier": "identifier",
             "Unsupported HomeID list response": "list_shape",
             "Unsupported desiccant timer response": "desiccant_shape",
+            "Unsupported camera setting response": "camera_shape",
             "Invalid feeding event text": "event_text",
             "Invalid feeding event amount": "event_amount",
             "Conflicting event identity": "event_duplicate",
@@ -274,6 +295,42 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         if self._logged.get(stage) != reason:
             _LOGGER.warning("HomeID feeder %s unavailable (%s)", stage, reason)
             self._logged[stage] = reason
+
+
+async def apply_change(
+    coordinator: FeederCoordinator,
+    change: Callable[[MealManager], Awaitable[None]],
+    refresh: Callable[[], Awaitable[None]],
+    unconfirmed: str,
+    conflict: str | None = None,
+) -> None:
+    """Send one change, then read again whatever happened.
+
+    A write that was not confirmed may still have been applied, so the
+    read follows it too. ``conflict`` is the message for a 409.
+    """
+    try:
+        manager = await coordinator.meal_manager()
+    except FEEDER_ERRORS as err:  # before CloudAuthError, its base class
+        raise HomeAssistantError("HomeID cloud unavailable") from err
+    except CloudAuthError as err:
+        raise HomeAssistantError("HomeID login expired") from err
+    try:
+        await change(manager)
+    except MealsError as err:
+        # Raised before anything is sent; its messages are fixed text.
+        raise ServiceValidationError(str(err)) from err
+    except FeederHTTPError as err:
+        await refresh()
+        if conflict is not None and err.status == 409:
+            raise HomeAssistantError(conflict) from err
+        raise HomeAssistantError(unconfirmed) from err
+    except FEEDER_ERRORS as err:
+        await refresh()
+        raise HomeAssistantError(unconfirmed) from err
+    except CloudAuthError as err:
+        raise HomeAssistantError("HomeID login expired") from err
+    await refresh()
 
 
 async def async_setup_feeder_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -315,6 +372,7 @@ def feeder_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any
         "status_available": data.status_ok if data else None,
         "status_types": sorted(data.status) if data else None,
         "desiccant_available": data.desiccant is not None if data else None,
+        "camera_available": data.camera_ok if data else None,
         "home_time_zone_known": data.time_zone_from_home if data else None,
         "feed_supported": bool(coordinator and coordinator.feed),
         "tuya_logged_in": bool(

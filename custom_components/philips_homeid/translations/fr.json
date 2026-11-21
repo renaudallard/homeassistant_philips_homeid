@@ -622,6 +622,9 @@
       },
       "feeder_feed": {
         "name": "Nourrir maintenant"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Réinitialiser la date de remplacement du sac déshydratant"
       }
     },
     "number": {
@@ -753,6 +756,9 @@
       },
       "power": {
         "name": "Alimentation"
+      },
+      "feeder_camera": {
+        "name": "Caméra"
       }
     },
     "update": {

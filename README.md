@@ -31,7 +31,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Espresso Machines** | EP8757 | RITA | Cloud relay (FUSION MQTT) |
 | **Espresso Machines** | EP2520 (Flash_Entry_P, Series 3200) | | Local Condor, power + brew control |
 | **Espresso Machines** | EP3546, SM series | | Local Condor, needs tester |
-| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status, events and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
+| **Pet Feeders** | PAW5320 (Smart Feeder with Camera) | HomeID pet cloud, Tuya | Schedules and meal editing, history, status, events, camera switch, desiccant reset and feed now, see [Pet Feeder](#pet-feeder-paw5320-details) |
 
 > **Note:** Some devices report their internal codename (e.g., "Venus2", "Spectre") instead of the marketing model number (e.g., "HD9880"). The integration recognizes both.
 >
@@ -54,7 +54,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Diagnostics** | Built-in diagnostics for troubleshooting |
 | **Cloud Login** | Retrieve credentials from Philips cloud via your account (pure HTTP, no browser required) |
 | **Cloud Relay** | FUSION devices supported via MQTT cloud relay (requires internet) |
-| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history, status and events through the HomeID pet cloud, feed now through Tuya (requires internet) |
+| **Pet Feeder** | PAW5320 schedules and meal editing, feeding history, status, events, camera switch and desiccant reset through the HomeID pet cloud, feed now through Tuya (requires internet) |
 
 ### Air Purifiers
 The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
@@ -94,7 +94,8 @@ The supported air purifiers (AC0650, AC0651, AC1715) are MUJI devices controlled
 - Feeding history as a calendar, and a **Last feeding** sensor
 - **Last food low alert** and **Last food outlet stuck alert** timestamps, and a **Cloud connection** sensor, from the HomeID event log
 - **Feeding** and **Food alert** event entities for automations, firing for each new feeding, food low or outlet stuck report
-- **Desiccant replacement due** date from the HomeID desiccant timer
+- **Desiccant replacement due** date from the HomeID desiccant timer, and a **Reset desiccant bag replacement date** button
+- **Camera** switch to turn the feeder's camera on or off, as in the app's settings
 - **Feed now** button, dispensing the number of **Feed portions** set (1 to 20)
 - See [Pet Feeder (PAW5320) details](#pet-feeder-paw5320-details) for what is and is not verified
 
@@ -480,6 +481,14 @@ What you get:
 - **Desiccant replacement due**: the expiry date of the desiccant timer in
   HomeID, with the last replacement date as an attribute. Unknown if no timer
   is set, as in the app.
+- **Reset desiccant bag replacement date**: records today, in the home's
+  time zone (Home Assistant's if HomeID gives none), as the day the bag was replaced, the request the app sends
+  from its desiccant bag screen. The app lets you pick the day; the button
+  always sends today.
+- **Camera**: the app's camera switch, which turns the feeder's camera on
+  or off. Off when HomeID holds no value for it, as in the app, and
+  unavailable when HomeID lists no camera setting for the feeder, when the
+  app shows no switch either.
 - **Feed now** and **Feed portions**: pressing the button dispenses the set
   number of portions (1 to 20, as in the app; default 1, kept across
   restarts). Changing the number sends nothing. Like the app, the integration
@@ -506,7 +515,8 @@ logger:
   logs:
     custom_components.philips_homeid.tuya_api: debug
 ```
-Camera and video are out of scope. The protocol and the limits
+The camera switch and the desiccant reset have not yet been tried on a
+real feeder. Live video and pictures are out of scope. The protocol and the limits
 of what has been verified on a real feeder are in
 [docs/PAW5320_PROTOCOL.md](docs/PAW5320_PROTOCOL.md).
 

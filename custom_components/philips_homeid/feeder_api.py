@@ -28,11 +28,11 @@ The HomeID app keeps its feeders on the pet backend below, which accepts the
 same HomeID OIDC access token this integration already holds. Everything here
 is plain aiohttp: the feeder needs no extra requirement and no other account.
 
-Reads are GET. The only writes are the meal schedule changes the app makes,
-POST, PATCH and DELETE, whose replies are never read. Only fixed paths on the
-fixed host are requested, URLs found in responses are never followed and
-redirects are refused. Error messages carry no response body, URL,
-identifier or token.
+Reads are GET. The only writes are the changes the app makes: meals (POST,
+PATCH and DELETE), the camera switch (PATCH) and the desiccant reset (POST),
+whose replies are never read. Only fixed paths on the fixed host are
+requested, URLs found in responses are never followed and redirects are
+refused. Error messages carry no response body, URL, identifier or token.
 """
 
 from __future__ import annotations

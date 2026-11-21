@@ -669,6 +669,9 @@
       },
       "feeder_portions": {
         "name": "喂食份数"
+      },
+      "feeder_volume": {
+        "name": "声音"
       }
     },
     "select": {
@@ -742,6 +745,14 @@
           "sleep": "睡眠",
           "turbo": "强劲"
         }
+      },
+      "feeder_motion_sensitivity": {
+        "name": "动作侦测灵敏度",
+        "state": {
+          "low": "低",
+          "medium": "中等",
+          "high": "高"
+        }
       }
     },
     "switch": {
@@ -759,6 +770,9 @@
       },
       "feeder_camera": {
         "name": "相机"
+      },
+      "feeder_high_contrast": {
+        "name": "启用高对比模式"
       }
     },
     "update": {

@@ -22,24 +22,28 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Feed now for HomeID feeders, through the app's Tuya session.
+"""The app's Tuya session for HomeID feeders: feed now and data points.
 
 The HomeID app clamps a quick feed to 1 to 20 portions and publishes it as
-one data point: "201" on a feeder with camera such as the PAW5320. A feed is
-sent once per press and never again: a reply that cannot be read may still
-come from a feed that reached the feeder. A session Tuya no longer accepts is
-dropped, so the next press logs in afresh.
+one data point: "201" on a feeder with camera such as the PAW5320. Data
+points are sent once per change and never again: a reply that cannot be read
+may still come from a change that reached the feeder. A session Tuya no
+longer accepts is dropped, so the next request logs in afresh.
 """
 
 from __future__ import annotations
 
 import asyncio
+import math
+import time
+from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .feeder_api import FeederTokenOwner
-from .tuya_api import SESSION_LOST, TuyaSession, TuyaSessionLost
+from .tuya_api import SESSION_LOST, TuyaError, TuyaSession, TuyaSessionLost
 
 # Feed data point per model, from SingleContainerDispenseSerializer.
 FEED_DPS = {"PAW5320": "201"}
@@ -47,10 +51,74 @@ MIN_PORTIONS = 1
 MAX_PORTIONS = 20
 # TuyaLoginCredentialsProviderImpl's dial code when the app has no space.
 _DEFAULT_DIAL_CODE = "31"
+# Settings data points of feeders with camera, from TuyaDpsBridgeImpl.
+MOTION_DP = "106"
+CONTRAST_DP = "108"
+VOLUME_DP = "231"
+# MotionSensitivity and NightVisionMode dpValue; high contrast is AUTO.
+MOTION_LEVELS = {"0": "low", "1": "medium", "2": "high"}
+CONTRAST_ON = {"0": True, "1": False}
+# WithCameraAndEssentialsVolumeConverter: the app shows 1 to 10 and sends
+# ten times that, kept within 10 to 100.
+MIN_VOLUME = 1
+MAX_VOLUME = 10
+
+
+@dataclass(frozen=True)
+class DpSettings:
+    """The settings data points as the app reads them; None when unknown."""
+
+    motion: str | None
+    high_contrast: bool | None
+    volume: int | None
+
+
+def _dp_text(value: Any) -> str | None:
+    # The app compares the value's toString(), so a number matches too.
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    return None
+
+
+def _dp_int(value: Any) -> int | None:
+    # As the app's Number.intValue(): truncated, then cut to 32 bits.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        value = math.trunc(value)
+    return (value + (1 << 31)) % (1 << 32) - (1 << 31)
+
+
+def read_settings(dps: dict[str, Any]) -> DpSettings:
+    text = _dp_text(dps.get(MOTION_DP))
+    contrast = _dp_text(dps.get(CONTRAST_DP))
+    raw = _dp_int(dps.get(VOLUME_DP))
+    volume = None
+    if raw is not None and raw > 0:
+        # Kotlin's roundToInt rounds half up.
+        volume = min(max(math.floor(raw / 10 + 0.5), MIN_VOLUME), MAX_VOLUME)
+    return DpSettings(
+        motion=MOTION_LEVELS.get(text) if text is not None else None,
+        high_contrast=CONTRAST_ON.get(contrast) if contrast is not None else None,
+        volume=volume,
+    )
+
+
+def volume_dp(volume: int) -> int:
+    return min(max(volume * 10, 10), 100)
+
+
+# petsseries reports a daily login cap: a poll logs in at most this often, so
+# a login Tuya refuses is not tried again on every poll. A press still logs in.
+_POLL_LOGIN_EVERY = 900.0
 
 
 class FeederFeed:
-    """Feed now for one feeder entry. One feed or login at a time."""
+    """The Tuya session of one feeder entry. One request or login at a time."""
 
     def __init__(
         self, hass: HomeAssistant, owner: FeederTokenOwner, device_id: str, model: str
@@ -62,6 +130,7 @@ class FeederFeed:
         self._session = TuyaSession(async_get_clientsession(hass))
         self._lock = asyncio.Lock()
         self._dial_code = ""
+        self._poll_login_at = 0.0
         self.portions = MIN_PORTIONS
 
     @property
@@ -71,20 +140,40 @@ class FeederFeed:
     async def feed(self, portions: int) -> None:
         if not MIN_PORTIONS <= portions <= MAX_PORTIONS:
             raise ValueError("portions out of range")
-        dps = {self._dp: portions}
+        await self.publish({self._dp: portions})
+
+    async def publish(self, dps: dict[str, int | str]) -> None:
         async with self._lock:
             if not self._session.logged_in:
                 await self._login()
             try:
                 await self._session.publish(self._device_id, dps)
             except TuyaSessionLost as err:
-                # Tuya said the session is gone, so drop it. An unreadable
-                # reply also lands here and Tuya may have fed: drop the
-                # session then only if a harmless read fails too, since
-                # petsseries reports a daily login cap.
-                if err.code in SESSION_LOST or not await self._session.alive():
-                    self._session.forget()
+                await self._lost(err)
                 raise
+
+    async def read(self, home: int) -> dict[str, Any]:
+        """The feeder's data points, for the poll."""
+        async with self._lock:
+            if not self._session.logged_in:
+                now = time.monotonic()
+                if now < self._poll_login_at:
+                    raise TuyaError("Tuya login postponed")
+                self._poll_login_at = now + _POLL_LOGIN_EVERY
+                await self._login()
+            try:
+                return await self._session.device_dps(home, self._device_id)
+            except TuyaSessionLost as err:
+                await self._lost(err)
+                raise
+
+    async def _lost(self, err: TuyaSessionLost) -> None:
+        # Tuya said the session is gone, so drop it. An unreadable reply also
+        # lands here and a publish may have reached the feeder: drop the
+        # session then only if a harmless read fails too, since petsseries
+        # reports a daily login cap.
+        if err.code in SESSION_LOST or not await self._session.alive():
+            self._session.forget()
 
     async def _login(self) -> None:
         dial_code = self._dial_code or await self._lookup_dial_code()

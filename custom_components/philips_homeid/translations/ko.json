@@ -669,6 +669,9 @@
       },
       "feeder_portions": {
         "name": "급식 분량"
+      },
+      "feeder_volume": {
+        "name": "사운드"
       }
     },
     "select": {
@@ -742,6 +745,14 @@
           "sleep": "수면",
           "turbo": "터보"
         }
+      },
+      "feeder_motion_sensitivity": {
+        "name": "움직임 감지 감도",
+        "state": {
+          "low": "낮음",
+          "medium": "미디엄",
+          "high": "높음"
+        }
       }
     },
     "switch": {
@@ -759,6 +770,9 @@
       },
       "feeder_camera": {
         "name": "카메라"
+      },
+      "feeder_high_contrast": {
+        "name": "고대비 모드 활성화"
       }
     },
     "update": {

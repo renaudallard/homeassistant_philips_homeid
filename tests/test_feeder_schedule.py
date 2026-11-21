@@ -295,6 +295,8 @@ def coordinator(meals=(BREAKFAST, DINNER), meals_ok=True):
     )
     coord._logged = {}
     coord._meal_reads = 0
+    coord._dp_writes = 0
+    coord.feed = None
     coord.has_camera = False
     coord.last_update_success = True
     coord.data = FeederData(meals=list(meals), meals_ok=meals_ok)

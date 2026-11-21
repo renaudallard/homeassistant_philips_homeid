@@ -312,7 +312,7 @@ class TuyaSession:
             return False
         return True
 
-    async def publish(self, device_id: str, dps: dict[str, int]) -> None:
+    async def publish(self, device_id: str, dps: dict[str, int | str]) -> None:
         """Send data points to one device through Tuya's cloud."""
         if not self.logged_in:
             raise TuyaSessionLost("Tuya session expired")
@@ -325,12 +325,39 @@ class TuyaSession:
             },
         )
 
-    async def _call(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def device_dps(self, home: int, device_id: str) -> dict[str, Any]:
+        """One device's data points, from the home device list the app reads.
+
+        Each row is the SDK's DeviceRespBean, which keeps them only under
+        dataPointInfo: its flat dps setter stores nothing without it. The
+        rows also carry the devices' local keys: only the data points of the
+        one device asked for leave here.
+        """
+        if not self.logged_in:
+            raise TuyaSessionLost("Tuya session expired")
+        data = await self._call(
+            "m.life.my.group.device.list", {"gid": home}, version="2.2"
+        )
+        rows = data.get("result")
+        if not isinstance(rows, list):
+            raise TuyaError("Tuya reply was not readable")
+        for row in rows:
+            if isinstance(row, dict) and row.get("devId") == device_id:
+                module = row.get("dataPointInfo")
+                dps = module.get("dps") if isinstance(module, dict) else None
+                if not isinstance(dps, dict):
+                    raise TuyaError("Tuya reply was not readable")
+                return dps
+        raise TuyaError("Tuya home does not list the feeder")
+
+    async def _call(
+        self, action: str, payload: dict[str, Any], version: str = "1.0"
+    ) -> dict[str, Any]:
         request_id = str(uuid.uuid4())
         key = self._signer.request_key(request_id, self._ecode)
         params = {
             "a": action,
-            "v": "1.0",
+            "v": version,
             "clientId": self._signer.app_id,
             "os": "Android",
             "appVersion": "2.2.1",

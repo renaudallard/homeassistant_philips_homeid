@@ -420,7 +420,10 @@ def feeder_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any
         "status_available": data.status_ok if data else None,
         "status_types": sorted(data.status) if data else None,
         "desiccant_available": data.desiccant is not None if data else None,
-        "camera_available": data.camera_ok if data else None,
+        # As the switch: HomeID read and holds a camera setting.
+        "camera_available": (
+            data.camera_ok and data.camera is not None if data else None
+        ),
         "home_time_zone_known": data.time_zone_from_home if data else None,
         "feed_supported": bool(coordinator and coordinator.feed),
         "tuya_logged_in": bool(

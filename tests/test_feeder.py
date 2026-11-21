@@ -426,6 +426,30 @@ async def test_diagnostics_are_an_allowlist():
     assert result["meal_count"] == 1 and result["history_count"] == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("camera", "camera_ok", "expected"),
+    [
+        (True, True, True),
+        (False, True, True),
+        (None, True, False),
+        (True, False, False),
+    ],
+)
+async def test_diagnostics_camera_follows_the_switch(camera, camera_ok, expected):
+    from custom_components.philips_homeid.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    coord = entity_coordinator(FeederData(camera=camera, camera_ok=camera_ok))
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"entry": coord}}
+    entry = MagicMock(entry_id="entry")
+    entry.data = {CONF_IS_FEEDER: True, CONF_MODEL: "PAW5320"}
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["camera_available"] is expected
+
+
 # --- config flow -----------------------------------------------------------
 
 

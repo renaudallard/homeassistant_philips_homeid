@@ -18,7 +18,7 @@ from custom_components.philips_homeid.const import (
 )
 from custom_components.philips_homeid.event import _EVENTS, FeederEvent
 from custom_components.philips_homeid.feeder import LOOKBACK, FeederData
-from custom_components.philips_homeid.feeder_api import FeederDevice, FeederError
+from custom_components.philips_homeid.feeder_api import FeederDevice
 from custom_components.philips_homeid.feeder_meals import (
     FeedingEvent,
     MealManager,
@@ -82,11 +82,24 @@ async def test_one_id_for_two_status_events_is_an_error():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("event_id", [None, "", 5])
-async def test_a_status_event_without_a_usable_id_is_an_error(event_id):
-    rows = [row(event_id, "food_level_low", NOW - timedelta(hours=2))]
-    with pytest.raises(FeederError):
-        await manager(rows).status_events(START, NOW)
+@pytest.mark.parametrize("event_id", [None, "", 5, ".."])
+async def test_a_status_event_without_a_usable_id_still_counts(event_id):
+    rows = [
+        row(event_id, "food_level_low", NOW - timedelta(hours=1)),
+        row(event_id, "food_level_low", NOW - timedelta(hours=1)),
+        row("a", "food_outlet_stuck", NOW - timedelta(hours=2)),
+    ]
+    # One UTC day, so one request.
+    events = await manager(rows).status_events(NOW - timedelta(hours=3), NOW)
+    assert events == [
+        StatusEvent("a", "food_outlet_stuck", NOW - timedelta(hours=2)),
+        StatusEvent(None, "food_level_low", NOW - timedelta(hours=1)),
+        StatusEvent(None, "food_level_low", NOW - timedelta(hours=1)),
+    ]
+    assert FeederData(status_events=events, status_ok=True).status == {
+        "food_level_low": NOW - timedelta(hours=1),
+        "food_outlet_stuck": NOW - timedelta(hours=2),
+    }
 
 
 def test_status_is_the_latest_time_of_each_type():
@@ -354,6 +367,18 @@ async def test_food_alerts_ignore_other_status_types():
     ]
     update(coord, entity, replace(data, status_events=events))
     assert fired.types() == []
+
+
+@pytest.mark.asyncio
+async def test_food_alerts_without_an_id_never_fire():
+    data = FeederData(status_ok=True)
+    coord, entity, fired = await added("feeder_food_alert", data)
+    events = [StatusEvent(None, "food_level_low", NOW)]
+    update(coord, entity, replace(data, status_events=events))
+    assert fired.types() == [] and entity._seen == {}
+    events.append(StatusEvent("a", "food_outlet_stuck", NOW))
+    update(coord, entity, replace(data, status_events=events))
+    assert fired.types() == ["food_outlet_stuck"]
 
 
 def test_entities_have_stable_ids_and_known_types():

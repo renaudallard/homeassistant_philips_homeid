@@ -121,9 +121,13 @@ class FeedingEvent:
 
 @dataclass(frozen=True)
 class StatusEvent:
-    """A one-shot status report; none says that a condition ended."""
+    """A one-shot status report; none says that a condition ended.
 
-    id: str
+    id is None when HomeID gave none that is usable: such a report still
+    counts for the latest time of its type, but is never fired as an event.
+    """
+
+    id: str | None
     type: str
     time: datetime
 
@@ -240,6 +244,13 @@ def _meal(row: dict[str, Any]) -> Meal:
         repeat_days=_days(row.get("repeatDays"), allow_empty=True),
         enabled=_enabled(row.get("enabled")),
     )
+
+
+def _event_id(value: object) -> str | None:
+    try:
+        return identifier(value)
+    except FeederError:
+        return None
 
 
 def _event_time(value: object) -> datetime | None:
@@ -477,6 +488,7 @@ class MealManager:
         if start == end:
             return []
         events: dict[str, StatusEvent] = {}
+        unnamed: list[StatusEvent] = []
         for row in await self._events(start, end, STATUS_EVENT_TYPES):
             kind = row.get("type")
             if kind not in STATUS_EVENT_TYPES or not self._event_owned(row):
@@ -484,11 +496,17 @@ class MealManager:
             when = _event_time(row.get("time"))
             if when is None or not start <= when < end:
                 continue
-            event = StatusEvent(identifier(row.get("id")), kind, when)
+            event = StatusEvent(_event_id(row.get("id")), kind, when)
+            if event.id is None:
+                unnamed.append(event)
+                continue
             if events.get(event.id, event) != event:
                 raise MealsError("Conflicting event identity")
             events[event.id] = event
-        return sorted(events.values(), key=lambda event: (event.time, event.id))
+        return sorted(
+            [*events.values(), *unnamed],
+            key=lambda event: (event.time, event.id or ""),
+        )
 
     async def desiccant(self) -> DesiccantTimer:
         """Read the desiccant bag timer like the HomeID app does.

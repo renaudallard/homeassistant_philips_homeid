@@ -475,7 +475,9 @@ What you get:
   or up to about 6 hours for one HomeID records late for an earlier day.
   Events already in HomeID when the entity first reads them, such as those
   from while Home Assistant was stopped, do not fire; the sensors still show
-  them. See [Feeder events in automations](#feeder-events-in-automations).
+  them. A food alert HomeID sends without an id only updates the sensors,
+  since it cannot be told from one already fired. See [Feeder events in
+  automations](#feeder-events-in-automations).
 - **Cloud connection**: on if the feeder's latest connectivity event in the
   past 7 days was `device_online`, off if it was `device_offline`, unknown if
   there was none.

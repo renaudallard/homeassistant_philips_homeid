@@ -82,10 +82,11 @@ _FOOD_ALERTS = ("food_level_low", "food_outlet_stuck")
 
 
 def _food_alerts(data: FeederData) -> list[_Report]:
+    # Without an id an alert cannot be told from one already fired.
     return [
         _Report(item.id, item.type, item.time, {"time": item.time.isoformat()})
         for item in data.status_events
-        if item.type in _FOOD_ALERTS
+        if item.type in _FOOD_ALERTS and item.id is not None
     ]
 
 

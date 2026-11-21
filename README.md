@@ -509,7 +509,8 @@ What you get:
   restarts). Changing the number sends nothing. Like the app, the integration
   sends the feed through Tuya: the first poll that reads the settings, or
   the first press, logs in to Tuya with your HomeID login and keeps that
-  session. The login names the dial code
+  session, also when the entry is reloaded; a reauth or removing the entry
+  drops it. The login names the dial code
   of the HomeID country matching your Home Assistant country, as the app
   names the country chosen in it (31, the app's default, if none matches).
   A press sends the feed once and never resends it, since an unreadable

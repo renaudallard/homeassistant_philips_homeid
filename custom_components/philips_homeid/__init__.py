@@ -589,8 +589,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Forget a removed feeder's cached access token and back-off."""
+    """Forget a removed feeder's cached tokens, back-off and Tuya session."""
     if entry.data.get(CONF_IS_FEEDER):
         from .feeder_api import FeederTokenOwner
+        from .feeder_feed import FeederFeed
 
         FeederTokenOwner.discard(hass, entry.entry_id)
+        FeederFeed.discard(hass, entry.entry_id)

@@ -321,6 +321,11 @@ class PhilipsHomeIDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_CLOUD_REFRESH_TOKEN: tokens.get("refresh_token", ""),
                     }
                     await self._close_cloud_api()
+                    # A feeder's Tuya session outlives reloads, not the login
+                    # it was made with.
+                    from .feeder_feed import FeederFeed
+
+                    FeederFeed.discard(self.hass, reauth_entry.entry_id)
                     # Reload, don't just store: an entry that failed setup with
                     # ConfigEntryAuthFailed gets no retry timer, so without a
                     # reload it stays in error with the fresh token unused.

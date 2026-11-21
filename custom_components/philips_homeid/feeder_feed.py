@@ -42,6 +42,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .const import DOMAIN
 from .feeder_api import FeederTokenOwner
 from .tuya_api import SESSION_LOST, TuyaError, TuyaSession, TuyaSessionLost
 
@@ -115,10 +116,16 @@ def volume_dp(volume: int) -> int:
 # petsseries reports a daily login cap: a poll logs in at most this often, so
 # a login Tuya refuses is not tried again on every poll. A press still logs in.
 _POLL_LOGIN_EVERY = 900.0
+DATA_FEEDER_FEED = f"{DOMAIN}_feeder_feed"
 
 
 class FeederFeed:
-    """The Tuya session of one feeder entry. One request or login at a time."""
+    """The Tuya session of one feeder entry. One request or login at a time.
+
+    Kept in ``hass.data`` like the entry's token owner, since HA builds a new
+    coordinator on every reload: a reload neither logs in again nor ends the
+    poll's login wait. A reauth or a removal discards it.
+    """
 
     def __init__(
         self, hass: HomeAssistant, owner: FeederTokenOwner, device_id: str, model: str
@@ -129,9 +136,30 @@ class FeederFeed:
         self._dp = FEED_DPS[model]
         self._session = TuyaSession(async_get_clientsession(hass))
         self._lock = asyncio.Lock()
+        # The dial code looked up, and the HA country it is for.
         self._dial_code = ""
+        self._dial_country = ""
         self._poll_login_at = 0.0
         self.portions = MIN_PORTIONS
+
+    @classmethod
+    def for_entry(
+        cls,
+        hass: HomeAssistant,
+        entry_id: str,
+        owner: FeederTokenOwner,
+        device_id: str,
+        model: str,
+    ) -> FeederFeed:
+        feeds: dict[str, FeederFeed] = hass.data.setdefault(DATA_FEEDER_FEED, {})
+        feed = feeds.get(entry_id)
+        if feed is None:
+            feed = feeds[entry_id] = cls(hass, owner, device_id, model)
+        return feed
+
+    @staticmethod
+    def discard(hass: HomeAssistant, entry_id: str) -> None:
+        hass.data.get(DATA_FEEDER_FEED, {}).pop(entry_id, None)
 
     @property
     def logged_in(self) -> bool:
@@ -176,20 +204,24 @@ class FeederFeed:
             self._session.forget()
 
     async def _login(self) -> None:
-        dial_code = self._dial_code or await self._lookup_dial_code()
+        dial_code = await self._lookup_dial_code()
         await self._session.login(await self._owner.id_token(), dial_code)
 
     async def _lookup_dial_code(self) -> str:
         """The dial code of HA's country, from the spaces the app chooses from.
 
-        Kept once the tenant answered; the app's own fallback stands in until
-        then, or for a country HomeID has no space for.
+        Kept for that country once the tenant answered, since the session
+        outlives reloads that may follow a change of HA's country; the app's
+        own fallback stands in until then, or for a country HomeID has no
+        space for.
         """
         from .cloud_api import PhilipsCloudAPI
 
         country = self._hass.config.country
         if not country:
             return _DEFAULT_DIAL_CODE
+        if self._dial_code and self._dial_country == country:
+            return self._dial_code
         cloud = PhilipsCloudAPI()
         try:
             tenant = await cloud.homeid_discovery()
@@ -199,6 +231,7 @@ class FeederFeed:
         if not isinstance(spaces, list) or not spaces:
             return _DEFAULT_DIAL_CODE
         self._dial_code = _DEFAULT_DIAL_CODE
+        self._dial_country = country
         for space in spaces:
             if isinstance(space, dict) and space.get("countryCode") == country:
                 dial = space.get("dialCode")

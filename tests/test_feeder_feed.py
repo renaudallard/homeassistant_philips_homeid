@@ -245,6 +245,19 @@ async def test_unknown_country_falls_back_and_is_kept(tenant):
     cloud.homeid_discovery.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_a_new_ha_country_is_looked_up_again():
+    session = FakeSession()
+    feed, _, cloud = make_feed(session, country="NL")
+    with patch(CLOUD, return_value=cloud):
+        await feed.feed(1)
+        session.forget()
+        feed._hass.config.country = "BE"
+        await feed.feed(1)
+    assert [dial for _, dial in session.logins] == ["31", "32"]
+    assert cloud.homeid_discovery.await_count == 2
+
+
 @pytest.mark.parametrize(
     "tenant",
     [{}, {"spaces": []}, {"spaces": "x"}],
@@ -270,3 +283,21 @@ async def test_malformed_dial_code_is_not_sent(dial):
     with patch(CLOUD, return_value=cloud):
         await feed.feed(1)
     assert session.logins == [("id-token", "31")]
+
+
+def test_an_entry_keeps_its_session_until_discarded():
+    hass = MagicMock()
+    hass.data = {}
+    owner = MagicMock()
+    with patch("custom_components.philips_homeid.feeder_feed.async_get_clientsession"):
+        feed = FeederFeed.for_entry(hass, "entry", owner, "tuya-1", "PAW5320")
+        # A reload builds a new coordinator, which gets the same session.
+        assert FeederFeed.for_entry(hass, "entry", owner, "tuya-1", "PAW5320") is feed
+        assert (
+            FeederFeed.for_entry(hass, "other", owner, "tuya-2", "PAW5320") is not feed
+        )
+        FeederFeed.discard(hass, "entry")
+        assert (
+            FeederFeed.for_entry(hass, "entry", owner, "tuya-1", "PAW5320") is not feed
+        )
+    FeederFeed.discard(hass, "missing")

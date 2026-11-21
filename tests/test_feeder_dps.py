@@ -780,8 +780,40 @@ def test_only_feeders_with_camera_and_feed_have_the_settings(model, has_settings
             return_value=None,
         ),
     ):
-        coord = FeederCoordinator(MagicMock(), entry)
+        coord = FeederCoordinator(MagicMock(data={}), entry)
     assert coord.has_settings is has_settings
+
+
+@pytest.mark.asyncio
+async def test_a_reload_keeps_the_session_and_the_poll_login_wait():
+    hass = MagicMock(data={})
+    hass.config.country = None  # no dial code lookup
+    entry = MagicMock(entry_id="entry")
+    entry.data = {CONF_DEVICE_ID: "tuya-1", CONF_MODEL: "PAW5320"}
+    session = ReadSession({"106": "1"})
+    with (
+        patch("custom_components.philips_homeid.feeder.async_get_clientsession"),
+        patch("custom_components.philips_homeid.feeder_feed.async_get_clientsession"),
+        patch(
+            "custom_components.philips_homeid.feeder_feed.TuyaSession",
+            return_value=session,
+        ),
+        patch(
+            "homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__",
+            return_value=None,
+        ),
+        patch("custom_components.philips_homeid.feeder_feed.time") as now,
+    ):
+        first = FeederCoordinator(hass, entry)
+        first.feed._owner.id_token = AsyncMock(side_effect=CloudConnectionError("x"))
+        clock(now, 1000.0)
+        with pytest.raises(CloudConnectionError):
+            await first.feed.read(42)
+        reloaded = FeederCoordinator(hass, entry)
+        assert reloaded.feed is first.feed
+        with pytest.raises(TuyaError, match="postponed"):
+            await reloaded.feed.read(42)
+    assert first.feed._owner.id_token.await_count == 1
 
 
 def test_every_setting_has_a_name_in_every_language():

@@ -157,7 +157,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self.vendor_id: str = entry.data[CONF_DEVICE_ID]
         model = entry.data.get(CONF_MODEL)
         self.feed: FeederFeed | None = (
-            FeederFeed(hass, owner, self.vendor_id, model)
+            FeederFeed.for_entry(hass, entry.entry_id, owner, self.vendor_id, model)
             if model in FEED_DPS
             else None
         )

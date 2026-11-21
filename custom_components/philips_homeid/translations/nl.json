@@ -669,6 +669,9 @@
       },
       "feeder_portions": {
         "name": "Voerporties"
+      },
+      "feeder_volume": {
+        "name": "Geluid"
       }
     },
     "select": {
@@ -742,6 +745,14 @@
           "sleep": "Slaap",
           "turbo": "Turbo"
         }
+      },
+      "feeder_motion_sensitivity": {
+        "name": "Gevoeligheid voor bewegingsdetectie",
+        "state": {
+          "low": "Laag",
+          "medium": "Medium",
+          "high": "Hoog"
+        }
       }
     },
     "switch": {
@@ -759,6 +770,9 @@
       },
       "feeder_camera": {
         "name": "Camera"
+      },
+      "feeder_high_contrast": {
+        "name": "De modus voor hoog contrast inschakelen"
       }
     },
     "update": {

@@ -669,6 +669,9 @@
       },
       "feeder_portions": {
         "name": "Foderportioner"
+      },
+      "feeder_volume": {
+        "name": "Ljud"
       }
     },
     "select": {
@@ -742,6 +745,14 @@
           "sleep": "Nattläge",
           "turbo": "Turbo"
         }
+      },
+      "feeder_motion_sensitivity": {
+        "name": "Rörelsedetekteringskänslighet",
+        "state": {
+          "low": "Låg",
+          "medium": "Medel",
+          "high": "Hög"
+        }
       }
     },
     "switch": {
@@ -759,6 +770,9 @@
       },
       "feeder_camera": {
         "name": "Kamera"
+      },
+      "feeder_high_contrast": {
+        "name": "Aktivera högkontrastläge"
       }
     },
     "update": {

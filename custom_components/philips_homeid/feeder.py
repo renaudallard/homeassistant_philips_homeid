@@ -25,8 +25,8 @@
 """PAW5320 feeder entries: coordinator, entities and setup.
 
 Meals (feeder_schedule), the camera switch and the desiccant reset
-(feeder_settings) are changed through the pet REST backend as the app does,
-and feed now is sent through Tuya by feeder_feed.
+(feeder_settings) are changed through the pet REST backend as the app does.
+Feed now and the settings data points go through Tuya by feeder_feed.
 """
 
 from __future__ import annotations
@@ -73,7 +73,14 @@ from .feeder_api import (
     FeederTokenOwner,
     find_feeder,
 )
-from .feeder_feed import FEED_DPS, MAX_PORTIONS, MIN_PORTIONS, FeederFeed
+from .feeder_feed import (
+    FEED_DPS,
+    MAX_PORTIONS,
+    MIN_PORTIONS,
+    DpSettings,
+    FeederFeed,
+    read_settings,
+)
 from .feeder_meals import (
     DesiccantTimer,
     FeedingEvent,
@@ -93,6 +100,7 @@ FEEDER_PLATFORMS = [
     Platform.CALENDAR,
     Platform.EVENT,
     Platform.NUMBER,
+    Platform.SELECT,
     Platform.SENSOR,
     Platform.SWITCH,
 ]
@@ -120,6 +128,7 @@ class FeederData:
     desiccant: DesiccantTimer | None = None
     camera: bool | None = None
     camera_ok: bool = False
+    settings: DpSettings | None = None
     time_zone: str | None = None
     time_zone_from_home: bool = False
 
@@ -158,6 +167,13 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._logged: dict[str, str] = {}
         # Counts the meals stored by refresh_meals.
         self._meal_reads = 0
+        # Counts the data points stored by settings_written.
+        self._dp_writes = 0
+
+    @property
+    def has_settings(self) -> bool:
+        """Whether the settings data points apply, through the feed session."""
+        return self.has_camera and self.feed is not None
 
     async def meal_manager(self, *, force_refresh: bool = False) -> MealManager:
         """Resolve the selected appliance to its home and pet backend IDs."""
@@ -193,6 +209,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._logged.pop("registry", None)
         now = dt_util.utcnow()
         reads = self._meal_reads
+        writes = self._dp_writes
         meals = await self._optional("schedule", manager.list_meals)
         history = await self._optional(
             "history", lambda: manager.history(now - LOOKBACK, now)
@@ -209,11 +226,17 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         camera: tuple[bool | None] | None = None
         if self.has_camera:
             camera = await self._optional("camera", read_camera)
+        settings: DpSettings | None = None
+        if self.has_settings:
+            settings = await self._optional("settings", self._read_settings)
         meals_ok = meals is not None
         if reads != self._meal_reads and self.data is not None:
             # A schedule change was read while this poll ran: its meals are
             # newer than the ones read above.
             meals, meals_ok = self.data.meals, self.data.meals_ok
+        if writes != self._dp_writes and self.data is not None:
+            # Likewise for a setting changed while this poll ran.
+            settings = self.data.settings
         return FeederData(
             meals=meals or [],
             meals_ok=meals_ok,
@@ -224,11 +247,33 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             desiccant=desiccant,
             camera=camera[0] if camera else None,
             camera_ok=camera is not None,
+            settings=settings,
             # The app shows meal times in the phone's zone, which onboarding
             # also stores on the home; HA's zone stands in when HomeID sends
             # none.
             time_zone=manager.time_zone or self.hass.config.time_zone,
             time_zone_from_home=bool(manager.time_zone),
+        )
+
+    async def _read_settings(self) -> DpSettings:
+        # The poll resolved the device first; the feed is there by has_settings.
+        feed, device = self.feed, self._device
+        if feed is None or device is None or device.tuya_home is None:
+            raise FeederError("HomeID names no Tuya home")
+        return read_settings(await feed.read(device.tuya_home))
+
+    def settings_written(self, **changes: Any) -> None:
+        """Show a change Tuya confirmed, as the app does, until the next poll.
+
+        The cloud keeps the value the feeder reports back, so an immediate
+        read could still give the old one.
+        """
+        data = self.data
+        if data is None or data.settings is None or not self.last_update_success:
+            return
+        self._dp_writes += 1
+        self.async_set_updated_data(
+            replace(data, settings=replace(data.settings, **changes))
         )
 
     async def refresh_meals(self) -> None:
@@ -263,7 +308,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             result = await call()
         # CloudConnectionError subclasses CloudAuthError: a transient refresh
         # failure must stay a failed part, not become a reauth.
-        except FEEDER_ERRORS as err:
+        except (*FEEDER_ERRORS, TuyaError) as err:
             self._log(stage, err)
             return None
         except CloudAuthError as err:
@@ -284,14 +329,24 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "An explicit home IANA time zone is required": "home_time_zone",
             "HomeID feeder was not found": "not_found",
             "HomeID feeder identity is ambiguous": "ambiguous",
+            "HomeID names no Tuya home": "no_tuya_home",
+            "Tuya login postponed": "tuya_login_wait",
+            "Tuya home does not list the feeder": "tuya_not_listed",
+            "Tuya reply was not readable": "tuya_reply",
         }
         reason = "connection"
-        if isinstance(error, FeederHTTPError) and 100 <= error.status <= 599:
+        if isinstance(error, TuyaError):
+            code = f"tuya_{error.code.lower()}" if error.code else "tuya"
+            reason = reasons.get(str(error), code)
+        elif isinstance(error, FeederHTTPError) and 100 <= error.status <= 599:
             reason = f"http_{error.status}"
         elif isinstance(error, MealsError):
             reason = reasons.get(str(error), "schema")
         elif isinstance(error, FeederError):
             reason = reasons.get(str(error), "response")
+        if reason == "tuya_login_wait" and stage in self._logged:
+            # The failed login that set the wait was logged already.
+            return
         if self._logged.get(stage) != reason:
             _LOGGER.warning("HomeID feeder %s unavailable (%s)", stage, reason)
             self._logged[stage] = reason
@@ -373,6 +428,7 @@ def feeder_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any
         "status_types": sorted(data.status) if data else None,
         "desiccant_available": data.desiccant is not None if data else None,
         "camera_available": data.camera_ok if data else None,
+        "settings_available": data.settings is not None if data else None,
         "home_time_zone_known": data.time_zone_from_home if data else None,
         "feed_supported": bool(coordinator and coordinator.feed),
         "tuya_logged_in": bool(
@@ -535,6 +591,20 @@ class FeederConnectivitySensor(FeederEntity, BinarySensorEntity):
         }
 
 
+async def tuya_change(change: Awaitable[None], what: str, unconfirmed: str) -> None:
+    """Send one Tuya change. It is never sent again, even unconfirmed."""
+    try:
+        await change
+    except TuyaError as err:
+        _LOGGER.warning("HomeID %s failed (%s)", what, err.code or "no code")
+        raise HomeAssistantError(unconfirmed) from err
+    # CloudConnectionError subclasses CloudAuthError, so it comes first.
+    except CloudConnectionError as err:
+        raise HomeAssistantError("HomeID cloud unavailable") from err
+    except CloudAuthError as err:
+        raise HomeAssistantError("HomeID login expired") from err
+
+
 class FeederFeedButton(FeederEntity, ButtonEntity):
     """Dispense the portions set on the portions number, as the app's feed now."""
 
@@ -545,16 +615,11 @@ class FeederFeedButton(FeederEntity, ButtonEntity):
         self._feed = feed
 
     async def async_press(self) -> None:
-        try:
-            await self._feed.feed(self._feed.portions)
-        except TuyaError as err:
-            _LOGGER.warning("HomeID feed now failed (%s)", err.code or "no code")
-            raise HomeAssistantError("Feed now was not confirmed by Tuya") from err
-        # CloudConnectionError subclasses CloudAuthError, so it comes first.
-        except CloudConnectionError as err:
-            raise HomeAssistantError("HomeID cloud unavailable") from err
-        except CloudAuthError as err:
-            raise HomeAssistantError("HomeID login expired") from err
+        await tuya_change(
+            self._feed.feed(self._feed.portions),
+            "feed now",
+            "Feed now was not confirmed by Tuya",
+        )
         await self.coordinator.async_request_refresh()
 
 

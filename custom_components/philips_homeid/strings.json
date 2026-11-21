@@ -669,6 +669,9 @@
       },
       "feeder_portions": {
         "name": "Feed portions"
+      },
+      "feeder_volume": {
+        "name": "Sound"
       }
     },
     "select": {
@@ -742,6 +745,14 @@
           "sleep": "Sleep",
           "turbo": "Turbo"
         }
+      },
+      "feeder_motion_sensitivity": {
+        "name": "Motion detection sensitivity",
+        "state": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        }
       }
     },
     "switch": {
@@ -759,6 +770,9 @@
       },
       "feeder_camera": {
         "name": "Camera"
+      },
+      "feeder_high_contrast": {
+        "name": "Enable high contrast mode"
       }
     },
     "update": {

@@ -78,6 +78,8 @@ def bare_coordinator(m):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
+    coord._dp_writes = 0
+    coord.feed = None
     coord.has_camera = True
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
@@ -345,6 +347,7 @@ async def test_setup_and_unload_use_only_feeder_platforms():
         "calendar",
         "event",
         "number",
+        "select",
         "sensor",
         "switch",
     }

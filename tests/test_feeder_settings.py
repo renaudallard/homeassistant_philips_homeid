@@ -234,7 +234,7 @@ def poll_coordinator(m, has_camera=True):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
-    coord._dp_writes = 0
+    coord._dp_changes = {}
     coord.feed = None
     coord.has_camera = has_camera
     coord.meal_manager = AsyncMock(return_value=m)

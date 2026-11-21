@@ -299,7 +299,7 @@ def coordinator(meals=(BREAKFAST, DINNER), meals_ok=True):
     coord._meal_reads = 0
     coord._read_back = ([], False)
     coord.changes = asyncio.Lock()
-    coord._dp_writes = 0
+    coord._dp_changes = {}
     coord.feed = None
     coord.has_camera = False
     coord.last_update_success = True

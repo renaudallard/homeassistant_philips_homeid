@@ -351,7 +351,7 @@ def settings_coordinator(read, tuya_home=42):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
-    coord._dp_writes = 0
+    coord._dp_changes = {}
     coord.has_camera = True
     coord.feed = MagicMock()
     coord.feed.read = AsyncMock(side_effect=read)
@@ -450,11 +450,28 @@ async def test_a_poll_never_puts_back_settings_older_than_a_change():
 
     coord.feed.read = AsyncMock(side_effect=read)
     data = await coord._async_update_data()
-    assert data.settings == DpSettings("medium", True, 9)
+    # The change on top of this read, which is newer than SETTINGS.
+    assert data.settings == DpSettings("low", True, 9)
     coord.data = data
     coord.feed.read = AsyncMock(return_value={"106": "0", "108": "0", "231": 50})
     data = await coord._async_update_data()
     assert data.settings == DpSettings("low", True, 5)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_read_during_a_change_leaves_the_settings_unknown():
+    coord = settings_coordinator(None)
+    coord.data = FeederData(settings=SETTINGS)
+    coord.last_update_success = True
+    coord.async_set_updated_data = lambda data: setattr(coord, "data", data)
+
+    async def read(home):
+        coord.settings_written(volume=9)
+        raise TuyaError("Tuya reply was not readable")
+
+    coord.feed.read = AsyncMock(side_effect=read)
+    data = await coord._async_update_data()
+    assert data.settings is None
 
 
 @pytest.mark.parametrize(
@@ -468,7 +485,7 @@ def test_a_written_setting_is_not_stored_without_good_data(data, success):
     coord.async_set_updated_data = MagicMock()
     coord.settings_written(volume=9)
     coord.async_set_updated_data.assert_not_called()
-    assert coord._dp_writes == 0
+    assert coord._dp_changes == {}
 
 
 def test_diagnostics_say_only_whether_the_settings_were_read():

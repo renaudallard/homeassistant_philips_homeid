@@ -172,8 +172,8 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._read_back: tuple[list[Meal], bool] = ([], False)
         # Held by each change from its write to its read back.
         self.changes = asyncio.Lock()
-        # Counts the data points stored by settings_written.
-        self._dp_writes = 0
+        # Settings Tuya confirmed while the running poll reads, by field.
+        self._dp_changes: dict[str, Any] = {}
 
     @property
     def has_settings(self) -> bool:
@@ -214,7 +214,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._logged.pop("registry", None)
         now = dt_util.utcnow()
         reads = self._meal_reads
-        writes = self._dp_writes
+        self._dp_changes = {}
         meals = await self._optional("schedule", manager.list_meals)
         history = await self._optional(
             "history", lambda: manager.history(now - LOOKBACK, now)
@@ -239,9 +239,10 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             # A schedule change was read while this poll ran: its meals are
             # newer than the ones read above.
             meals, meals_ok = self._read_back
-        if writes != self._dp_writes and self.data is not None:
-            # Likewise for a setting changed while this poll ran.
-            settings = self.data.settings
+        if self._dp_changes and settings is not None:
+            # A setting changed while this poll ran is newer than its read;
+            # the others are as read.
+            settings = replace(settings, **self._dp_changes)
         return FeederData(
             meals=meals or [],
             meals_ok=meals_ok,
@@ -281,7 +282,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         data = self.data
         if data is None or data.settings is None or not self.last_update_success:
             return
-        self._dp_writes += 1
+        self._dp_changes.update(changes)
         self.async_set_updated_data(
             replace(data, settings=replace(data.settings, **changes))
         )

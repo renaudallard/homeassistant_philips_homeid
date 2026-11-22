@@ -323,7 +323,7 @@ async def test_a_failed_read_after_a_change_marks_the_schedule_unavailable():
     await coord.refresh_meals()
     data = coord.async_set_updated_data.call_args.args[0]
     assert data.meals == [BREAKFAST, DINNER] and not data.meals_ok
-    assert coord._meal_reads == 0  # a poll running now still stores its meals
+    assert coord._meal_reads == 1  # a poll running now keeps this
 
 
 @pytest.mark.asyncio
@@ -338,8 +338,17 @@ async def test_nothing_is_stored_after_a_failed_poll(fails):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("changed", [True, False])
-async def test_a_poll_never_puts_back_meals_older_than_a_change(changed):
+@pytest.mark.parametrize(
+    ("change", "meals", "meals_ok"),
+    [
+        ("read", [DINNER], True),
+        ("failed", [BREAKFAST, DINNER], False),
+        (None, [BREAKFAST], True),
+    ],
+)
+async def test_a_poll_never_puts_back_meals_older_than_a_change(
+    change, meals, meals_ok
+):
     coord = coordinator()
     coord.hass.config.time_zone = "Europe/Riga"
     coord.async_set_updated_data = MagicMock(
@@ -353,15 +362,19 @@ async def test_a_poll_never_puts_back_meals_older_than_a_change(changed):
 
     async def stale_history(start, end):
         # The schedule changes while this poll is still reading.
-        if changed:
+        if change == "read":
             manager.list_meals.return_value = [DINNER]
+            await coord.refresh_meals()
+        elif change == "failed":
+            # The read back fails: the meals read above predate the change.
+            manager.list_meals.side_effect = FeederHTTPError(503)
             await coord.refresh_meals()
         return []
 
     manager.list_meals.return_value = [BREAKFAST]
     manager.history.side_effect = stale_history
     data = await coord._async_update_data()
-    assert data.meals == ([DINNER] if changed else [BREAKFAST])
+    assert (data.meals, data.meals_ok) == (meals, meals_ok)
 
 
 @pytest.mark.asyncio

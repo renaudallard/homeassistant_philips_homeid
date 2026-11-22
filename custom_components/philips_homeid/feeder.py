@@ -220,7 +220,9 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         except FEEDER_ERRORS as err:
             self._log("schedule", err)
             if self.data is not None and self.last_update_success:
-                # A poll running now may hold newer meals, so it still wins.
+                # Counted as a read: a poll running now may have read the
+                # meals before the change, and must not store them as current.
+                self._meal_reads += 1
                 self.async_set_updated_data(replace(self.data, meals_ok=False))
             return
         except CloudAuthError:

@@ -208,6 +208,14 @@ def _json(data: bytes) -> Any:
     raise TuyaError("Tuya reply was not readable")
 
 
+def _afresh(err: TuyaError) -> TuyaError:
+    """The same error without the traceback, whose frames hold the reply.
+
+    Raised after the except block, it has no __context__ either.
+    """
+    return type(err)(str(err), err.code)
+
+
 def _refusal(code: Any) -> TuyaError:
     code = code if isinstance(code, str) else ""
     if code in SESSION_LOST:
@@ -238,6 +246,16 @@ def _payload(data: Any) -> dict[str, Any]:
 
 def _text(value: Any) -> str:
     return value if isinstance(value, str) else ""
+
+
+def _login_session(data: dict[str, Any]) -> tuple[str, str, str, str]:
+    """The API URL, sid, ecode and uid a login reply names."""
+    sid, ecode, uid = (_text(data.get(k)) for k in ("sid", "ecode", "uid"))
+    if not (sid and ecode and uid):
+        raise TuyaError("Tuya login returned no session")
+    domain = data.get("domain")
+    url = domain.get("mobileApiUrl") if isinstance(domain, dict) else None
+    return (_api_url(url) if url is not None else LOGIN_URL), sid, ecode, uid
 
 
 def _api_url(value: Any) -> str:
@@ -316,14 +334,16 @@ class TuyaSession:
         # Only the call holds the token now, and it drops it once sealed, so
         # no traceback of a failed login keeps it.
         del id_token
-        data = await call
-        sid, ecode, uid = (_text(data.get(k)) for k in ("sid", "ecode", "uid"))
-        if not (sid and ecode and uid):
-            raise TuyaError("Tuya login returned no session")
-        domain = data.get("domain")
-        url = domain.get("mobileApiUrl") if isinstance(domain, dict) else None
-        api = _api_url(url) if url is not None else LOGIN_URL
-        self._url, self._sid, self._ecode, self._uid = api, sid, ecode, uid
+        try:
+            api, sid, ecode, uid = _login_session(await call)
+        except TuyaError as err:
+            failure = _afresh(err)
+        else:
+            self._url, self._sid, self._ecode, self._uid = api, sid, ecode, uid
+            return
+        # Raised afresh: the first traceback keeps the reply, and a refused
+        # one may still name a session, unused but valid.
+        raise failure
 
     async def alive(self) -> bool:
         """Whether Tuya still accepts this session, by one harmless read."""
@@ -404,21 +424,16 @@ class TuyaSession:
         try:
             return self._reply(action, request_id, key, await self._post(params))
         except (aiohttp.ClientError, TimeoutError):
-            failure: tuple[type[TuyaError], str, str] = (
-                TuyaError,
-                "Tuya request was not confirmed",
-                "",
-            )
+            failure = TuyaError("Tuya request was not confirmed")
         except TuyaError as err:
-            failure = type(err), str(err), err.code
+            failure = _afresh(err)
         # Raised afresh, not chained, once the request, the reply and their
         # key are dropped: the first error's traceback keeps the frames that
         # hold them. A login's request holds the id token and its key follows
         # from the requestId alone; a home device list holds every device's
         # local key.
         del params, key
-        kind, message, code = failure
-        raise kind(message, code)
+        raise failure
 
     def _reply(
         self, action: str, request_id: str, key: bytes, body: bytes

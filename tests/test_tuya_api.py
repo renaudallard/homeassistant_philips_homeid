@@ -546,3 +546,30 @@ async def test_a_failed_login_keeps_neither_the_token_nor_the_request(reply):
         held = repr(tb.tb_frame.f_locals)
         assert "secret-id-token" not in held and "postData" not in held
         tb = tb.tb_next
+
+
+def session_reply(**fields):
+    session = {"sid": "sid-secret", "ecode": "ecode-secret", "uid": "uid-1"}
+    return {"_sealed": {"result": {**session, **fields}, "success": True}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply", "message"),
+    [
+        (session_reply(domain={"mobileApiUrl": "https://evil.example"}), "unexpected"),
+        (session_reply(domain={"mobileApiUrl": 5}), "no API host"),
+        (session_reply(uid=""), "no session"),
+    ],
+)
+async def test_a_refused_login_keeps_no_session(reply, message):
+    session = TuyaSession(FakeTuya(reply).http, DUMMY)
+    with pytest.raises(TuyaError, match=message) as raised:
+        await session.login("id-token", "32")
+    assert not session.logged_in
+    assert raised.value.__context__ is None
+    tb = raised.value.__traceback__
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename.endswith("philips_homeid/tuya_api.py"):
+            assert "secret" not in repr(tb.tb_frame.f_locals)
+        tb = tb.tb_next

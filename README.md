@@ -569,7 +569,8 @@ logger:
 - Check that the device is powered on and connected
 - If running HA in Docker without `--network=host`, mDNS/SSDP discovery will not work. Use `--network=host` or add the device manually by IP address.
 - If the device was recently updated via the HomeID app, autodiscovery may not work if the firmware changed the mDNS service type. Try adding the device manually by IP address instead.
-- The integration probes HTTPS (port 443) and plain HTTP (port 80) concurrently. Every device seen so far answers on HTTPS.
+- The integration probes HTTPS (port 443) and plain HTTP (port 80) concurrently and uses HTTPS when both answer. Every device seen so far answers on HTTPS.
+- Some airfryers (HD9280 and HD9285 among them) also run a UPnP server on port 80 that answers 404 to every API path. Releases up to 2026.11.1 could pick it and save the device as plain HTTP, leaving only the Keep Warm entities, all unavailable, and `Request failed (404)` in the log. Delete the device in Home Assistant and add it again with "Set up a local device by IP address" to move it to HTTPS. Accepting a discovered device instead can save it as plain HTTP again.
 - The device's web server has limited capacity. Avoid sending too many requests in quick succession or the web server may crash, requiring a power cycle.
 
 ### Local Device Stops Responding

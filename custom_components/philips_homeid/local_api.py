@@ -1028,7 +1028,9 @@ class PhilipsLocalAPI:
     async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
         """Probe a device at the given IP to get its information.
 
-        Tries HTTPS (port 443) and HTTP (port 80) concurrently.
+        Tries HTTPS (port 443) and HTTP (port 80) concurrently and waits
+        for both, preferring HTTPS: some devices answer 404 on port 80,
+        which only serves UPnP, while their API is on HTTPS.
         Tries multiple product IDs and endpoints. A 401 response is treated
         as "device found but needs authentication" rather than a failure.
         """
@@ -1061,6 +1063,9 @@ class PhilipsLocalAPI:
                     return item
             return None
         finally:
+            # The gather above waits for both tasks even when we are
+            # cancelled, so they are done here; this only guards a future
+            # change that returns before both have finished.
             for task in (https_task, http_task):
                 if not task.done():
                     task.cancel()

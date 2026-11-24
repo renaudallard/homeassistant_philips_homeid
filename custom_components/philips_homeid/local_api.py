@@ -1047,35 +1047,20 @@ class PhilipsLocalAPI:
         http_task = asyncio.ensure_future(self._probe_with_protocol(http_device))
 
         try:
-            done, pending = await asyncio.wait(
-                [https_task, http_task],
-                return_when=asyncio.FIRST_COMPLETED,
+            # Wait for both probes and prefer HTTPS. Some HD9285 units
+            # ("Cosmos") serve only /upnp/description.xml on port 80 while
+            # the DI API lives on HTTPS; taking whichever answers first made
+            # the HTTP probe win and every API call then returned 404.
+            https_res, http_res = await asyncio.gather(
+                https_task, http_task, return_exceptions=True
             )
-
-            # Check completed tasks for a result. Use exception() so a raised
-            # exception in either task does not skip the cancellation below.
-            for task in done:
-                exc = task.exception()
-                if exc is not None:
-                    _LOGGER.debug("Probe task raised: %s", exc)
-                    continue
-                result = task.result()
-                if result:
-                    return result
-
-            # First completed task returned None or raised; wait for the other.
-            if pending:
-                remaining = await asyncio.gather(*pending, return_exceptions=True)
-                for item in remaining:
-                    if isinstance(item, LocalDeviceInfo):
-                        return item
-
+            for item in (https_res, http_res):
+                if isinstance(item, BaseException):
+                    _LOGGER.debug("Probe task raised: %s", item)
+                elif item:
+                    return item
             return None
         finally:
-            # Always cancel any task still running and drain them with
-            # return_exceptions=True so individual task failures don't raise
-            # here. If our own coroutine was cancelled, the gather receives
-            # that cancellation and re-raises it so the caller sees it.
             for task in (https_task, http_task):
                 if not task.done():
                     task.cancel()

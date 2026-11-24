@@ -1028,9 +1028,8 @@ class PhilipsLocalAPI:
     async def probe_device(self, ip_address: str) -> LocalDeviceInfo | None:
         """Probe a device at the given IP to get its information.
 
-        Tries HTTPS (port 443) and HTTP (port 80) concurrently and waits
-        for both, preferring HTTPS: some devices answer 404 on port 80,
-        which only serves UPnP, while their API is on HTTPS.
+        Tries HTTPS (port 443) and HTTP (port 80) concurrently and prefers
+        HTTPS: the HTTP result is only used when HTTPS found nothing.
         Tries multiple product IDs and endpoints. A 401 response is treated
         as "device found but needs authentication" rather than a failure.
         """
@@ -1049,23 +1048,24 @@ class PhilipsLocalAPI:
         http_task = asyncio.ensure_future(self._probe_with_protocol(http_device))
 
         try:
-            # Wait for both probes and prefer HTTPS. Some HD9285 units
-            # ("Cosmos") serve only /upnp/description.xml on port 80 while
-            # the DI API lives on HTTPS; taking whichever answers first made
-            # the HTTP probe win and every API call then returned 404.
-            https_res, http_res = await asyncio.gather(
-                https_task, http_task, return_exceptions=True
-            )
-            for item in (https_res, http_res):
-                if isinstance(item, BaseException):
-                    _LOGGER.debug("Probe task raised: %s", item)
-                elif item:
-                    return item
+            # Prefer HTTPS. Airfryers such as the HD9280 and HD9285 serve
+            # only UPnP on port 80 and answer 404 to every API path there,
+            # faster than the TLS handshake on 443, so taking whichever
+            # answered first saved them as HTTP. Waiting on HTTPS alone
+            # keeps a silent port 80 from delaying a device found on 443.
+            for task in (https_task, http_task):
+                try:
+                    result = await task
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Probe task raised: %s", err)
+                    continue
+                if result:
+                    return result
             return None
         finally:
-            # The gather above waits for both tasks even when we are
-            # cancelled, so they are done here; this only guards a future
-            # change that returns before both have finished.
+            # Cancel the HTTP probe when HTTPS already answered, or both
+            # when we were cancelled, and drain them with
+            # return_exceptions=True so a failed probe does not raise here.
             for task in (https_task, http_task):
                 if not task.done():
                     task.cancel()

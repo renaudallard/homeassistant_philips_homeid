@@ -50,3 +50,32 @@ async def test_nothing_found_when_neither_answers():
     api = _api({False: (0, None), True: (0, None)})
 
     assert await api.probe_device("192.0.2.10") is None
+
+
+@pytest.mark.asyncio
+async def test_https_answer_does_not_wait_for_a_silent_http():
+    """A port 80 that accepts and never replies must not hold up a device
+    already found on HTTPS. Waiting for both cost about 20 s here."""
+    api = PhilipsLocalAPI()
+    http_started = asyncio.Event()
+    http_cancelled = asyncio.Event()
+
+    async def probe_request(device, port_name, product_id=None):
+        if device.use_https:
+            await http_started.wait()
+            return None, 401
+        http_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            http_cancelled.set()
+            raise
+        return None, None
+
+    api._probe_request = probe_request
+
+    device = await asyncio.wait_for(api.probe_device("192.0.2.10"), 5)
+
+    assert device is not None
+    assert device.use_https is True
+    assert http_cancelled.is_set()

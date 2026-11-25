@@ -1,6 +1,7 @@
 """Tests for the MUJI air purifier filter timer resets."""
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,8 +18,12 @@ class _Stub:
 
     async_reset_filter = PhilipsHomeIDCoordinator.async_reset_filter
 
-    def __init__(self, fusion=True):
+    def __init__(self, fusion=True, properties=None):
         self._is_fusion = fusion
+        self._state = None
+        if properties is not None:
+            self._state = MagicMock()
+            self._state.properties = properties
         self.sent = []
 
     async def _mqtt_command(self, port, props):
@@ -26,16 +31,41 @@ class _Stub:
         return True
 
 
-@pytest.mark.asyncio
-async def test_buttons_write_what_the_app_writes():
-    """The app sends the full lifetime to filtWr, one timer per write."""
-    stub = _Stub()
-
+async def _press_all(stub):
     for description in AIR_PURIFIER_BUTTONS:
         assert await description.press_fn(stub)
+    return stub.sent
 
-    assert stub.sent == [
+
+@pytest.mark.asyncio
+async def test_buttons_write_the_reported_lifetimes():
+    """Like the Air+ app, a reset writes the lifetime the purifier reports.
+
+    These are the AC0720 values from an owner's diagnostics (discussion #55).
+    """
+    stub = _Stub(properties={"D05207": 720, "D05408": 14400, "D0540E": 14016})
+
+    assert await _press_all(stub) == [
         ("filtWr", {"D0520D": 720}),
+        ("filtWr", {"D0540E": 14400}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "properties",
+    [None, {}, {"D05207": 0, "D05408": 0}, {"D05207": "x", "D05408": True}],
+)
+@pytest.mark.asyncio
+async def test_buttons_fall_back_until_the_lifetime_is_known(properties):
+    """The clean timer gets the Air+ app's 360 h placeholder.
+
+    The app has no placeholder for the replace timer (it would write 0), so
+    that one keeps the HomeID app's 4800 h.
+    """
+    stub = _Stub(properties=properties)
+
+    assert await _press_all(stub) == [
+        ("filtWr", {"D0520D": 360}),
         ("filtWr", {"D0540E": 4800}),
     ]
 
@@ -43,9 +73,9 @@ async def test_buttons_write_what_the_app_writes():
 @pytest.mark.asyncio
 async def test_no_reset_without_fusion():
     """Only FUSION purifiers have a filtWr port."""
-    stub = _Stub(fusion=False)
+    stub = _Stub(fusion=False, properties={"D05207": 720})
 
-    assert not await stub.async_reset_filter("D0520D", 720)
+    assert not await stub.async_reset_filter("D0520D", "D05207", 720)
     assert stub.sent == []
 
 

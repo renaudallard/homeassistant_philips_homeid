@@ -181,16 +181,19 @@ ESPRESSO_BREW_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
 )
 
 
-# MUJI air purifier filter timer resets (APK AirResetCleaningFilterSerializer
-# and AirResetReplaceFilterSerializer). The app writes the same full lifetime
-# for every MUJI model. Filter 0 is the clean timer, filter 1 the replace one.
+# MUJI air purifier filter timer resets. Each writes back the lifetime the
+# purifier reports (D05207, D05408), as the Air+ app does. Until it is known,
+# the clean timer gets the app's 360 h placeholder. The app has none for the
+# replace timer and would write 0, which reads as a filter to replace, so it
+# gets the HomeID app's 4800 h (AirResetReplaceFilterSerializer). Filter 0 is
+# the clean timer, filter 1 the replace one.
 AIR_PURIFIER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
     PhilipsHomeIDButtonEntityDescription(
         key="muji_reset_filter_clean",
         translation_key="muji_reset_filter_clean",
         icon="mdi:air-filter",
         entity_category=EntityCategory.CONFIG,
-        press_fn=lambda c: c.async_reset_filter("D0520D", 720),
+        press_fn=lambda c: c.async_reset_filter("D0520D", "D05207", 360),
         available_key="D0520D",
     ),
     PhilipsHomeIDButtonEntityDescription(
@@ -198,7 +201,7 @@ AIR_PURIFIER_BUTTONS: tuple[PhilipsHomeIDButtonEntityDescription, ...] = (
         translation_key="muji_reset_filter_replace",
         icon="mdi:air-filter",
         entity_category=EntityCategory.CONFIG,
-        press_fn=lambda c: c.async_reset_filter("D0540E", 4800),
+        press_fn=lambda c: c.async_reset_filter("D0540E", "D05408", 4800),
         available_key="D0540E",
     ),
 )

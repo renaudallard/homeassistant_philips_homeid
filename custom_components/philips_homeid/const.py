@@ -40,7 +40,7 @@ OAUTH_CLIENT_ID = "-u6aTznrxp9_9e_0a57CpvEG"
 MOBILE_APP_REDIRECT_URI = "com.philips.ka.oneka.app.prod://oauthredirect"
 
 # Air+ app OAuth client. Devices paired in the standalone Philips Air+ app
-# (com.philips.air) are registered against this client on the same Gigya
+# (com.philips.ph.homecare) are registered against this client on the same Gigya
 # account, and the DA IoT device registry only lists a device to the client
 # it was paired with. Discovery mints a token with this client from the same
 # OTP session to find Air+-paired purifiers (AC0650/AC0651/AC1715). The token

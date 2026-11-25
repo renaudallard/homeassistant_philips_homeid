@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -37,9 +38,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_IS_FUSION, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
+from .fan import MUJI_PICO_MODELS
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
+
+_MujiSwitchFactory = Callable[[PhilipsHomeIDCoordinator, str], SwitchEntity]
+
+# AC07 child lock (Air+ app): D03103 reads 1 when locked, written as 1 or 0.
+MUJI_CHILD_LOCK_KEY = "D03103"
 
 
 async def async_setup_entry(
@@ -84,11 +91,21 @@ async def async_setup_entry(
     if preheat_created:
         entities.append(PhilipsHomeIDPreheatSwitch(coordinator, coordinator.device_id))
 
-    # MUJI sensor monitor in standby (AC0650/AC0651)
-    if device_type == "air_purifier" and coordinator.has_property("D03134"):
-        entities.append(
-            PhilipsHomeIDSensorMonitorSwitch(coordinator, coordinator.device_id)
-        )
+    # MUJI switches, each created once the D-code it reads is known: the
+    # Status port can answer after platform setup.
+    muji_pending: list[tuple[str, _MujiSwitchFactory]] = []
+    if device_type == "air_purifier":
+        muji_pending.append(("D03134", PhilipsHomeIDSensorMonitorSwitch))
+        if model_name.upper().startswith(MUJI_PICO_MODELS):
+            muji_pending.append((MUJI_CHILD_LOCK_KEY, PhilipsHomeIDMujiChildLockSwitch))
+
+    def _make_muji_switches() -> list[SwitchEntity]:
+        ready = [p for p in muji_pending if coordinator.has_property(p[0])]
+        for p in ready:
+            muji_pending.remove(p)
+        return [factory(coordinator, coordinator.device_id) for _, factory in ready]
+
+    entities.extend(_make_muji_switches())
 
     _LOGGER.debug(
         "Setting up switches for device type: %s (model: %s), count: %d",
@@ -128,27 +145,14 @@ async def async_setup_entry(
         unregister = coordinator.register_new_property_callback(handle_new_properties)
         entry.async_on_unload(unregister)
 
-    # Dynamic creation for the MUJI sensor-monitor switch: its Status-port
-    # D-code (D03134) can arrive after platform setup, and unlike the airfryer
-    # switches above it has no other fallback.
-    if device_type == "air_purifier":
-        muji_switch_created = coordinator.has_property("D03134")
+    if muji_pending:
 
         def handle_new_muji_switch(
             new_properties: list[tuple[str, str | None]],
         ) -> None:
-            nonlocal muji_switch_created
-            if muji_switch_created:
-                return
-            if coordinator.has_property("D03134"):
-                muji_switch_created = True
-                async_add_entities(
-                    [
-                        PhilipsHomeIDSensorMonitorSwitch(
-                            coordinator, coordinator.device_id
-                        )
-                    ]
-                )
+            switches = _make_muji_switches()
+            if switches:
+                async_add_entities(switches)
 
         unregister = coordinator.register_new_property_callback(handle_new_muji_switch)
         entry.async_on_unload(unregister)
@@ -283,3 +287,31 @@ class PhilipsHomeIDSensorMonitorSwitch(PhilipsHomeIDEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable sensor monitor in standby."""
         await self.coordinator.async_set_control_property("D03134", 0)
+
+
+class PhilipsHomeIDMujiChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
+    """Child lock switch for AC07 air purifiers (D03103)."""
+
+    _attr_translation_key = "child_lock"
+    _attr_icon = "mdi:lock-outline"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_child_lock"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the child lock is on."""
+        state = self.device_state
+        if not state or MUJI_CHILD_LOCK_KEY not in state.properties:
+            return None
+        return state.properties[MUJI_CHILD_LOCK_KEY] == 1
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Lock the controls."""
+        await self.coordinator.async_set_control_property(MUJI_CHILD_LOCK_KEY, 1)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Unlock the controls."""
+        await self.coordinator.async_set_control_property(MUJI_CHILD_LOCK_KEY, 0)

@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "Resterende timertijd"
+      },
+      "muji_error_code": {
+        "name": "Fout",
+        "state": {
+          "no_error": "Geen fout",
+          "motor_error": "Motorfout",
+          "pre_filter_clean": "Voorfilter reinigen",
+          "filter_replace": "Filter vervangen",
+          "filter_lock": "Waarschuwing filterblokkering"
+        }
       }
     },
     "binary_sensor": {

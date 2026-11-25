@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "타이머 남은 시간"
+      },
+      "muji_error_code": {
+        "name": "오류",
+        "state": {
+          "no_error": "오류 없음",
+          "motor_error": "모터 오류",
+          "pre_filter_clean": "프리필터 청소",
+          "filter_replace": "필터 교체",
+          "filter_lock": "필터 잠금 경고"
+        }
       }
     },
     "binary_sensor": {

@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "Timer-Restzeit"
+      },
+      "muji_error_code": {
+        "name": "Fehler",
+        "state": {
+          "no_error": "Kein Fehler",
+          "motor_error": "Motorfehler",
+          "pre_filter_clean": "Vorfilter reinigen",
+          "filter_replace": "Filter ersetzen",
+          "filter_lock": "Warnung Filtersperre"
+        }
       }
     },
     "binary_sensor": {

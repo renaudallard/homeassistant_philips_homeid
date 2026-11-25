@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "Återstående timertid"
+      },
+      "muji_error_code": {
+        "name": "Fel",
+        "state": {
+          "no_error": "Inget fel",
+          "motor_error": "Motorfel",
+          "pre_filter_clean": "Rengör förfiltret",
+          "filter_replace": "Byt filtret",
+          "filter_lock": "Varning för filterlås"
+        }
       }
     },
     "binary_sensor": {

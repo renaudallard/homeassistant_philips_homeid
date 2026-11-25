@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "定时器剩余时间"
+      },
+      "muji_error_code": {
+        "name": "错误",
+        "state": {
+          "no_error": "无错误",
+          "motor_error": "电机故障",
+          "pre_filter_clean": "清洁预过滤网",
+          "filter_replace": "更换滤网",
+          "filter_lock": "滤网锁定警告"
+        }
       }
     },
     "binary_sensor": {

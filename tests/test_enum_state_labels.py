@@ -23,6 +23,7 @@ SENSORS = {
     "rita_bean_type": sd._RITA_BEAN_TYPE,
     "rita_roast_level": sd._RITA_ROAST_LEVEL,
     "ota_state": sd._OTA_STATE,
+    "muji_error_code": sd._MUJI_ERROR_CODE,
 }
 
 

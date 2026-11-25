@@ -522,6 +522,16 @@
       },
       "muji_timer_remaining": {
         "name": "Timer Remaining"
+      },
+      "muji_error_code": {
+        "name": "Error",
+        "state": {
+          "no_error": "No error",
+          "motor_error": "Motor error",
+          "pre_filter_clean": "Clean the pre-filter",
+          "filter_replace": "Replace the filter",
+          "filter_lock": "Filter lock warning"
+        }
       }
     },
     "binary_sensor": {

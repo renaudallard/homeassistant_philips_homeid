@@ -245,3 +245,20 @@ async def test_preferred_index_reads_and_writes_d0312a():
     assert sel.current_option == "pm25"
     await sel.async_select_option("indoor_air_index")
     coord.async_set_control_property.assert_awaited_once_with("D0312A", 0)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (0, "no_error"),
+        (0x8001, "motor_error"),
+        (0xC001, "pre_filter_clean"),
+        (0xC002, "filter_replace"),
+        (0xC004, "filter_lock"),
+        (7, "unknown (7)"),
+    ],
+)
+def test_error_code_sensor_decodes_d03240(raw, expected):
+    (desc,) = [d for d in AIR_PURIFIER_SENSORS if d.key == "muji_error_code"]
+    assert desc.property_key == "D03240"
+    assert desc.value_fn(raw) == expected

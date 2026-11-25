@@ -296,6 +296,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Sensor | Indoor Air Index | Indoor air-quality index reading (0-12) |
 | Sensor | Fan Speed | Speed the fan is running at, raw device value |
 | Sensor | Timer Remaining | Minutes left on the off timer |
+| Sensor | Error | Error the purifier reports: motor error, filter to clean or replace, filter lock warning (diagnostic) |
 | Sensor | Filter Clean / Replace Remaining | Hours left before the filter needs cleaning or replacing |
 | Sensor | Filter Clean / Replace Total Lifetime | Full length of the clean and replace timers in hours (diagnostic) |
 | Button | Reset Filter Clean / Replace Timer | Restart the clean or replace timer, as the app does after servicing the filter |

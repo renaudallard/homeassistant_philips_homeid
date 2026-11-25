@@ -263,6 +263,17 @@ _OTA_STATE: dict[int, str] = {
 }
 
 
+# MUJI purifier error code D03240 (HomeID APK AirErrorCodeKt). The app shows
+# any other value as no error; it is kept visible here as unknown.
+_MUJI_ERROR_CODE: dict[int, str] = {
+    0: "no_error",
+    0x8001: "motor_error",
+    0xC001: "pre_filter_clean",
+    0xC002: "filter_replace",
+    0xC004: "filter_lock",
+}
+
+
 _rita_machine_state = _make_enum_decoder(_RITA_MACHINE_STATE)
 _rita_machine_status = _make_enum_decoder(_RITA_MACHINE_STATUS)
 _rita_machine_extra_info = _make_enum_decoder(_RITA_MACHINE_EXTRA_INFO)
@@ -270,6 +281,7 @@ _rita_bean_type = _make_enum_decoder(_RITA_BEAN_TYPE)
 _rita_roast_level = _make_enum_decoder(_RITA_ROAST_LEVEL)
 _rita_control_status = _make_enum_decoder(_RITA_CONTROL_STATUS)
 _ota_state = _make_enum_decoder(_OTA_STATE)
+_muji_error_code = _make_enum_decoder(_MUJI_ERROR_CODE)
 
 
 def _seconds_to_minutes(value: Any) -> int | None:
@@ -509,6 +521,15 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.HOURS,
         icon="mdi:air-filter",
         state_class=SensorStateClass.MEASUREMENT,
+        device_types=("air_purifier",),
+    ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_error_code",
+        translation_key="muji_error_code",
+        property_key="D03240",
+        icon="mdi:alert-circle",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_muji_error_code,
         device_types=("air_purifier",),
     ),
     PhilipsHomeIDSensorEntityDescription(

@@ -739,6 +739,25 @@
           "sleep": "Slaap",
           "turbo": "Turbo"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "Lampmodus",
+        "state": {
+          "off": "Uit",
+          "warm": "Warm",
+          "dawn": "Ochtendgloren",
+          "calm": "Kalm",
+          "breath": "Adem"
+        }
+      },
+      "muji_brightness": {
+        "name": "Helderheid",
+        "state": {
+          "off": "Uit",
+          "low": "Laag",
+          "bright": "Helder",
+          "automatic": "Automatisch"
+        }
       }
     },
     "switch": {

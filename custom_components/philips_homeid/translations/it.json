@@ -739,6 +739,25 @@
           "sleep": "Notte",
           "turbo": "Turbo"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "Modalità lampada",
+        "state": {
+          "off": "Spento",
+          "warm": "Calda",
+          "dawn": "Alba",
+          "calm": "Tenue",
+          "breath": "Fresca"
+        }
+      },
+      "muji_brightness": {
+        "name": "Luminosità",
+        "state": {
+          "off": "Spento",
+          "low": "Basso",
+          "bright": "Chiaro",
+          "automatic": "Automatico"
+        }
       }
     },
     "switch": {

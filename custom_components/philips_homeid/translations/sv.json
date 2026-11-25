@@ -739,6 +739,25 @@
           "sleep": "Nattläge",
           "turbo": "Turbo"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "Lampläge",
+        "state": {
+          "off": "Av",
+          "warm": "Varm",
+          "dawn": "Gryning",
+          "calm": "Lugn",
+          "breath": "Andedräkt"
+        }
+      },
+      "muji_brightness": {
+        "name": "Ljusstyrka",
+        "state": {
+          "off": "Av",
+          "low": "Låg",
+          "bright": "Ljus",
+          "automatic": "Automatisk"
+        }
       }
     },
     "switch": {

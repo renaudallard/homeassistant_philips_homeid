@@ -1332,6 +1332,16 @@ class PhilipsHomeIDCoordinator(DataUpdateCoordinator[LocalDeviceState | None]):
             await self.async_request_refresh()
         return result
 
+    async def async_set_control_properties(self, props: dict[str, Any]) -> bool:
+        """Set several properties in one write to the Control NCP port.
+
+        The Air+ app sends a purifier lamp mode and its effect together in a
+        single setPort. Only FUSION purifiers have that port.
+        """
+        if not self._is_fusion:
+            return False
+        return await self._mqtt_command("control", props)
+
     async def async_reset_filter(self, key: str, hours: int) -> bool:
         """Restart a MUJI air purifier filter timer.
 

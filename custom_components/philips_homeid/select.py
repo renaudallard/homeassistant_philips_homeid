@@ -27,6 +27,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -46,6 +48,25 @@ from .rita_protobuf import (
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
+
+_MujiSelectFactory = Callable[[PhilipsHomeIDCoordinator, str], PhilipsHomeIDEntity]
+
+# AC0720 lamp and display brightness, as the Air+ app drives them. Its lamp
+# sheet writes the mode D03135 and the effect D03137 in one Control write:
+# off is {D03135: 0}, each ambient effect is {D03135: 2, D03137: n}.
+MUJI_LAMP_MODELS = ("AC0720",)
+MUJI_LAMP_MODE_KEY = "D03135"
+MUJI_LAMP_EFFECT_KEY = "D03137"
+MUJI_LAMP_OFF = 0
+MUJI_LAMP_AMBIENT = 2
+MUJI_LAMP_EFFECTS: dict[str, int] = {"warm": 1, "dawn": 2, "calm": 3, "breath": 4}
+MUJI_BRIGHTNESS_KEY = "D03104"
+MUJI_BRIGHTNESS: dict[str, int] = {
+    "off": 0,
+    "low": 115,
+    "bright": 123,
+    "automatic": 101,
+}
 
 # SPECTRE preset IDs (from APK CookingMethodCategoryKt)
 SPECTRE_PRESETS: dict[int, str] = {
@@ -210,32 +231,43 @@ async def async_setup_entry(
         return
 
     if device_type == "air_purifier":
-        # Only MUJI models expose an operation-mode map. D0310C arrives via an
-        # NCP push after setup, so create the select on discovery like the
-        # MUJI fan and numbers do.
-        if muji_mode_map(model_name) is None:
+        # MUJI D-codes arrive via an NCP push after setup, so each select is
+        # created once the codes it reads are known, like the MUJI fan and
+        # numbers.
+        pending: list[tuple[tuple[str, ...], _MujiSelectFactory]] = []
+        if muji_mode_map(model_name) is not None:
+            pending.append(((MUJI_MODE_KEY,), PhilipsHomeIDMujiModeSelect))
+        if model_name.upper().startswith(MUJI_LAMP_MODELS):
+            pending.append(
+                (
+                    (MUJI_LAMP_MODE_KEY, MUJI_LAMP_EFFECT_KEY),
+                    PhilipsHomeIDMujiLampSelect,
+                )
+            )
+            pending.append(((MUJI_BRIGHTNESS_KEY,), PhilipsHomeIDMujiBrightnessSelect))
+        if not pending:
             return
 
-        created = False
+        def _make_muji_selects() -> list[PhilipsHomeIDEntity]:
+            ready = [
+                p for p in pending if all(coordinator.has_property(k) for k in p[0])
+            ]
+            for p in ready:
+                pending.remove(p)
+            return [factory(coordinator, coordinator.device_id) for _, factory in ready]
 
-        def _make_mode_select() -> list[PhilipsHomeIDEntity]:
-            nonlocal created
-            if created or not coordinator.has_property(MUJI_MODE_KEY):
-                return []
-            created = True
-            return [PhilipsHomeIDMujiModeSelect(coordinator, coordinator.device_id)]
-
-        initial = _make_mode_select()
+        initial = _make_muji_selects()
         if initial:
             async_add_entities(initial)
+        if not pending:
             return
 
         def handle_muji_properties(
             new_properties: list[tuple[str, str | None]],
         ) -> None:
-            entities = _make_mode_select()
+            entities = _make_muji_selects()
             if entities:
-                _LOGGER.debug("Creating MUJI operation-mode select")
+                _LOGGER.debug("Creating %d MUJI select(s)", len(entities))
                 async_add_entities(entities, update_before_add=True)
 
         unregister = coordinator.register_new_property_callback(handle_muji_properties)
@@ -715,13 +747,10 @@ class PhilipsHomeIDMujiModeSelect(PhilipsHomeIDEntity, SelectEntity):
         state = self.device_state
         if not state:
             return None
-        raw = state.properties.get(MUJI_MODE_KEY)
-        if raw is None:
+        mode = _int_property(state.properties, MUJI_MODE_KEY)
+        if mode is None:
             return None
-        try:
-            return self._mode_reverse.get(int(raw))
-        except (TypeError, ValueError):
-            return None
+        return self._mode_reverse.get(mode)
 
     async def async_select_option(self, option: str) -> None:
         if option not in self._mode_map:
@@ -733,4 +762,85 @@ class PhilipsHomeIDMujiModeSelect(PhilipsHomeIDEntity, SelectEntity):
             await self.coordinator.async_set_power(True)
         await self.coordinator.async_set_control_property(
             MUJI_MODE_KEY, self._mode_map[option]
+        )
+
+
+def _int_property(properties: dict[str, Any], key: str) -> int | None:
+    """Return an integer D-code value, or None when absent or not a number."""
+    raw = properties.get(key)
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+class PhilipsHomeIDMujiLampSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Lamp select for AC0720 air purifiers: off or one ambient effect."""
+
+    _attr_translation_key = "muji_lamp_mode"
+    _attr_icon = "mdi:lightbulb-outline"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_lamp_mode"
+        self._attr_options = ["off", *MUJI_LAMP_EFFECTS]
+
+    @property
+    def current_option(self) -> str | None:
+        state = self.device_state
+        if not state:
+            return None
+        mode = _int_property(state.properties, MUJI_LAMP_MODE_KEY)
+        if mode == MUJI_LAMP_OFF:
+            return "off"
+        if mode != MUJI_LAMP_AMBIENT:
+            return None
+        effect = _int_property(state.properties, MUJI_LAMP_EFFECT_KEY)
+        for option, value in MUJI_LAMP_EFFECTS.items():
+            if value == effect:
+                return option
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option == "off":
+            props = {MUJI_LAMP_MODE_KEY: MUJI_LAMP_OFF}
+        elif option in MUJI_LAMP_EFFECTS:
+            props = {
+                MUJI_LAMP_MODE_KEY: MUJI_LAMP_AMBIENT,
+                MUJI_LAMP_EFFECT_KEY: MUJI_LAMP_EFFECTS[option],
+            }
+        else:
+            return
+        await self.coordinator.async_set_control_properties(props)
+
+
+class PhilipsHomeIDMujiBrightnessSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Display brightness select for AC0720 air purifiers (D03104)."""
+
+    _attr_translation_key = "muji_brightness"
+    _attr_icon = "mdi:brightness-6"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_brightness"
+        self._attr_options = list(MUJI_BRIGHTNESS)
+
+    @property
+    def current_option(self) -> str | None:
+        state = self.device_state
+        if not state:
+            return None
+        level = _int_property(state.properties, MUJI_BRIGHTNESS_KEY)
+        for option, value in MUJI_BRIGHTNESS.items():
+            if value == level:
+                return option
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in MUJI_BRIGHTNESS:
+            return
+        await self.coordinator.async_set_control_property(
+            MUJI_BRIGHTNESS_KEY, MUJI_BRIGHTNESS[option]
         )

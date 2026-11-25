@@ -739,6 +739,25 @@
           "sleep": "수면",
           "turbo": "터보"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "조명 모드",
+        "state": {
+          "off": "끄기",
+          "warm": "따뜻함",
+          "dawn": "새벽빛",
+          "calm": "고요함",
+          "breath": "편안함"
+        }
+      },
+      "muji_brightness": {
+        "name": "밝기",
+        "state": {
+          "off": "끄기",
+          "low": "은은하게",
+          "bright": "밝게",
+          "automatic": "자동"
+        }
       }
     },
     "switch": {

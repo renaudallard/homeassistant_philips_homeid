@@ -739,6 +739,25 @@
           "sleep": "睡眠",
           "turbo": "强劲"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "灯模式",
+        "state": {
+          "off": "关闭",
+          "warm": "暖色调",
+          "dawn": "晨曦",
+          "calm": "恬静",
+          "breath": "呼吸"
+        }
+      },
+      "muji_brightness": {
+        "name": "亮度",
+        "state": {
+          "off": "关闭",
+          "low": "暗",
+          "bright": "亮",
+          "automatic": "自动"
+        }
       }
     },
     "switch": {

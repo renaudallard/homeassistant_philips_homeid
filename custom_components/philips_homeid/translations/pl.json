@@ -739,6 +739,25 @@
           "sleep": "Nocny",
           "turbo": "Turbo"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "Tryb lampy",
+        "state": {
+          "off": "Wyłączone",
+          "warm": "Ciepłe",
+          "dawn": "Świt",
+          "calm": "Spokojne",
+          "breath": "Oddech"
+        }
+      },
+      "muji_brightness": {
+        "name": "Jasność",
+        "state": {
+          "off": "Wyłączona",
+          "low": "Niska",
+          "bright": "Jasna",
+          "automatic": "Automatyczna"
+        }
       }
     },
     "switch": {

@@ -62,6 +62,7 @@ The supported air purifiers (AC0650, AC0651, AC0720, AC1715) are MUJI devices co
 - Air quality sensors: PM2.5 and indoor air quality index
 - Fan speed: the speed the fan is running at, as the purifier reports it
 - Settings: beep volume, air quality threshold, sensor monitor in standby
+- Light (AC0720): lamp mode with the Warm, Dawn, Calm and Breath effects, and display brightness
 - Filter tracking: remaining and total hours of the filter's clean and replace timers, with buttons to restart either timer after cleaning or replacing the filter
 
 ### Air Fryers
@@ -285,6 +286,8 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 |------|--------|-------------|
 | Fan | Air Purifier | Power on/off and preset modes (preset modes, not a percentage speed) |
 | Select | Operation Mode | Operation mode as a dropdown on the device page (same modes as the fan presets) |
+| Select | Lamp Mode | AC0720 only: lamp off, or one of the ambient effects Warm, Dawn, Calm and Breath |
+| Select | Brightness | AC0720 only: display brightness Off, Low, Bright or Automatic |
 | Sensor | PM2.5 | Particulate matter reading |
 | Sensor | Indoor Air Index | Indoor air-quality index reading (0-12) |
 | Sensor | Fan Speed | Speed the fan is running at, raw device value |

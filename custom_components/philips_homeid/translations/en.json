@@ -739,6 +739,25 @@
           "sleep": "Sleep",
           "turbo": "Turbo"
         }
+      },
+      "muji_lamp_mode": {
+        "name": "Lamp Mode",
+        "state": {
+          "off": "Off",
+          "warm": "Warm",
+          "dawn": "Dawn",
+          "calm": "Calm",
+          "breath": "Breath"
+        }
+      },
+      "muji_brightness": {
+        "name": "Brightness",
+        "state": {
+          "off": "Off",
+          "low": "Low",
+          "bright": "Bright",
+          "automatic": "Automatic"
+        }
       }
     },
     "switch": {

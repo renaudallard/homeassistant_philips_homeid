@@ -22,7 +22,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 | Category | Models | Architecture | Notes |
 |----------|--------|--------------|-------|
-| **Air Purifiers** | AC0650, AC0651, AC0720, AC1715 | MUJI | Cloud relay (FUSION MQTT), paired in the HomeID or Air+ app; AC0650 not yet tested on a device, AC0720 preset modes not yet confirmed |
+| **Air Purifiers** | AC0650, AC0651, AC0710, AC0720, AC0721, AC1715 | MUJI | Cloud relay (FUSION MQTT), paired in the HomeID or Air+ app; AC0650, AC0710 and AC0721 not yet tested on a device, AC0720 controls not yet confirmed |
 | **Air Fryers** | HD9200, HD9255, HD9280, HD9285 | SPECTRE | Single basket, port `airfryer` |
 | **Air Fryers** | HD9875, HD9876 | VENUS 1 | Single basket, port `venus1af` |
 | **Air Fryers** | HD9880 | VENUS 2 | Single basket, port `venusaf` |
@@ -37,7 +37,7 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 >
 > **Note:** Some newer devices are registered as FUSION devices in the Philips cloud and do not have local credentials. These devices are now supported via cloud MQTT relay, which communicates through the Philips cloud (requires internet). The integration detects FUSION devices automatically during setup. See [Cloud Relay (FUSION devices)](#cloud-relay-fusion-devices) for details. If your device still works locally, do not accept firmware updates from the Philips app: the FUSION migration is offered as an ordinary update and cannot be undone. See [Cloud-only Firmware](#cloud-only-firmware).
 
-> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC0720/AC1715 above), whether they were paired in the Philips HomeID/NutriU app or the standalone **Air+** app (`com.philips.air`); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
+> **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC07xx/AC1715 above), whether they were paired in the Philips HomeID/NutriU app or the standalone **Air+** app (`com.philips.air`); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
 ---
 
@@ -57,12 +57,12 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 | **Pet Feeder** | PAW5320 schedules, feeding history and status through the HomeID pet cloud, feed now through Tuya (requires internet) |
 
 ### Air Purifiers
-The supported air purifiers (AC0650, AC0651, AC0720, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
-- Fan control: power on/off and preset modes (per model, for example gentle/sleep/turbo on AC0650 and AC0720, auto/medium/sleep/turbo on AC0651, plus fast on AC1715)
+The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are MUJI devices controlled through the FUSION cloud relay. Cloud login finds them whether they were paired in the Philips HomeID/NutriU app or the standalone Air+ app:
+- Fan control: power on/off and preset modes (per model, for example gentle/sleep/turbo on AC0650 and the AC07 models, auto/medium/sleep/turbo on AC0651, plus fast on AC1715)
 - Air quality sensors: PM2.5 and indoor air quality index
 - Fan speed: the speed the fan is running at, as the purifier reports it
 - Settings: beep volume, air quality threshold, sensor monitor in standby
-- Light (AC0720): lamp mode with the Warm, Dawn, Calm and Breath effects, and display brightness
+- Light (AC0710, AC0720, AC0721): lamp mode with the Warm, Dawn, Calm and Breath effects, and display brightness
 - Filter tracking: remaining and total hours of the filter's clean and replace timers, with buttons to restart either timer after cleaning or replacing the filter
 
 ### Air Fryers
@@ -143,7 +143,7 @@ Then click **Download** and restart Home Assistant.
 
 ### Prerequisites
 
-Your device must first be paired with the **official Philips HomeID app** on Android or iOS (or, for the AC0650/AC0651/AC0720/AC1715 purifiers, the Philips **Air+** app). The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for device communication either automatically from the Philips cloud (local credentials or MQTT relay for FUSION devices) or manually from the app's local storage.
+Your device must first be paired with the **official Philips HomeID app** on Android or iOS (or, for the AC0650/AC0651/AC07xx/AC1715 purifiers, the Philips **Air+** app). The app handles the initial device pairing (including WiFi setup). This integration retrieves the credentials needed for device communication either automatically from the Philips cloud (local credentials or MQTT relay for FUSION devices) or manually from the app's local storage.
 
 ### Adding a Device
 
@@ -173,7 +173,7 @@ After confirming the discovered device, the integration uses cloud login to retr
 1. Authenticates with Philips via email OTP (one-time password)
 2. Completes Gigya OAuth over plain HTTP (`prompt=none` + `gmidTicket`), no external dependencies
 3. Queries the Philips Home ID backend API to retrieve your device's credentials (local `client_id`/`client_secret`, or MQTT relay configuration for FUSION devices)
-4. The integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC0720/AC1715) are registered against the Air+ app's OAuth client rather than the HomeID one, so this extra step is what makes a device paired in the Air+ app show up. Both lists are offered together, so an account with an airfryer in HomeID and a purifier in Air+ can add either; Air+ devices are marked `[Air+]` in the device list. This check is skipped when setup started from a device found on the local network.
+4. The integration also checks the Philips **Air+** app's cloud (`com.philips.air`) for purifiers paired there, reusing the same login. Air+ purifiers (AC0650/AC0651/AC07xx/AC1715) are registered against the Air+ app's OAuth client rather than the HomeID one, so this extra step is what makes a device paired in the Air+ app show up. Both lists are offered together, so an account with an airfryer in HomeID and a purifier in Air+ can add either; Air+ devices are marked `[Air+]` in the device list. This check is skipped when setup started from a device found on the local network.
 
 The pure-HTTP path works on every Home Assistant installation type and CPU architecture, including 32-bit ARM (armv7).
 
@@ -286,8 +286,8 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 |------|--------|-------------|
 | Fan | Air Purifier | Power on/off and preset modes (preset modes, not a percentage speed) |
 | Select | Operation Mode | Operation mode as a dropdown on the device page (same modes as the fan presets) |
-| Select | Lamp Mode | AC0720 only: lamp off, or one of the ambient effects Warm, Dawn, Calm and Breath |
-| Select | Brightness | AC0720 only: display brightness Off, Low, Bright or Automatic |
+| Select | Lamp Mode | AC07 models only: lamp off, or one of the ambient effects Warm, Dawn, Calm and Breath |
+| Select | Brightness | AC07 models only: display brightness Off, Low, Bright or Automatic |
 | Sensor | PM2.5 | Particulate matter reading |
 | Sensor | Indoor Air Index | Indoor air-quality index reading (0-12) |
 | Sensor | Fan Speed | Speed the fan is running at, raw device value |

@@ -94,7 +94,8 @@ def test_muji_mode_map_lookup():
     assert muji_mode_map("AC0650/10") == {"gentle": 1, "sleep": 17, "turbo": 18}
     assert muji_mode_map("AC0651/10")["auto"] == 0
     assert muji_mode_map("AC1715/70")["fast"] == 2
-    assert muji_mode_map("AC0720/10") == {"gentle": 19, "sleep": 17, "turbo": 18}
+    for model in ("AC0710/10", "AC0720/10", "AC0721/10"):
+        assert muji_mode_map(model) == {"gentle": 19, "sleep": 17, "turbo": 18}
     # Non air purifier models have no MUJI mode map.
     assert muji_mode_map("HD9280") is None
     assert muji_mode_map(None) is None

@@ -38,7 +38,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN, RITA_RECIPES_PER_PROFILE
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .fan import MUJI_MODE_KEY, muji_mode_map
+from .fan import MUJI_MODE_KEY, MUJI_PICO_MODELS, muji_mode_map
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
 from .rita_protobuf import (
     decode_profile_recipe_ids,
@@ -51,10 +51,9 @@ _LOGGER = logging.getLogger(__name__)
 
 _MujiSelectFactory = Callable[[PhilipsHomeIDCoordinator, str], PhilipsHomeIDEntity]
 
-# AC0720 lamp and display brightness, as the Air+ app drives them. Its lamp
+# AC07 lamp and display brightness, as the Air+ app drives them. Its lamp
 # sheet writes the mode D03135 and the effect D03137 in one Control write:
 # off is {D03135: 0}, each ambient effect is {D03135: 2, D03137: n}.
-MUJI_LAMP_MODELS = ("AC0720",)
 MUJI_LAMP_MODE_KEY = "D03135"
 MUJI_LAMP_EFFECT_KEY = "D03137"
 MUJI_LAMP_OFF = 0
@@ -237,7 +236,7 @@ async def async_setup_entry(
         pending: list[tuple[tuple[str, ...], _MujiSelectFactory]] = []
         if muji_mode_map(model_name) is not None:
             pending.append(((MUJI_MODE_KEY,), PhilipsHomeIDMujiModeSelect))
-        if model_name.upper().startswith(MUJI_LAMP_MODELS):
+        if model_name.upper().startswith(MUJI_PICO_MODELS):
             pending.append(
                 (
                     (MUJI_LAMP_MODE_KEY, MUJI_LAMP_EFFECT_KEY),
@@ -777,7 +776,7 @@ def _int_property(properties: dict[str, Any], key: str) -> int | None:
 
 
 class PhilipsHomeIDMujiLampSelect(PhilipsHomeIDEntity, SelectEntity):
-    """Lamp select for AC0720 air purifiers: off or one ambient effect."""
+    """Lamp select for AC07 air purifiers: off or one ambient effect."""
 
     _attr_translation_key = "muji_lamp_mode"
     _attr_icon = "mdi:lightbulb-outline"
@@ -817,7 +816,7 @@ class PhilipsHomeIDMujiLampSelect(PhilipsHomeIDEntity, SelectEntity):
 
 
 class PhilipsHomeIDMujiBrightnessSelect(PhilipsHomeIDEntity, SelectEntity):
-    """Display brightness select for AC0720 air purifiers (D03104)."""
+    """Display brightness select for AC07 air purifiers (D03104)."""
 
     _attr_translation_key = "muji_brightness"
     _attr_icon = "mdi:brightness-6"

@@ -1,4 +1,4 @@
-"""Tests for the AC0720 lamp and brightness selects.
+"""Tests for the AC07 lamp and brightness selects.
 
 The values follow the Air+ app: the lamp sheet writes D03135 and D03137 in one
 Control write (off is D03135 alone), brightness is D03104.
@@ -115,7 +115,7 @@ def _types(added):
 
 @pytest.mark.asyncio
 async def test_setup_creates_each_select_once_its_codes_arrive():
-    hass, entry, _, known, callbacks, added = _setup("AC0720/10", {"D0310C"})
+    hass, entry, _, known, callbacks, added = _setup("AC0721/10", {"D0310C"})
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
     assert _types(added) == {PhilipsHomeIDMujiModeSelect}
     assert len(callbacks) == 1
@@ -190,7 +190,7 @@ async def test_setup_mode_select_arrives_late_on_other_models():
 @pytest.mark.asyncio
 async def test_setup_skips_purifiers_without_a_mode_map():
     hass, entry, _, _, callbacks, added = _setup(
-        "AC0710/10", {"D0310C", "D03135", "D03137", "D03104"}
+        "AC2939/10", {"D0310C", "D03135", "D03137", "D03104"}
     )
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
     assert added == []

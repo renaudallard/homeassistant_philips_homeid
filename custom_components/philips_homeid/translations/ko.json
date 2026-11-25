@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "전원"
+      },
+      "display_light": {
+        "name": "디스플레이 조명"
       }
     },
     "update": {

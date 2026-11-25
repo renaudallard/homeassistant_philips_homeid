@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "Energia"
+      },
+      "display_light": {
+        "name": "Luz da tela"
       }
     },
     "update": {

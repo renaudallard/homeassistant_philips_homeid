@@ -64,6 +64,7 @@ The supported air purifiers (AC0650, AC0651, AC0710, AC0720, AC0721, AC1715) are
 - Settings: beep volume, air quality threshold, sensor monitor in standby
 - Light (AC0710, AC0720, AC0721): lamp mode with the Warm, Dawn, Calm and Breath effects, and display brightness
 - Child lock and off timer (AC0710, AC0720, AC0721)
+- Display light on or off (AC1715)
 - Filter tracking: remaining and total hours of the filter's clean and replace timers, with buttons to restart either timer after cleaning or replacing the filter
 
 ### Air Fryers
@@ -300,6 +301,7 @@ On older firmwares, the app stores credentials in an unencrypted SQLite database
 | Number | Beep Volume / Air Quality Threshold | Device settings |
 | Switch | Sensor Monitor in Standby | Keep sensors active in standby |
 | Switch | Child Lock | AC07 models only: lock the purifier's buttons |
+| Switch | Display Light | AC17 models only: turn the display light on or off |
 | Sensor | Firmware Update State | OTA download and validation state from the shadow (diagnostic) |
 | Binary Sensor | Firmware Update Available | A firmware job is queued in the cloud, read-only (diagnostic) |
 

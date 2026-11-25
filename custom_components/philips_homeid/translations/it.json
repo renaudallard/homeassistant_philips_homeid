@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "Alimentazione"
+      },
+      "display_light": {
+        "name": "Luce del display"
       }
     },
     "update": {

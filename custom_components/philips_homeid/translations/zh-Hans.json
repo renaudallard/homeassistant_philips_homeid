@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "电源"
+      },
+      "display_light": {
+        "name": "显示屏灯光"
       }
     },
     "update": {

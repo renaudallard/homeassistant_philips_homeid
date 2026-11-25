@@ -78,6 +78,8 @@ MUJI_POWER_KEY = "D0310D"
 # app: the Air+ app drives AC0710, AC0720 and AC0721 as one device class,
 # with gentle on 19.
 MUJI_PICO_MODELS = ("AC0710", "AC0720", "AC0721")
+# The Air+ app drives every AC17 model as one device class.
+MUJI_AC17_MODELS = ("AC17",)
 MUJI_MODE_MAPS: dict[str, dict[str, int]] = {
     "AC0650": {"gentle": 1, "sleep": 17, "turbo": 18},
     "AC0651": {"auto": 0, "medium": 1, "sleep": 17, "turbo": 18},

@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "Zasilanie"
+      },
+      "display_light": {
+        "name": "Podświetlenie wyświetlacza"
       }
     },
     "update": {

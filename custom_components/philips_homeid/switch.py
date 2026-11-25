@@ -38,7 +38,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_IS_FUSION, DOMAIN
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .fan import MUJI_PICO_MODELS
+from .fan import MUJI_AC17_MODELS, MUJI_PICO_MODELS
 from .sensor import get_device_type
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +47,11 @@ _MujiSwitchFactory = Callable[[PhilipsHomeIDCoordinator, str], SwitchEntity]
 
 # AC07 child lock (Air+ app): D03103 reads 1 when locked, written as 1 or 0.
 MUJI_CHILD_LOCK_KEY = "D03103"
+# AC17 display light (Air+ app): on writes D03104 and D03105 both 100, off
+# writes both 0, and it reads as on while D03105 is above 0.
+MUJI_DISPLAY_LIGHT_KEY = "D03105"
+MUJI_DISPLAY_LIGHT_LEVEL_KEY = "D03104"
+MUJI_DISPLAY_LIGHT_ON = 100
 
 
 async def async_setup_entry(
@@ -98,6 +103,10 @@ async def async_setup_entry(
         muji_pending.append(("D03134", PhilipsHomeIDSensorMonitorSwitch))
         if model_name.upper().startswith(MUJI_PICO_MODELS):
             muji_pending.append((MUJI_CHILD_LOCK_KEY, PhilipsHomeIDMujiChildLockSwitch))
+        if model_name.upper().startswith(MUJI_AC17_MODELS):
+            muji_pending.append(
+                (MUJI_DISPLAY_LIGHT_KEY, PhilipsHomeIDMujiDisplayLightSwitch)
+            )
 
     def _make_muji_switches() -> list[SwitchEntity]:
         ready = [p for p in muji_pending if coordinator.has_property(p[0])]
@@ -315,3 +324,39 @@ class PhilipsHomeIDMujiChildLockSwitch(PhilipsHomeIDEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Unlock the controls."""
         await self.coordinator.async_set_control_property(MUJI_CHILD_LOCK_KEY, 0)
+
+
+class PhilipsHomeIDMujiDisplayLightSwitch(PhilipsHomeIDEntity, SwitchEntity):
+    """Display light switch for AC17 air purifiers."""
+
+    _attr_translation_key = "display_light"
+    _attr_icon = "mdi:lightbulb-outline"
+
+    def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
+        """Initialize the switch."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{device_id}_display_light"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the display light is on."""
+        state = self.device_state
+        if not state:
+            return None
+        value = state.properties.get(MUJI_DISPLAY_LIGHT_KEY)
+        if not isinstance(value, int | float):
+            return None
+        return value > 0
+
+    async def _write(self, value: int) -> None:
+        await self.coordinator.async_set_control_properties(
+            {MUJI_DISPLAY_LIGHT_LEVEL_KEY: value, MUJI_DISPLAY_LIGHT_KEY: value}
+        )
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the display light on."""
+        await self._write(MUJI_DISPLAY_LIGHT_ON)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the display light off."""
+        await self._write(0)

@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "Power"
+      },
+      "display_light": {
+        "name": "Display Light"
       }
     },
     "update": {

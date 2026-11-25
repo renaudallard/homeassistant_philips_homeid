@@ -7,6 +7,7 @@ import pytest
 from custom_components.philips_homeid.const import DOMAIN
 from custom_components.philips_homeid.switch import (
     PhilipsHomeIDMujiChildLockSwitch,
+    PhilipsHomeIDMujiDisplayLightSwitch,
     PhilipsHomeIDSensorMonitorSwitch,
     async_setup_entry,
 )
@@ -96,8 +97,44 @@ async def test_sensor_monitor_switch_can_arrive_late():
 
 @pytest.mark.asyncio
 async def test_no_muji_callback_once_everything_exists():
-    hass, entry, callbacks = _setup("AC1715/70", {"D03134", "D03103"})
+    hass, entry, callbacks = _setup("AC1715/70", {"D03134", "D03103", "D03105"})
     added = []
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
-    assert _types(added) == [PhilipsHomeIDSensorMonitorSwitch]
+    assert _types(added) == [
+        PhilipsHomeIDSensorMonitorSwitch,
+        PhilipsHomeIDMujiDisplayLightSwitch,
+    ]
     assert callbacks == []
+
+
+@pytest.mark.asyncio
+async def test_display_light_only_on_ac17():
+    hass, entry, _ = _setup("AC0720/10", {"D03134", "D03105"})
+    added = []
+    await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
+    assert PhilipsHomeIDMujiDisplayLightSwitch not in _types(added)
+
+
+@pytest.mark.parametrize(
+    ("properties", "expected"),
+    [
+        ({"D03105": 100}, True),
+        ({"D03105": 1}, True),
+        ({"D03105": 0}, False),
+        ({}, None),
+    ],
+)
+def test_display_light_state(properties, expected):
+    sw, _ = _bare(PhilipsHomeIDMujiDisplayLightSwitch, properties)
+    assert sw.is_on is expected
+
+
+@pytest.mark.asyncio
+async def test_display_light_writes_both_codes_together():
+    sw, coord = _bare(PhilipsHomeIDMujiDisplayLightSwitch, {})
+    await sw.async_turn_on()
+    await sw.async_turn_off()
+    assert [c.args for c in coord.async_set_control_properties.await_args_list] == [
+        ({"D03104": 100, "D03105": 100},),
+        ({"D03104": 0, "D03105": 0},),
+    ]

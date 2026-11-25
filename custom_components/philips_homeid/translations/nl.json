@@ -794,6 +794,9 @@
       },
       "power": {
         "name": "Voeding"
+      },
+      "display_light": {
+        "name": "Displayverlichting"
       }
     },
     "update": {

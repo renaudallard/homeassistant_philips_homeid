@@ -39,6 +39,8 @@ Control your Philips domestic appliances through Home Assistant. Local control f
 
 > **Not supported:** Philips air **humidifiers** (for example HU5710, the "Air Humidifier" series) are not supported, and neither are the older Philips air devices that use the local encrypted **CoAP** protocol (many of the models in the Air+ or Clean Home+ apps). The newer Air+ purifiers that register in the Philips cloud as FUSION devices do work here (the AC0650/AC0651/AC07xx/AC1715 above), whether they were paired in the Philips HomeID/NutriU app or the standalone **Air+** app (`com.philips.ph.homecare`); older CoAP-only purifiers do not. For CoAP-based air purifiers and humidifiers, use a dedicated integration such as [kongo09/philips-airpurifier-coap](https://github.com/kongo09/philips-airpurifier-coap) or the [ruaan-deysel/ha-philips-airpurifier](https://github.com/ruaan-deysel/ha-philips-airpurifier) fork; both work locally with no cloud account and list HU5710 among supported models.
 
+> **Testers wanted: robot vacuums.** The Philips SmartPro robot vacuums FC8778, FC8830, FC8832 and FC8932 are controlled by the Air+ app over the local network. They are not supported yet because nobody with one has been able to test. If you own one and can try development builds, please open an [issue](https://github.com/renaudallard/homeassistant_philips_homeid/issues) or a [discussion](https://github.com/renaudallard/homeassistant_philips_homeid/discussions).
+
 ---
 
 ## Features

@@ -74,10 +74,12 @@ MUJI_POWER_KEY = "D0310D"
 
 # operationMode (D0310C) integer values per model family. Verified against the
 # decompiled APK enums MujiOperationMode (AC0650) and MujiPlusOperationMode
-# (AC0651); AC1715 adds a "fast" step.
+# (AC0651); AC1715 adds a "fast" step. AC0720 is not in the HomeID app, its
+# values come from an owner's report (discussion #55).
 MUJI_MODE_MAPS: dict[str, dict[str, int]] = {
     "AC0650": {"gentle": 1, "sleep": 17, "turbo": 18},
     "AC0651": {"auto": 0, "medium": 1, "sleep": 17, "turbo": 18},
+    "AC0720": {"gentle": 19, "sleep": 17, "turbo": 18},
     "AC1715": {"auto": 0, "medium": 1, "fast": 2, "sleep": 17, "turbo": 18},
 }
 

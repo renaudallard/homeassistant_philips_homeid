@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Termin wymiany pochłaniacza wilgoci"
+      },
+      "muji_timer_remaining": {
+        "name": "Pozostały czas timera"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Niska",
           "bright": "Jasna",
           "automatic": "Automatyczna"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Wyłączony",
+          "30_min": "30 minut",
+          "1_h": "1 godz.",
+          "2_h": "2 godz.",
+          "3_h": "3 godz.",
+          "4_h": "4 godz.",
+          "5_h": "5 godz.",
+          "6_h": "6 godz.",
+          "7_h": "7 godz.",
+          "8_h": "8 godz.",
+          "9_h": "9 godz.",
+          "10_h": "10 godz.",
+          "11_h": "11 godz.",
+          "12_h": "12 godz."
         }
       }
     },

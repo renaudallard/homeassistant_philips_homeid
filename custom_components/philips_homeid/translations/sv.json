@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Byte av torkmedel planerat"
+      },
+      "muji_timer_remaining": {
+        "name": "Återstående timertid"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Låg",
           "bright": "Ljus",
           "automatic": "Automatisk"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Av",
+          "30_min": "30 minuter",
+          "1_h": "1 timme",
+          "2_h": "2 timmar",
+          "3_h": "3 timmar",
+          "4_h": "4 timmar",
+          "5_h": "5 timmar",
+          "6_h": "6 timmar",
+          "7_h": "7 timmar",
+          "8_h": "8 timmar",
+          "9_h": "9 timmar",
+          "10_h": "10 timmar",
+          "11_h": "11 timmar",
+          "12_h": "12 timmar"
         }
       }
     },

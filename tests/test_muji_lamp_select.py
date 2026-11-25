@@ -14,8 +14,10 @@ from custom_components.philips_homeid.select import (
     PhilipsHomeIDMujiBrightnessSelect,
     PhilipsHomeIDMujiLampSelect,
     PhilipsHomeIDMujiModeSelect,
+    PhilipsHomeIDMujiTimerSelect,
     async_setup_entry,
 )
+from custom_components.philips_homeid.sensor_descriptions import AIR_PURIFIER_SENSORS
 
 
 def _bare(cls, properties):
@@ -125,21 +127,22 @@ async def test_setup_creates_each_select_once_its_codes_arrive():
     callbacks[0]([])
     assert _types(added) == {PhilipsHomeIDMujiModeSelect}
 
-    known.update({"D03135", "D03104"})
+    known.update({"D03135", "D03104", "D03110"})
     callbacks[0]([])
     callbacks[0]([])
     assert _types(added) == {
         PhilipsHomeIDMujiModeSelect,
         PhilipsHomeIDMujiLampSelect,
         PhilipsHomeIDMujiBrightnessSelect,
+        PhilipsHomeIDMujiTimerSelect,
     }
-    assert sum(len(batch) for batch in added) == 3
+    assert sum(len(batch) for batch in added) == 4
 
 
 @pytest.mark.asyncio
 async def test_setup_skips_lamp_selects_on_other_models():
     hass, entry, _, _, callbacks, added = _setup(
-        "AC1715/70", {"D0310C", "D03135", "D03137", "D03104"}
+        "AC1715/70", {"D0310C", "D03135", "D03137", "D03104", "D03110"}
     )
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
     assert _types(added) == {PhilipsHomeIDMujiModeSelect}
@@ -195,3 +198,31 @@ async def test_setup_skips_purifiers_without_a_mode_map():
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
     assert added == []
     assert callbacks == []
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(0, "off"), (1, "30_min"), (2, "1_h"), (3, "2_h"), (13, "12_h"), (14, None)],
+)
+def test_timer_current_option(value, expected):
+    sel, _ = _bare(PhilipsHomeIDMujiTimerSelect, {"D03110": value})
+    assert sel.current_option == expected
+
+
+@pytest.mark.asyncio
+async def test_timer_writes_the_app_values():
+    sel, coord = _bare(PhilipsHomeIDMujiTimerSelect, {})
+    for option in ("off", "30_min", "1_h", "12_h", "bogus"):
+        await sel.async_select_option(option)
+    assert [c.args for c in coord.async_set_control_property.await_args_list] == [
+        ("D03110", 0),
+        ("D03110", 1),
+        ("D03110", 2),
+        ("D03110", 13),
+    ]
+
+
+def test_timer_remaining_sensor_reads_minutes():
+    (desc,) = [d for d in AIR_PURIFIER_SENSORS if d.key == "muji_timer_remaining"]
+    assert desc.property_key == "D03211"
+    assert desc.native_unit_of_measurement == "min"

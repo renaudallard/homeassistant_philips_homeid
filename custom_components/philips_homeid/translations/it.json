@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Sostituzione dell'essiccante prevista"
+      },
+      "muji_timer_remaining": {
+        "name": "Tempo residuo del timer"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Basso",
           "bright": "Chiaro",
           "automatic": "Automatico"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Spento",
+          "30_min": "30 minuti",
+          "1_h": "1 ora",
+          "2_h": "2 ore",
+          "3_h": "3 ore",
+          "4_h": "4 ore",
+          "5_h": "5 ore",
+          "6_h": "6 ore",
+          "7_h": "7 ore",
+          "8_h": "8 ore",
+          "9_h": "9 ore",
+          "10_h": "10 ore",
+          "11_h": "11 ore",
+          "12_h": "12 ore"
         }
       }
     },

@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Remplacement du déshydratant prévu"
+      },
+      "muji_timer_remaining": {
+        "name": "Temps restant de la minuterie"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Réduit",
           "bright": "Lumineux",
           "automatic": "Automatique"
+        }
+      },
+      "muji_timer": {
+        "name": "Minuterie",
+        "state": {
+          "off": "Éteint",
+          "30_min": "30 minutes",
+          "1_h": "1 heure",
+          "2_h": "2 heures",
+          "3_h": "3 heures",
+          "4_h": "4 heures",
+          "5_h": "5 heures",
+          "6_h": "6 heures",
+          "7_h": "7 heures",
+          "8_h": "8 heures",
+          "9_h": "9 heures",
+          "10_h": "10 heures",
+          "11_h": "11 heures",
+          "12_h": "12 heures"
         }
       }
     },

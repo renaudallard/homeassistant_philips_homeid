@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Trockenmittelwechsel fällig"
+      },
+      "muji_timer_remaining": {
+        "name": "Timer-Restzeit"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Niedrig",
           "bright": "Hell",
           "automatic": "Automatisch"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Aus",
+          "30_min": "30 Minuten",
+          "1_h": "1 Stunde",
+          "2_h": "2 Stunden",
+          "3_h": "3 Stunden",
+          "4_h": "4 Stunden",
+          "5_h": "5 Stunden",
+          "6_h": "6 Stunden",
+          "7_h": "7 Stunden",
+          "8_h": "8 Stunden",
+          "9_h": "9 Stunden",
+          "10_h": "10 Stunden",
+          "11_h": "11 Stunden",
+          "12_h": "12 Stunden"
         }
       }
     },

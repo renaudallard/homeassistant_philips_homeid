@@ -60,6 +60,14 @@ MUJI_LAMP_OFF = 0
 MUJI_LAMP_AMBIENT = 2
 MUJI_LAMP_EFFECTS: dict[str, int] = {"warm": 1, "dawn": 2, "calm": 3, "breath": 4}
 MUJI_BRIGHTNESS_KEY = "D03104"
+# AC07 off timer on D03110: 0 off, 1 for 30 minutes, then 2 to 13 for 1 to 12
+# hours (Air+ app timer list).
+MUJI_TIMER_KEY = "D03110"
+MUJI_TIMER: dict[str, int] = {
+    "off": 0,
+    "30_min": 1,
+    **{f"{hours}_h": hours + 1 for hours in range(1, 13)},
+}
 MUJI_BRIGHTNESS: dict[str, int] = {
     "off": 0,
     "low": 115,
@@ -244,6 +252,7 @@ async def async_setup_entry(
                 )
             )
             pending.append(((MUJI_BRIGHTNESS_KEY,), PhilipsHomeIDMujiBrightnessSelect))
+            pending.append(((MUJI_TIMER_KEY,), PhilipsHomeIDMujiTimerSelect))
         if not pending:
             return
 
@@ -815,31 +824,52 @@ class PhilipsHomeIDMujiLampSelect(PhilipsHomeIDEntity, SelectEntity):
         await self.coordinator.async_set_control_properties(props)
 
 
-class PhilipsHomeIDMujiBrightnessSelect(PhilipsHomeIDEntity, SelectEntity):
-    """Display brightness select for AC07 air purifiers (D03104)."""
+class _MujiCodeSelect(PhilipsHomeIDEntity, SelectEntity):
+    """Select that writes one Control port D-code from a fixed option table."""
 
-    _attr_translation_key = "muji_brightness"
-    _attr_icon = "mdi:brightness-6"
+    _code_key: str
+    _codes: dict[str, int]
+    _unique_suffix: str
 
     def __init__(self, coordinator: PhilipsHomeIDCoordinator, device_id: str) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f"{device_id}_brightness"
-        self._attr_options = list(MUJI_BRIGHTNESS)
+        self._attr_unique_id = f"{device_id}_{self._unique_suffix}"
+        self._attr_options = list(self._codes)
 
     @property
     def current_option(self) -> str | None:
         state = self.device_state
         if not state:
             return None
-        level = _int_property(state.properties, MUJI_BRIGHTNESS_KEY)
-        for option, value in MUJI_BRIGHTNESS.items():
-            if value == level:
+        value = _int_property(state.properties, self._code_key)
+        for option, code in self._codes.items():
+            if code == value:
                 return option
         return None
 
     async def async_select_option(self, option: str) -> None:
-        if option not in MUJI_BRIGHTNESS:
+        if option not in self._codes:
             return
         await self.coordinator.async_set_control_property(
-            MUJI_BRIGHTNESS_KEY, MUJI_BRIGHTNESS[option]
+            self._code_key, self._codes[option]
         )
+
+
+class PhilipsHomeIDMujiBrightnessSelect(_MujiCodeSelect):
+    """Display brightness select for AC07 air purifiers (D03104)."""
+
+    _attr_translation_key = "muji_brightness"
+    _attr_icon = "mdi:brightness-6"
+    _code_key = MUJI_BRIGHTNESS_KEY
+    _codes = MUJI_BRIGHTNESS
+    _unique_suffix = "brightness"
+
+
+class PhilipsHomeIDMujiTimerSelect(_MujiCodeSelect):
+    """Off timer select for AC07 air purifiers (D03110)."""
+
+    _attr_translation_key = "muji_timer"
+    _attr_icon = "mdi:timer-outline"
+    _code_key = MUJI_TIMER_KEY
+    _codes = MUJI_TIMER
+    _unique_suffix = "timer"

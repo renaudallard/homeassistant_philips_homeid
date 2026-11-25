@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Cambio de desecante previsto"
+      },
+      "muji_timer_remaining": {
+        "name": "Tiempo restante del temporizador"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Bajo",
           "bright": "Alto",
           "automatic": "Automático"
+        }
+      },
+      "muji_timer": {
+        "name": "Temporizador",
+        "state": {
+          "off": "Apagado",
+          "30_min": "30 minutos",
+          "1_h": "1 hora",
+          "2_h": "2 horas",
+          "3_h": "3 horas",
+          "4_h": "4 horas",
+          "5_h": "5 horas",
+          "6_h": "6 horas",
+          "7_h": "7 horas",
+          "8_h": "8 horas",
+          "9_h": "9 horas",
+          "10_h": "10 horas",
+          "11_h": "11 horas",
+          "12_h": "12 horas"
         }
       }
     },

@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Droogmiddel vervangen op"
+      },
+      "muji_timer_remaining": {
+        "name": "Resterende timertijd"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Laag",
           "bright": "Helder",
           "automatic": "Automatisch"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Uit",
+          "30_min": "30 minuten",
+          "1_h": "1 uur",
+          "2_h": "2 uur",
+          "3_h": "3 uur",
+          "4_h": "4 uur",
+          "5_h": "5 uur",
+          "6_h": "6 uur",
+          "7_h": "7 uur",
+          "8_h": "8 uur",
+          "9_h": "9 uur",
+          "10_h": "10 uur",
+          "11_h": "11 uur",
+          "12_h": "12 uur"
         }
       }
     },

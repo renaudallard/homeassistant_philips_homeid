@@ -519,6 +519,9 @@
       },
       "feeder_desiccant_replacement": {
         "name": "Desiccant replacement due"
+      },
+      "muji_timer_remaining": {
+        "name": "Timer Remaining"
       }
     },
     "binary_sensor": {
@@ -757,6 +760,25 @@
           "low": "Low",
           "bright": "Bright",
           "automatic": "Automatic"
+        }
+      },
+      "muji_timer": {
+        "name": "Timer",
+        "state": {
+          "off": "Off",
+          "30_min": "30 minutes",
+          "1_h": "1 hour",
+          "2_h": "2 hours",
+          "3_h": "3 hours",
+          "4_h": "4 hours",
+          "5_h": "5 hours",
+          "6_h": "6 hours",
+          "7_h": "7 hours",
+          "8_h": "8 hours",
+          "9_h": "9 hours",
+          "10_h": "10 hours",
+          "11_h": "11 hours",
+          "12_h": "12 hours"
         }
       }
     },

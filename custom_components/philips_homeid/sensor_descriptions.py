@@ -511,6 +511,16 @@ AIR_PURIFIER_SENSORS: tuple[PhilipsHomeIDSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         device_types=("air_purifier",),
     ),
+    PhilipsHomeIDSensorEntityDescription(
+        key="muji_timer_remaining",
+        translation_key="muji_timer_remaining",
+        # Minutes left on the off timer (Air+ app, shown next to D03110).
+        property_key="D03211",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+        icon="mdi:timer-outline",
+        device_types=("air_purifier",),
+    ),
 )
 
 # Airfryer sensors

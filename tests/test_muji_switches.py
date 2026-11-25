@@ -138,3 +138,12 @@ async def test_display_light_writes_both_codes_together():
         ({"D03104": 100, "D03105": 100},),
         ({"D03104": 0, "D03105": 0},),
     ]
+
+
+@pytest.mark.parametrize("model", ["AC0710/10", "AC0720/10", "AC0721/10"])
+@pytest.mark.asyncio
+async def test_every_ac07_model_gets_the_child_lock(model):
+    hass, entry, _ = _setup(model, {"D03103"})
+    added = []
+    await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
+    assert _types(added) == [PhilipsHomeIDMujiChildLockSwitch]

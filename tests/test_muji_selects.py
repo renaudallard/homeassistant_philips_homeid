@@ -262,3 +262,18 @@ def test_error_code_sensor_decodes_d03240(raw, expected):
     (desc,) = [d for d in AIR_PURIFIER_SENSORS if d.key == "muji_error_code"]
     assert desc.property_key == "D03240"
     assert desc.value_fn(raw) == expected
+
+
+@pytest.mark.parametrize("model", ["AC0710/10", "AC0720/10", "AC0721/10"])
+@pytest.mark.asyncio
+async def test_every_ac07_model_gets_the_ac07_selects(model):
+    hass, entry, _, _, _, added = _setup(
+        model, {"D0310C", "D03135", "D03137", "D03104", "D03110"}
+    )
+    await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
+    assert _types(added) == {
+        PhilipsHomeIDMujiModeSelect,
+        PhilipsHomeIDMujiLampSelect,
+        PhilipsHomeIDMujiBrightnessSelect,
+        PhilipsHomeIDMujiTimerSelect,
+    }

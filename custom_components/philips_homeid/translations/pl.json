@@ -780,6 +780,13 @@
           "11_h": "11 godz.",
           "12_h": "12 godz."
         }
+      },
+      "muji_preferred_index": {
+        "name": "Preferowany wskaźnik",
+        "state": {
+          "indoor_air_index": "Indeks powietrza w pomieszczeniu",
+          "pm25": "PM2.5"
+        }
       }
     },
     "switch": {

@@ -32,13 +32,14 @@ from typing import Any
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, RITA_RECIPES_PER_PROFILE
 from .coordinator import PhilipsHomeIDCoordinator
 from .entity import PhilipsHomeIDEntity
-from .fan import MUJI_MODE_KEY, MUJI_PICO_MODELS, muji_mode_map
+from .fan import MUJI_AC17_MODELS, MUJI_MODE_KEY, MUJI_PICO_MODELS, muji_mode_map
 from .local_api import PORT_HERMESAC, PORT_NUTRIMAX, VENUS_STYLE_PORTS
 from .rita_protobuf import (
     decode_profile_recipe_ids,
@@ -63,6 +64,9 @@ MUJI_BRIGHTNESS_KEY = "D03104"
 # AC07 off timer on D03110: 0 off, 1 for 30 minutes, then 2 to 13 for 1 to 12
 # hours (Air+ app timer list).
 MUJI_TIMER_KEY = "D03110"
+# AC17 reading the display shows by default (Air+ app device settings).
+MUJI_PREFERRED_INDEX_KEY = "D0312A"
+MUJI_PREFERRED_INDEX: dict[str, int] = {"indoor_air_index": 0, "pm25": 1}
 MUJI_TIMER: dict[str, int] = {
     "off": 0,
     "30_min": 1,
@@ -253,6 +257,10 @@ async def async_setup_entry(
             )
             pending.append(((MUJI_BRIGHTNESS_KEY,), PhilipsHomeIDMujiBrightnessSelect))
             pending.append(((MUJI_TIMER_KEY,), PhilipsHomeIDMujiTimerSelect))
+        if model_name.upper().startswith(MUJI_AC17_MODELS):
+            pending.append(
+                ((MUJI_PREFERRED_INDEX_KEY,), PhilipsHomeIDMujiPreferredIndexSelect)
+            )
         if not pending:
             return
 
@@ -873,3 +881,14 @@ class PhilipsHomeIDMujiTimerSelect(_MujiCodeSelect):
     _code_key = MUJI_TIMER_KEY
     _codes = MUJI_TIMER
     _unique_suffix = "timer"
+
+
+class PhilipsHomeIDMujiPreferredIndexSelect(_MujiCodeSelect):
+    """Preferred display index select for AC17 air purifiers (D0312A)."""
+
+    _attr_translation_key = "muji_preferred_index"
+    _attr_icon = "mdi:monitor-eye"
+    _attr_entity_category = EntityCategory.CONFIG
+    _code_key = MUJI_PREFERRED_INDEX_KEY
+    _codes = MUJI_PREFERRED_INDEX
+    _unique_suffix = "preferred_index"

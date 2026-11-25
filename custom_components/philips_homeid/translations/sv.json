@@ -780,6 +780,13 @@
           "11_h": "11 timmar",
           "12_h": "12 timmar"
         }
+      },
+      "muji_preferred_index": {
+        "name": "Föredraget index",
+        "state": {
+          "indoor_air_index": "Luftkvalitetsindex inomhus",
+          "pm25": "PM2.5"
+        }
       }
     },
     "switch": {

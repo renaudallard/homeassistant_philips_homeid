@@ -1,4 +1,4 @@
-"""Tests for the AC07 lamp and brightness selects.
+"""Tests for the MUJI purifier selects from the Air+ app.
 
 The values follow the Air+ app: the lamp sheet writes D03135 and D03137 in one
 Control write (off is D03135 alone), brightness is D03104.
@@ -14,6 +14,7 @@ from custom_components.philips_homeid.select import (
     PhilipsHomeIDMujiBrightnessSelect,
     PhilipsHomeIDMujiLampSelect,
     PhilipsHomeIDMujiModeSelect,
+    PhilipsHomeIDMujiPreferredIndexSelect,
     PhilipsHomeIDMujiTimerSelect,
     async_setup_entry,
 )
@@ -142,10 +143,13 @@ async def test_setup_creates_each_select_once_its_codes_arrive():
 @pytest.mark.asyncio
 async def test_setup_skips_lamp_selects_on_other_models():
     hass, entry, _, _, callbacks, added = _setup(
-        "AC1715/70", {"D0310C", "D03135", "D03137", "D03104", "D03110"}
+        "AC1715/70", {"D0310C", "D03135", "D03137", "D03104", "D03110", "D0312A"}
     )
     await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
-    assert _types(added) == {PhilipsHomeIDMujiModeSelect}
+    assert _types(added) == {
+        PhilipsHomeIDMujiModeSelect,
+        PhilipsHomeIDMujiPreferredIndexSelect,
+    }
     assert callbacks == []
 
 
@@ -226,3 +230,18 @@ def test_timer_remaining_sensor_reads_minutes():
     (desc,) = [d for d in AIR_PURIFIER_SENSORS if d.key == "muji_timer_remaining"]
     assert desc.property_key == "D03211"
     assert desc.native_unit_of_measurement == "min"
+
+
+@pytest.mark.asyncio
+async def test_preferred_index_only_on_ac17():
+    hass, entry, _, _, _, added = _setup("AC0720/10", {"D0310C", "D0312A"})
+    await async_setup_entry(hass, entry, lambda ents, *a, **k: added.append(ents))
+    assert PhilipsHomeIDMujiPreferredIndexSelect not in _types(added)
+
+
+@pytest.mark.asyncio
+async def test_preferred_index_reads_and_writes_d0312a():
+    sel, coord = _bare(PhilipsHomeIDMujiPreferredIndexSelect, {"D0312A": 1})
+    assert sel.current_option == "pm25"
+    await sel.async_select_option("indoor_air_index")
+    coord.async_set_control_property.assert_awaited_once_with("D0312A", 0)

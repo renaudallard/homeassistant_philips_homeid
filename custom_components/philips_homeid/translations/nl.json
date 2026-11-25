@@ -780,6 +780,13 @@
           "11_h": "11 uur",
           "12_h": "12 uur"
         }
+      },
+      "muji_preferred_index": {
+        "name": "Gewenste index",
+        "state": {
+          "indoor_air_index": "Binnenluchtindex",
+          "pm25": "PM2.5"
+        }
       }
     },
     "switch": {

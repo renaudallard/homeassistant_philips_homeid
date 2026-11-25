@@ -780,6 +780,13 @@
           "11_h": "11시간",
           "12_h": "12시간"
         }
+      },
+      "muji_preferred_index": {
+        "name": "선호 지수",
+        "state": {
+          "indoor_air_index": "실내 공기 지수",
+          "pm25": "PM2.5"
+        }
       }
     },
     "switch": {

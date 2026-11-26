@@ -473,6 +473,8 @@ What you get:
   also has `name`, `amount` and `source`, as in **Last feeding**. They follow
   the polling, so an event fires up to 2 minutes after HomeID records it,
   or up to about 6 hours for one HomeID records late for an earlier day.
+  Several new events fire one after the other, oldest first; those still to
+  fire when a poll fails fire after the next one succeeds.
   Events already in HomeID when the entity first reads them, such as those
   from while Home Assistant was stopped, do not fire; the sensors still show
   them. A food alert HomeID sends without an id only updates the sensors,

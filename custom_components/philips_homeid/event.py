@@ -188,6 +188,10 @@ class FeederEvent(FeederEntity, EventEntity):
     @callback
     def _fire(self, _now: datetime | None = None) -> None:
         self._next = None
+        if not self.available:
+            # An event written while unavailable is no state change: the
+            # queue waits for the next successful read, which fires it.
+            return
         report = self._queue.pop(0)
         self._trigger_event(report.type, report.attributes)
         self.async_write_ha_state()

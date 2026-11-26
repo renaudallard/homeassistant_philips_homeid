@@ -296,6 +296,28 @@ async def test_events_after_a_failed_poll_change_the_state_from_a_time(later):
 
 
 @pytest.mark.asyncio
+async def test_events_still_to_fire_wait_out_a_failed_poll(later):
+    old = feeding("a", NOW - timedelta(hours=2))
+    data = FeederData(history=[old], history_ok=True)
+    coord, entity, fired = await added("feeder_feeding", data)
+    new = [feeding(i, NOW - timedelta(minutes=m)) for i, m in (("b", 3), ("c", 2))]
+    batch = replace(data, history=[old, *new, feeding("d", NOW)])
+    update(coord, entity, batch)
+    coord.last_update_success = False
+    update(coord, entity, coord.data)
+    drain(later)
+    assert len(fired.events()) == 1
+    coord.last_update_success = True
+    update(coord, entity, batch)
+    drain(later)
+    assert [attrs["time"] for attrs in fired.events()] == [
+        (NOW - timedelta(minutes=3)).isoformat(),
+        (NOW - timedelta(minutes=2)).isoformat(),
+        NOW.isoformat(),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_removal_cancels_the_events_still_to_fire(later):
     data = FeederData(status_ok=True)
     coord, entity, fired = await added("feeder_food_alert", data)

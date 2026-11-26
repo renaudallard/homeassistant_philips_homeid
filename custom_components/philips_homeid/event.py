@@ -31,6 +31,7 @@ Assistant was stopped, do not fire; the sensors still show the latest.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -46,9 +47,9 @@ from homeassistant.util import dt as dt_util
 from .const import CONF_IS_FEEDER, DOMAIN
 from .feeder import LOOKBACK, FeederCoordinator, FeederData, FeederEntity
 
-# Events from one read fire this many seconds apart, each with a state of its
-# own: before 2026.8 HA gave two events in one millisecond the same state,
-# and a state trigger then saw only the first.
+# Events fire at least this many seconds apart, also when from two reads, each
+# with a state of its own: before 2026.8 HA gave two events in one millisecond
+# the same state, and a state trigger then saw only the first.
 _SPACING = 0.01
 
 
@@ -140,6 +141,7 @@ class FeederEvent(FeederEntity, EventEntity):
         self._seen: dict[str, datetime] | None = None
         self._queue: list[_Report] = []
         self._next: CALLBACK_TYPE | None = None
+        self._fired_at = float("-inf")
 
     @property
     def available(self) -> bool:
@@ -183,7 +185,11 @@ class FeederEvent(FeederEntity, EventEntity):
             if key not in self._seen and when >= oldest:
                 self._seen[key] = when
         if self._queue and self._next is None:
-            self._fire()
+            wait = self._fired_at + _SPACING - time.monotonic()
+            if wait > 0:
+                self._next = async_call_later(self.hass, wait, self._fire)
+            else:
+                self._fire()
 
     @callback
     def _fire(self, _now: datetime | None = None) -> None:
@@ -194,6 +200,7 @@ class FeederEvent(FeederEntity, EventEntity):
             return
         report = self._queue.pop(0)
         self._trigger_event(report.type, report.attributes)
+        self._fired_at = time.monotonic()
         self.async_write_ha_state()
         if self._queue:
             self._next = async_call_later(self.hass, _SPACING, self._fire)

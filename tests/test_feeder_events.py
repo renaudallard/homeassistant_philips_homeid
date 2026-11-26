@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -315,6 +316,32 @@ async def test_events_still_to_fire_wait_out_a_failed_poll(later):
         (NOW - timedelta(minutes=2)).isoformat(),
         NOW.isoformat(),
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("after", "wait"), [(0.004, 0.006), (0.02, None)])
+async def test_a_read_fires_its_first_event_apart_from_the_last_one(later, after, wait):
+    clock = [100.0]
+    old = feeding("a", NOW - timedelta(hours=2))
+    data = FeederData(history=[old], history_ok=True)
+    with patch.object(
+        event_platform, "time", SimpleNamespace(monotonic=lambda: clock[0])
+    ):
+        coord, entity, fired = await added("feeder_feeding", data)
+        update(coord, entity, replace(data, history=[old, feeding("b", NOW)]))
+        clock[0] += after
+        update(
+            coord,
+            entity,
+            replace(data, history=[old, feeding("b", NOW), feeding("c", NOW)]),
+        )
+        if wait is None:
+            assert len(fired.events()) == 2 and not later
+        else:
+            assert len(fired.events()) == 1
+            assert [call.delay for call in later] == [pytest.approx(wait)]
+            drain(later)
+            assert len(fired.events()) == 2
 
 
 @pytest.mark.asyncio

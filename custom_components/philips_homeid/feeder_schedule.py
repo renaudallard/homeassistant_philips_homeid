@@ -263,8 +263,15 @@ async def _async_edit_meal(call: ServiceCall) -> None:
 
 
 async def _async_delete_meal(call: ServiceCall) -> None:
-    coordinator, meal = _meal_of_entity(call.hass, call.data[ATTR_MEAL])
-    await _change(coordinator, lambda manager: manager.delete_meal(meal.id))
+    coordinator, found = _meal_of_entity(call.hass, call.data[ATTR_MEAL])
+
+    async def delete(manager: MealManager) -> None:
+        # Checked again as the edit is, since a poll may have failed while
+        # this waited for the change before it.
+        meal = _stored_meal(coordinator, found.id)
+        await manager.delete_meal(meal.id)
+
+    await _change(coordinator, delete)
 
 
 @callback

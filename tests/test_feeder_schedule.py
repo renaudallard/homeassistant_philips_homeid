@@ -762,22 +762,28 @@ async def test_meal_actions_refuse_while_the_schedule_is_unavailable(meals_ok, s
 
 
 @pytest.mark.asyncio
-async def test_an_edit_waiting_behind_one_whose_read_back_was_not_stored_stops():
+@pytest.mark.parametrize("action", ["edit", "delete"])
+async def test_a_change_waiting_behind_one_whose_read_back_was_not_stored_stops(
+    action,
+):
     coord = coordinator(meals=[BREAKFAST])
     switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
     hass, registry = action_hass(coord, [switch])
-    data = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "portions": 4})
+    if action == "edit":
+        data = EDIT_MEAL_SCHEMA({"meal": "switch.cat_breakfast", "portions": 4})
+        handler, sent = feeder_schedule._async_edit_meal, coord.manager.edit_meal
+    else:
+        data = {"meal": "switch.cat_breakfast"}
+        handler, sent = feeder_schedule._async_delete_meal, coord.manager.delete_meal
     with patch.object(feeder_schedule.er, "async_get", return_value=registry):
         async with coord.changes:
-            edit = asyncio.ensure_future(
-                feeder_schedule._async_edit_meal(call(hass, **data))
-            )
+            change = asyncio.ensure_future(handler(call(hass, **data)))
             await asyncio.sleep(0)
             # A poll failed meanwhile, so the change before was not read back.
             coord.last_update_success = False
         with pytest.raises(ServiceValidationError, match="after the next poll"):
-            await edit
-    coord.manager.edit_meal.assert_not_called()
+            await change
+    sent.assert_not_called()
 
 
 @pytest.mark.parametrize(

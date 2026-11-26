@@ -76,6 +76,7 @@ def bare_coordinator(m):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
+    coord._read_back = ([], False)
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
 

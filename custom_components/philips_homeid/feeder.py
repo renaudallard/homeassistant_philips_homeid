@@ -139,8 +139,10 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._device: FeederDevice | None = None
         self._manager_until = 0.0
         self._logged: dict[str, str] = {}
-        # Counts the meals stored by refresh_meals.
+        # Counts the meal reads after a change and keeps the last, which a
+        # poll running meanwhile takes as newer than its own.
         self._meal_reads = 0
+        self._read_back: tuple[list[Meal], bool] = ([], False)
         # Held by each change from its write to its read back.
         self.changes = asyncio.Lock()
 
@@ -187,10 +189,10 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         )
         desiccant = await self._optional("desiccant", manager.desiccant)
         meals_ok = meals is not None
-        if reads != self._meal_reads and self.data is not None:
+        if reads != self._meal_reads:
             # A schedule change was read while this poll ran: its meals are
             # newer than the ones read above.
-            meals, meals_ok = self.data.meals, self.data.meals_ok
+            meals, meals_ok = self._read_back
         return FeederData(
             meals=meals or [],
             meals_ok=meals_ok,
@@ -224,9 +226,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         except CloudAuthError:
             return
         self._logged.pop("schedule", None)
-        if self.data is not None and self.last_update_success:
-            self._meal_reads += 1
-            self.async_set_updated_data(replace(self.data, meals=meals, meals_ok=True))
+        self._keep_read_back(meals, True)
 
     def forget_meals(self) -> None:
         """Leave the meals unknown until the next poll.
@@ -234,11 +234,17 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         For a change whose outcome is not known: the meals held may predate
         it, and an edit built on them could undo it.
         """
+        self._keep_read_back(self.data.meals if self.data else [], False)
+
+    def _keep_read_back(self, meals: list[Meal], meals_ok: bool) -> None:
+        # Kept and counted also after a failed poll, for the poll after it,
+        # which may have read the meals before the change.
+        self._meal_reads += 1
+        self._read_back = (meals, meals_ok)
         if self.data is not None and self.last_update_success:
-            # Counted as a read: a poll running now may have read the meals
-            # before the change, and must not store them as current.
-            self._meal_reads += 1
-            self.async_set_updated_data(replace(self.data, meals_ok=False))
+            self.async_set_updated_data(
+                replace(self.data, meals=meals, meals_ok=meals_ok)
+            )
 
     async def _optional(
         self, stage: str, call: Callable[[], Awaitable[_T]]

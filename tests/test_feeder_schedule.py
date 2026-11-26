@@ -296,6 +296,7 @@ def coordinator(meals=(BREAKFAST, DINNER), meals_ok=True):
     )
     coord._logged = {}
     coord._meal_reads = 0
+    coord._read_back = ([], False)
     coord.changes = asyncio.Lock()
     coord.last_update_success = True
     coord.data = FeederData(meals=list(meals), meals_ok=meals_ok)
@@ -375,6 +376,44 @@ async def test_a_poll_never_puts_back_meals_older_than_a_change(
     manager.history.side_effect = stale_history
     data = await coord._async_update_data()
     assert (data.meals, data.meals_ok) == (meals, meals_ok)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("read", [True, False])
+async def test_the_poll_after_a_failed_one_takes_a_change_read_meanwhile(read):
+    snack = Meal("m-3", "Snack", 1, "12:00", (1,), True)
+    coord = coordinator(meals=[BREAKFAST])
+    coord.hass.config.time_zone = "Europe/Riga"
+    coord.async_set_updated_data = MagicMock(
+        side_effect=lambda data: setattr(coord, "data", data)
+    )
+    coord.last_update_success = False
+    manager = coord.manager
+    manager.time_zone = "Europe/Riga"
+    manager.latest_status = AsyncMock(return_value={})
+    manager.desiccant = AsyncMock(return_value=None)
+
+    async def add_meal(name, feed_time, portions, days):
+        manager.list_meals.return_value = [BREAKFAST, snack]
+        if not read:
+            manager.list_meals.side_effect = FeederHTTPError(503)
+
+    async def history(start, end):
+        # The meal is added after this poll read the meals.
+        await feeder_schedule._change(
+            coord, lambda m: m.add_meal("Snack", "12:00", 1, [1])
+        )
+        return []
+
+    manager.add_meal.side_effect = add_meal
+    manager.history = AsyncMock(side_effect=history)
+    data = await coord._async_update_data()
+    # Not stored during the failure, but kept for this poll.
+    coord.async_set_updated_data.assert_not_called()
+    if read:
+        assert (data.meals, data.meals_ok) == ([BREAKFAST, snack], True)
+    else:
+        assert not data.meals_ok
 
 
 @pytest.mark.asyncio

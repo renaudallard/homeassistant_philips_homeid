@@ -4,7 +4,7 @@
 
 # Philips HomeID Integration for Home Assistant
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/renaudallard/homeassistant_philips_homeid)
 [![Release](https://img.shields.io/github/v/release/renaudallard/homeassistant_philips_homeid)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![Downloads](https://img.shields.io/github/downloads/renaudallard/homeassistant_philips_homeid/total)](https://github.com/renaudallard/homeassistant_philips_homeid/releases)
 [![Tests](https://github.com/renaudallard/homeassistant_philips_homeid/actions/workflows/test.yml/badge.svg)](https://github.com/renaudallard/homeassistant_philips_homeid/actions/workflows/test.yml)

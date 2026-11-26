@@ -219,11 +219,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             meals = await manager.list_meals()
         except FEEDER_ERRORS as err:
             self._log("schedule", err)
-            if self.data is not None and self.last_update_success:
-                # Counted as a read: a poll running now may have read the
-                # meals before the change, and must not store them as current.
-                self._meal_reads += 1
-                self.async_set_updated_data(replace(self.data, meals_ok=False))
+            self.forget_meals()
             return
         except CloudAuthError:
             return
@@ -231,6 +227,18 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         if self.data is not None and self.last_update_success:
             self._meal_reads += 1
             self.async_set_updated_data(replace(self.data, meals=meals, meals_ok=True))
+
+    def forget_meals(self) -> None:
+        """Leave the meals unknown until the next poll.
+
+        For a change whose outcome is not known: the meals held may predate
+        it, and an edit built on them could undo it.
+        """
+        if self.data is not None and self.last_update_success:
+            # Counted as a read: a poll running now may have read the meals
+            # before the change, and must not store them as current.
+            self._meal_reads += 1
+            self.async_set_updated_data(replace(self.data, meals_ok=False))
 
     async def _optional(
         self, stage: str, call: Callable[[], Awaitable[_T]]

@@ -538,12 +538,13 @@ A change is never sent again after a timeout or an error, apart from a
 delete, which the HTTP library may resend once after a dropped connection
 and which can only delete the same meal. The meals are read again after
 every change, also when HomeID did not confirm it, so the calendar and
-switches show what HomeID really holds; when that read fails, the meals stay
-unavailable until the next poll. Changes go one at a time, each
-after the meals read back from the one before, so two edits of a meal at
-once both keep their changes. While the last poll failed, editing or
-deleting a meal is refused, since the meals Home Assistant holds may be out
-of date. Meal changes have not yet been tried on a real feeder.
+switches show what HomeID really holds; when that read fails, or the action
+is cancelled before it ends, the meals stay unavailable until the next poll.
+Changes go one at a time, each after the meals read back from the one
+before, so two edits of a meal at once both keep their changes. While the
+last poll failed, editing or deleting a meal is refused, since the meals
+Home Assistant holds may be out of date. Meal changes have not yet been
+tried on a real feeder.
 
 ---
 

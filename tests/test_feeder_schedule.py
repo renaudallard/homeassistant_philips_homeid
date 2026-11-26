@@ -561,6 +561,59 @@ async def test_concurrent_edits_each_start_from_the_last_read_back():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cancelled", ["write", "read"])
+async def test_an_edit_behind_a_cancelled_one_never_undoes_it(cancelled):
+    coord = coordinator(meals=[BREAKFAST])
+    coord.async_set_updated_data = MagicMock(
+        side_effect=lambda data: setattr(coord, "data", data)
+    )
+    cloud = {"meal": BREAKFAST}
+    held = asyncio.Event()
+    hang = {cancelled}
+
+    async def edit_meal(meal_id, name, feed_time, portions, days):
+        enabled = cloud["meal"].enabled
+        cloud["meal"] = Meal(meal_id, name, portions, feed_time, tuple(days), enabled)
+        if "write" in hang:
+            # Applied by HomeID, but the answer never comes.
+            hang.clear()
+            await held.wait()
+
+    async def list_meals():
+        if "read" in hang:
+            hang.clear()
+            await held.wait()
+        return [cloud["meal"]]
+
+    coord.manager.edit_meal.side_effect = edit_meal
+    coord.manager.list_meals.side_effect = list_meals
+    switch = registry_entry("switch.cat_breakfast", "cpp_meal_m-1")
+    hass, registry = action_hass(coord, [switch])
+    moved = EDIT_MEAL_SCHEMA({"meal": switch.entity_id, "time": "08:15"})
+    portions = EDIT_MEAL_SCHEMA({"meal": switch.entity_id, "portions": 6})
+    with patch.object(feeder_schedule.er, "async_get", return_value=registry):
+        first = asyncio.ensure_future(
+            feeder_schedule._async_edit_meal(call(hass, **moved))
+        )
+        for _ in range(3):
+            await asyncio.sleep(0)
+        second = asyncio.ensure_future(
+            feeder_schedule._async_edit_meal(call(hass, **portions))
+        )
+        await asyncio.sleep(0)
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        with pytest.raises(ServiceValidationError, match="after the next poll"):
+            await second
+    assert cloud["meal"].time == "08:15"
+    assert coord.manager.edit_meal.await_count == 1
+    assert not coord.data.meals_ok
+    assert coord._meal_reads == 1  # a poll running now keeps this
+    assert not coord.changes.locked()
+
+
+@pytest.mark.asyncio
 async def test_a_change_waits_for_the_read_back_of_the_one_before():
     coord = coordinator()
     coord.async_set_updated_data = MagicMock(

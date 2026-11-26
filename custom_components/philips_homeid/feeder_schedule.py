@@ -31,6 +31,7 @@ not confirmed, since a write that timed out may still have been applied.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import time
 from typing import Any
@@ -136,24 +137,38 @@ async def _change(
         except CloudAuthError as err:
             raise HomeAssistantError("HomeID login expired") from err
         try:
-            await change(manager)
-        except MealsError as err:
-            # Raised before anything is sent; its messages are fixed text.
-            raise ServiceValidationError(str(err)) from err
-        except FeederHTTPError as err:
-            await coordinator.refresh_meals()
-            if err.status == 409:
-                # The app's MealTimeConflictException.
-                raise HomeAssistantError(
-                    "Another meal is already planned at that time"
-                ) from err
-            raise HomeAssistantError("HomeID did not confirm the meal change") from err
-        except FEEDER_ERRORS as err:
-            await coordinator.refresh_meals()
-            raise HomeAssistantError("HomeID did not confirm the meal change") from err
-        except CloudAuthError as err:
-            raise HomeAssistantError("HomeID login expired") from err
+            await _send(coordinator, manager, change)
+        except asyncio.CancelledError:
+            # Cancelled by a script stop or a restarted automation: the write
+            # may have been applied and its read back is missing.
+            coordinator.forget_meals()
+            raise
+
+
+async def _send(
+    coordinator: FeederCoordinator,
+    manager: MealManager,
+    change: Callable[[MealManager], Awaitable[None]],
+) -> None:
+    try:
+        await change(manager)
+    except MealsError as err:
+        # Raised before anything is sent; its messages are fixed text.
+        raise ServiceValidationError(str(err)) from err
+    except FeederHTTPError as err:
         await coordinator.refresh_meals()
+        if err.status == 409:
+            # The app's MealTimeConflictException.
+            raise HomeAssistantError(
+                "Another meal is already planned at that time"
+            ) from err
+        raise HomeAssistantError("HomeID did not confirm the meal change") from err
+    except FEEDER_ERRORS as err:
+        await coordinator.refresh_meals()
+        raise HomeAssistantError("HomeID did not confirm the meal change") from err
+    except CloudAuthError as err:
+        raise HomeAssistantError("HomeID login expired") from err
+    await coordinator.refresh_meals()
 
 
 def _loaded_feeders(hass: HomeAssistant) -> list[FeederCoordinator]:

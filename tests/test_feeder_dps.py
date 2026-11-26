@@ -354,6 +354,30 @@ async def test_read_logs_in_once_and_the_feed_reuses_the_session():
 
 
 @pytest.mark.asyncio
+async def test_a_publish_check_runs_under_the_lock_and_can_stop_it():
+    session = ReadSession()
+    feed, _, cloud = make_feed(session)
+    steps = []
+
+    async def refuse():
+        steps.append("check")
+        raise ServiceValidationError("camera off")
+
+    with patch(
+        "custom_components.philips_homeid.cloud_api.PhilipsCloudAPI", return_value=cloud
+    ):
+        async with feed._lock:
+            publish = asyncio.ensure_future(feed.publish({"106": "0"}, refuse))
+            await asyncio.sleep(0)
+            steps.append("poll read")
+        with pytest.raises(ServiceValidationError):
+            await publish
+    assert steps == ["poll read", "check"]
+    # Refused before a login, which Tuya caps per day.
+    assert session.published == [] and session.logins == []
+
+
+@pytest.mark.asyncio
 async def test_a_poll_logs_in_at_most_once_per_quarter_hour():
     session = ReadSession({"106": "1"})
     feed, owner, _ = make_feed(session, country=None)
@@ -565,7 +589,19 @@ def entity_coordinator(data, publish=None):
         CONF_MODEL: "PAW5320",
     }
     coord.config_entry.title = "Cat"
-    coord.feed.publish = AsyncMock(side_effect=publish)
+    coord.tuya = asyncio.Lock()
+    coord.sent = []
+
+    async def send(dps, check=None):
+        # As FeederFeed.publish: the check runs under the Tuya lock.
+        async with coord.tuya:
+            if check is not None:
+                await check()
+            if publish is not None:
+                raise publish
+            coord.sent.append(dps)
+
+    coord.feed.publish = AsyncMock(side_effect=send)
     coord.settings_written = MagicMock()
     coord.changes = asyncio.Lock()
     # HomeID's camera setting as read now, which the last poll may predate.
@@ -666,7 +702,7 @@ def test_entities_show_the_settings():
 async def test_a_change_is_sent_once_and_shown(write, dps, changes):
     coord = entity_coordinator(ON)
     await write(coord)
-    coord.feed.publish.assert_awaited_once_with(dps)
+    assert coord.sent == [dps]
     coord.settings_written.assert_called_once_with(**changes)
     # Only the settings the app ties to the camera read it again.
     assert coord.camera.camera.await_count == int("231" not in dps)
@@ -686,7 +722,7 @@ async def test_a_camera_setting_is_not_sent_once_the_camera_is_off(write, camera
     coord.camera.camera.return_value = camera
     with pytest.raises(ServiceValidationError, match="camera on first"):
         await write(coord)
-    coord.feed.publish.assert_not_called()
+    assert coord.sent == []
     coord.settings_written.assert_not_called()
 
 
@@ -705,7 +741,7 @@ async def test_an_unread_camera_sends_nothing(write, error, message):
     coord.camera.camera.side_effect = error
     with pytest.raises(HomeAssistantError, match=message):
         await write(coord)
-    coord.feed.publish.assert_not_called()
+    assert coord.sent == []
 
 
 @pytest.mark.asyncio
@@ -727,7 +763,23 @@ async def test_a_camera_setting_waits_for_a_camera_change_and_its_read():
     with pytest.raises(ServiceValidationError):
         await write
     assert steps == ["camera off", "read"]
-    coord.feed.publish.assert_not_called()
+    assert coord.sent == []
+
+
+@pytest.mark.asyncio
+async def test_a_camera_setting_waits_for_a_poll_holding_the_tuya_lock():
+    coord = entity_coordinator(ON)
+    async with coord.tuya:
+        write = asyncio.ensure_future(
+            FeederMotionSelect(coord).async_select_option("low")
+        )
+        for _ in range(3):
+            await asyncio.sleep(0)
+        # The poll holding the lock read the camera off, as HomeID now has it.
+        coord.camera.camera.return_value = False
+    with pytest.raises(ServiceValidationError, match="camera on first"):
+        await write
+    assert coord.sent == []
 
 
 @pytest.mark.asyncio

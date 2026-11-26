@@ -36,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -170,8 +171,16 @@ class FeederFeed:
             raise ValueError("portions out of range")
         await self.publish({self._dp: portions})
 
-    async def publish(self, dps: dict[str, int | str]) -> None:
+    async def publish(
+        self,
+        dps: dict[str, int | str],
+        check: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
+        """Send data points. ``check`` runs first, under the lock, and stops
+        the send by raising; before any login, which is capped per day."""
         async with self._lock:
+            if check is not None:
+                await check()
             if not self._session.logged_in:
                 await self._login()
             try:

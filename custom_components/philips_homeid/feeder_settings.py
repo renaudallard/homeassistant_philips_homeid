@@ -160,12 +160,14 @@ class FeederSettingEntity(FeederEntity):
         feed = coordinator.feed
         if feed is None:
             raise ServiceValidationError("This feeder has no Tuya settings")
-        # Waits for a camera change in progress and its read back.
+        # Waits for a camera change in progress and its read back. The
+        # camera is read under the Tuya lock, after a poll that holds it.
+        check = self._camera_on if self._needs_camera else None
         async with coordinator.changes:
-            if self._needs_camera:
-                await self._camera_on()
             await tuya_change(
-                feed.publish(dps), "setting", "Tuya did not confirm the setting change"
+                feed.publish(dps, check),
+                "setting",
+                "Tuya did not confirm the setting change",
             )
             coordinator.settings_written(**changes)
 

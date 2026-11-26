@@ -502,7 +502,8 @@ What you get:
   shows at once and the next poll reads it back. Like the app, motion
   sensitivity and high contrast mode can only be changed while the camera
   is on, so they are unavailable while it is off; a change reads the camera
-  again first and is refused if it was turned off since the last poll.
+  again just before it is sent and is refused if it was turned off since the
+  last poll.
   Sound is the app's 1 to 10 scale.
 - **Feed now** and **Feed portions**: pressing the button dispenses the set
   number of portions (1 to 20, as in the app; default 1, kept across

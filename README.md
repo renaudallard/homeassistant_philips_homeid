@@ -115,25 +115,14 @@ imports discovery types that only exist from 2025.2.0.
 
 ### HACS (Recommended)
 
-Click the button to add this repository to HACS:
-
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=renaudallard&repository=homeassistant_philips_homeid&category=integration)
 
-Then click **Download** and restart Home Assistant.
+1. Search for **Philips HomeID** in HACS, or click the button above, and click **Download**
+2. Restart Home Assistant
 
-<details>
-<summary><b>Manual HACS steps</b></summary>
+If the search does not find it, add `https://github.com/renaudallard/homeassistant_philips_homeid` as a custom repository of category **Integration** (HACS three dots menu > **Custom repositories**) and search again.
 
-1. Open HACS in Home Assistant
-2. Click the menu (three dots) in the top right corner
-3. Select **Custom repositories**
-4. Add this repository: `https://github.com/renaudallard/homeassistant_philips_homeid`
-5. Select **Integration** as the category
-6. Click **Add**
-7. Search for **Philips HomeID** and click **Download**
-8. Restart Home Assistant
-
-</details>
+From Home Assistant 2026.11, HACS is replaced by the built-in Marketplace (**Settings > Marketplace**), which lists the same integrations. Search for **Philips HomeID** there.
 
 ### Manual Installation
 

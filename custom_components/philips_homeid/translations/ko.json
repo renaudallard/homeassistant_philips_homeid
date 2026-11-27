@@ -682,6 +682,9 @@
       },
       "feeder_portions": {
         "name": "급식 분량"
+      },
+      "feeder_volume": {
+        "name": "사운드"
       }
     },
     "select": {
@@ -799,6 +802,14 @@
         "state": {
           "indoor_air_index": "실내 공기 지수",
           "pm25": "PM2.5"
+          }
+        },
+      "feeder_motion_sensitivity": {
+        "name": "움직임 감지 감도",
+        "state": {
+          "low": "낮음",
+          "medium": "미디엄",
+          "high": "높음"
         }
       }
     },
@@ -820,6 +831,9 @@
       },
       "feeder_camera": {
         "name": "카메라"
+      },
+      "feeder_high_contrast": {
+        "name": "고대비 모드 활성화"
       }
     },
     "update": {

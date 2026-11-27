@@ -299,6 +299,8 @@ def coordinator(meals=(BREAKFAST, DINNER), meals_ok=True):
     coord._meal_reads = 0
     coord._read_back = ([], False)
     coord.changes = asyncio.Lock()
+    coord._dp_changes = {}
+    coord.feed = None
     coord.has_camera = False
     coord.last_update_success = True
     coord.data = FeederData(meals=list(meals), meals_ok=meals_ok)

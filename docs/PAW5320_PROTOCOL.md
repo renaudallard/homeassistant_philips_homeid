@@ -199,12 +199,8 @@ switch, and the integration's switch is unavailable. It writes
 camera off. The app shows the switch for its camera models, PAW5320,
 PAW5321 and PAW7310, to the home's owner while the feeder is connected.
 
-The other settings on the app's screen are Tuya data points read from its
-SDK's device cache, not from this backend: motion sensitivity (106),
-high contrast mode (108, called night vision on the PAW5321) and volume
-(231). The app greys out motion sensitivity and high contrast mode while
-the camera is off. Slow feed (238) and automatic compartment switching
-(239) are shown only for PAW7310 models, so a PAW5320 has neither.
+The other settings on the app's screen are Tuya data points, not kept by
+this backend; see [Settings data points](#settings-data-points-tuya).
 
 ## Feed now (Tuya)
 
@@ -242,11 +238,14 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   201 is the data point of a feeder with camera
   (`SingleContainerDispenseSerializer`). Feeders without camera use 101 and
   the dual container 236; neither model is supported here.
-- Session: one per entry, made on the first press and kept in memory. A
-  session made during development still answered after about 69 hours, and a
-  second login did not end the first. `petsseries` reports a daily login cap
+- Session: one per entry, made by the first poll that reads the settings
+  data points or the first press, and kept in memory. A session made during
+  development still answered after about 69 hours, and a second login did
+  not end the first. `petsseries` reports a daily login cap
   (`USER_SESSION_LIMIT`), so the integration logs in again only when Tuya
-  says the session is gone.
+  says the session is gone, and a poll logs in at most once every 15
+  minutes, so a login Tuya refuses is not repeated on every poll. A press
+  is never held back.
 - One press sends the feed once. Tuya answers a session it no longer knows
   with `USER_SESSION_LOSS`, or with a reply that opens with neither key, and
   the latter cannot be told from other unreadable replies: Tuya may have
@@ -286,6 +285,50 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
   those days gave 13. 13 November alone gave the same 13 events as before,
   and the schedule the same times.
 
+## Settings data points (Tuya)
+
+The app's motion sensitivity, high contrast mode and volume settings are
+Tuya data points. It reads them from its SDK's device cache
+(`getDeviceBean(devId).getDps()`), which the SDK fills from the home's
+device list and keeps current from MQTT reports. The integration reads the
+same list on each poll, on the feed's session:
+`m.life.my.group.device.list`, API version 2.2, with `{"gid": n}`, where
+`n` is the pet home's `vendorIds.tuya`, which the app reads as text (a
+JSON number as its text) with Kotlin's `toLongOrNull`. The SDK parses the
+reply's `result` as a list of `DeviceRespBean`, one per device, which holds
+the data points in `dataPointInfo.dps`; its flat `dps` setter stores
+nothing unless `dataPointInfo` is there. The integration keeps only
+`dataPointInfo.dps` of the row whose `devId` is the vendor ID. The rows also carry each device's
+local key, which is neither kept nor logged. The SDK sends this request
+inside `thing.m.api.batch.invoke` with its other home requests; the
+integration sends it alone, as `tuya-mobile` does.
+
+| DP | Setting | Values |
+|---|---|---|
+| 106 | Motion detection sensitivity | `"0"` low, `"1"` medium, `"2"` high |
+| 108 | Enable high contrast mode | `"0"` on (the app's `AUTO`), `"1"` off |
+| 231 | Sound | an integer; the app shows 1 to 10 |
+
+The app compares 106 and 108 by their text, so a number matches too, and
+reads 231 as `Number.intValue()`. It reads any other value as none, then
+shows motion sensitivity as low and high contrast mode as off; the
+integration makes them unavailable instead. The PAW5320's volume converter shows `roundToInt(dp / 10)` kept
+within 1 to 10, nothing for 0 or less, and writes ten times the level,
+10 to 100. Writes are `thing.m.device.dp.publish` with one data point, as
+the app's `TuyaDpsBridgeImpl` sends it: `{"106": "1"}`, `{"108": "0"}`,
+`{"231": 70}`. A volume variant that also sends `"208": "1"` to play a test
+sound has no caller in the app. Like feed now, a change is sent once and
+never again. After a change Tuya confirmed, the app shows the new value at
+once and ignores reports for 3 seconds; the integration shows it until the
+next poll, without reading again at once.
+
+The app shows motion sensitivity and high contrast mode only with the
+camera switch, for the home's owner, and greys them out while the camera
+is off; the integration makes them unavailable while the camera is off or
+unknown. On the PAW5321 the app calls 108 night vision. Slow feed (238) and
+automatic compartment switching (239) are shown only for PAW7310 models,
+so a PAW5320 has neither.
+
 ## Verification status
 
 | Area | Status |
@@ -307,6 +350,8 @@ on hashlib, hmac and cryptography), so nothing extra is installed.
 | Feed now `{"201": n}` on a PAW5320 | live: 1 and 2 portions dispensed, one `meal_dispensed` each with `source` `device` (build 090a418) |
 | Feed now on a session over a day old | live: a press 33 hours after the previous one, no new login (build 6767ad8) |
 | Feed now on an expired session, failure paths | not established |
+| Tuya home device list, read alone outside a batch | **not yet tried**; request from the HomeID app 8.23.0 and `tuya-mobile` |
+| Motion sensitivity, high contrast mode and sound | **not yet tried on a feeder**; data points from the HomeID app 8.23.0 |
 
 ## Open questions
 

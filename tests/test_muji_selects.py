@@ -107,7 +107,7 @@ def _setup(model, known):
     )
     hass = MagicMock()
     hass.data = {DOMAIN: {"entry": coord}}
-    entry = MagicMock(entry_id="entry")
+    entry = MagicMock(entry_id="entry", data={})
     added = []
     return hass, entry, coord, known, callbacks, added
 

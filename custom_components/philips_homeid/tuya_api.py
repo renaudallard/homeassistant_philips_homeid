@@ -208,6 +208,14 @@ def _json(data: bytes) -> Any:
     raise TuyaError("Tuya reply was not readable")
 
 
+def _afresh(err: TuyaError) -> TuyaError:
+    """The same error without the traceback, whose frames hold the reply.
+
+    Raised after the except block, it has no __context__ either.
+    """
+    return type(err)(str(err), err.code)
+
+
 def _refusal(code: Any) -> TuyaError:
     code = code if isinstance(code, str) else ""
     if code in SESSION_LOST:
@@ -240,6 +248,16 @@ def _text(value: Any) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _login_session(data: dict[str, Any]) -> tuple[str, str, str, str]:
+    """The API URL, sid, ecode and uid a login reply names."""
+    sid, ecode, uid = (_text(data.get(k)) for k in ("sid", "ecode", "uid"))
+    if not (sid and ecode and uid):
+        raise TuyaError("Tuya login returned no session")
+    domain = data.get("domain")
+    url = domain.get("mobileApiUrl") if isinstance(domain, dict) else None
+    return (_api_url(url) if url is not None else LOGIN_URL), sid, ecode, uid
+
+
 def _api_url(value: Any) -> str:
     """The mobile API URL a login names, if it is one of Tuya's hosts."""
     if not isinstance(value, str):
@@ -260,6 +278,25 @@ def _api_url(value: Any) -> str:
     if unexpected:
         raise TuyaError("Tuya login named an unexpected API host")
     return f"https://{parts.hostname}/api.json"
+
+
+_UNLISTED = object()
+
+
+def _listed_dps(rows: Any, device_id: str) -> Any:
+    """The dps of one device in a home device list, or _UNLISTED.
+
+    Each row is the SDK's DeviceRespBean, which keeps them only under
+    dataPointInfo: its flat dps setter stores nothing without it. None when
+    the list or the device's row cannot be read.
+    """
+    if not isinstance(rows, list):
+        return None
+    for row in rows:
+        if isinstance(row, dict) and row.get("devId") == device_id:
+            module = row.get("dataPointInfo")
+            return module.get("dps") if isinstance(module, dict) else None
+    return _UNLISTED
 
 
 class TuyaSession:
@@ -284,7 +321,7 @@ class TuyaSession:
     async def login(self, id_token: str, dial_code: str) -> None:
         """thirdLogin with the HomeID id token, as TuyaAuthClientImpl does."""
         self.forget()
-        data = await self._call(
+        call = self._call(
             "thing.m.user.third.login",
             {
                 "countryCode": dial_code,
@@ -294,13 +331,19 @@ class TuyaSession:
                 "options": '{"group": 1}',
             },
         )
-        sid, ecode, uid = (_text(data.get(k)) for k in ("sid", "ecode", "uid"))
-        if not (sid and ecode and uid):
-            raise TuyaError("Tuya login returned no session")
-        domain = data.get("domain")
-        url = domain.get("mobileApiUrl") if isinstance(domain, dict) else None
-        api = _api_url(url) if url is not None else LOGIN_URL
-        self._url, self._sid, self._ecode, self._uid = api, sid, ecode, uid
+        # Only the call holds the token now, and it drops it once sealed, so
+        # no traceback of a failed login keeps it.
+        del id_token
+        try:
+            api, sid, ecode, uid = _login_session(await call)
+        except TuyaError as err:
+            failure = _afresh(err)
+        else:
+            self._url, self._sid, self._ecode, self._uid = api, sid, ecode, uid
+            return
+        # Raised afresh: the first traceback keeps the reply, and a refused
+        # one may still name a session, unused but valid.
+        raise failure
 
     async def alive(self) -> bool:
         """Whether Tuya still accepts this session, by one harmless read."""
@@ -312,7 +355,7 @@ class TuyaSession:
             return False
         return True
 
-    async def publish(self, device_id: str, dps: dict[str, int]) -> None:
+    async def publish(self, device_id: str, dps: dict[str, int | str]) -> None:
         """Send data points to one device through Tuya's cloud."""
         if not self.logged_in:
             raise TuyaSessionLost("Tuya session expired")
@@ -325,12 +368,34 @@ class TuyaSession:
             },
         )
 
-    async def _call(self, action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def device_dps(self, home: int, device_id: str) -> dict[str, Any]:
+        """One device's data points, from the home device list the app reads.
+
+        The rows also carry the devices' local keys: only the data points of
+        the one device asked for leave here, and no error refers to the rest.
+        """
+        if not self.logged_in:
+            raise TuyaSessionLost("Tuya session expired")
+        data = await self._call(
+            "m.life.my.group.device.list", {"gid": home}, version="2.2"
+        )
+        dps = _listed_dps(data.get("result"), device_id)
+        # Raised once nothing here refers to the list any more.
+        del data
+        if dps is _UNLISTED:
+            raise TuyaError("Tuya home does not list the feeder")
+        if not isinstance(dps, dict):
+            raise TuyaError("Tuya reply was not readable")
+        return dps
+
+    async def _call(
+        self, action: str, payload: dict[str, Any], version: str = "1.0"
+    ) -> dict[str, Any]:
         request_id = str(uuid.uuid4())
         key = self._signer.request_key(request_id, self._ecode)
         params = {
             "a": action,
-            "v": "1.0",
+            "v": version,
             "clientId": self._signer.app_id,
             "os": "Android",
             "appVersion": "2.2.1",
@@ -352,16 +417,27 @@ class TuyaSession:
             "requestId": request_id,
             "postData": seal(key, payload),
         }
+        del payload
         if self._sid:
             params["sid"] = self._sid
         params["sign"] = self._signer.sign(params)
         try:
-            body = await self._post(params)
+            return self._reply(action, request_id, key, await self._post(params))
         except (aiohttp.ClientError, TimeoutError):
-            # Not chained: the request carries the session and the id token.
-            body = None
-        if body is None:
-            raise TuyaError("Tuya request was not confirmed")
+            failure = TuyaError("Tuya request was not confirmed")
+        except TuyaError as err:
+            failure = _afresh(err)
+        # Raised afresh, not chained, once the request, the reply and their
+        # key are dropped: the first error's traceback keeps the frames that
+        # hold them. A login's request holds the id token and its key follows
+        # from the requestId alone; a home device list holds every device's
+        # local key.
+        del params, key
+        raise failure
+
+    def _reply(
+        self, action: str, request_id: str, key: bytes, body: bytes
+    ) -> dict[str, Any]:
         envelope = _json(body)
         if not isinstance(envelope, dict):
             raise TuyaError("Tuya reply was not readable")

@@ -234,6 +234,8 @@ def poll_coordinator(m, has_camera=True):
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
     coord._meal_reads = 0
+    coord._dp_changes = {}
+    coord.feed = None
     coord.has_camera = has_camera
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
@@ -299,6 +301,7 @@ def entity_coordinator(data, change=None):
     coord.data = data
     coord.last_update_success = True
     coord.has_camera = True
+    coord.has_settings = False
     coord.config_entry.data = {
         CONF_CPP_ID: "aa:bb",
         CONF_DEVICE_ID: "tuya-1",

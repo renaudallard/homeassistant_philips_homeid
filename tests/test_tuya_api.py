@@ -512,3 +512,64 @@ async def test_unreadable_replies_keep_no_original_error(reply):
         await session.publish("dev-1", {"201": 1})
     assert caught.value.__cause__ is None
     assert caught.value.__context__ is None
+
+
+class _Drop:
+    """A POST that fails in the transport."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def __call__(self, data):
+        raise self.error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    [
+        (503, {}),
+        {"_sealed": {"success": False, "errorCode": "PERMISSION_DENIED"}},
+        {"_sealed": {"result": {"sid": "s"}, "success": True}},
+        b"not json",
+        _Drop(aiohttp.ClientOSError()),
+        _Drop(TimeoutError()),
+    ],
+)
+async def test_a_failed_login_keeps_neither_the_token_nor_the_request(reply):
+    session = TuyaSession(FakeTuya(reply).http, DUMMY)
+    with pytest.raises(TuyaError) as raised:
+        await session.login("secret-id-token", "32")
+    assert raised.value.__context__ is None and raised.value.__cause__ is None
+    tb = raised.value.__traceback__
+    while tb is not None:
+        held = repr(tb.tb_frame.f_locals)
+        assert "secret-id-token" not in held and "postData" not in held
+        tb = tb.tb_next
+
+
+def session_reply(**fields):
+    session = {"sid": "sid-secret", "ecode": "ecode-secret", "uid": "uid-1"}
+    return {"_sealed": {"result": {**session, **fields}, "success": True}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("reply", "message"),
+    [
+        (session_reply(domain={"mobileApiUrl": "https://evil.example"}), "unexpected"),
+        (session_reply(domain={"mobileApiUrl": 5}), "no API host"),
+        (session_reply(uid=""), "no session"),
+    ],
+)
+async def test_a_refused_login_keeps_no_session(reply, message):
+    session = TuyaSession(FakeTuya(reply).http, DUMMY)
+    with pytest.raises(TuyaError, match=message) as raised:
+        await session.login("id-token", "32")
+    assert not session.logged_in
+    assert raised.value.__context__ is None
+    tb = raised.value.__traceback__
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename.endswith("philips_homeid/tuya_api.py"):
+            assert "secret" not in repr(tb.tb_frame.f_locals)
+        tb = tb.tb_next

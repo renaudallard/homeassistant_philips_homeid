@@ -46,7 +46,7 @@ from custom_components.philips_homeid.feeder_api import (
     FeederError,
     FeederHTTPError,
 )
-from custom_components.philips_homeid.feeder_feed import FeederFeed
+from custom_components.philips_homeid.feeder_feed import DATA_FEEDER_FEED, FeederFeed
 from custom_components.philips_homeid.feeder_meals import (
     DesiccantTimer,
     FeedingEvent,
@@ -79,6 +79,8 @@ def bare_coordinator(m):
     coord._logged = {}
     coord._meal_reads = 0
     coord._read_back = ([], False)
+    coord._dp_changes = {}
+    coord.feed = None
     coord.has_camera = True
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
@@ -346,6 +348,7 @@ async def test_setup_and_unload_use_only_feeder_platforms():
         "calendar",
         "event",
         "number",
+        "select",
         "sensor",
         "switch",
     }
@@ -388,11 +391,34 @@ async def test_removal_discards_the_token_owner():
 
     hass = MagicMock()
     hass.data = {}
-    FeederTokenOwner.for_entry(hass, "entry")
+    owner = FeederTokenOwner.for_entry(hass, "entry")
+    with patch("custom_components.philips_homeid.feeder_feed.async_get_clientsession"):
+        FeederFeed.for_entry(hass, "entry", owner, "tuya-1", "PAW5320")
     await async_remove_entry(
         hass, MagicMock(entry_id="entry", data={CONF_IS_FEEDER: True})
     )
     assert hass.data[DATA_FEEDER_AUTH] == {}
+    assert hass.data[DATA_FEEDER_FEED] == {}
+
+
+@pytest.mark.asyncio
+async def test_a_reauth_discards_the_tuya_session():
+    from custom_components.philips_homeid.config_flow import PhilipsHomeIDConfigFlow
+
+    flow = PhilipsHomeIDConfigFlow()
+    flow.hass = MagicMock()
+    flow.hass.data = {DATA_FEEDER_FEED: {"entry": MagicMock(), "other": MagicMock()}}
+    entry = MagicMock(entry_id="entry", data={CONF_IS_FEEDER: True})
+    flow.hass.config_entries.async_get_entry.return_value = entry
+    flow.context = {"entry_id": "entry", "source": "reauth"}
+    flow._cloud_api = MagicMock()
+    flow._cloud_api.verify_otp = AsyncMock(return_value="session")
+    flow._cloud_api.get_oidc_tokens = AsyncMock(return_value={"refresh_token": "r"})
+    flow._cloud_api.close = AsyncMock()
+    flow.async_update_reload_and_abort = MagicMock(return_value={"type": "abort"})
+    await flow.async_step_reauth_otp({"code": "123456"})
+    flow.async_update_reload_and_abort.assert_called_once()
+    assert list(flow.hass.data[DATA_FEEDER_FEED]) == ["other"]
 
 
 @pytest.mark.asyncio

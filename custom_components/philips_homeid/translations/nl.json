@@ -682,6 +682,9 @@
       },
       "feeder_portions": {
         "name": "Voerporties"
+      },
+      "feeder_volume": {
+        "name": "Geluid"
       }
     },
     "select": {
@@ -799,6 +802,14 @@
         "state": {
           "indoor_air_index": "Binnenluchtindex",
           "pm25": "PM2.5"
+          }
+        },
+      "feeder_motion_sensitivity": {
+        "name": "Gevoeligheid voor bewegingsdetectie",
+        "state": {
+          "low": "Laag",
+          "medium": "Medium",
+          "high": "Hoog"
         }
       }
     },
@@ -820,6 +831,9 @@
       },
       "feeder_camera": {
         "name": "Camera"
+      },
+      "feeder_high_contrast": {
+        "name": "De modus voor hoog contrast inschakelen"
       }
     },
     "update": {

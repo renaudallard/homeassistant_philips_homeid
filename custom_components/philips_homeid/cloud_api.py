@@ -466,7 +466,11 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
                 if resp.status != 200:
                     _LOGGER.error("HomeID discovery failed: HTTP %s", resp.status)
                     return {}
-                return json.loads(text)
+                data = json.loads(text)
+                if not isinstance(data, dict):
+                    _LOGGER.error("HomeID discovery: unexpected response")
+                    return {}
+                return data
         except Exception:
             _LOGGER.exception("HomeID discovery request failed")
             return {}
@@ -858,9 +862,20 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
         # space that has no links: keep trying the others, but if none of them
         # produced links, say so rather than caching an empty map.
         deferred: Exception | None = None
-        for space in discovery.get("spaces") or []:
-            base_url = space.get("backendBaseUrl", "")
-            if not base_url:
+        # A reply of another shape is a bad moment, as one that is not JSON
+        # is, not an answer that the tenant has no links.
+        unreadable = "Root API reply was not readable"
+        spaces = (
+            (discovery.get("spaces") or []) if isinstance(discovery, dict) else None
+        )
+        if not isinstance(spaces, list):
+            raise CloudConnectionError(unreadable)
+        for space in spaces:
+            base_url = space.get("backendBaseUrl") if isinstance(space, dict) else None
+            if isinstance(space, dict) and not base_url:
+                continue
+            if not isinstance(base_url, str):
+                deferred = CloudConnectionError(unreadable)
                 continue
             _LOGGER.debug("Root API: GET %s", base_url)
             try:
@@ -876,10 +891,14 @@ class PhilipsCloudAPI(PhilipsCloudAuth):
             except Exception as err:  # noqa: BLE001
                 deferred = err
                 continue
-            links = root.get("_links")
-            if isinstance(links, dict) and links:
-                self._root_links_cache = links
-                return links
+            links = root.get("_links") if isinstance(root, dict) else None
+            if isinstance(root, dict) and not links:
+                continue
+            if not isinstance(links, dict):
+                deferred = CloudConnectionError(unreadable)
+                continue
+            self._root_links_cache = links
+            return links
         if deferred is not None:
             raise CloudConnectionError(
                 f"Root API links unreachable: {deferred}"

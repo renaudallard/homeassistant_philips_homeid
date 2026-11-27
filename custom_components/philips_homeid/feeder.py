@@ -224,6 +224,9 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             self.forget_meals()
             return
         except CloudAuthError:
+            # The reauth is left to the next poll; the meals held may
+            # predate the change all the same.
+            self.forget_meals()
             return
         self._logged.pop("schedule", None)
         self._keep_read_back(meals, True)

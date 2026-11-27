@@ -31,6 +31,7 @@ from custom_components.philips_homeid.feeder_schedule import (
     ADD_MEAL_SCHEMA,
     EDIT_MEAL_SCHEMA,
     FeederMealSwitch,
+    _stored_meal,
     async_setup_feeder_switches,
 )
 
@@ -417,11 +418,19 @@ async def test_the_poll_after_a_failed_one_takes_a_change_read_meanwhile(read):
 
 
 @pytest.mark.asyncio
-async def test_an_expired_login_after_a_change_is_left_to_the_poll():
+@pytest.mark.parametrize("where", ["manager", "meals"])
+async def test_an_expired_login_after_a_change_leaves_the_meals_unknown(where):
     coord = coordinator()
-    coord.manager.list_meals.side_effect = CloudAuthError("expired")
-    await coord.refresh_meals()
-    coord.async_set_updated_data.assert_not_called()
+    coord.async_set_updated_data.side_effect = lambda data: setattr(coord, "data", data)
+    if where == "manager":
+        coord.meal_manager.side_effect = CloudAuthError("expired")
+    else:
+        coord.manager.list_meals.side_effect = CloudAuthError("expired")
+    await coord.refresh_meals()  # never raises: the poll starts the reauth
+    assert coord.data.meals == [BREAKFAST, DINNER] and not coord.data.meals_ok
+    assert coord._meal_reads == 1  # a poll running now keeps this
+    with pytest.raises(ServiceValidationError, match="could not be read"):
+        _stored_meal(coord, DINNER.id)
 
 
 @pytest.mark.asyncio

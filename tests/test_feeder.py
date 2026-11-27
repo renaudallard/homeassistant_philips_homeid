@@ -75,6 +75,8 @@ def bare_coordinator(m):
     coord.hass = MagicMock()
     coord.hass.config.time_zone = "Europe/Brussels"
     coord._logged = {}
+    coord._meal_reads = 0
+    coord._read_back = ([], False)
     coord.meal_manager = AsyncMock(return_value=m)
     return coord
 
@@ -335,6 +337,7 @@ async def test_setup_and_unload_use_only_feeder_platforms():
         "calendar",
         "number",
         "sensor",
+        "switch",
     }
     assert await async_unload_entry(hass, entry)
     coord.async_shutdown.assert_awaited_once()

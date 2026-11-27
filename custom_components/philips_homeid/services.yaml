@@ -1,0 +1,92 @@
+add_feeder_meal:
+  fields:
+    device:
+      required: true
+      selector:
+        device:
+          filter:
+            integration: philips_homeid
+            model: PAW5320
+    name:
+      required: true
+      example: Breakfast
+      selector:
+        text:
+    time:
+      required: true
+      example: "07:30"
+      selector:
+        time:
+    portions:
+      required: true
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          mode: box
+    days:
+      required: true
+      example: ["mon", "tue", "wed", "thu", "fri"]
+      selector:
+        select:
+          multiple: true
+          translation_key: weekday
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+
+edit_feeder_meal:
+  fields:
+    meal:
+      required: true
+      selector:
+        entity:
+          filter:
+            integration: philips_homeid
+            domain: switch
+    name:
+      example: Breakfast
+      selector:
+        text:
+    time:
+      example: "07:30"
+      selector:
+        time:
+    portions:
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          mode: box
+    days:
+      example: ["sat", "sun"]
+      selector:
+        select:
+          multiple: true
+          translation_key: weekday
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+
+delete_feeder_meal:
+  fields:
+    meal:
+      required: true
+      selector:
+        entity:
+          filter:
+            integration: philips_homeid
+            domain: switch

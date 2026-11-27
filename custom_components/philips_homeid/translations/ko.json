@@ -834,5 +834,82 @@
         "name": "급식 기록"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "급식기 식사 추가",
+      "description": "HomeID 앱처럼 PAW5320 급식기에 매주 반복되는 식사를 예약합니다.",
+      "fields": {
+        "device": {
+          "name": "급식기",
+          "description": "식사를 예약할 급식기입니다."
+        },
+        "name": {
+          "name": "이름",
+          "description": "식사 이름, 최대 80자."
+        },
+        "time": {
+          "name": "시간",
+          "description": "급식기의 HomeID 홈 시간대 기준으로 식사가 배급되는 시간입니다."
+        },
+        "portions": {
+          "name": "분량",
+          "description": "배급할 분량, 1~20."
+        },
+        "days": {
+          "name": "요일",
+          "description": "식사가 반복되는 요일입니다."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "급식기 식사 편집",
+      "description": "예약된 식사를 변경합니다. 입력하지 않은 항목은 현재 값을 유지합니다.",
+      "fields": {
+        "meal": {
+          "name": "식사",
+          "description": "변경할 식사의 스위치입니다."
+        },
+        "name": {
+          "name": "이름",
+          "description": "식사 이름, 최대 80자."
+        },
+        "time": {
+          "name": "시간",
+          "description": "급식기의 HomeID 홈 시간대 기준으로 식사가 배급되는 시간입니다."
+        },
+        "portions": {
+          "name": "분량",
+          "description": "배급할 분량, 1~20."
+        },
+        "days": {
+          "name": "요일",
+          "description": "식사가 반복되는 요일입니다."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "급식기 식사 삭제",
+      "description": "급식기 일정에서 예약된 식사를 제거합니다.",
+      "fields": {
+        "meal": {
+          "name": "식사",
+          "description": "제거할 식사의 스위치입니다."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "월요일",
+        "tue": "화요일",
+        "wed": "수요일",
+        "thu": "목요일",
+        "fri": "금요일",
+        "sat": "토요일",
+        "sun": "일요일"
+      }
+    }
   }
 }

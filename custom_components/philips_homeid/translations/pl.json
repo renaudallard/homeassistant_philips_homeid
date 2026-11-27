@@ -834,5 +834,82 @@
         "name": "Historia karmienia"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Dodaj posiłek karmnika",
+      "description": "Planuje cotygodniowy posiłek w karmniku PAW5320, tak jak aplikacja HomeID.",
+      "fields": {
+        "device": {
+          "name": "Karmnik",
+          "description": "Karmnik, w którym planowany jest posiłek."
+        },
+        "name": {
+          "name": "Nazwa",
+          "description": "Nazwa posiłku, do 80 znaków."
+        },
+        "time": {
+          "name": "Godzina",
+          "description": "Kiedy posiłek jest wydawany, w strefie czasowej domu HomeID karmnika."
+        },
+        "portions": {
+          "name": "Porcje",
+          "description": "Porcje do wydania, od 1 do 20."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Dni tygodnia, w które posiłek się powtarza."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Edytuj posiłek karmnika",
+      "description": "Zmienia zaplanowany posiłek. Pominięte pola zachowują bieżącą wartość.",
+      "fields": {
+        "meal": {
+          "name": "Posiłek",
+          "description": "Przełącznik posiłku do zmiany."
+        },
+        "name": {
+          "name": "Nazwa",
+          "description": "Nazwa posiłku, do 80 znaków."
+        },
+        "time": {
+          "name": "Godzina",
+          "description": "Kiedy posiłek jest wydawany, w strefie czasowej domu HomeID karmnika."
+        },
+        "portions": {
+          "name": "Porcje",
+          "description": "Porcje do wydania, od 1 do 20."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Dni tygodnia, w które posiłek się powtarza."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Usuń posiłek karmnika",
+      "description": "Usuwa zaplanowany posiłek z harmonogramu karmnika.",
+      "fields": {
+        "meal": {
+          "name": "Posiłek",
+          "description": "Przełącznik posiłku do usunięcia."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Poniedziałek",
+        "tue": "Wtorek",
+        "wed": "Środa",
+        "thu": "Czwartek",
+        "fri": "Piątek",
+        "sat": "Sobota",
+        "sun": "Niedziela"
+      }
+    }
   }
 }

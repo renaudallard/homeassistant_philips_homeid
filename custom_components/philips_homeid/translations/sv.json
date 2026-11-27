@@ -834,5 +834,82 @@
         "name": "Utfodringshistorik"
       }
     }
+  },
+  "services": {
+    "add_feeder_meal": {
+      "name": "Lägg till måltid i matautomaten",
+      "description": "Planerar en veckovis måltid på en PAW5320-matautomat, som HomeID-appen gör.",
+      "fields": {
+        "device": {
+          "name": "Matautomat",
+          "description": "Matautomaten som måltiden planeras på."
+        },
+        "name": {
+          "name": "Namn",
+          "description": "Måltidens namn, upp till 80 tecken."
+        },
+        "time": {
+          "name": "Tid",
+          "description": "När måltiden ges, i tidszonen för matautomatens HomeID-hem."
+        },
+        "portions": {
+          "name": "Portioner",
+          "description": "Portioner att ge, 1 till 20."
+        },
+        "days": {
+          "name": "Dagar",
+          "description": "Veckodagar då måltiden upprepas."
+        }
+      }
+    },
+    "edit_feeder_meal": {
+      "name": "Redigera måltid i matautomaten",
+      "description": "Ändrar en planerad måltid. Utelämnade fält behåller sitt nuvarande värde.",
+      "fields": {
+        "meal": {
+          "name": "Måltid",
+          "description": "Brytaren för måltiden som ska ändras."
+        },
+        "name": {
+          "name": "Namn",
+          "description": "Måltidens namn, upp till 80 tecken."
+        },
+        "time": {
+          "name": "Tid",
+          "description": "När måltiden ges, i tidszonen för matautomatens HomeID-hem."
+        },
+        "portions": {
+          "name": "Portioner",
+          "description": "Portioner att ge, 1 till 20."
+        },
+        "days": {
+          "name": "Dagar",
+          "description": "Veckodagar då måltiden upprepas."
+        }
+      }
+    },
+    "delete_feeder_meal": {
+      "name": "Ta bort måltid från matautomaten",
+      "description": "Tar bort en planerad måltid från matautomatens schema.",
+      "fields": {
+        "meal": {
+          "name": "Måltid",
+          "description": "Brytaren för måltiden som ska tas bort."
+        }
+      }
+    }
+  },
+  "selector": {
+    "weekday": {
+      "options": {
+        "mon": "Måndag",
+        "tue": "Tisdag",
+        "wed": "Onsdag",
+        "thu": "Torsdag",
+        "fri": "Fredag",
+        "sat": "Lördag",
+        "sun": "Söndag"
+      }
+    }
   }
 }

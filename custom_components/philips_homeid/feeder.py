@@ -24,16 +24,18 @@
 # POSSIBILITY OF SUCH DAMAGE.
 """PAW5320 feeder entries: coordinator, entities and setup.
 
-Schedules and settings are read only: the pet REST transport refuses every
-method but GET. The one write is feed now, sent through Tuya by feeder_feed.
+Settings are read only. Meals are planned, changed and removed through the
+pet REST backend as the app does (feeder_schedule), and feed now is sent
+through Tuya by feeder_feed.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any, TypeVar
 
@@ -86,6 +88,7 @@ FEEDER_PLATFORMS = [
     Platform.CALENDAR,
     Platform.NUMBER,
     Platform.SENSOR,
+    Platform.SWITCH,
 ]
 UPDATE_INTERVAL = timedelta(minutes=2)
 LOOKBACK = timedelta(days=7)
@@ -136,6 +139,12 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         self._device: FeederDevice | None = None
         self._manager_until = 0.0
         self._logged: dict[str, str] = {}
+        # Counts the meal reads after a change and keeps the last, which a
+        # poll running meanwhile takes as newer than its own.
+        self._meal_reads = 0
+        self._read_back: tuple[list[Meal], bool] = ([], False)
+        # Held by each change from its write to its read back.
+        self.changes = asyncio.Lock()
 
     async def meal_manager(self, *, force_refresh: bool = False) -> MealManager:
         """Resolve the selected appliance to its home and pet backend IDs."""
@@ -151,7 +160,9 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
         # A new manager drops the events it keeps for ended days, so the
         # same one stays while the feeder resolves the same.
         if self._manager is None or device != self._device:
-            self._manager = MealManager.for_device(self.client.request, device)
+            self._manager = MealManager.for_device(
+                self.client.request, device, self.client.write
+            )
             self._device = device
         self._manager_until = time.monotonic() + _IDENTITY_TTL
         return self._manager
@@ -168,6 +179,7 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             raise UpdateFailed("HomeID feeder registry unavailable") from err
         self._logged.pop("registry", None)
         now = dt_util.utcnow()
+        reads = self._meal_reads
         meals = await self._optional("schedule", manager.list_meals)
         history = await self._optional(
             "history", lambda: manager.history(now - LOOKBACK, now)
@@ -176,9 +188,14 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             "status", lambda: manager.latest_status(now - LOOKBACK, now)
         )
         desiccant = await self._optional("desiccant", manager.desiccant)
+        meals_ok = meals is not None
+        if reads != self._meal_reads:
+            # A schedule change was read while this poll ran: its meals are
+            # newer than the ones read above.
+            meals, meals_ok = self._read_back
         return FeederData(
             meals=meals or [],
-            meals_ok=meals is not None,
+            meals_ok=meals_ok,
             history=history or [],
             history_ok=history is not None,
             status=status or {},
@@ -190,6 +207,47 @@ class FeederCoordinator(DataUpdateCoordinator[FeederData]):
             time_zone=manager.time_zone or self.hass.config.time_zone,
             time_zone_from_home=bool(manager.time_zone),
         )
+
+    async def refresh_meals(self) -> None:
+        """Read the meals again after a schedule change.
+
+        Never raises: an expired login is left to the next poll, which
+        starts the reauth. After a failed poll nothing is stored, since
+        storing would make the entities of the other parts available again
+        on old data.
+        """
+        try:
+            manager = await self.meal_manager()
+            meals = await manager.list_meals()
+        except FEEDER_ERRORS as err:
+            self._log("schedule", err)
+            self.forget_meals()
+            return
+        except CloudAuthError:
+            # The reauth is left to the next poll; the meals held may
+            # predate the change all the same.
+            self.forget_meals()
+            return
+        self._logged.pop("schedule", None)
+        self._keep_read_back(meals, True)
+
+    def forget_meals(self) -> None:
+        """Leave the meals unknown until the next poll.
+
+        For a change whose outcome is not known: the meals held may predate
+        it, and an edit built on them could undo it.
+        """
+        self._keep_read_back(self.data.meals if self.data else [], False)
+
+    def _keep_read_back(self, meals: list[Meal], meals_ok: bool) -> None:
+        # Kept and counted also after a failed poll, for the poll after it,
+        # which may have read the meals before the change.
+        self._meal_reads += 1
+        self._read_back = (meals, meals_ok)
+        if self.data is not None and self.last_update_success:
+            self.async_set_updated_data(
+                replace(self.data, meals=meals, meals_ok=meals_ok)
+            )
 
     async def _optional(
         self, stage: str, call: Callable[[], Awaitable[_T]]

@@ -833,6 +833,29 @@
       "feeder_history": {
         "name": "Cronologia dei pasti"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Pasto",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Pasto erogato"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Avviso cibo",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Cibo scarso",
+              "food_outlet_stuck": "Uscita del cibo bloccata"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

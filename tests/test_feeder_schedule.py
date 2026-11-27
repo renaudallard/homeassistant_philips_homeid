@@ -359,7 +359,7 @@ async def test_a_poll_never_puts_back_meals_older_than_a_change(
     manager = coord.manager
     manager.time_zone = "Europe/Riga"
     manager.history = AsyncMock(return_value=[])
-    manager.latest_status = AsyncMock(return_value={})
+    manager.status_events = AsyncMock(return_value=[])
     manager.desiccant = AsyncMock(return_value=None)
 
     async def stale_history(start, end):
@@ -391,7 +391,7 @@ async def test_the_poll_after_a_failed_one_takes_a_change_read_meanwhile(read):
     coord.last_update_success = False
     manager = coord.manager
     manager.time_zone = "Europe/Riga"
-    manager.latest_status = AsyncMock(return_value={})
+    manager.status_events = AsyncMock(return_value=[])
     manager.desiccant = AsyncMock(return_value=None)
 
     async def add_meal(name, feed_time, portions, days):

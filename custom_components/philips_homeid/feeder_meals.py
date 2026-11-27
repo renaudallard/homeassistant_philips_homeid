@@ -120,6 +120,28 @@ class FeedingEvent:
 
 
 @dataclass(frozen=True)
+class StatusEvent:
+    """A one-shot status report; none says that a condition ended.
+
+    id is None when HomeID gave none that is usable: such a report still
+    counts for the latest time of its type, but is never fired as an event.
+    """
+
+    id: str | None
+    type: str
+    time: datetime
+
+
+def latest_status(events: list[StatusEvent]) -> dict[str, datetime]:
+    """Latest time of each status event type; types without one are absent."""
+    latest: dict[str, datetime] = {}
+    for event in events:
+        if event.type not in latest or event.time > latest[event.type]:
+            latest[event.type] = event.time
+    return latest
+
+
+@dataclass(frozen=True)
 class Occurrence:
     """Planned feeding in UTC, not a guarantee of physical dispensing."""
 
@@ -222,6 +244,13 @@ def _meal(row: dict[str, Any]) -> Meal:
         repeat_days=_days(row.get("repeatDays"), allow_empty=True),
         enabled=_enabled(row.get("enabled")),
     )
+
+
+def _event_id(value: object) -> str | None:
+    try:
+        return identifier(value)
+    except FeederError:
+        return None
 
 
 def _event_time(value: object) -> datetime | None:
@@ -405,7 +434,7 @@ class MealManager:
                 source=_event_text(row.get("source")),
             )
             if event.id in events and events[event.id] != event:
-                raise MealsError("Conflicting feeding event identity")
+                raise MealsError("Conflicting event identity")
             events[event.id] = event
         return sorted(events.values(), key=lambda event: (event.time, event.id))
 
@@ -449,19 +478,17 @@ class MealManager:
             await self._request("GET", f"{self._root}/events", params=params)
         )
 
-    async def latest_status(
-        self, start: datetime, end: datetime
-    ) -> dict[str, datetime]:
-        """Latest time of each status event type in [start, end), at most 31 days.
+    async def status_events(self, start: datetime, end: datetime) -> list[StatusEvent]:
+        """Status events in [start, end), at most 31 days, oldest first.
 
-        Only types with an event in the window appear in the result. Each
-        event is a one-shot report: none of them says that a condition ended,
-        so no "resolved" or healthy state is derived from their absence.
+        Each event is a one-shot report: none of them says that a condition
+        ended, so no "resolved" or healthy state is derived from their absence.
         """
         start, end = _bounds(start, end, 31)
         if start == end:
-            return {}
-        latest: dict[str, datetime] = {}
+            return []
+        events: dict[str, StatusEvent] = {}
+        unnamed: list[StatusEvent] = []
         for row in await self._events(start, end, STATUS_EVENT_TYPES):
             kind = row.get("type")
             if kind not in STATUS_EVENT_TYPES or not self._event_owned(row):
@@ -469,9 +496,17 @@ class MealManager:
             when = _event_time(row.get("time"))
             if when is None or not start <= when < end:
                 continue
-            if kind not in latest or when > latest[kind]:
-                latest[kind] = when
-        return latest
+            event = StatusEvent(_event_id(row.get("id")), kind, when)
+            if event.id is None:
+                unnamed.append(event)
+                continue
+            if events.get(event.id, event) != event:
+                raise MealsError("Conflicting event identity")
+            events[event.id] = event
+        return sorted(
+            [*events.values(), *unnamed],
+            key=lambda event: (event.time, event.id or ""),
+        )
 
     async def desiccant(self) -> DesiccantTimer:
         """Read the desiccant bag timer like the HomeID app does.

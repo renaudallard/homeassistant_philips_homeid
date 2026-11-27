@@ -833,6 +833,29 @@
       "feeder_history": {
         "name": "Utfodringshistorik"
       }
+    },
+    "event": {
+      "feeder_feeding": {
+        "name": "Utfodring",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "meal_dispensed": "Måltid utdelad"
+            }
+          }
+        }
+      },
+      "feeder_food_alert": {
+        "name": "Fodervarning",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "food_level_low": "Lite foder",
+              "food_outlet_stuck": "Blockerat foderutlopp"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

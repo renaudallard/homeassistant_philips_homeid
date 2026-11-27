@@ -635,6 +635,9 @@
       },
       "feeder_feed": {
         "name": "立即喂食"
+      },
+      "feeder_desiccant_reset": {
+        "name": "重置干燥剂袋更换日期"
       }
     },
     "number": {
@@ -814,6 +817,9 @@
       },
       "display_light": {
         "name": "显示屏灯光"
+      },
+      "feeder_camera": {
+        "name": "相机"
       }
     },
     "update": {

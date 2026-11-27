@@ -22,11 +22,11 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-"""Device-scoped HomeID meals, events and desiccant timer, without HA or HTTP.
+"""Device-scoped HomeID meals, events and settings, without HA or HTTP.
 
-The only writes are the app's own meal changes. The request and write
-callbacks own authentication, HTTP status handling and redirects. URLs found
-in responses are never used.
+The only writes are the app's own: meal changes, the camera switch and the
+desiccant reset. The request and write callbacks own authentication, HTTP
+status handling and redirects. URLs found in responses are never used.
 """
 
 from __future__ import annotations
@@ -205,8 +205,11 @@ def _zone(value: str | None) -> ZoneInfo:
         raise MealsError("An explicit home IANA time zone is required")
     try:
         return ZoneInfo(value)
-    except (ValueError, ZoneInfoNotFoundError):
-        raise MealsError("An explicit home IANA time zone is required") from None
+    # A name too long for a file name raises OSError, not "not found".
+    except (ValueError, OSError, ZoneInfoNotFoundError):
+        pass
+    # Raised here, so the zoneinfo error naming the zone is not its context.
+    raise MealsError("An explicit home IANA time zone is required")
 
 
 def _bounds(start: datetime, end: datetime, max_days: int) -> tuple[datetime, datetime]:
@@ -295,6 +298,44 @@ def _timer_date(value: object) -> date | None:
         return None
 
 
+def _moshi_text(value: object) -> bool:
+    """Whether the app's JSON reader takes value as text: a string or a number."""
+    return isinstance(value, str | int | float) and not isinstance(value, bool)
+
+
+def _camera_row(row: dict[str, Any]) -> tuple[str, bool]:
+    """A row's id and camera state, held to the shape the app's model reads.
+
+    The app needs an id and a settings map in every row, each entry null or
+    a {category, value} object, value a boolean or null, and fails on
+    anything else. It reads a missing or null device_active as off.
+    """
+    settings = row.get("settings")
+    name = row.get("name")
+    if (
+        not _moshi_text(row.get("id"))
+        or not (name is None or _moshi_text(name))
+        or not isinstance(settings, dict)
+        or not all(
+            item is None
+            or (
+                isinstance(item, dict)
+                and (item.get("category") is None or _moshi_text(item.get("category")))
+                and isinstance(item.get("value"), bool | None)
+            )
+            for item in settings.values()
+        )
+    ):
+        raise MealsError("Unsupported camera setting response")
+    active = settings.get("device_active")
+    return str(row["id"]), bool(active and active.get("value"))
+
+
+def today_in(zone: str | None) -> date:
+    """Today in a home's IANA zone, which is refused as for the meals."""
+    return _utcnow().astimezone(_zone(zone)).date()
+
+
 class MealManager:
     """One feeder's meals, events and settings via home-rooted paths only."""
 
@@ -362,7 +403,7 @@ class MealManager:
         self, method: str, path: str, body: dict[str, Any] | None = None
     ) -> None:
         if self._write is None:
-            raise MealsError("Meal changes are not available")
+            raise MealsError("HomeID changes are not available")
         await self._write(method, path, body)
 
     def _meal_path(self, meal_id: str) -> str:
@@ -529,6 +570,33 @@ class MealManager:
         if expiry is None:
             return DesiccantTimer(None, None)
         return DesiccantTimer(expiry, _timer_date(data.get("lastReplacedDate")))
+
+    async def reset_desiccant(self, day: date) -> None:
+        """Record the day the desiccant bag was replaced, as the app does."""
+        if type(day) is not date:
+            raise MealsError("A replacement day is required")
+        path = (
+            f"{self._root}/devices/{quote(self._philips_id, safe='')}/desiccant-timer"
+        )
+        await self._send("POST", path, {"lastReplacedDate": day.isoformat()})
+
+    async def camera(self) -> bool | None:
+        """Whether the camera is on, as the app reads it.
+
+        The app takes the first row of this device. None means HomeID has
+        no row for it, and the app then shows no camera switch.
+        """
+        rows = list_items(
+            await self._request("GET", f"{self._root}/modes/home/devices")
+        )
+        found = [_camera_row(row) for row in rows]
+        return next((on for key, on in found if key == self._philips_id), None)
+
+    async def set_camera(self, enabled: bool) -> None:
+        """Turn the camera on or off, the only setting the app writes here."""
+        path = f"{self._root}/modes/home/devices/{quote(self._philips_id, safe='')}"
+        body = {"settings": {"device_active": {"value": _enabled(enabled)}}}
+        await self._send("PATCH", path, body)
 
 
 def occurrences(

@@ -635,6 +635,9 @@
       },
       "feeder_feed": {
         "name": "Jetzt füttern"
+      },
+      "feeder_desiccant_reset": {
+        "name": "Datum des Austausches des Trockenmittelbeutels zurücksetzen"
       }
     },
     "number": {
@@ -814,6 +817,9 @@
       },
       "display_light": {
         "name": "Displaybeleuchtung"
+      },
+      "feeder_camera": {
+        "name": "Kamera"
       }
     },
     "update": {
